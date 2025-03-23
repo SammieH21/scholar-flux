@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "scholar_flux"
+version = "0.1.0"
+description = "The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications."
+authors = ["Sammie L. Haskin <44345113+SammieH21@users.noreply.github.com>"]
+license = "Apache License 2.0"
+readme = "README.md"
+packages = [{include = "scholar_flux", from="src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+xmltodict = ">=0.12.0,<0.14.0"
+pandas = ">=1.2.0,<3.0.0"
+requests = ">=2.25.0,<3.0.0"
+requests-cache = {extras = ["security"], version = "^1.2.0"}
+python-dotenv = ">=0.15.0"
+cryptography = "^42.0.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
