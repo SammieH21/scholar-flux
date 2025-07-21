@@ -1,4 +1,8 @@
-class DataParsingException(Exception):
+# data_exceptions.py
+class ResponseProcessingException(Exception):
+    """Base Exception for handling errors in response parsing and processing"""
+
+class DataParsingException(ResponseProcessingException):
     """Base exception for errors that occur during data parsing."""
     pass
 
@@ -13,7 +17,7 @@ class RequiredFieldMissingException(DataParsingException):
         self.field_name = field_name
         self.message = f"Required field '{self.field_name}' is missing."
 
-class DataExtractionException(Exception):
+class DataExtractionException(ResponseProcessingException):
     """Base exception for errors that occur during data extraction."""
     pass
 
@@ -23,7 +27,8 @@ class FieldNotFoundException(DataExtractionException):
         super().__init__(*args, **kwargs)
         self.field_name = field_name
         self.message = f"Field '{self.field_name}' not found in the data."
-class DataProcessingException(Exception):
+
+class DataProcessingException(ResponseProcessingException):
     """Base exception for errors that occur during data processing."""
     pass
 

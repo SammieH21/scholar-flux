@@ -3,7 +3,6 @@ import itertools
 from itertools import chain
 import re
 
-import pandas as pd
 from collections import defaultdict
 import logging
 logger = logging.getLogger(__name__)
@@ -132,8 +131,8 @@ class KeyDiscoverer:
 
     def _discover_keys(self) -> Tuple[Dict[str, List[str]], Dict[str, bool]]:
         """Discovers all keys within the provided records recursively."""
-        discovered_keys = defaultdict(list)
-        terminal_paths = {}
+        discovered_keys: dict = defaultdict(list)
+        terminal_paths: dict = {}
         for record in self.records:
             self._discover_keys_recursive(record, discovered_keys, terminal_paths, [])
         return discovered_keys, terminal_paths
@@ -185,23 +184,25 @@ class KeyDiscoverer:
     def filter_keys(self, prefix: Optional[str] = None, min_length: Optional[int] = None, substring: Optional[str] = None) -> Dict[str, List[str]]:
         return KeyFilter.filter_keys(self._discovered_keys, prefix, min_length, substring)
 
-class DynamicDictProcessor:
-    def __init__(self, json_dict: Optional[Dict] = None, delimiter: Optional[str] = None, obj_delimiter: str= "; "):
+class RecursiveDictProcessor:
+    def __init__(self, json_dict: Optional[Dict] = None, delimiter: Optional[str] = None, object_delimiter: str= "; "):
         """
-        Initialize the DynamicDictProcessor with a JSON dictionary and a delimiter for joining list elements.
+        Initialize the RecursiveDictProcessor with a JSON dictionary and a delimiter for joining list elements.
 
         Args:
             json_dict (Dict): The input JSON dictionary to be parsed.
             delimiter (str): The delimiter used to join elements across multiple keys when normalizing. Default is "\n\n".
-            obj_delimiter (str): The delimiter used to join elements max depth list objects. Default is "; ".
+            object_delimiter (str): The delimiter used to join elements max depth list objects. Default is "; ".
         """
         self.json_dict = json_dict
-        self.json_extracted = []
         self.delimiter = delimiter
-        self.obj_delimiter = obj_delimiter
-        self.key_discoverer = KeyDiscoverer([json_dict])
+        self.object_delimiter = object_delimiter
+        self.key_discoverer = KeyDiscoverer([json_dict] if not isinstance(json_dict,list) else json_dict) if json_dict else None
+        self.json_extracted: list = []
         
-    def combine_normalized(self,normalized_field_value:Optional[List]):
+    def combine_normalized(self,normalized_field_value:Optional[list | str])-> list | str | None:
+        if isinstance(normalized_field_value, str):
+            return normalized_field_value
         if self.delimiter is not None and isinstance(normalized_field_value,list):
             return self.delimiter.join(normalized_field_value)
         return self.unlist(normalized_field_value)
@@ -233,40 +234,12 @@ class DynamicDictProcessor:
         self.process_level(self.json_dict)
         return self
 
-####def process_level(self, obj: Any, level_name: Optional[List[Any]] = None) -> List[Any]:
-####    """
-####    Recursively process each level of the JSON dictionary to extract data and paths.
-
-####    Args:
-####        obj (Any): The current level of the JSON object being processed.
-####        level_name (Optional[List[Any]]): The current path in the JSON object.
-
-####    Returns:
-####        List[Any]: A list of processed levels.
-####    """
-####    level_name = level_name if level_name is not None else []
-####    if isinstance(obj, list):
-####        logger.debug(f"Processing list at path: {level_name}")
-####        if any(isinstance(v_i, (list, dict)) for v_i in obj):
-####            return [self.process_level(v_i, level_name + [i]) for i, v_i in enumerate(obj)]
-####        joined_obj = self.obj_delimiter.join(map(str, obj))
-####        return self.process_level(joined_obj, level_name)
-####    elif isinstance(obj, dict):
-####        logger.debug(f"Processing dictionary at path: {level_name}")
-####        return [self.process_level(v, level_name + [k]) for k, v in obj.items()]
-####    else:
-####        fmt_name = PathUtils.path_name(level_name)
-####        obj_info = {'data': obj, 'path': level_name, 'last_key': fmt_name}
-####        self.json_extracted.append(obj_info)
-####        logger.debug(f"Extracted data: {obj_info}")
-####        return [obj_info]
-
     def process_level(self, obj: Any, level_name: Optional[List[Any]] = None) -> List[Any]:
         level_name = level_name if level_name is not None else []
         if isinstance(obj, list):
             if any(isinstance(v_i, (list, dict)) for v_i in obj):
                 return list(chain.from_iterable(self.process_level(v_i, level_name + [i]) for i, v_i in enumerate(obj)))
-            joined_obj = self.obj_delimiter.join(map(str, obj))
+            joined_obj = self.object_delimiter.join(map(str, obj))
             return self.process_level(joined_obj, level_name)
         elif isinstance(obj, dict):
             return list(chain.from_iterable(self.process_level(v, level_name + [k]) for k, v in obj.items()))
@@ -291,7 +264,7 @@ class DynamicDictProcessor:
 
         return self
 
-    def flatten(self) -> Optional[Dict[str, List[Any]]]:
+    def flatten(self) -> Optional[Dict[str, List[Any] | str | None]]:
         """
         Flatten the extracted JSON dictionary from a nested structure into a simpler structure.
 
@@ -311,7 +284,7 @@ class DynamicDictProcessor:
         logger.info("No data extracted, returning None")
         return None
 
-    def process_and_flatten(self,obj: Optional[Dict] = None,exclude_keys: Optional[List[str]] = None) -> Optional[Dict[str, List[Any]]]:
+    def process_and_flatten(self,obj: Optional[Dict] = None,exclude_keys: Optional[List[str]] = None) -> Optional[Dict[str, List[Any] | str | None]]:
         """
         Process the dictionary, filter extracted paths, and then flatten the result.
 
@@ -324,6 +297,34 @@ class DynamicDictProcessor:
         self.process_dictionary(obj)
         self.filter_extracted(exclude_keys)
         return self.flatten()
+
+####def process_level(self, obj: Any, level_name: Optional[List[Any]] = None) -> List[Any]:
+####    """
+####    Recursively process each level of the JSON dictionary to extract data and paths.
+
+####    Args:
+####        obj (Any): The current level of the JSON object being processed.
+####        level_name (Optional[List[Any]]): The current path in the JSON object.
+
+####    Returns:
+####        List[Any]: A list of processed levels.
+####    """
+####    level_name = level_name if level_name is not None else []
+####    if isinstance(obj, list):
+####        logger.debug(f"Processing list at path: {level_name}")
+####        if any(isinstance(v_i, (list, dict)) for v_i in obj):
+####            return [self.process_level(v_i, level_name + [i]) for i, v_i in enumerate(obj)]
+####        joined_obj = self.object_delimiter.join(map(str, obj))
+####        return self.process_level(joined_obj, level_name)
+####    elif isinstance(obj, dict):
+####        logger.debug(f"Processing dictionary at path: {level_name}")
+####        return [self.process_level(v, level_name + [k]) for k, v in obj.items()]
+####    else:
+####        fmt_name = PathUtils.path_name(level_name)
+####        obj_info = {'data': obj, 'path': level_name, 'last_key': fmt_name}
+####        self.json_extracted.append(obj_info)
+####        logger.debug(f"Extracted data: {obj_info}")
+####        return [obj_info]
 
 
 class JsonNormalizer:
@@ -341,7 +342,7 @@ class JsonNormalizer:
         self.json_extracted_dicts = json_extracted_dicts
         self.json_extracted_paths = json_extracted_paths
 
-    def normalize_extracted(self) -> Dict[str, List[Any]]:
+    def normalize_extracted(self) -> Dict[str, List[Any] | str | None]:
         """
         Normalize the extracted JSON data into a flattened dictionary.
 
@@ -349,13 +350,13 @@ class JsonNormalizer:
             Dict[str, List[Any]]: A dictionary with flattened paths as keys and lists of values.
         """
         logger.info("Starting normalization process")
-        flattened_json_dict = defaultdict(list)
-        unique_mappings_dict = defaultdict(list)
+        flattened_json_dict: dict = defaultdict(list)
+        unique_mappings_dict: dict = defaultdict(list)
 
 
         for current_obj, current_path in zip(self.json_extracted_dicts, self.json_extracted_paths):
             current_group = PathUtils.remove_path_indices(current_path)
-            current_key_str = '.'.join(current_group) if current_group else None
+            current_key_str = '.'.join(current_group) 
 
             if not current_group:
                 logger.debug(f"Skipping empty group for path: {current_path}")
@@ -465,7 +466,7 @@ class TestKeyDiscoverer(unittest.TestCase):
         self.assertEqual(discovered_keys, expected_keys)
 
 import unittest
-class TestDynamicDictProcessor(unittest.TestCase):
+class TestRecursiveDictProcessor(unittest.TestCase):
     
     def test_flatten_json(self):
         sample_json = {
@@ -490,7 +491,7 @@ class TestDynamicDictProcessor(unittest.TestCase):
             'number': ['123-456-7890','098-765-4321'],
         }
 
-        processor = DynamicDictProcessor(sample_json)
+        processor = RecursiveDictProcessor(sample_json)
         flattened_json = processor.process_dictionary().flatten()
         #[obj_info['path'] for obj_info in processor.json_extracted]
         self.assertEqual(flattened_json, expected_flattened)
@@ -501,7 +502,7 @@ class TestDynamicDictProcessor(unittest.TestCase):
             "bio": ["Developer", "Pythonista", "OpenAI enthusiast"]
         }
 
-        processor = DynamicDictProcessor(sample_json, delimiter=None,obj_delimiter='; ')
+        processor = RecursiveDictProcessor(sample_json, delimiter=None,object_delimiter='; ')
         flattened_json = processor.process_dictionary().flatten()
         
         expected_flattened = {

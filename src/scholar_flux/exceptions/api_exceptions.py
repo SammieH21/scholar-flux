@@ -1,3 +1,4 @@
+# api_exceptions.py
 import requests
 
 class APIException(Exception):
@@ -12,8 +13,8 @@ class RateLimitExceededException(APIException):
     """Exception raised when the API's rate limit is exceeded."""
     pass
 
-class InvalidResponseException(APIException):
-    """Exception raised for invalid or unexpected responses from the API."""
+class RequestFailedException(APIException):
+    """Exception raised for failed API requests."""
     pass
 
 class NotFoundException(APIException):
@@ -28,8 +29,17 @@ class SearchAPIException(APIException):
     """Exception raised when the search api fails in retrieing data from APIs ."""
     pass
 
-class RequestFailedException(APIException):
-    """Exception raised for failed API requests."""
+class APIParameterException(APIException):
+    """Exception raised for API Parameter-related errors."""
+    pass
+
+class RequestCacheException(APIException):
+    """Exception raised for API request-cache related errors."""
+    pass
+
+
+class InvalidResponseException(RequestFailedException):
+    """Exception raised for invalid responses from the API."""
 
     def __init__(self, response: requests.Response, *args, **kwargs):
         self.response = response
@@ -50,8 +60,6 @@ class RequestFailedException(APIException):
             return response.json().get('error', {}).get('message', '')
         except (ValueError, KeyError):
             return ''
-
-
 
 class RetryLimitExceededException(APIException):
     """Exception raised when the retry limit is exceeded."""

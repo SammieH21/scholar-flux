@@ -1,45 +1,71 @@
 from typing import Any, List, Dict, Union, Optional
+from abc import ABC, abstractmethod
 
 import logging
 logger = logging.getLogger(__name__)
 
-class BaseStorage:
+class BaseStorage(ABC):
     """
-    BaseStorage class implements an in memory cache with dictionaries.
+    The BaseStorage class provides the basic structure required to implement
+    the data storage cache with customized backend.
 
-    This class provides methods to check the cache, delete from the cache, 
+    This subclasss provides methods to check the cache, delete from the cache,
             update the cache with new data, and retrieve data from the cache storage.
     """
-    def __init__(self, ) -> None:
-        self._initialize()
+    def __init__(self, *args,**kwargs) -> None:
+        self.namespace: Optional[str] = None
 
+    def _initialize(self,*args,**kwargs) -> None:
+        """Optional base method to implement for initializing/reinitializing connections"""
+        pass
 
-    def _initialize(self,**kws) -> None:
-        logger.debug("Initializing in-memory cache...")
-        self.cache_storage: dict = {} 
+    @abstractmethod
+    def retrieve(self,*args,**kwargs) -> Optional[Any]:
+        """Core method for retrieving a page of records from the cache"""
+        raise NotImplementedError
 
-    def retrieve(self,key:str) -> Optional[Any]:
-        return self.cache_storage.get(key)
+    @abstractmethod
+    def retrieve_all(self,*args,**kwargs) -> Optional[Dict[str,Any]]:
+        """Core method for retrieving all pages of records from the cache"""
+        raise NotImplementedError
 
-    def retrieve_all(self) -> Optional[Dict[str,Any]]:
-        return self.cache_storage
+    @abstractmethod
+    def retrieve_keys(self,*args,**kwargs)-> Optional[List[str]]:
+        """Core method for retrieving all keys from the cache"""
+        raise NotImplementedError
 
-    def retrieve_keys(self)-> Optional[List[str]]:
-        return list(self.cache_storage.keys()) or []
+    @abstractmethod
+    def update(self,*args,**kwargs) -> None:
+        """Core method for updating the cache with new records"""
+        raise NotImplementedError
 
-    def update(self,key:str,data:Any) -> None:
-        self.cache_storage[key] = data
+    @abstractmethod
+    def delete(self,*args,**kwargs) -> None:
+        """Core method for deleting a page from the cache"""
+        raise NotImplementedError
 
-    def delete(self,key: str) -> None:
-            del(self.cache_storage[key])
-            logger.debug(f"Key: {key} deleted successfuly")
+    @abstractmethod
+    def delete_all(self,*args,**kwargs) -> None:
+        """Core method for deleting all pages of records from the cache"""
+        raise NotImplementedError
 
-    def delete_all(self) -> None:
-        logger.debug(f"deleting all record within cache...")
+    @abstractmethod
+    def verify_cache(self,*args,**kwargs) -> bool:
+        """Core method for verifying the cache based on the key"""
+        raise NotImplementedError
 
-        try:
-            n = len(self.cache_storage)
-            self.cache_storage.clear()
-            logger.debug(f"Deleted {n} records.")
-        except Exception as e:
-            logger.warning(f"An error occured deleting e: {e}")
+    def _prefix(self, key: str) -> str:
+        """
+        prefixes a namespace to the given `key`:
+        This method is useful for when you are using a single redis/mongodb server
+            and also need to retrieve a subset of articles for a particular task.
+        Args:
+            key (str) The key to prefix with a namespace (Ex. CORE_PUBLICATIONS)
+        Returns:
+            str: The cache key prefixed with a namespace (Ex. f'CORE_PUBLICATIONS:{key}')
+       """
+        if not key:
+            raise KeyError(f"No valid value provided for key {key}")
+        if not self.namespace:
+            return key
+        return f"{self.namespace}:{key}" if not key.startswith(f'{self.namespace}:') else key

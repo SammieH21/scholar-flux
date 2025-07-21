@@ -1,97 +1,171 @@
-from typing import Dict, Optional, Any, Annotated, Union
-from typing import cast
+from typing import Dict, Optional, Any, Annotated, Union, cast
 from requests_cache.backends.base import BaseCache
 from requests_cache import CachedSession
 import logging
 import time
 import requests
 from requests import Response
-from .. import config
-from . import BaseAPI
-from . import APIParameterConfig
+from scholar_flux import config
+from scholar_flux.api import BaseAPI
+from scholar_flux.api import APIParameterConfig, SearchAPIConfig
+from scholar_flux.exceptions.api_exceptions import APIParameterException
 import re
 from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
-
- 
 class SearchAPI(BaseAPI):
-    DEFAULT_REQUEST_DELAY=6.1
     DEFAULT_URL:str = config.get('BASE_URL') or "https://api.plos.org/search"
+
     def __init__(self,
                  query: Annotated[str,"keyword:'{your search term}'"],
                  base_url: Annotated[str,"Valid URL for an Article API"] = DEFAULT_URL,
-                 records_per_page:Annotated[int,"BETWEEN(1,100)"] = 100,
-                 api_key: Annotated[Optional[str],"Length: BETWEEN(20,200)"] = None,
+                 records_per_page:Annotated[int,"BETWEEN(1,100)"] = 20,
+                 api_key: Annotated[Optional[str],"String Length: BETWEEN(20,200)"] = None,
                  session:Annotated[Optional[requests.Session],"A session/Cached Session object for making requests"] = None,
-                 request_delay: Annotated[Optional[float],"Minimum time between requests: GT(0)"]=None,
+                 request_delay: Annotated[float,"Minimum time between requests: GT(0)"]=6-1,
                  parameter_config: Optional[APIParameterConfig] = None,
+                 namespace: Annotated[Optional[str],"Non-empty Identifier"] = None,
                  **kwargs):
-
-        super().__init__(base_url=base_url, api_key=api_key,session=session, **kwargs)
-
-        
-
-        self.name=self.extract_main_site(base_url)
-        self.query = query
-        self.records_per_page = records_per_page
-        self.last_request: Optional[float] = None
-        self.request_delay:float = self._validate_request_delay(request_delay, self.DEFAULT_REQUEST_DELAY)
-        self.cached=self.is_cached_session(self.session)
-        self.parameter_config = parameter_config or APIParameterConfig.from_defaults(self.name)
-
-    @staticmethod
-    def extract_main_site(url: str) -> str:
         """
-        Extracts the main site name from a URL by removing everything before 'www' and everything
-        including and after the top-level domain.
-
+        Initializes the SearchAPI with a query and optional parameters.
         Args:
-            url (str): The URL to process.
-
-        Returns:
-            str: The main site name.
+            query (str): The search keyword or query string.
+            base_url (str): The base URL for the article API.
+            records_per_page (int): Number of records to fetch per page (1-100).
+            api_key (Optional[str]): API key if required.
+            session (Optional[requests.Session]): A pre-configured session or None to create a new session.
+            request_delay (Optional[float]): Minimum delay between requests in seconds.
+            **kwargs: Additional keyword arguments for the API.
         """
-        # Parse the URL to extract the hostname
-        parsed_url = urlparse(url)
-        hostname = parsed_url.hostname
-        
-        if not hostname:
-            # Handle case when urlparse fails to get hostname
-            hostname = url.split('/')[0]
 
-        # Regular expression to match the main site name in the hostname
-        pattern = re.compile(r'^(?:.*\.)?([a-zA-Z0-9-_]+)\.(?:com|org|net|io|gov|edu)')
-        match = pattern.search(hostname)
-        
-        if match:
-            return match.group(1)
-        else:
-            return ""
+        super().__init__(
+                         #base_url=self.config.base_url,
+                         #api_key=self.config.api_key,
+                         session=session, **kwargs
+        )
+
+        # Create SearchAPIConfig internally with defaults and validation
+        search_api_config = SearchAPIConfig(
+            #query=query,
+            base_url=base_url or SearchAPI.DEFAULT_URL,
+            records_per_page=records_per_page,
+            api_key=api_key,
+            #request_delay=cast(float,request_delay),
+            request_delay=request_delay,
+        )
+
+        self._initialize(query,
+                         search_api_config=search_api_config,
+                         parameter_config=parameter_config,
+                         namespace=namespace)
+
+    def _initialize(self,
+                    query: str,
+                    search_api_config:SearchAPIConfig,
+                    parameter_config: Optional[APIParameterConfig] = None,
+                    namespace: Optional[str] = None
+                   ):
+        """
+        Initializes the API session with the provided base URL and API key.
+        This method is called during the initialization of the class.
+        """
+        self.config=search_api_config
+        url_basename = self.config.url_basename
+        self.name=namespace or url_basename
+        self.__query = query
+        # self.query = self.config.query
+        # self.api_key = self.config.api_key
+        # self.records_per_page = self.config.records_per_page
+        # self.request_delay:float = self.config.request_delay
+        self.last_request: Optional[float] = None
+        # first attempt to retrieve a non-empty parameter_config. If unsuccessful,
+        # then whether the provided namespace or url matches a default provider
+        self.parameter_config = parameter_config or \
+                APIParameterConfig.get_defaults(self.name) or \
+                APIParameterConfig.from_defaults(url_basename)
+
+        if self.parameter_config.param_map.api_key_required and not self.config.api_key:
+            logger.warning("API key is required but was not provided")
+
+    @property
+    def query(self) -> str:
+        """
+        Retrieves the current value of the query associated with the current API.
+        """
+        return self.__query
+
+    @query.setter
+    def query(self, query):
+        """
+        Uses the private method, __query to update the current query and uses
+        validation to ensure that the query is a non empty string
+        """
+        if not query or not isinstance(query, str):
+            raise ValueError(f"Query must be a non empty string., received empty string: {query}")
+        self.__query = query
+
+    @property
+    def api_key(self) -> Optional[str]:
+        return self.config.api_key
+    @property
+    def base_url(self) -> str:
+        return self.config.base_url
+
+    @property
+    def records_per_page(self) -> int:
+        return self.config.records_per_page
+
+    @property
+    def request_delay(self) -> float:
+        return self.config.request_delay
+
+    @classmethod
+    def from_settings(cls, query: str,
+                      config: SearchAPIConfig,
+                      parameter_config: Optional[APIParameterConfig] = None,
+                      namespace: Optional[str] = None,
+                      **kwargs) -> "SearchAPI":
+        """
+        Advanced constructor: instantiate directly from a SearchAPIConfig instance.
+        """
+
+        instance = cls.__new__(cls)  # bypass __init__
+        # Manually assign config and call super
+
+        super(SearchAPI, instance).__init__(
+            #base_url=config.base_url,
+            #api_key=config.api_key,
+            **kwargs,
+        )
+
+        instance._initialize(query,
+                             search_api_config=config,
+                             parameter_config=parameter_config,
+                             namespace=namespace)
+        return instance
+
+    @classmethod
+    def from_defaults(cls,
+                   query: str,
+                   provider_name: str,
+                   records_per_page: Annotated[Optional[int],"BETWEEN(1,100)"] = None,
+                   api_key: Optional[str] = None,
+                   session: Optional[requests.Session] = None,
+                   **kwargs) -> "SearchAPI":
+        """
+        Factory method to create SearchAPI instances with sensible defaults for known providers.
+        """
+        search_api_config = SearchAPIConfig.from_defaults(#query=query,
+                                                   provider_name=provider_name,
+                                                   records_per_page=records_per_page,
+                                                   api_key=api_key)
+
+        parameter_config = APIParameterConfig.from_defaults(provider_name)
+        return cls.from_settings(query, config=search_api_config, parameter_config=parameter_config, session=session, **kwargs)
 
     @staticmethod
-    def _validate_request_delay(delay: Optional[float],default: float) -> float:
-        """
-        Validates the request delay value without enforcing a delay.
-
-        Raises:
-            ValueError: If the request_delay is not a positive number.
-        """
-        # Validate the request_delay value here without enforcing a delay
-        if delay is None:
-            return default
-        try:
-            request_delay = float(delay)
-            if request_delay < 0:
-                raise ValueError(f"request_delay must be a positive number, got {delay}")
-            return request_delay
-        except ValueError as e:
-            logger.error(f"Invalid 'request_delay': {e}. Using the default setting: request delay = {default}")
-            return default
-
-    @staticmethod
-    def is_cached_session(session: requests.Session) -> bool:
+    def is_cached_session(session: Union[CachedSession,requests.Session]) -> bool:
         """
         Checks whether the given session is a cached session.
 
@@ -104,13 +178,39 @@ class SearchAPI(BaseAPI):
         cached_session = cast(CachedSession, session)
         return hasattr(cached_session, 'cache') and isinstance(cached_session.cache, BaseCache)
 
-    def _build_params(self, page:int) -> Dict[str, Any]:
+    @property
+    def cache(self) -> Optional[BaseCache]:
+        """
+        Retrieves the session cache object if the session object is a CachedSession object.
+
+        Returns:
+            Optional[BaseCache]: The cache object if available, otherwise None.
+        """
+        if not self.session:
+            return None
+
+        cached_session = cast(CachedSession, self.session)
+        cache = getattr(cached_session, 'cache', None)
+        if isinstance(cache, BaseCache):
+            return cache
+        return None
+
+    def build_params(self, page:int,**kwargs) -> Dict[str, Any]:
+        """
+        Constructs the request parameters for the API call.
+        Args:
+            page (int): The page number to request.
+            **kwargs: Additional parameters for the request.
+        Returns:
+            Dict[str, Any]: The constructed request parameters.
+        """
         # instanced parameters are generally static: thus page is the only parameter
         # Method to build request parameters
-        params=self.parameter_config._build_params(query=self.query,
+        params=self.parameter_config.build_params(query=self.query,
                                                    page = page,
                                                    records_per_page=self.records_per_page,
-                                                   api_key=self.api_key)
+                                                   api_key=self.api_key,
+                                                   **kwargs)
 
         return {k: v for k,v in params.items() if v is not None}
 
@@ -123,99 +223,32 @@ class SearchAPI(BaseAPI):
                 logger.info(f"Waiting {delay} seconds before making another request...")
                 time.sleep(delay)
         self.last_request = time.time()
-            
-    
-    def make_request(self, current_page:int,**kwargs) -> Response:
-        """Constructs and sends a request to the Springer or SolR api's that use a consistent key format."""
-        self.request_wait()
-        params = self._build_params(current_page)               
 
-        #cache_key = self._create_cache_key(page)    
-        response=self.send_request(params=params,**kwargs)
-        
+
+    def make_request(self, current_page:int) -> Response:
+        """Constructs and sends a request to the chosen api:
+            The parameters are built based on the default/chosen
+            config and parameter map
+        Args:
+            page (int): The page number to request.
+        Returns:
+            Response: The API's response to the request.
+        """
+        params = self.build_params(current_page)
+
+        self.request_wait()
+        response=self.send_request(self.base_url,params=params)
+
         return response
-    
+
     def search(self, page: Optional[int] = None , params: Optional[Dict[str, Any]] = None) -> Response:
         """Public method to perform a search, by specifying either the page to query using the default parameters or by
            creating a custom request using a full dictionary containing the full set of parameters required."""
 
         if params is not None:
-            return self.send_request(params=params)
+            self.request_wait()
+            return self.send_request(self.base_url,params=params)
         elif page is not None:
             return self.make_request(page)
         else:
-            raise ValueError("One of 'page' or 'params' must be provided")
-           
-#   def _calculate_start(self, page):
-#       """Calculates the starting item index for a given page."""
-#       return 1 + (page - 1) * self.records_per_page
-#   
-#   def _build_params(self, page):
-#       # Method to build request parameters
-#       record_start = self._calculate_start(page)
-#       return {
-#           'q': self.query,
-#           'api_key': self.api_key,
-#           'p': self.records_per_page,  # records per page
-#           's': record_start  # starting item index
-#       }
-#   @staticmethod
-#   def _validate_request_delay(delay):
-#       """
-#       Validates the request delay value without enforcing a delay.
-
-#       Raises:
-#           ValueError: If the request_delay is not a positive number.
-#       """
-#       # Validate the request_delay value here without enforcing a delay
-#       try:
-#           request_delay = float(delay)
-#           if delay < 0:
-#               raise ValueError(f"request_delay must be a positive number, got {delay}")
-#       except ValueError as e:
-#           logger.error(f"Invalid 'request_delay': {e}. Using the default setting")
-#           return None
-#       return delay
-#           
-#       
-#   def request_wait(self):
-#       """ determines how many seconds must elapse before making a request"""
-#       if self.last_request is not None:
-#           elapsed = time.time() - self.last_request
-#           delay = max(0, self.request_delay - elapsed)
-#           if delay > 0:
-#               logger.info(f"Waiting {delay} seconds before making another request...")
-#               time.sleep(delay)
-#       self.last_request = time.time()
-    
- 
-
-
-#   def _create_cache_key(self,page):
-#       """
-#       Combines information about the query type and current page to create an identifier for the current query.
-
-#       Args:
-#               page (int): The current page number.
-
-#       Returns:
-#       str: A unique cache key based on the provided parameters.
-#       """
-#       
-#       return f"{self.query}_{page}_{self.records_per_page}"
-    
-    
-#user_agent: Annotated[Optional[str],"Display user agent when sending requests"]=None,
-    # def _configure_session(self,secret,encrypt,enable_cache):
-    #     # Example condition to decide whether to use caching; this could be based on config or explicit user choice
-    #     logger.info("configuring cache")
-    #     if enable_cache:
-    #         try:
-    #             manager=SessionManager(encrypt=encrypt,user_agent=self.user_agent,cache_name="search_requests_cache",secret=secret,cached=enable_cache)
-    #             logger.info('Creating Cached Session')
-    #             return(manager.configure_session())
-    #         except ValueError as e:
-    #             logger.warning("%s.. Creating the default requests session...",e)
-    #     return requests.Session()
-
-
+            raise APIParameterException("One of 'page' or 'params' must be provided")

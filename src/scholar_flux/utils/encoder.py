@@ -1,4 +1,5 @@
 import base64
+import binascii
 from typing import Any, Union, Optional
 import logging
 
@@ -7,8 +8,8 @@ logger = logging.getLogger(__name__)
 class CacheDataEncoder:
     """
     A utility class to encode data into a base64 string representation or decode it back from base64.
-    
-    This class supports encoding binary data (bytes) and recursively handles nested structures 
+
+    This class supports encoding binary data (bytes) and recursively handles nested structures
     such as dictionaries and lists by encoding their elements, preserving the original structure upon decoding.
     """
 
@@ -16,7 +17,7 @@ class CacheDataEncoder:
     def is_base64(s: Union[str, bytes], hash_prefix: Optional[str] ='<hashbytes>') -> bool:
         """
         Check if a given string is a valid base64 encoded string.
-        
+
         Args:
             s (Union[str, bytes]): The string to check.
             hash_prefix (Optional[str]): The prefix to identify hash bytes. Defaults to '<hashbytes>'.
@@ -41,7 +42,7 @@ class CacheDataEncoder:
         # Check for only valid base64 characters
         try:
             base64.b64decode(s_bytes, validate=True)
-        except (base64.binascii.Error, ValueError):
+        except (binascii.Error, ValueError):
             return False
 
         # Validate by encoding and decoding
@@ -57,11 +58,11 @@ class CacheDataEncoder:
     def is_nonreadable(s: bytes, p = .5) -> bool:
         """
         Check if a decoded string contains a high percentage of non-printable characters.
-        
+
         Args:
             s (bytes): The byte string to check.
             p (float): The threshold percentage of non-printable characters. Defaults to 0.5.
-            
+
         Returns:
             bool: True if the string is likely gibberish, False otherwise.
         """
@@ -79,9 +80,13 @@ class CacheDataEncoder:
                 * dict/list/tuple: Recursively encodes elements if they are bytes.
             hash_prefix (Optional[str]): The prefix to identify hash bytes. Defaults to '<hashbytes>'.
         Returns:
-            Any: Encoded string (for bytes) or a dictionary/list/tuple 
+            Any: Encoded string (for bytes) or a dictionary/list/tuple
                  with recursively encoded elements.
         """
+
+        # if data == 'None':
+        #     return '<<None>>'
+
         if isinstance(data, bytes):
             try:
                 hash_prefix = hash_prefix or ''
@@ -111,30 +116,39 @@ class CacheDataEncoder:
                 logger.error(f"Error encoding a tuple element to base64: {e}")
                 raise ValueError("Failed to encode tuple element to base64.") from e
 
+
+
         return data  # Return unmodified non-encodable types
 
     @staticmethod
     def decode(data: Any, hash_prefix: Optional[str] ='<hashbytes>') -> Any:
         """
         Decode base64 string back to bytes or recursively decode elements within dictionaries and lists.
-        
+
         Args:
-            data (Any): The input data that needs decoding from a base64 encoded format. 
-                        This could be a base64 string or nested structures like dictionaries 
+            data (Any): The input data that needs decoding from a base64 encoded format.
+                        This could be a base64 string or nested structures like dictionaries
                         and lists containing base64 strings as values.
             hash_prefix (Optional[str]): The prefix to identify hash bytes. Defaults to '<hashbytes>'.
-            
+
         Returns:
-            Any: Decoded bytes for byte-based representations or recursively decoded elements 
+            Any: Decoded bytes for byte-based representations or recursively decoded elements
                  within the dictionary/list/tuple if applicable.
         """
-        if isinstance(data, str) and data and CacheDataEncoder.is_base64(data):
+        if data is None:
+            return None
+
+        if isinstance(hash_prefix, str) and isinstance(data,str) and not data.startswith(hash_prefix):
+            return data
+
+        if isinstance(data, str):
             try:
-                hash_prefix = hash_prefix or ''
-                data_fmt = data.replace(hash_prefix, '', 1) if hash_prefix and data.startswith(hash_prefix) else data
+                data_fmt = data.replace(hash_prefix, '', 1) if hash_prefix is not None else data
+                if not CacheDataEncoder.is_base64(data_fmt):
+                    return data
 
                 decoded_bytes = base64.b64decode(data_fmt)
-                if CacheDataEncoder.is_nonreadable(decoded_bytes):
+                if not hash_prefix and CacheDataEncoder.is_nonreadable(decoded_bytes):
                     return data  # Return original if decoded data is likely gibberish
                 return decoded_bytes
             except (ValueError, TypeError) as e:
