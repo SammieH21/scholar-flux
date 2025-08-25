@@ -1,9 +1,12 @@
 import os
 import logging
 from dotenv import set_key, load_dotenv, dotenv_values
+import re
+from pydantic import SecretStr
 
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
+from scholar_flux.security import SensitiveDataMasker
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -14,17 +17,19 @@ class ConfigLoader:
 
     # Values already present within the environment before loading
     DEFAULT_ENV: Dict[str, Any] = {
-        'SPRINGER_API_KEY': os.getenv('SPRINGER_API_KEY'),
-        'CROSSREF_API_KEY': os.getenv('CROSSREF_API_KEY'),
-        'CORE_API_KEY': os.getenv('CORE_API_KEY'),
-        'CACHE_SECRET_KEY': os.getenv('CACHE_SECRET_KEY'),
-        'LOG_DIRECTORY': os.getenv('SCHOLAR_FLUX_LOG_DIR') or None,
-        'LOG_LEVEL': os.getenv('SCHOLAR_FLUX_LOG_LEVEL') or 'DEBUG',
+        'SPRINGER_NATURE_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('SPRINGER_NATURE_API_KEY')),
+        'CROSSREF_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('CROSSREF_API_KEY')),
+        'CORE_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('CORE_API_KEY')),
+        'PUBMED_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('PUBMED_API_KEY')),
+        'SCHOLAR_FLUX_CACHE_SECRET_KEY': SensitiveDataMasker.mask_secret(os.getenv('SCHOLAR_FLUX_CACHE_SECRET_KEY')),
+        'SCHOLAR_FLUX_CACHE_DIRECTORY': os.getenv('SCHOLAR_FLUX_CACHE_DIRECTORY') or None,
+        'SCHOLAR_FLUX_LOG_DIRECTORY': os.getenv('SCHOLAR_FLUX_LOG_DIRECTORY') or None,
+        'SCHOLAR_FLUX_LOG_LEVEL': os.getenv('SCHOLAR_FLUX_LOG_LEVEL') or 'DEBUG',
         'DEFAULT_SCHOLAR_FLUX_PROVIDER': os.getenv('DEFAULT_SCHOLAR_FLUX_PROVIDER') or 'plos'
     }
 
     def __init__(self, env_path: Optional[Path | str] = None):
-        """Utility class for loading environment variables from a .env file"""
+        """Utility class for loading environment variables from the operating system and .env files"""
 
         self.env_path: Path = self._process_env_path(env_path)
         self.config: Dict[str, Any] = self.DEFAULT_ENV.copy()  # Use a copy to avoid modifying the class attribute
@@ -41,17 +46,104 @@ class ConfigLoader:
                 config_logger.debug(f"No environment file located at {env_path}. Loading defaults.")
             return {}
 
-    def load_config(self, reload_env: bool = False, env_path: Optional[Path | str] = None, verbose: bool= False) -> None:
+    def load_dotenv(self,
+                    env_path: Optional[Path | str] = None,
+                    replace_all: bool = False,
+                    verbose: bool = False) -> dict:
+        """
+        Retrieves a list of nonmissing environment variables from the current .env file that are non-null
+        Args:
+            env_path: Optional[Path | str]: Location of the .env file where env variables will be retrieved from
+            replace_all: bool = False: Indicates whether all environment variables should be replaced vs. only non-missing variables
+            verbose: bool = False: Flag indicating whether logging should be shown in the output
+
+        Returns:
+            dict: A dictionary of key-value pairs corresponding to environment variables
+        """
+        env_path = self._process_env_path(env_path or self.env_path)
+
+        if verbose:
+            config_logger.debug(f"Attempting to load environment file located at {env_path}.")
+
+        env_config = self.try_loadenv(env_path, verbose=False)
+
+        if env_config:
+            config_env_variables = {k: self._guard_secret(v, k)
+                                    for k, v in env_config.items()
+                                    if replace_all or v is not None}
+            return config_env_variables
+
+        return {}
+
+    @staticmethod
+    def _guard_secret(value: Any, key: str | int, matches: list | tuple = ('API_KEY', 'SECRET', 'MAIL')) -> Any | SecretStr:
+        """
+        Helper method to flag and guard the values of api keys, secrets, and likely email addresses by transforming
+        them into secret strings if they are non-missing
+
+        Args:
+            value (Any): The value to convert to a string if its key contaains any match
+            key (str): The value to verify if it contains any matach to keys containing API/SECRET/MAIL
+            matches (str): The substrings used to indicate whether a secret should be guarded
+        Returns:
+            Any | SecretStr: The original type if the value is likely not a secret. otherwise returns a SecretStr
+
+        """
+        if isinstance(value, str) and matches is not None:
+            return (SensitiveDataMasker.mask_secret(value)
+                    if re.search('|'.join(matches), str(key)) and value is not None
+                    else value)
+        return value
+
+    def load_os_env(self,
+                    replace_all: bool = False,
+                    verbose: bool = False) -> dict:
+        """
+        Load any updated configuration settings from variables set within the system environment.
+        The configuration setting must already exist in the config to be updated if available.
+        Otherwise, the ConfigLoader.update_config method allows direct updates to the config settings.
+
+        Args:
+            replace_all: bool = False: Indicates whether all environment variables should be replaced vs. only non-missing variables
+            verbose: bool = False: Flag indicating whether logging should be shown in the output
+
+        Returns:
+            dict: A dictionary of key-value pairs corresponding to environment variables
+        """
+        if verbose:
+            config_logger.debug(f"Attempting to load updated settings from the system environment.")
+
+        updated_env_variables = {k: self._guard_secret(os.environ.get(k), k)
+                                 for k in self.config.keys()
+                                 if replace_all or os.environ.get(k) is not None}
+        return updated_env_variables
+
+    def load_config(self, reload_env: bool = False,
+                    env_path: Optional[Path | str] = None,
+                    reload_os_env: bool = False,
+                    verbose: bool= False) -> None:
         """
         Load configuration settings from a .env file.
+        Optionally attempt to reload newly set environment variables from the OS
         """
-        if reload_env:
-            env_path = self._process_env_path(env_path or self.env_path)
-            if verbose:
-                config_logger.debug(f"Attempting to load environment file located at {env_path}.")
-            env_config = self.try_loadenv(env_path, verbose=False)
-            if env_config:
-                self.config.update({k: v for k, v in env_config.items() if v is not None})
+
+        os_config = self.load_os_env(verbose = verbose) if reload_os_env else {}
+        dotenv_config = self.load_dotenv(env_path, verbose = verbose) if reload_env else {}
+
+        config_env_variables = os_config | dotenv_config
+
+        self.update_config(config_env_variables, verbose = verbose)
+
+
+
+    def update_config(self, env_dict: dict[str, Any], verbose: bool = False) -> None:
+        """
+        Helper method for both logging and updating the config dictionary
+        with the provided dictionary of environment variable key-value pairs
+        """
+        if verbose and env_dict:
+            config_logger.debug("Updating the following variables into the config settings:", env_dict)
+        self.config.update(env_dict)
 
     def save_config(self, env_path: Optional[Path | str] = None) -> None:
         """
@@ -83,9 +175,9 @@ class ConfigLoader:
         raw_env_path = Path(str(env_path))
         return raw_env_path.resolve() if raw_env_path.exists() else cls.DEFAULT_ENV_PATH
 
-# Example usage
-if __name__ == "__main__":
-    config_loader = ConfigLoader()
-    config_loader.load_config(reload_env=True)
-    config_loader.save_config()
+# # Example usage
+# if __name__ == "__main__":
+#     config_loader = ConfigLoader()
+#     config_loader.load_config(reload_env=True)
+#     config_loader.save_config()
 

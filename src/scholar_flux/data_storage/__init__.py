@@ -1,4 +1,4 @@
-from scholar_flux.exceptions import OptionalDependencyImportError, RedisImportError, SQLiteImportError, PostgresImportError, MongoDBImportError,RequestsCacheImportError, XMLToDictImportError
+from scholar_flux.exceptions import OptionalDependencyImportError, RedisImportError, MongoDBImportError, XMLToDictImportError
 
 from scholar_flux.data_storage.cache_manager import DataCacheManager
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage

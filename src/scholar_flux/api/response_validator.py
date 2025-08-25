@@ -1,6 +1,7 @@
 import requests
 import logging
 from scholar_flux.exceptions.api_exceptions import InvalidResponseException
+from scholar_flux.utils.repr_utils import generate_repr
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class ResponseValidator:
         """
         try:
             response.raise_for_status()
-            logger.debug(f"Successfully received response from %s",response.url)
+            logger.debug("Successfully received response from %s",response.url)
             return True
         except requests.HTTPError as e:
             logger.error(f'Response validation failed: {e}')  # Better
@@ -68,3 +69,11 @@ class ResponseValidator:
             )
 
         return False
+
+    def __repr__(self) -> str:
+        """
+        Helper method to generate a summary of the ResponsValidator class. This method
+        will show the name of the class and the (non-existent) attributes used to
+        instantiate the validator.
+        """
+        return generate_repr(self)

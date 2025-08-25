@@ -26,17 +26,23 @@ class RedisStorage(BaseStorage):
                       'port':6379,
                       'db':0}
 
-    def __init__(self, redis_config: Optional[Dict[str, Any]] = None, namespace: Optional[str]=None, ttl: Optional[int] = None):
+    def __init__(self,
+                 host: Optional[str] = None,
+                 namespace: Optional[str] = None,
+                 ttl: Optional[int] = None,
+                 **redis_config):
         """
         Initialize the Redis storage backend and connect to the Redis server.
 
         Args:
-            redis_config Optional(Dict[str, Any]): Configuration parameters required to connect
-                    to the Redis server. Typically includes parameters like host, port,
-                    db, etc.
-            namespace Optional[str]: The prefix associated with each cache key (DEFAULT = None)
+            host (Optional[str]): Redis server host. Can be provided positionally or as a keyword argument.
+                                  Defaults to 'localhost' if not specified.
+            namespace Optional[str]: The prefix associated with each cache key. Defaults to `None`.
             ttl Optional[int]: The total number of seconds that must elapse for a cache record
                     to expire (DEFAULT = None)
+            **redis_config Optional(Dict[Any, Any]): Configuration parameters required to connect
+                    to the Redis server. Typically includes parameters like host, port,
+                    db, etc.
         Raises:
             RedisImportError: If redis module is not available or fails to load.
         """
@@ -45,7 +51,12 @@ class RedisStorage(BaseStorage):
         if not redis:
             raise RedisImportError
 
-        self.client = redis.Redis(**redis_config or self.DEFAULT_REDIS_CONFIG)
+        self.config: dict = self.DEFAULT_REDIS_CONFIG | redis_config
+
+        if host:
+            self.config['host'] = host
+
+        self.client = redis.Redis(**self.config)
         self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
         if not self.namespace:
             raise KeyError("A namespace must be provided for the Redis Cache")

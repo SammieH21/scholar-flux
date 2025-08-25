@@ -1,0 +1,133 @@
+from scholar_flux.exceptions import ItsDangerousImportError, CryptographyImportError, SecretKeyError
+from requests_cache.serializers.pipeline import SerializerPipeline, Stage
+from requests_cache.serializers.cattrs import CattrStage
+
+
+from typing import Optional, TYPE_CHECKING
+import pickle
+
+if TYPE_CHECKING:
+    from itsdangerous import Signer
+    from cryptography.fernet import Fernet
+else:
+    try:
+        from itsdangerous import Signer
+        from cryptography.fernet import Fernet
+    except ImportError:
+        Signer=None
+        Fernet=None
+
+class EncryptionPipelineFactory:
+    def __init__(self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ''):
+        """
+        Helper class used to create a factory for encrypting and decrypting pipelines
+        using a secret key. 
+
+        Args:
+            secret_key Optional[str | bytes]: The key to use for encrypting and decrypting
+                       the data that flows through the pipeline.
+            salt: Optional[str]: An optional salt used to further increase security on write
+        """
+
+        if Signer is None:
+            raise ItsDangerousImportError
+
+        if Fernet is None:
+            raise CryptographyImportError
+
+        self.signer = Signer
+
+        prepared_key = self._prepare_key(secret_key)
+
+        if prepared_key:
+            self._validate_key(prepared_key)
+
+        self.secret_key = prepared_key or self.generate_secret_key()
+        self.salt = salt or ''
+
+    @staticmethod
+    def _prepare_key(key: Optional[str | bytes]) -> bytes | None:
+        """
+        Prepares the input (bytes, string) and returns a bytes variable if
+        if a non-missing value is provided.
+        If the key is None, the function will also return None
+        """
+
+        if key is None:
+            return None
+        byte_key =  key.encode('utf-8') if isinstance(key, str) else key
+        if not isinstance(byte_key, bytes):
+            raise SecretKeyError("secret_key must be bytes or UTF-8 string")
+
+        return byte_key
+
+    @staticmethod
+    def _validate_key(key: bytes) -> None:
+        """Ensures that the length of the received bytes is 44 characters"""
+        if len(key) != 44:  # 32 bytes encoded in base64 => 44 characters
+            raise SecretKeyError(
+                "Fernet key must be 32 url-safe base64-encoded bytes (length 44)"
+            )
+        try:
+            Fernet(key)
+        except Exception as e:
+            raise SecretKeyError("Provided secret_key is not a valid Fernet key.") from e
+
+
+    @staticmethod
+    def generate_secret_key()-> bytes:
+        """Generate a secret key for Fernet encryption"""
+        return Fernet.generate_key()
+
+    @property
+    def fernet(self) -> Fernet:
+        """Returns a fernet key using the validated 32 byte url-safe base64 key"""
+        return Fernet(self.secret_key)
+
+    def encryption_stage(self) -> Stage:
+        """Create a stage that uses Fernet encryption"""
+        fernet = self.fernet
+
+        return Stage(
+            fernet,
+            dumps=fernet.encrypt,
+            loads=fernet.decrypt,
+        )
+
+    def signer_stage(self) -> Stage:
+        """Create a stage that uses `itsdangerous` to add a signature to responses on write, and
+        validate that signature with a secret key on read.
+        """
+        return Stage(
+            self.signer(secret_key=self.secret_key, salt=self.salt),
+            dumps='sign',
+            loads='unsign',
+        )
+
+    def create_pipeline(self) -> SerializerPipeline:
+        """Create a serializer that uses pickle + itsdangerous for signing and cryptography for encryption"""
+        base_stage = CattrStage()
+
+        return SerializerPipeline(
+            [base_stage, Stage(pickle), self.signer_stage(), self.encryption_stage()],
+            name='safe_pickle_with_encryption',
+            is_binary=True,
+        )
+
+    def __call__(self) -> SerializerPipeline:
+        """Helper method for being able to create the serializer pipeline by calling the factory object"""
+        return self.create_pipeline()
+
+# # Example usage
+# if __name__ == "__main__":
+#     from requests_cache import CachedSession
+#
+#     factory = EncryptionPipelineFactory()
+#     serializer = factory.create_pipeline()
+#     session = CachedSession(backend='filesystem',serializer=serializer)
+#     response = session.get("https://docs.python.org/3/library/typing.html")
+#     cached_response = session.get("https://docs.python.org/3/library/typing.html")
+# 
+
+
+

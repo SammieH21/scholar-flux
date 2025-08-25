@@ -2,15 +2,21 @@ import urllib3
 from typing import Optional, Any
 import re
 import logging
-from scholar_flux.utils.logger import MaskAPIKeyFilter, setup_logging
+import scholar_flux.security as security
+
+from scholar_flux.utils.logger import setup_logging
 from pprint import pformat
-from importlib import metadata as _md
-from importlib.metadata import PackageNotFoundError
+
+def __getattr__(name):
+    if name == "__version__":
+        from scholar_flux.package_metadata import __version__
+        return __version__
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 def initialize_package(log: bool=True,
                        env_path: Optional[str] = None,
                        config_params: Optional[dict[str, Any]] = None,
-                       logging_params:Optional[dict[str, Any]] = None ) -> tuple[dict[str, Any], logging.Logger]:
+                       logging_params:Optional[dict[str, Any]] = None ) -> tuple[dict[str, Any], logging.Logger, security.SensitiveDataMasker]:
     """
     Function used for initializing the scholar_flux package
     Imports a '.env' config file in the event that it is available at a default location
@@ -38,10 +44,14 @@ def initialize_package(log: bool=True,
         ValueError: If there are issues with loading the configuration or initializing the logger.
     """
 
-    from .utils import setup_logging
-    from .utils import config_settings
-
     logger = logging.getLogger()
+
+    masker = security.SensitiveDataMasker()
+    masking_filter = security.MaskingFilter(masker)
+    
+    from scholar_flux.utils import setup_logging
+    from scholar_flux.utils import config_settings
+
 
     # Attempt to load configuration parameters from the provided env file
     config_params_dict: dict= {'reload_env': True}
@@ -62,7 +72,8 @@ def initialize_package(log: bool=True,
     logging_params_dict: dict={'logger':logger,
                                'log_directory': config.get('SCHOLAR_FLUX_LOG_DIRECTORY'),
                                'log_file': config.get('SCHOLAR_FLUX_LOG_FILE', 'application.log'),
-                               'log_level': config.get('SCHOLAR_FLUX_LOG_LEVEL',logging.DEBUG)
+                               'log_level': config.get('SCHOLAR_FLUX_LOG_LEVEL',logging.DEBUG),
+                               'logging_filter': masking_filter
                               }
 
     logging_params_dict.update(logging_params or {})
@@ -83,19 +94,13 @@ def initialize_package(log: bool=True,
         f"logging_params={pformat(logging_params_dict)}"
     )
 
-    return config_settings.config, logger
+    return config_settings.config, logger, masker
 
-config, logger = initialize_package()
+config, logger, masker = initialize_package()
 
-from scholar_flux.utils import  SessionManager
+from scholar_flux.sessions import SessionManager, CachedSessionManager
 from scholar_flux.data_storage import  DataCacheManager, SQLAlchemyStorage, RedisStorage, InMemoryStorage, MongoDBStorage, NullStorage
-from scholar_flux.data import  DataParser, DataExtractor, DataProcessor, RecursiveDataProcessor, PathDataProcessor
+from scholar_flux.data import  DataParser, DataExtractor, RecursiveDataProcessor, PathDataProcessor, DataProcessor
 from scholar_flux.api import SearchAPI, BaseAPI, ResponseValidator,  ResponseCoordinator, SearchCoordinator
 
-__all__ = ["__version__"]
-try:
-    __version__ = _md.version("yourpkg")
-except PackageNotFoundError:
-    # when the metadata is not already installed, define the version as local
-    __version__ = '0.0.0+local'
-
+__all__ = ["__version__", "config", "logger"]

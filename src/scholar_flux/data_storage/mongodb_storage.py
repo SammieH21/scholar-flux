@@ -44,16 +44,22 @@ class MongoDBStorage(BaseStorage):
     # for mongodb, the default
     DEFAULT_NAMESPACE: Optional[str] = None
 
-    def __init__(self, mongo_config: Optional[Dict[str, Any]] = None, namespace: Optional[str]=None, ttl: Optional[int] = None):
+    def __init__(self,
+                 host: Optional[str] = None,
+                 namespace: Optional[str]=None,
+                 ttl: Optional[int] = None,
+                 **mongo_config):
         """
-        Initialize the Mongo DB storage backend and connect to the Redis server.
+        Initialize the Mongo DB storage backend and connect to the Mongo DB server.
 
         Args:
-            mongo_config (Dict[str, Any]): Configuration parameters required to connect
+            host (Optional[str]): The host address where the Mongo Database can be found.
+                                  The default is `'mongodb://127.0.0.1'`, which is the mongo server on the localhost
+            namespace (Optional[str]): The prefix associated with each cache key. By default, this is None.
+            ttl (Optional[int]): The total number of seconds that must elapse for a cache record
+            **mongo_config (Dict[Any, Any]): Configuration parameters required to connect
                 to the Mongo DB server. Typically includes parameters like host, port,
                 db, etc.
-            namespace Optional[str]: The prefix associated with each cache key (DEFAULT = None)
-            ttl Optional[int]: The total number of seconds that must elapse for a cache record
 
         Raises:
             MongoDBImportError: If db module is not available or fails to load.
@@ -62,7 +68,11 @@ class MongoDBStorage(BaseStorage):
         if not pymongo:
             raise MongoDBImportError
 
-        self.config = dict(**self.DEFAULT_CONFIG, **mongo_config) if mongo_config else self.DEFAULT_CONFIG
+        self.config = self.DEFAULT_CONFIG | mongo_config
+
+        if host:
+            self.config['host'] = host
+
         self.client: MongoClient = MongoClient(host=self.config['host'], port=self.config['port'])
         self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
         self.db = self.client[self.config['db']]

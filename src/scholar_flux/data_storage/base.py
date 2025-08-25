@@ -1,5 +1,6 @@
 from typing import Any, List, Dict, Union, Optional
 from abc import ABC, abstractmethod
+from scholar_flux.utils.repr_utils import generate_repr
 
 import logging
 logger = logging.getLogger(__name__)
@@ -69,3 +70,11 @@ class BaseStorage(ABC):
         if not self.namespace:
             return key
         return f"{self.namespace}:{key}" if not key.startswith(f'{self.namespace}:') else key
+
+
+    def __repr__(self) -> str:
+        """
+        Method for indentifying the current implementation and subclasses of the BaseStoarge.
+        Useful for showing the options being used to store and retrieve data stored as cache.
+        """
+        return generate_repr(self)

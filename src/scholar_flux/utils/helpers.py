@@ -11,15 +11,22 @@ T = TypeVar('T', bound=Hashable)
 import logging
 logger = logging.getLogger(__name__)
 
-import logging
-from pydantic import validate_call
-sparselogger = logging.getLogger('SparseTrieLogger')
 
-
+def quote_if_string(value: Any) -> Any:
+    """
+    Attemptt to quote string values to distinguish them from object text in class reprs.
+    Args:
+        value (Any): a value that is quoted only if it is a string
+    Returns:
+        Any: Returns a quoted string if successful. Otherwise returns the value unchanged
+    """
+    if isinstance(value, str):
+        return f"'{value}'"
+    return value
 
 def try_quote_numeric(value: Any) -> Optional[str]:
     """
-    Attemptt to quote numeric values to distinguish them from string values and integers.
+    Attempt to quote numeric values to distinguish them from string values and integers.
     Args:
         value (Any): a value that is quoted only if it is a numeric string or an integer
     Returns:
@@ -60,6 +67,25 @@ def flatten(current_data: Optional[Dict|List]) -> Optional[Dict|List]:
         return current_data[0]
     return current_data
 
+def as_tuple(obj: Any) -> tuple:
+    """
+    Convert or nest an object into a tuple if possible to make available for later function calls
+    that require tuples instead of lists, NoneTypes, and other data types.
+
+    Args:
+        obj (Any) The object to nest as a tuple
+    Returns:
+
+    """
+    match obj:
+        case tuple():
+            return obj
+        case list():
+            return tuple(obj)
+        case None:
+            return tuple()
+        case _:
+            return (obj, )
 
 def pattern_search(json_dict: Dict,key_to_find: str, regex: bool = True)->List:
     """
@@ -102,7 +128,7 @@ def nested_key_exists(obj: Any, key_to_find: str,regex: bool = False) -> bool:
             match = [key_to_find]
 
         if match:
-            keytype = 'pattern' if regex == True else 'key'
+            keytype = 'pattern' if regex is True else 'key'
             logger.debug(f'Found match for {keytype}: {key_to_find}; Fields: {match}')
             return True
         for key, value in obj.items():
@@ -134,7 +160,8 @@ def get_nested_data(json: list | dict | None, path: list) -> list | dict | None 
         path (List[Any]): A list of keys representing the path to the desired data within `json`.
 
     Returns:
-        Optional[Any]: The value retrieved from the nested dictionary following the path, or None if any key in the path is not found or leads to a None value prematurely.
+        Optional[Any]: The value retrieved from the nested dictionary following the path, or None if any
+                       key in the path is not found or leads to a None value prematurely.
     """
     current_data = json
     for idx, key in enumerate(path):
@@ -147,27 +174,6 @@ def get_nested_data(json: list | dict | None, path: list) -> list | dict | None 
             logger.debug(f"key not found: {str(e)}")
             return None
     return current_data
-
-def validate_url(url: str) -> bool:
-    """
-    Uses urlparse to determine whether the provided value is an url
-
-    Args:
-        url (str): The url string to validate
-    Returns:
-        True if the url is valid, and False Otherwise
-    """
-    try:
-        result = urlparse(url)
-        if not bool(result.scheme and result.netloc):
-            raise ValueError
-
-        return True
-
-    except (ValueError, AttributeError):
-        logger.warning(f"The value, '{url}' is not a valid URL")
-
-    return False
 
 def generate_response_hash(response: requests.Response)-> str:
     """
@@ -254,7 +260,7 @@ def try_dict(value: List[Dict] | Dict) -> Optional[Dict]:
         return dict(enumerate(value))
     try:
         return dict(value)
-    except TypeError as e:
+    except (TypeError, ValueError) as e:
         return None
 
 
@@ -270,7 +276,7 @@ def is_nested(obj: Any) -> bool:
     """
     return isinstance(obj, Iterable) and not isinstance(obj, str)
 
-def unlist_1d(current_data: Tuple | List) -> Optional[Any]:
+def unlist_1d(current_data: Tuple | List) -> Any:
     """
     Retrieves an element from a list/tuple if it contains only a single element.
     Otherwise, it will return the element as is. Useful for extracting
@@ -344,11 +350,8 @@ def try_call(func: Callable,
         default is set
     """
 
-    if not isinstance(suppress, tuple):
-        suppress = (suppress,)
-
-    if not isinstance(args, tuple):
-        args = (args,)
+    suppress = as_tuple(suppress)
+    args = as_tuple(args)
 
     received_function = callable(func)
 

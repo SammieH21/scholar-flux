@@ -13,6 +13,11 @@ requirements.txt
 **/.ipynb_checkpoints
 **/.jukit
 
+# Databases and Requests Caching
+**/*.sqlite
+**/requests_cache
+**/http_cache
+
 # Virtual environment
 **/.env
 **/.venv
@@ -112,7 +117,9 @@ dmypy.json
 *~
 
 # Other Directories
+notes/
 archived/
+/profiling
 **/logs/*
 src/scholar_flux/logs/*
 src/scholar_flux/logs/*
@@ -123,3 +130,5 @@ src/scholar_flux/cache/*
 src/scholar_flux/data/cache/*
 src/scholar_flux/.vscode
 src/scholar_flux/.git
+
+

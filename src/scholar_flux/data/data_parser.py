@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional, Union, Tuple, Any, TYPE_CHECKING
-from scholar_flux.utils import get_nested_data, try_int
+from typing import Dict, List, Optional, Union, Tuple, Any, Callable, TYPE_CHECKING
+from scholar_flux.data.base_parser import BaseDataParser
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
 import json
 import requests
@@ -7,74 +7,63 @@ import requests
 import logging
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    import xmltodict
-    import yaml
-else:
-    try:
-        import xmltodict
-    except ImportError:
-        xmltodict = None
+class DataParser(BaseDataParser):
+    """
+    Extensible class that handles the identification and parsing of typical formats seen
+    in APIs that send news and academic articles in XML, JSON, and YAML formats.
 
-    try:
-        import yaml
-    except ImportError:
-        yaml = None
+    The BaseDataParser contains each of the necessary class elements to parse JSON, XML,
+    and YAML formats as classmethods while this class allows for the specification
+    of additional parsers.
 
+    Args:
+        additional_parsers (Optional[dict[str, Callable]]):
+            Allows overrides for parsers in addition to the JSON, XML and YAML parsers
+            that are enabled by default.
+    """
 
-class DataParser:
-    def __init__(self):
-        pass
-
-    def detect_format(self, response: requests.Response) -> str | None:
-        content_type = response.headers.get('Content-Type', '')
-        if 'xml' in content_type:
-            return 'xml'
-        elif 'json' in content_type:
-            return 'json'
-        elif 'yaml' in content_type or 'yml' in content_type:
-            return 'yaml'
-        else:
-            logger.warning("Unsupported content type: %s", content_type)
-            return 'unknown'
-
-    def parse(self, response: requests.Response, format: Optional[str] = None) -> Dict[str,Any] | List[Dict[str,Any]] | None:
-        """Parses the API response data for your application's needs.
+    def __init__(self, additional_parsers: Optional[dict[str, Callable]] = None):
+        """
+        On initialization, the data parser is set to use built-in class methods to
+        parse json, xml, and yaml-based response content by default and the parse
+        halper class to determine which parser to use based on the Content-Type.
 
         Args:
-            response (response type) : The response object from the API request.
-            format (str) : The parser needed to format the response as a list of dicts
+            additional_parsers (Optional[dict[str, Callable]]): Allows for the addition of
+            new parsers and overrides to class methods to be used on content-type identification.
+        """
+
+        self.format_parsers = self.get_default_parsers() | (additional_parsers or {})
+
+    def parse(self, response: requests.Response,
+              format: Optional[str] = None) -> dict | list[dict] | None:
+        """
+        Parses the API response content using to core steps.
+        1. Detects the API response format if a format is not already specified
+        2. Uses the previously determined format to parse the content of the response
+           and return a parsed dictionary (json) structure.
+
+        Args:
+            response (response type): The response object from the API request.
+            format (str): The parser needed to format the response as a list of dicts
 
         Returns:
-            [dict] : response dict containing fields including a list of metadata records as dictionaries.
+            dict: response dict containing fields including a list of metadata records as dictionaries.
         """
-        use_format = format if format is not None else self.detect_format(response)
 
-        format_parsers = {
-            'xml': self.parse_xml,
-            'json': self.parse_json,
-            'yaml': self.parse_yaml,
-        }
+        use_format = format.lower() if format is not None else self.detect_format(response)
 
-        parser = format_parsers.get(use_format,None) if use_format else None
+        parser = self.format_parsers.get(use_format, None) if use_format else None
         if parser is not None:
             return parser(response.content)
         else:
             logger.error("Unsupported format: %s", format)
             return None
 
-    def parse_xml(self, content: bytes) -> Dict[str,Any] | List[Dict[str,Any]]:
-        """Parses XML content."""
-        if xmltodict is None:
-            raise XMLToDictImportError
-        return xmltodict.parse(content)
-
-    def parse_json(self, content: bytes) -> Dict[str,Any] | List[Dict[str,Any]]:
-        """Parses JSON content."""
-        return json.loads(content)
-
-    def parse_yaml(self, content: bytes) -> Dict[str,Any] | List[Dict[str,Any]]:
-        """Parses YAML content. Example of adding YAML support."""
-        if yaml is None:
-            raise YAMLImportError
-        return yaml.safe_load(content)
+    def __repr__(self):
+        """
+        Helper method for indentifying the current implementation of the DataParser.
+        Useful for showing the options being used for parsing response content into dictionary objects
+        """
+        class_name = self.__class__.__name__
+        return f'{class_name}(format_parsers={self.format_parsers.keys()})'

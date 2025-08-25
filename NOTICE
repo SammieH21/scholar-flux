@@ -1,0 +1,33 @@
+
+## API Keys Required
+
+Some providers may require API keys to retrieve papers, articles, and other forms of data. Known providers requiring keys include:
+
+- ***: For scientific articles
+- **Springer Nature**: For scientific content  
+
+Others may require the use of a `User Agent`, including:
+
+- ***: Crossref API (Also recommends adding a `mailto:` header for feedback for usage)
+- ***: Plos API
+- ***: CORE API
+
+## ⚠️ Data Usage and Legal Compliance
+
+**Important**: This software is licensed under Apache 2.0, but this license **only covers the code itself**. 
+
+### Your Responsibilities
+
+When using this package, you must:
+
+- ✅ Obtain your own API keys from each data provider
+- ✅ Read and comply with each provider's terms of service
+- ✅ Respect rate limits and usage restrictions
+- ✅ Ensure your use complies with copyright laws
+- ✅ Handle data according to applicable privacy regulations
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+**Data License**: Data accessed through APIs is subject to the respective providers' terms of service - see the [NOTICE](NOTICE) file.

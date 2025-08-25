@@ -3,6 +3,7 @@ from typing import Any, List, Dict, Optional, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import CacheDataEncoder
 from scholar_flux.data_storage.base import BaseStorage
+from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions import SQLAlchemyImportError  # Custom exception for missing SQLAlchemy
 
 import base64
@@ -12,19 +13,19 @@ logger = logging.getLogger(__name__)
 
 # SQLAlchemy import logic for type checking and runtime
 if TYPE_CHECKING:
-    from sqlalchemy import create_engine, Column, String, Integer, JSON, exc
+    from sqlalchemy import create_engine, Column, String, Integer, JSON, exc, func
     from sqlalchemy.orm import DeclarativeBase, sessionmaker
     SQLALCHEMY_AVAILABLE = True
 else:
     try:
-        from sqlalchemy import create_engine, Column, String, Integer, JSON, exc
+        from sqlalchemy import create_engine, Column, String, Integer, JSON, exc, func
         from sqlalchemy.orm import DeclarativeBase, sessionmaker
         SQLALCHEMY_AVAILABLE = True
     except ImportError:
         # Dummies for names so code still parses, but using stubs or Nones for runtime
         create_engine = None
         Column = lambda *a, **k: None  # type: ignore
-        String = Integer = JSON = exc = None
+        String = Integer = JSON = exc = func = None
         DeclarativeBase = object  # type: ignore
         sessionmaker = None
         SQLALCHEMY_AVAILABLE = False
@@ -46,15 +47,48 @@ else:
 
 class SQLAlchemyStorage(BaseStorage):
 
-    def __init__(self, db_url: str, echo: bool = False, **kwargs) -> None:
+    DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_CONFIG: Dict[str, Any] = {
+         'url': lambda: 'sqlite:///' + str(get_default_writable_directory('package_cache') / 'data_store.sqlite'),
+        'echo': False
+    }
+
+    def __init__(self, url: Optional[str] = None,
+                 namespace: Optional[str] = None, 
+                 ttl: None = None,
+                 **sqlalchemy_config) -> None:
+        """
+        Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter.
+        This class uses the innate flexibility of SQLAlchemy to support backends such as SQLite, Postgres, DuckDB, etc.
+
+        Args:
+            url (Optional[str]): Database connection string. This can be provided positionally or as a keyword argument.
+            namespace (Optional[str]): The prefix associated with each cache key. By default, this is None.
+            ttl (None): Ignored. Included for interface compatibility; not implemented.
+            **sqlalchemy_config: Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine
+                Typical parameters include the following:
+                    url (str): Indicates what server to connect to. Defaults to sqlite in the package directory.
+                    echo (bool): Indicates whether to show the executed SQL queries in the console.
+        """
 
         if not SQLALCHEMY_AVAILABLE:
             raise SQLAlchemyImportError
 
-        self.engine = create_engine(url=db_url, echo=echo, **kwargs)
+        sqlalchemy_config['url'] = url or self.DEFAULT_CONFIG['url']()
+        sqlalchemy_config['echo'] = (sqlalchemy_config.get('echo')
+                                     if isinstance(sqlalchemy_config.get('echo'), bool)
+                                     else self.DEFAULT_CONFIG['echo'])
+
+        self.config: dict = sqlalchemy_config
+        self.engine = create_engine(**self.config)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
         self.converter = cattrs.Converter()
+        self.namespace = namespace or self.DEFAULT_NAMESPACE
+
+        if ttl:
+            logger.warning("TTL is not enabled for SQLAlchemyStorage. Skipping")
+        self.ttl = None
 
     def retrieve(self, key: str) -> Optional[Any]:
         """
@@ -69,7 +103,8 @@ class SQLAlchemyStorage(BaseStorage):
         """
         with self.Session() as session:
             try:
-                record = session.query(CacheTable).filter(CacheTable.key == key).first()
+                namespace_key = self._prefix(key)
+                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
                 if record:
                     return CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
                 return None
@@ -89,7 +124,9 @@ class SQLAlchemyStorage(BaseStorage):
             cache = {}
             try:
                 records = session.query(CacheTable).all()
-                cache = {str(record.key): CacheDataEncoder.decode(self.converter.structure(record.cache, dict)) for record in records}
+                cache = {str(record.key): CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
+                         for record in records
+                         if not self.namespace or str(record.key).startswith(self.namespace)}
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error retrieving all records: {e}")
             return cache
@@ -104,7 +141,7 @@ class SQLAlchemyStorage(BaseStorage):
 
         with self.Session() as session:
             try:
-                keys = [str(record.key) for record in session.query(CacheTable).all()]
+                keys = [str(record.key) for record in session.query(CacheTable).all() if not self.namespace or str(record.key).startswith(self.namespace)]
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error retrieving keys: {e}")
                 keys = []
@@ -122,12 +159,13 @@ class SQLAlchemyStorage(BaseStorage):
         """
         with self.Session() as session:
             try:
+                namespace_key = self._prefix(key)
                 structured_data = self.converter.unstructure(CacheDataEncoder.encode(data))
-                record = session.query(CacheTable).filter(CacheTable.key == key).first()
+                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
                 if record:
                     record.cache = structured_data
                 else:
-                    record = CacheTable(key=key, cache=structured_data)
+                    record = CacheTable(key=namespace_key, cache=structured_data)
                     session.add(record)
                 session.commit()
 
@@ -145,7 +183,8 @@ class SQLAlchemyStorage(BaseStorage):
         """
         with self.Session() as session:
             try:
-                record = session.query(CacheTable).filter(CacheTable.key == key).first()
+                namespace_key = self._prefix(key)
+                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
                 if record:
                     session.delete(record)
                     session.commit()
@@ -159,9 +198,13 @@ class SQLAlchemyStorage(BaseStorage):
         """
         with self.Session() as session:
             try:
-                num_deleted = session.query(CacheTable).delete()
-                session.commit()
-                logger.debug(f"Deleted {num_deleted} records.")
+                if self.namespace:
+                    num_deleted = session.query(CacheTable).filter(CacheTable.key.startswith(self.namespace)).delete()
+                    session.commit()
+                else:
+                    num_deleted = session.query(CacheTable).delete()
+                    session.commit()
+                    logger.debug(f"Deleted {num_deleted} records.")
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error deleting all records: {e}")
                 session.rollback()
@@ -171,7 +214,7 @@ class SQLAlchemyStorage(BaseStorage):
         Check if specific cache key exists.
 
         Args:
-            key (str): The key to check its presence in the Redis storage backend.
+            key (str): The key to check its presence in the SQL storage backend.
 
         Returns:
             bool: True if the key is found otherwise False.

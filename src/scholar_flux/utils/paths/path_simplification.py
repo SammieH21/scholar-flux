@@ -142,7 +142,8 @@ class PathSimplifier:
             remove_noninformative (bool): Whether to remove non-informative components.
 
         Returns:
-            Dict[ProcessingPath, str]: A dictionary mapping the original path to its simplified unique name.
+            Dict[ProcessingPath, str]: A dictionary mapping the original path to its simplified unique group name
+                                       for all elements within the same path after removing indices
 
         Raises:
             PathSimplificationError: If an error occurs during path simplification.
@@ -153,9 +154,10 @@ class PathSimplifier:
         try:
             for original_path in paths:
                 path = ProcessingPath(original_path, delimiter=self.delimiter) if not isinstance(original_path, ProcessingPath) else original_path
+                path_group = path.group()
                 #unique_name = self.name_mappings.get(path) or (path if max_components is None else self.generate_unique_name(path, max_components, remove_noninformative))
-                unique_name = self.name_mappings.get(path) or self.generate_unique_name(path, max_components, remove_noninformative)
-                self.name_mappings[path] = str(unique_name)
+                unique_group_name = self.name_mappings.get(path_group) or self.generate_unique_name(path_group, max_components, remove_noninformative)
+                self.name_mappings[path_group] = str(unique_group_name)
 
             return self.name_mappings
         except Exception as e:

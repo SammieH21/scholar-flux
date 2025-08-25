@@ -47,3 +47,8 @@ class PathCacheError(PathUtilsError):
 class PathNodeMapError(PathUtilsError):
     """Exception raised when attempting to perform an invalid operation a PathNodeMap"""
     pass
+
+
+class PathDiscoveryError(PathUtilsError):
+    """Exception raised for invalid operations resulting from the handling of PathNodes."""
+    pass

@@ -41,36 +41,11 @@ class SQLAlchemyImportError(OptionalDependencyImportError):
         logger.error(err)
         super().__init__(message=err)
 
-class SQLiteImportError(OptionalDependencyImportError):
-    """Exception for SQLite Dependency Issues"""
-    def __init__(self):
-        err="""Optional Dependency: SQLite backend is not installed
-        Please install the 'sqlite3' package to use this feature."""
-        logger.error(err)
-        super().__init__(message=err)
-
-class PostgresImportError(OptionalDependencyImportError):
-    """Exception for Postgres Dependency Issues"""
-    def __init__(self):
-        err="""Optional Dependency: PostgreSQL backend is not installed
-        Please install the 'psycopg2' package to use this feature."""
-        logger.error(err)
-        super().__init__(message=err)
-
 class MongoDBImportError(OptionalDependencyImportError):
     """Exception for Mongo Dependency Issues"""
     def __init__(self):
         err="""Optional Dependency: MongoDB backend is not installed
         Please install the 'pymongo' package to use this feature."""
-        logger.error(err)
-        super().__init__(message=err)
-
-class RequestsCacheImportError(OptionalDependencyImportError):
-    """Exception for requests-cache Dependency Issues"""
-    def __init__(self):
-        err="""Optional Dependency: 'Requests-Cache' backend is not installed
-        Please install the 'requests-cache' package to use this feature."""
-
         logger.error(err)
         super().__init__(message=err)
 

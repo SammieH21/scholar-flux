@@ -17,9 +17,18 @@ class RequestFailedException(APIException):
     """Exception raised for failed API requests."""
     pass
 
+class RequestCreationException(APIException):
+    """Exception raised when the preparation of an API request fails"""
+
 class NotFoundException(APIException):
     """Exception raised when a requested resource is not found."""
     pass
+
+class QueryValidationException(APIException):
+    """Exception raised when a requested resource is not found."""
+    pass
+
+
 
 class SearchRequestException(APIException):
     """Exception raised when a requested resource is not found."""
@@ -36,7 +45,6 @@ class APIParameterException(APIException):
 class RequestCacheException(APIException):
     """Exception raised for API request-cache related errors."""
     pass
-
 
 class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""

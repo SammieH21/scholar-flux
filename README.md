@@ -1,6 +1,7 @@
 # ScholarFlux
 
-The Scholar Flux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications.
+The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications.
+In addition, this API has built in extension capabilities for applications in News retrieval and other domains.
 
 ## Features
 
@@ -13,15 +14,15 @@ The Scholar Flux API is an open-source project designed to streamline access to 
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 - [Poetry](https://python-poetry.org/) for dependency management
-- A Springer API key, which may be available through your academic institution or by [registering directly with Springer](https://developer.springernature.com/).
+- An API key depending on the API Service Provider. This may be available through your academic institution or by registering directly with the API Provider
 
 ### Installation
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/sammi/ScholarFluxAPI.git
+   git clone https://github.com/sammih21/scholar-flux.git
    ```
 2.  Navigate to the project directory:
 
@@ -34,52 +35,77 @@ The Scholar Flux API is an open-source project designed to streamline access to 
     ```bash
     poetry install
     ```
-### Configuration
 
-Before using the Scholar Flux API, you need to configure your Springer API key:
-
-    Create a .env file in the project root directory.
-    Add the following line, replacing your_api_key_here with your actual Springer API key:
-
-    ```makefile
-    SPRINGER_API_KEY=your_api_key_here
-    ```
 ### Usage
 
 Below is a simple example of how to use the API to perform a search query:
 
 ```python
 # Example Python code to demonstrate a simple query
-from scholar_flux import scholar_flux
+from scholar_flux import SearchAPI, SearchCoordinator, DataCacheManager
 
-# Initialize the API client
-client = ScholarFlux(api_key="your_api_key_here")
+# Initialize the API client with requests-cache to cache successful responses
+api = SearchAPI.from_defaults(query = "psychology", provider_name='plos', use_cache = True)
 
-# Perform a search
-results = client.search("quantum computing")
-print(results)
+# Perform a search and get a response object:
+response = api.search(page = 1)
+
+# Coordinate the response retrieval processing with a single search and in-memory record cache:
+coordinator = SearchCoordinator(api, )
+
+# Turn off process caching altogether:
+coordinator = SearchCoordinator(api, cache_results = False)
+
+# Or use sqlalchemy, redis, or mongodb with an optional config assuming a redis server and redis-py are installed:
+coordinator = SearchCoordinator(api, cache_manager = DataCacheManager.with_storage('redis', 'localhost'))
+
+ # retrieves the previously cached response and processes it
+processed_response = coordinator.search(page = 1)
+
+# Show each record from a flattened dictionary:
+print(processed_response.data)
+
+# Transform the dictionary of records into a pandas dataframe:
+import pandas as pd
+record_data_frame = pd.DataFrame(processed_response.data)
+
+# Displaying Each record in a table, line-by-line
+print(record_data_frame.head(5))
+
+# And to view each record's metadata:
+print(processed_response.metadata)
+
+# Afterward, the search begins anew:
+processed_response_two = coordinator.search(page = 2)
 ```
 
 ### Contributing
 
-We welcome contributions from the community! If you have suggestions for improvements or new features, please feel free to fork the repository and submit a pull request. Please refer to our Contributing Guidelines for more information on how you can contribute to the Scholar Flux API.
+We welcome contributions from the community! If you have suggestions for improvements or new features, please feel free to fork the repository and submit a pull request. Please refer to our Contributing Guidelines for more information on how you can contribute to the ScholarFlux API.
 
 ### License
+
+Apache License 2.0
+
+See the LICENSE file for the full terms.
 
 This project is licensed under the Apache License 2.0 and to link to the `LICENSE` file in your repository. This informs users and contributors about the legal terms under which your software is provided.
 
 ### LICENSE File
 
-This project is licensed under Apache License 2.0.
 
 [Apache License 2.0 Official Text](http://www.apache.org/licenses/LICENSE-2.0)
+
+### NOTICE
+
+The Apache License 2.0 applies only to the code only and gives no rights to the underlying data. Be sure to reference the terms of use for each provider to ensure that your use is within their terms.
 
 
 ### Acknowledgments
 
-    Thanks to Springer Nature for providing access to their academic databases through the Springer API.
-    This project uses Poetry for dependency management.
+    Thanks to Springer Nature, Crossref, PLOS, and other Providers for providing access to their academic databases through the respective APIs.
+    This project uses Poetry for dependency management and requires python 3.10 or higher.
 
 ### Contact
 
-For questions, suggestions, or issues regarding ScholarFlux, please open an issue on GitHub or contact us directly at sammiehstat@gmail.com.
+Questions or suggestions? Open an issue or email sammiehstat@gmail.com.

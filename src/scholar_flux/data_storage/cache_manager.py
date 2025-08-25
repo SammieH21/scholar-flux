@@ -1,13 +1,21 @@
+from __future__ import annotations
 import hashlib
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, Literal
 from urllib.parse import urlparse
 from requests import Response
 import base64
 from scholar_flux.data_storage.base import BaseStorage
 from scholar_flux.data_storage.null_storage import NullStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
+from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
+from scholar_flux.data_storage.redis_storage import RedisStorage
+from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
+from scholar_flux.utils.repr_utils import adjust_repr_padding, generate_repr
+
 from scholar_flux.exceptions import RequestFailedException,  StorageCacheException
+from scholar_flux.package_metadata import __version__
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +254,7 @@ class DataCacheManager:
         return hashlib.sha256(response.content).hexdigest()
 
     @classmethod
-    def null(cls):
+    def null(cls) -> DataCacheManager:
         """
         Creates a DataCacheManager using a NullStorage (no storage.
 
@@ -258,6 +266,41 @@ class DataCacheManager:
         """
         return cls(NullStorage())
 
+    @classmethod
+    def with_storage(cls,
+                     storage: Optional[Literal['redis', 'sql', 'sqlalchemy', 'mongodb', 'pymongo',
+                                               'inmemory', 'null']] = None, *args, **kwargs) -> DataCacheManager:
+        """
+        Creates a DataCacheManager using a known storage device
+
+        This is a convenience function allowing the user to create a DataCacheManager with
+        redis, sql, mongodb, or inmemory storage with default settings or through the use of
+        optional positional and keyword parameters to initialize the storage as needed.
+        Returns:
+            DataCacheManager: The current class initialized the chosen storage
+        """
+        if not isinstance(storage, str):
+            raise StorageCacheException(
+                "The chosen storage device for caching processed responses is not valid. Expected a valid string"
+                                       )
+        match storage.lower():
+            case 'inmemory':
+                return cls(InMemoryStorage(*args, **kwargs))
+            case 'sql' | 'sqlalchemy':
+                return cls(SQLAlchemyStorage(*args, **kwargs))
+            case 'mongodb' | 'pymongo':
+                return cls(MongoDBStorage(*args, **kwargs))
+            case 'redis':
+                return cls(RedisStorage(*args, **kwargs))
+            case 'null' | None:
+                return cls.null()
+            case _:
+                raise StorageCacheException(
+                    "The chosen storage device does not exist. Expected one of the following:"
+                    " ['redis', 'sql', 'mongodb', 'inmemory', 'null']"
+                )
+
+
     def __bool__(self) -> bool:
         """
         This method has the effect of returning 'False' when
@@ -266,3 +309,48 @@ class DataCacheManager:
         """
         return bool(self.cache_storage)
 
+    @staticmethod
+    def cache_fingerprint(obj, package_version=__version__):
+        """
+        This method helps identify changes in class/configuration for later
+        cache retrieval. It generates a unique string based on the object
+        and the package version.
+
+        Generates a finger print from package version and the object's __repr__
+        if it is custom, and otherwise falls back to using a combination of the
+        package version, class name, and the object's __dict__ (state).
+
+        Args:
+            obj: The object to fingerprint.
+            package_version: The current package version string.
+
+        Returns:
+            A human-readable string including the version, object identity
+        """
+
+        obj_repr = repr(obj)
+        class_name = obj.__class__.__name__
+        is_default_repr = (
+            obj_repr.startswith(f"<{class_name}") and " at 0x" in obj_repr
+        )
+        if is_default_repr:
+            state = json.dumps(obj.__dict__, sort_keys=True, default=str)
+            combined = f"{package_version}:{class_name}:{state}"
+        else:
+            combined = f"{package_version}:{obj_repr}"
+        return combined  # Human-readable, not hashed
+
+    def __repr__(self) -> str:
+        """
+        Helper for showing a representation of the current Cache Manager in the form of a string.
+        This class will indicate the current cache storage device that is being used for data caching.
+        """
+        return generate_repr(self)
+
+
+
+if __name__ == '__main__':
+    import scholar_flux
+    redis = scholar_flux.DataCacheManager.with_storage('redis')
+    print(redis)
+print("DONE")
