@@ -30,6 +30,7 @@ from tests.fixtures.mock_cache_session import (default_encryption_cache_session,
                                                default_encryption_cache_filename,
                                                default_cache_directory,
                                                default_encryption_serializer_pipeline,
+                                               incorrect_secret_key,
                                                incorrect_secret_salt,
                                                incorrect_secret_salt_encryption_cache_session_manager,
                                                sqlite_db_url

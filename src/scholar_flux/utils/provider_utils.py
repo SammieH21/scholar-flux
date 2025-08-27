@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional
-from scholar_flux.api.models.provider_config import ProviderConfig 
+from scholar_flux.api.models.provider_config import ProviderConfig
 import scholar_flux.api.providers as scholar_flux_api_providers
 from functools import lru_cache
 import pkgutil

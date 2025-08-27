@@ -92,7 +92,9 @@ class BaseAPI:
 
             # caching is disabled by default if use_cache is not directly specified, a session is not specified,
             # and the DEFAULT_USE_CACHE class variable (which will only apply to new sessions) is set to False.
-            if use_cache is not False and self.DEFAULT_USE_CACHE is True and not isinstance(session, CachedSession):
+
+            if all([use_cache is True or (use_cache is None and self.DEFAULT_USE_CACHE is True),
+                    not isinstance(session, CachedSession)]):
                 logger.debug("Creating a cached session for the BaseAPI.")
                 session = CachedSessionManager(user_agent = user_agent, backend='memory').configure_session()
 

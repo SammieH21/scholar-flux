@@ -1,7 +1,5 @@
-from typing import Dict, List, Optional, Union, Tuple, Any, Callable, TYPE_CHECKING
+from typing import Optional, Callable
 from scholar_flux.data.base_parser import BaseDataParser
-from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
-import json
 import requests
 
 import logging

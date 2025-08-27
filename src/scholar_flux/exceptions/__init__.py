@@ -1,5 +1,4 @@
-from scholar_flux.exceptions.api_exceptions import (APIException, PermissionException, RateLimitExceededException,
-                             InvalidResponseException, NotFoundException,
+from scholar_flux.exceptions.api_exceptions import (APIException, PermissionException, InvalidResponseException, NotFoundException,
                              SearchAPIException, SearchRequestException, RequestCreationException,
                              RequestFailedException, RateLimitExceededException,
                              RetryLimitExceededException, TimeoutException,
@@ -12,7 +11,7 @@ from scholar_flux.exceptions.util_exceptions import (SessionCreationError, Sessi
                                                      SessionInitializationError, SessionCacheDirectoryError,
                                                      LogDirectoryError, SecretKeyError)
 
-from scholar_flux.exceptions.data_exceptions import ( ResponseProcessingException, DataParsingException,
+from scholar_flux.exceptions.data_exceptions import (ResponseProcessingException, DataParsingException,
                                                      InvalidDataFormatException, RequiredFieldMissingException,
                                                      DataExtractionException, FieldNotFoundException,
                                                      DataProcessingException, DataValidationException,
@@ -24,4 +23,28 @@ from scholar_flux.exceptions.import_exceptions import (OptionalDependencyImportE
                                )
 from scholar_flux.exceptions.storage_exceptions import StorageCacheException, KeyNotFound
 
+from scholar_flux.exceptions.path_exceptions import (PathUtilsError, InvalidProcessingPathError,
+                                                     InvalidComponentTypeError, PathSimplificationError,
+                                                     InvalidPathDelimiterError, PathIndexingError, InvalidPathNodeError,
+                                                     PathNodeIndexError, PathCombinationError, PathCacheError,
+                                                     PathNodeMapError, PathDiscoveryError)
 
+__all__ = [
+    'APIException', 'PermissionException', 'InvalidResponseException', 'NotFoundException',
+    'SearchAPIException', 'SearchRequestException', 'RequestCreationException',
+    'RequestFailedException', 'RateLimitExceededException',
+    'RetryLimitExceededException', 'TimeoutException',
+    'APIParameterException', 'RequestCacheException', 'QueryValidationException',
+    'CoordinatorException', 'InvalidCoordinatorParameterException',
+    'SessionCreationError', 'SessionConfigurationError',
+    'SessionInitializationError', 'SessionCacheDirectoryError',
+    'LogDirectoryError', 'SecretKeyError', 'ResponseProcessingException',
+    'DataParsingException', 'InvalidDataFormatException', 'RequiredFieldMissingException',
+    'DataExtractionException', 'FieldNotFoundException', 'DataProcessingException',
+    'DataValidationException', 'OptionalDependencyImportError', 'ItsDangerousImportError',
+    'RedisImportError', 'MongoDBImportError', 'XMLToDictImportError', 'SQLAlchemyImportError',
+    'YAMLImportError', 'CryptographyImportError', 'StorageCacheException', 'KeyNotFound',
+    'PathUtilsError', 'InvalidProcessingPathError', 'InvalidComponentTypeError', 'PathSimplificationError',
+    'InvalidPathDelimiterError', 'PathIndexingError', 'InvalidPathNodeError',
+    'PathNodeIndexError', 'PathCombinationError', 'PathCacheError', 'PathNodeMapError', 'PathDiscoveryError'
+]

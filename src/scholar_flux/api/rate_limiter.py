@@ -66,7 +66,7 @@ class RateLimiter:
                                       else (self.min_interval if self.min_interval is not None
                                             else self.DEFAULT_MIN_INTERVAL)
                                      )
-            
+
         if self._last_call is not None and min_interval:
             self._wait(min_interval, self._last_call)
         # record the time we actually proceed
@@ -156,10 +156,10 @@ class RateLimiter:
 
 
 # if __name__ == "__main__":
-# 
+#
 #     def asum():
 #         return sum(range(5))
-# 
+#
 #     limiter = RateLimiter(5)
 #     for i in range(3):
 #         with limiter.rate(min_interval=2) as limiter:

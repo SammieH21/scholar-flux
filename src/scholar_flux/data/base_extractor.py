@@ -1,4 +1,4 @@
-from typing import Dict, List, Any, Optional, Union, Tuple, Sequence
+from typing import Any, Optional, Union
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import (get_nested_data, try_int,
                                 try_dict, as_list_1d,

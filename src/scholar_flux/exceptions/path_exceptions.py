@@ -35,7 +35,7 @@ class PathNodeIndexError(PathUtilsError):
 
 class PathCombinationError(PathUtilsError):
     """
-    Exception raised when performing an invalid operation during the combination of 
+    Exception raised when performing an invalid operation during the combination of
     athNodes within a PathNodeIndex
     """
     pass

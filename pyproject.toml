@@ -28,10 +28,8 @@ flake8 = "^7.3.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-[tool.flake8]
-max-line-length = 120
 [tool.ruff]
 lint.extend-select = ["C4", "NPY", "PD", "SIM", "TCH"]
-lint.ignore = ["E501", "C408"]
+lint.ignore = ["C408", "E402", "TC001",  "TC002"]
 show-fixes = true
 line-length = 120

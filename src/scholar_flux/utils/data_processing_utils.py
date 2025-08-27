@@ -1,5 +1,4 @@
 from typing import Dict, List, Tuple, Any, Optional
-import itertools
 from itertools import chain
 import re
 
@@ -359,7 +358,7 @@ class JsonNormalizer:
             if not current_group:
                 logger.debug(f"Skipping empty group for path: {current_path}")
                 continue
- 
+
             current_data_key = self.get_unique_key(current_key_str, current_group, unique_mappings_dict)
             flattened_json_dict[current_data_key].append(current_obj)
             logger.debug(f"Added data to key {current_data_key}: {str(current_obj)}")

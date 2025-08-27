@@ -1,5 +1,4 @@
 import os
-import re
 import json
 import shutil
 from typing import Union, List, Dict
@@ -23,10 +22,7 @@ class FileUtils:
         """Save an object in text format with the specified extension (if provided)."""
         filepath = FileUtils.get_filepath(filepath, ext)
         with open(filepath, 'w') as f:
-            if  isinstance(obj, (dict, list)) and dump:# and FileUtils.is_jsonable(obj):
-                obj = json.dumps(obj)
-            else:
-                obj = str(obj)
+            obj = json.dumps(obj) if  isinstance(obj, (dict, list)) and dump else str(obj)
             f.write(obj)
 
     @staticmethod

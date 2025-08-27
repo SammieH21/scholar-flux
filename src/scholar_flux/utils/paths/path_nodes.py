@@ -1,22 +1,16 @@
 # import dependencies
 from __future__ import annotations
 from typing import Union
-import re
 import logging
-from copy import deepcopy
-from types import GeneratorType
-from typing import Optional, List, Dict, DefaultDict, Union, Any, Tuple, Pattern, Set, ClassVar, Hashable, Callable, Iterable, Generator, Iterator
-from dataclasses import dataclass, field
+from typing import Any, ClassVar
+from dataclasses import dataclass
 from scholar_flux.utils.paths.processing_paths import ProcessingPath
 from scholar_flux.exceptions.path_exceptions import (
-    InvalidProcessingPathError,InvalidPathDelimiterError,
-    InvalidComponentTypeError, PathIndexingError,
+    PathIndexingError,
     InvalidPathNodeError
 )
-import importlib
 
 # Configure logging
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +22,7 @@ class PathNode:
 
     Attributes:
         path (ProcessingPath): The terminal path where the value was located
-        value (Any) The value to associate with the current path: 
+        value (Any) The value to associate with the current path:
     """
     path:ProcessingPath
     value:Any
@@ -64,7 +58,7 @@ class PathNode:
         Returns:
             ProcessingPath: A ProcessingPath instance associated with all dictionary keys
         """
-        
+
         return self.path.remove_indices()
 
     @property
@@ -80,7 +74,7 @@ class PathNode:
         """
         return self.path.group()
 
-        
+
 
     @property
     def record_index(self) -> int:
@@ -141,7 +135,7 @@ class PathNode:
         Returns:
             bool: True if self is equal to or a subset of path, otherwise False.
         """
-        return self.path < other.path or self == other 
+        return self.path < other.path or self == other
 
     def __gt__(self, other: PathNode) -> bool:
         """
@@ -165,7 +159,7 @@ class PathNode:
         Returns:
             bool: True if self is equal to or strictly contains path, otherwise False.
         """
-        return self.path > other.path or self == other 
+        return self.path > other.path or self == other
 
     def __eq__(self, other: object) -> bool:
         """Check equality with another PathNode, string, or list of strings.
@@ -176,6 +170,4 @@ class PathNode:
         Returns:
             bool: True if the objects are equal, False otherwise.
         """
-        if isinstance(other, PathNode) and self.path == other.path and self.value == other.value:
-            return True
-        return False
+        return isinstance(other, PathNode) and self.path == other.path and self.value == other.value

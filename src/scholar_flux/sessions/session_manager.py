@@ -2,7 +2,7 @@
 import datetime
 import requests
 import requests_cache
-from typing import Dict, Any, List, Optional, Annotated, Union, Type, Literal, TYPE_CHECKING
+from typing import Optional, Type, Literal, TYPE_CHECKING
 from pathlib import Path
 import logging
 from scholar_flux.exceptions.util_exceptions import (SessionCreationError,
@@ -11,7 +11,6 @@ from scholar_flux.exceptions.util_exceptions import (SessionCreationError,
                                                      SessionCacheDirectoryError)
 import scholar_flux.sessions.models.session as session_models
 from scholar_flux.utils import config_settings
-from scholar_flux.package_metadata import get_default_writable_directory
 
 from pydantic import ValidationError
 logger = logging.getLogger(__name__)

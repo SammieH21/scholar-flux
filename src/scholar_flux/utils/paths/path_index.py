@@ -9,7 +9,6 @@ from scholar_flux.exceptions.path_exceptions import (PathNodeIndexError,
                                                      PathCombinationError)
 
 from scholar_flux.utils.paths import PathSimplifier
-from types import GeneratorType
 from multiprocessing import Pool, cpu_count
 
 from scholar_flux.utils.paths import ProcessingPath, PathNode
@@ -105,7 +104,7 @@ class PathNodeIndex:
             dict[PrcoessingPath, PathNode]: All paths equal to or containing sub-paths
                                             exactly matching the specified path
         """
-        return [node for node in self.index.filter(path).values()]
+        return list(self.index.filter(path).values())
 
     def pattern_search(self, pattern: Union[str, re.Pattern]) -> list[PathNode]:
         """Attempt to find all values containing the specified pattern using regular expressions
@@ -141,7 +140,7 @@ class PathNodeIndex:
             indexed_nodes[node.record_index].add(node)
 
         if not parallel:
-            return [self.simplifier.simplify_to_row(indexed_nodes[idx],collapse=object_delimiter) for idx in indexed_nodes.keys()]
+            return [self.simplifier.simplify_to_row(indexed_nodes[idx],collapse=object_delimiter) for idx in indexed_nodes]
 
         # Prepare data for multiprocessing
         node_chunks = [(node_chunk, object_delimiter) for node_chunk in indexed_nodes.values()]
@@ -260,7 +259,7 @@ class PathNodeIndex:
             raise PathNodeIndexError(f"Normalization requires a list or dictionary. Received {type(json_records)}")
 
         record_list = json_records if isinstance(json_records, list) else [json_records]
-        path_mappings=PathDiscoverer(json_records).discover_path_elements() if isinstance(json_records,list) else {}
+        path_mappings=PathDiscoverer(record_list).discover_path_elements() if isinstance(record_list,list) else {}
 
 
         if not isinstance(path_mappings, dict) or not path_mappings:
@@ -269,7 +268,7 @@ class PathNodeIndex:
 
         logger.info(f"Discovered {len(path_mappings)} terminal paths")
         path_node_index = cls.from_path_mappings(path_mappings)
-        logger.info(f"Created path index succesfully from the provided path mappings")
+        logger.info("Created path index succesfully from the provided path mappings")
         if combine_keys:
             logger.info("Combining keys..")
             path_node_index.combine_keys()

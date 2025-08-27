@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union, Tuple, Any, Callable, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
 import json
 import requests
@@ -34,7 +34,7 @@ class BaseDataParser:
             additional_parsers (Optional[dict[str, Callable]]): Allows for the addition of
             new parsers and overrides to class methods to be used on content-type identification.
         """
-        pass 
+        pass
 
     @classmethod
     def detect_format(cls, response: requests.Response) -> str | None:

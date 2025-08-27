@@ -3,4 +3,4 @@ from scholar_flux.sessions.session_manager import SessionManager, CachedSessionM
 from scholar_flux.sessions.encryption import EncryptionPipelineFactory
 
 
-__all__ = ['SessionManager', 'CachedSessionManager', 'EncryptionPipelineFactory']
+__all__ = ['SessionManager', 'CachedSessionManager', 'EncryptionPipelineFactory', 'BaseSessionManager', 'CachedSessionConfig']

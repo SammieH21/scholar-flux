@@ -16,17 +16,17 @@ class PubMedFetchStep(WorkflowStep):
                       search_parameters: Optional[dict] = None,
                       config_parameters: Optional[dict] = None
                      ) -> "PubMedFetchStep":
-    
-        # PUBMED_FETCH takes precedence, 
+
+        # PUBMED_FETCH takes precedence,
         provider_name = self.provider_name or provider_name
-        
+
         config_parameters = (
             (config_parameters or {}) |
             (SearchAPIConfig.from_defaults(provider_name).model_dump()
              if provider_name
              else {})
         )
-                             
+
         config_parameters['request_delay'] = 0
 
         if ctx:
@@ -47,4 +47,4 @@ class PubMedFetchStep(WorkflowStep):
 
         return pubmed_fetch_step
 
-
+__all__ = ['PubMedSearchStep', 'PubMedFetchStep']

@@ -1,9 +1,7 @@
-import json
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
-from requests import Response
 
 from scholar_flux.exceptions import MongoDBImportError
-from scholar_flux.data_storage.base import BaseStorage
+from scholar_flux.data_storage.base import ABCStorage
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,7 +23,7 @@ else:
         DuplicateKeyError = Exception
         PyMongoError = Exception
 
-class MongoDBStorage(BaseStorage):
+class MongoDBStorage(ABCStorage):
     """
     Storage for managing cache with mongodb backend.
 
@@ -123,7 +121,7 @@ class MongoDBStorage(BaseStorage):
         try:
             cache_data = self.collection.find({},{"key": 1, "data": 1, "_id": 0})
             if not cache_data:
-                logger.info(f"Records not found...")
+                logger.info("Records not found...")
             else:
                 cache = {data['key']:{k:v for k,v in data.items()
                                       if k not in ('_id','cache_key')}
@@ -195,7 +193,7 @@ class MongoDBStorage(BaseStorage):
         try:
             result = self.collection.delete_many({})
             if result.deleted_count > 0:
-                 logger.debug(f"Deleted all records.")
+                 logger.debug("Deleted all records.")
             else:
                  logger.warning("No records present to delete")
         except PyMongoError as e:

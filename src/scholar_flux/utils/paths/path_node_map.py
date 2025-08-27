@@ -354,7 +354,7 @@ class PathNodeMap(UserDict[ProcessingPath,PathNode]):
             """
         if not isinstance(key,ProcessingPath):
             transformed_key = ProcessingPath.to_processing_path(key,component_types=None,delimiter=delimiter)
-            if not key is transformed_key:
+            if key is not transformed_key:
                 logger.debug(f'converted {key} --> {transformed_key}')
             return transformed_key
         return key
@@ -395,7 +395,7 @@ class PathNodeMap(UserDict[ProcessingPath,PathNode]):
             terminal_nodes = self.format_terminal_nodes(key_value_pairs)
             if len(terminal_nodes)==0:
                 return terminal_nodes
-            terminal_paths = self._keep_terminal_paths(set(node.path for node in terminal_nodes.values()))
+            terminal_paths = self._keep_terminal_paths({node.path for node in terminal_nodes.values()})
             filtered_dict = {path:node for path, node in terminal_nodes.items() if path in terminal_paths}
         except Exception as e:
             raise PathNodeMapError(f':The validation process for the input pairs failed: {e}')

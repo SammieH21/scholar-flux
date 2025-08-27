@@ -1,9 +1,8 @@
-from typing import Dict, List, Any, Optional
+from typing import Any, Optional
 from scholar_flux.utils import KeyDiscoverer, RecursiveDictProcessor, KeyFilter
-from scholar_flux.utils import get_nested_data, as_list_1d, nested_key_exists, get_nested_data
+from scholar_flux.utils import nested_key_exists
 from scholar_flux.data.base_processor import ABCDataProcessor
 
-import re
 import logging
 
 logger = logging.getLogger(__name__)

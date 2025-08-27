@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple, Set, Optional, Union, TypeVar, Hashable, Callable
+from typing import Any, Optional
 from pydantic import BaseModel
 import re
 from scholar_flux.utils.helpers import as_tuple
@@ -52,7 +52,7 @@ def format_repr_value(value: Any,
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
 
     """
-    
+
     # for basic objects, use strings, otherwise use the repr for BaseModels instead
     value = f"'{value}'" if isinstance(value, str) and not re.search(r'^[a-zA-Z_]+\(', value) else \
             (str(value) if not isinstance(value, BaseModel) else repr(value))

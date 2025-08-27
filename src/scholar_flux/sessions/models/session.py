@@ -1,13 +1,12 @@
 # /utils/models/session.py
 import datetime
 import importlib
-from datetime import timedelta
 import requests
 import requests_cache
-from typing import Dict, Any, List, Optional, Annotated, Union, ClassVar, Literal
+from typing import Optional, ClassVar, Literal
 from pathlib import Path
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 import logging
@@ -115,7 +114,7 @@ class CachedSessionConfig(BaseModel):
     def validate_backend_dependency(cls, v):
         """
         Validates the choice of backend to and raises an error if its dependency is missing.
-        If the backend has unmet dependencies, this validator will trigger a ValidationError 
+        If the backend has unmet dependencies, this validator will trigger a ValidationError
         """
 
         if not isinstance(v, str) or not v:
@@ -141,7 +140,7 @@ class CachedSessionConfig(BaseModel):
         return backend
 
     @model_validator(mode='after')
-    def validate_backend_filepath(cls, values):  
+    def validate_backend_filepath(cls, values):
         """
         Helper method for validating when file storage is a necessity vs when it's not required
         """

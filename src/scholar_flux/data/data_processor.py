@@ -1,11 +1,9 @@
-from typing import Any, Dict, List, Optional, Tuple
-from scholar_flux.utils import FileUtils
+from typing import Any, Optional
 from scholar_flux.utils import (get_nested_data, as_list_1d,
                                 unlist_1d, nested_key_exists)
 
 from scholar_flux.data import ABCDataProcessor
 from scholar_flux.exceptions import DataProcessingException
-import re
 
 import logging
 logger = logging.getLogger(__name__)
@@ -257,7 +255,7 @@ class DataProcessor(ABCDataProcessor):
 #         value_delimiter= None
 #     )
 #     processed = processor.process_page(record_test_json)
-# 
+#
 #     processor_two = DataProcessor(
 #         record_keys = {
 #             "authors.principle_investigator":["authors","principle_investigator"],
@@ -271,5 +269,5 @@ class DataProcessor(ABCDataProcessor):
 #         value_delimiter= None
 #     )
 #     processed_two = processor.process_page(record_test_json)
-# 
+#
 #     assert processed == processed_two

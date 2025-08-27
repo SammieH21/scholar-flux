@@ -42,7 +42,7 @@ class ProviderConfig(BaseModel):
 
     def search_config_defaults(self) -> dict[str, Any]:
         """
-        Convenience Method for retrieving ProviderConfig fields as a dict. Useful for 
+        Convenience Method for retrieving ProviderConfig fields as a dict. Useful for
         providing the missing information needed to create a SearchAPIConfig object for a
         provider when only the provider_name has been provided
 

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class SearchAPI(BaseAPI):
     DEFAULT_URL:str = "https://api.plos.org/search"
     DEFAULT_CACHED_SESSION: bool = False
- 
+
     def __init__(self,
                  query: Annotated[str,"keyword:'{your search term}'"],
                  base_url: Annotated[Optional[str],"Valid URL for an Article API"] = None, # SearchAPIConfig
@@ -115,7 +115,6 @@ class SearchAPI(BaseAPI):
 
         """
         self.config=search_api_config
-        url_basename = self.config.url_basename
         self.query = query
         self.last_request: Optional[float] = None
         self._rate_limiter = RateLimiter(min_interval=self.config.request_delay)
@@ -267,7 +266,6 @@ class SearchAPI(BaseAPI):
     def from_settings(cls, query: str,
                       config: SearchAPIConfig,
                       parameter_config: Optional[APIParameterConfig] = None,
-                      namespace: Optional[str] = None,
                       session:Optional[requests.Session | CachedSession] = None,
                       timeout: Optional[int | float] = None,
                       use_cache: Optional[bool] = None,
@@ -279,9 +277,10 @@ class SearchAPI(BaseAPI):
 
         Args:
             config (SearchAPIConfig): Indicates the configuration settings to be used when sending requests to APIs
-            parameter_config: Optional[APIParameterConfig] = Maps global scholar_flux parameters to those that are API specific
-            namespace: Optional[str] An optional namespace for identifying request and session cache
-            session:(Optional[requests.Session | CachedSession]): An optional session to use for the creation of request sessions
+            parameter_config: Optional[APIParameterConfig] = Maps global scholar_flux parameters to those that
+                                                             are API specific
+            session:(Optional[requests.Session | CachedSession]): An optional session to use for the creation
+                                                                  of request sessions
             timeout: (Optional[int | float]): Identifies the number of seconds to wait before raising a TimeoutError
         """
 
@@ -297,7 +296,7 @@ class SearchAPI(BaseAPI):
             use_cache = use_cache
         )
 
-        # initializes all remaining settings - 1) mask, 2, namespace
+        # initializes all remaining settings (e.g. mask, query, configs, rate limiter)
         instance._initialize(query,
                              search_api_config=config,
                              parameter_config=parameter_config,
@@ -399,14 +398,14 @@ class SearchAPI(BaseAPI):
         further customize or override parameter settings to the API. additional_parameters is offered as a convenience
         method in case an API may use additional arguments or a query requires specific advanced functionality.
 
-        Other arguments and mappings can be supplied through **api_specific_parameters to the parameter config, provided that the
-        options or pre-defined mappings exist in the config.
+        Other arguments and mappings can be supplied through **api_specific_parameters to the parameter config,
+        provided that the options or pre-defined mappings exist in the config.
 
         Args:
             page (int): The page number to request.
             additional_parameters Optional[dict]: A dictionary of additional overrides not included in the original
-            **api_specific_parameters: Additional parameters to provide to the parameter config: Note that the config will only
-                      accept keyword arguments that have been explicitly defined in the parameter map. For all
+            **api_specific_parameters: Additional parameters to provide to the parameter config: Note that the config
+                      will only accept keyword arguments that have been explicitly defined in the parameter map. For all
                       others, they must be added using the additional_parameters parameter
 .
         Returns:
@@ -452,7 +451,7 @@ class SearchAPI(BaseAPI):
         parameters required.
 
         Args:
-            page (Optional[int]): The page number to query. If provided, parameters are built from the config and this page.
+            page (Optional[int]): Page number to query. If provided, parameters are built from the config and this page.
             parameters (Optional[Dict[str, Any]]): If provided alone, used as the full parameter set for the request.
                      If provided together with `page`, these act as additional or overriding parameters on top of
                      the built config.
@@ -604,7 +603,9 @@ class SearchAPI(BaseAPI):
 
 
     @contextmanager
-    def with_config_parameters(self, provider_name: Optional[str] = None, **api_specific_parameters) -> Iterator[SearchAPI]:
+    def with_config_parameters(self,
+                               provider_name: Optional[str] = None,
+                               **api_specific_parameters) -> Iterator[SearchAPI]:
         """
         Allows for the temporary modification of the search configuration, and parameter mappings,
         and cache namespace. for the current API. Uses a contextmanager to temporarily change the provided
@@ -676,11 +677,9 @@ class SearchAPI(BaseAPI):
 
 # if __name__ == '__main__':
 #     import os
-#     core_search_config=SearchAPIConfig.from_defaults('core', api_key=os.environ['CORE_API_KEY'])
-#     core_search_config=SearchAPIConfig(base_url='https://core.com',
+#     core_search_config=SearchAPIConfig.from_defaults('core')
+#     core_search_config=SearchAPIConfig(base_url='https://api.core.ac.uk/v3/search/works',
 #                                        records_per_page = 2,
-#                                        request_delay=6, api_key=os.environ['CORE_API_KEY'])
-#     api=SearchAPI.from_defaults(query='covariate shift',provider_name='core',api_key=os.environ['CORE_API_KEY'])
+#                                        request_delay=6)
+#     api=SearchAPI.from_defaults(query='covariate shift',provider_name='core')
 #     api.api_key
-
-

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional
-from scholar_flux.api.models.provider_config import ProviderConfig 
+from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.validators import  validate_and_process_url, normalize_url
 from scholar_flux.utils.provider_utils import ProviderUtils
 from scholar_flux.exceptions import APIParameterException
@@ -24,8 +24,8 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
 
         if isinstance(key, str):
             key =  ProviderConfig._normalize_name(key)
-            return key in self.data.keys()
-        return False 
+            return key in self.data
+        return False
 
     def __getitem__(self, key: str) -> ProviderConfig:
         """

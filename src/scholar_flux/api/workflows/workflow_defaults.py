@@ -36,3 +36,4 @@ class WORKFLOW_DEFAULTS(Enum):
 
         return None
 
+__all__ = ['WORKFLOW_DEFAULTS']

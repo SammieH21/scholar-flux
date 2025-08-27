@@ -1,9 +1,5 @@
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Any, Optional, Union
 from scholar_flux.exceptions import DataExtractionException
-from scholar_flux.utils import (get_nested_data, try_int,
-                                try_dict, as_list_1d,
-                                unlist_1d
-                               )
 
 from scholar_flux.data.base_extractor import BaseDataExtractor
 
@@ -180,15 +176,12 @@ class DataExtractor(BaseDataExtractor):
                 The an element in a JSON object. if a dictionary, Is checked to determine
                 whether any of the selected key identifiers exist within it.
             key_identifiers (list | tuple):
-                              contains keys to check for. if the key exists, we'll  
+                              contains keys to check for. if the key exists, we'll
         """
-        if all([
+        return all([
             isinstance(record, dict),
-            any(True for id_key in (key_identifiers or [])
-                if any(id_key in record_key for record_key in record.keys()))
-        ]):
-            return True
-        return False
+            any(True for id_key in (key_identifiers or []) if any(id_key in record_key for record_key in record))
+        ])
 
     def extract(self, parsed_page: Union[list[dict],dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
         """
@@ -230,25 +223,25 @@ class DataExtractor(BaseDataExtractor):
 #     from scholar_flux.data import DataParser, DataExtractor
 #     api = SearchAPI(query='game theory', use_cache = True)
 #     response = api.search(page=1)
-# 
+#
 #     parser = DataParser()
 #     extractor = DataExtractor()
-# 
+#
 #     parsed_response = parser(response)
 #     records, metadata = extractor(parsed_response) if parsed_response is not None else (None, None)
-# 
+#
 #     # Example of customizing MetadataExtractor for a different data format or structure
 #     custom_record_paths:list  = [
 #        'response', 'docs'
 #     ]
-# 
+#
 #     custom_metadata_paths: list[list] = [
 #         ['response', 'numFound'],
 #         ['response', 'start'],
 #         ['response', 'maxScore']
 #     ]
-# 
+#
 #     custom_extractor = DataExtractor(record_path=custom_record_paths,
 #                                      metadata_path = custom_metadata_paths)
 #     if parsed_response is not None:
-#         records, metadata = custom_extractor.extract(parsed_response) 
+#         records, metadata = custom_extractor.extract(parsed_response)

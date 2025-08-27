@@ -1,19 +1,18 @@
 from __future__ import annotations
 import hashlib
 import logging
-from typing import Any, Dict, Optional, Union, Literal
+from typing import Any, Dict, Optional, Literal
 from urllib.parse import urlparse
 from requests import Response
-import base64
-from scholar_flux.data_storage.base import BaseStorage
+from scholar_flux.data_storage.base import ABCStorage
 from scholar_flux.data_storage.null_storage import NullStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
-from scholar_flux.utils.repr_utils import adjust_repr_padding, generate_repr
+from scholar_flux.utils.repr_utils import generate_repr
 
-from scholar_flux.exceptions import RequestFailedException,  StorageCacheException
+from scholar_flux.exceptions import StorageCacheException
 from scholar_flux.package_metadata import __version__
 import json
 
@@ -38,8 +37,8 @@ class DataCacheManager:
     - retrieve_from_response(response): Retrieves data from the cache storage based on the response if within cache.
     """
 
-    def __init__(self, cache_storage: Optional[BaseStorage] = None) -> None:
-        self.cache_storage: BaseStorage = cache_storage if cache_storage is not None else InMemoryStorage()
+    def __init__(self, cache_storage: Optional[ABCStorage] = None) -> None:
+        self.cache_storage: ABCStorage = cache_storage if cache_storage is not None else InMemoryStorage()
 
     def verify_cache(self, cache_key: Optional[str]) -> bool:
         """
@@ -77,7 +76,7 @@ class DataCacheManager:
 
         if not isinstance(cached_response, dict):
             logger.warning(
-                f'The provided cached_response is not a dictionary'
+                'The provided cached_response is not a dictionary'
             )
             return False
 

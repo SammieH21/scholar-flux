@@ -7,3 +7,6 @@ except (PackageNotFoundError, ImportError):  # Catch both  and ImportError
     __version__ = '0.0.0+local'
 
 from scholar_flux.package_metadata.directories import get_default_writable_directory
+
+__all__ = ["__version__", "get_default_writable_directory"]
+

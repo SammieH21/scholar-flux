@@ -1,6 +1,9 @@
 from scholar_flux.exceptions import ItsDangerousImportError, CryptographyImportError, SecretKeyError
 from requests_cache.serializers.pipeline import SerializerPipeline, Stage
 from requests_cache.serializers.cattrs import CattrStage
+from scholar_flux import config
+from pydantic import SecretStr
+import logging
 
 
 from typing import Optional, TYPE_CHECKING
@@ -17,11 +20,19 @@ else:
         Signer=None
         Fernet=None
 
+
+logger = logging.getLogger(__name__)
+
 class EncryptionPipelineFactory:
     def __init__(self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ''):
         """
         Helper class used to create a factory for encrypting and decrypting pipelines
-        using a secret key. 
+        using a secret key.
+
+        If no secret_key is provided, the code attempts to retrieve a secret key from the
+        SCHOLAR_FLUX_CACHE_SECRET_KEY environment variable from the config.
+
+        Otherwise a random Fernet key is generated and used to encrypt the session.
 
         Args:
             secret_key Optional[str | bytes]: The key to use for encrypting and decrypting
@@ -52,9 +63,19 @@ class EncryptionPipelineFactory:
         if a non-missing value is provided.
         If the key is None, the function will also return None
         """
+        cache_secret_key = config.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
+
+        if not key and cache_secret_key:
+            logger.debug("Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build cache‑session"
+                         " encryption pipeline")
+
+            key = (cache_secret_key.get_secret_value()
+                   if isinstance(cache_secret_key, SecretStr)
+                   else cache_secret_key)
 
         if key is None:
             return None
+
         byte_key =  key.encode('utf-8') if isinstance(key, str) else key
         if not isinstance(byte_key, bytes):
             raise SecretKeyError("secret_key must be bytes or UTF-8 string")
@@ -127,7 +148,7 @@ class EncryptionPipelineFactory:
 #     session = CachedSession(backend='filesystem',serializer=serializer)
 #     response = session.get("https://docs.python.org/3/library/typing.html")
 #     cached_response = session.get("https://docs.python.org/3/library/typing.html")
-# 
+#
 
 
 

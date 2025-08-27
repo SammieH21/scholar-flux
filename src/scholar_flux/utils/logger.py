@@ -1,13 +1,10 @@
 # utils/logger.py
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, Union, Any
-import os
-import re
+from typing import Optional
 from logging.handlers import RotatingFileHandler
 
 # for creating a function that masks URLs containing API keys:
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions import LogDirectoryError
 
@@ -18,7 +15,7 @@ from scholar_flux.exceptions import LogDirectoryError
 #         1. api keys
 #         2. emails
 #         3. authentication bearer tokens
-# 
+#
 #     Args:
 #         arg (str): A string that may or may not contain fields that we wish
 #                    to mask
@@ -28,23 +25,23 @@ from scholar_flux.exceptions import LogDirectoryError
 #     """
 #     # Assuming 'api_key' is the query parameter for the API key
 #     api_key_fields = ['api_key', 'apikey','API_KEY','APIKEY']
-# 
+#
 #     # ensure that various forms of the API key parameter are masked
 #     api_key_regex = r"([A-Za-z0-9\-_]+)"
 #     for key in api_key_fields:
 #         arg = re.sub(fr"{key} ?(\:|\=) ?'?{api_key_regex}'?", f'{key}=***', arg)
-# 
+#
 #     email_fields = ['mail', 'mailto']
-# 
+#
 #     # ensure that various forms of the API key parameter are masked
 #     email_regex = fr'[a-zA-Z0-9._%+-]+(%40|@)[a-zA-Z0-9.-]+\.[a-zA-Z]+(\.[a-zA-Z]+)?'
 #     for key in email_fields:
 #         arg = re.sub(fr"{key} ?(\:|\=) ?'?{email_regex}'?", f'{key}=***', arg)
-#     
+#
 #     bearer_regex = r"[Aa]uthorization [Bb]earer\:? *"
 #     arg = re.sub(fr"({bearer_regex}){api_key_regex}", "\\1***", arg)
 #     return arg
-# 
+#
 # ## create a class that applies the filter:class MaskAPIKeyFilter(logging.Filter):
 # # Define a custom logging filter to mask API keys in log messages
 # class MaskAPIKeyFilter(logging.Filter):
@@ -52,7 +49,7 @@ from scholar_flux.exceptions import LogDirectoryError
 #     def filter(self, record: Any):
 #         if record.args:
 #             record.args = tuple(mask_field(arg) if isinstance(arg, str) else arg for arg in record.args)
-# 
+#
 #         if isinstance(record.msg, str):
 #             record.msg = mask_field(record.msg)
 #         return True
@@ -67,11 +64,11 @@ def setup_logging(logger: Optional[logging.Logger] = None,
                   logging_filter: Optional[logging.Filter]=None):
     """
     Configure logging to write to both console and file with optional filtering.
-    
+
     Sets up a logger that outputs to both the terminal (console) and a rotating log file.
     Rotating files automatically create new files when size limits are reached, keeping
     your logs manageable.
-    
+
     Args:
         logger: The logger instance to configure. If None, uses the root logger.
         log_directory: Where to save log files. If None, automatically finds a writable directory.
@@ -80,19 +77,19 @@ def setup_logging(logger: Optional[logging.Logger] = None,
         max_bytes: Maximum size of each log file before rotating (default: 1MB).
         backup_count: Number of old log files to keep (default: 5).
         logging_filter: Optional filter to modify log messages (e.g., hide sensitive data).
-    
+
     Example:
         >>> # Basic setup - logs to console and file
         >>> setup_logging()
-        
+
         >>> # Custom location and less verbose
         >>> setup_logging(log_directory="/var/log/myapp", log_level=logging.INFO)
-        
+
         >>> # With sensitive data masking
         >>> from scholar_flux.security import MaskingFilter
         >>> mask_filter = MaskingFilter()
         >>> setup_logging(logging_filter=mask_filter)
-    
+
     Note:
         - Console shows all log messages in real-time
         - File keeps a permanent record with automatic rotation

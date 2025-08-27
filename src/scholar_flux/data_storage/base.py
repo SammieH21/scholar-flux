@@ -1,13 +1,13 @@
-from typing import Any, List, Dict, Union, Optional
+from typing import Any, List, Dict, Optional
 from abc import ABC, abstractmethod
 from scholar_flux.utils.repr_utils import generate_repr
 
 import logging
 logger = logging.getLogger(__name__)
 
-class BaseStorage(ABC):
+class ABCStorage(ABC):
     """
-    The BaseStorage class provides the basic structure required to implement
+    The ABCStorage class provides the basic structure required to implement
     the data storage cache with customized backend.
 
     This subclasss provides methods to check the cache, delete from the cache,

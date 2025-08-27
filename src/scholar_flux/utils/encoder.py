@@ -47,10 +47,7 @@ class CacheDataEncoder:
 
         # Validate by encoding and decoding
         try:
-            if base64.b64encode(base64.b64decode(s_bytes)).strip(b'=') == s_bytes.strip(b'='):
-                return True
-            else:
-                return False
+            return base64.b64encode(base64.b64decode(s_bytes)).strip(b'=') == s_bytes.strip(b'=')
         except Exception:
             return False
 

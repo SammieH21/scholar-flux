@@ -111,10 +111,10 @@ class ConfigLoader:
             dict: A dictionary of key-value pairs corresponding to environment variables
         """
         if verbose:
-            config_logger.debug(f"Attempting to load updated settings from the system environment.")
+            config_logger.debug("Attempting to load updated settings from the system environment.")
 
         updated_env_variables = {k: self._guard_secret(os.environ.get(k), k)
-                                 for k in self.config.keys()
+                                 for k in self.config
                                  if replace_all or os.environ.get(k) is not None}
         return updated_env_variables
 

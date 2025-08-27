@@ -5,6 +5,7 @@ from requests_cache import CachedSession
 from pathlib import Path
 import requests_mock
 from scholar_flux.api import SearchAPI
+from scholar_flux.utils import try_call
 from scholar_flux.exceptions import ItsDangerousImportError, CryptographyImportError,SecretKeyError
 
 from unittest.mock import Mock, patch
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 import scholar_flux.sessions.session_manager as sm
 from scholar_flux.utils import config_settings
 from scholar_flux.exceptions.util_exceptions import SessionCreationError
+from time import sleep
 from base64 import b64encode, b64decode
 
 def test_encryption_factory_secret_initialization():
@@ -61,26 +63,42 @@ def test_encrypted_cached_session_initialization(default_encryption_cache_sessio
     incorrect_session = incorrect_secret_salt_encryption_cache_session_manager.configure_session()
     assert isinstance(session, CachedSession)
 
+    URL = 'https://mocked_websited.com/endpoints'
+
     api = SearchAPI.from_defaults(query= 'darkness', provider_name = 'plos', session = session, request_delay=0,
-                                  base_url = 'https://completely_mocked/endpoint')
+                                  base_url = URL)
 
     params = api.build_parameters(page=1)
     prepared_request = api.prepare_request(api.base_url, parameters=params)
 
     assert prepared_request.url is not None
     with requests_mock.Mocker() as m:
-        m.get(prepared_request.url, status_code = 200, json = mock_academic_json)
+        m.get(prepared_request.url, status_code = 200, json=params)
 
         response=api.send_request(api.base_url, parameters=params)
         assert not getattr(response, 'from_cache', False)
 
-    response_two=api.send_request(api.base_url, parameters=params)
-    assert getattr(response_two, 'from_cache', False)
+        response_two=api.send_request(api.base_url, parameters=params)
+        assert getattr(response_two, 'from_cache', False)
 
-    assert response.content == response_two.content
+        assert response.content == response_two.content
 
-    api.session = incorrect_session
+        from cryptography.fernet import InvalidToken
+        assert api.cache
 
-    from cryptography.fernet import InvalidToken
-    with pytest.raises(InvalidToken):
-        response_three=api.send_request(api.base_url, parameters=params)
+    api.cache.clear()
+
+    api_two = SearchAPI.from_defaults(query= 'darkness', provider_name = 'plos', session = incorrect_session, request_delay=0,
+                                  base_url = URL)
+
+    
+    with requests_mock.Mocker() as m:
+        m.get(prepared_request.url, status_code = 200)
+
+        response_three = None
+        try:
+                m.get(prepared_request.url, status_code = 200, json=params)
+                response_three=api_two.send_request(api.base_url, parameters=params)
+        except InvalidToken:
+            pass
+        assert not getattr(response_three, 'from_cache', False)

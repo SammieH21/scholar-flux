@@ -4,17 +4,14 @@ from typing import Union
 import re
 import logging
 from copy import deepcopy
-from types import GeneratorType
-from typing import Optional, List, Dict, DefaultDict, Union, Any, Tuple, Pattern, Set, ClassVar, Hashable, Callable, Iterable, Generator, Iterator
+from typing import Optional, List, Tuple, Pattern, ClassVar
 from dataclasses import dataclass, field
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,InvalidPathDelimiterError,
-    InvalidComponentTypeError, PathIndexingError,
+    InvalidComponentTypeError,
 )
-import importlib
 
 # Configure logging
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -144,12 +141,12 @@ class ProcessingPath:
 
         if not component_types:
             return  None
-            
+
         if any(not p.strip() for p in component_types[1:]):
             raise InvalidProcessingPathError('Path components must be non-empty strings.')
 
-        # determine length difference between node components and 
-        component_type_length_diff = self.depth - len(component_types) 
+        # determine length difference between node components and
+        component_type_length_diff = self.depth - len(component_types)
 
         if not component_type_length_diff == 0:
 
@@ -206,7 +203,7 @@ class ProcessingPath:
 
     @classmethod
     def to_processing_path(cls, path: Union[ProcessingPath, str, List[str]],
-                           component_types: Optional[list|tuple] = None, 
+                           component_types: Optional[list|tuple] = None,
                            delimiter: Optional[str] = None,
                            infer_delimiter: bool=False) -> ProcessingPath:
         """
@@ -233,7 +230,7 @@ class ProcessingPath:
                 delimiter = cls.DEFAULT_DELIMITER
             else:
                 if isinstance(path,list):
-                    raise InvalidProcessingPathError(f'Cannot infer delimiter for list of strings')
+                    raise InvalidProcessingPathError('Cannot infer delimiter for list of strings')
                 return cls.with_inferred_delimiter(path, component_types)
 
         if isinstance(path, (str, list)):
@@ -300,7 +297,7 @@ class ProcessingPath:
                                   self.delimiter)
         elif isinstance(index, slice):
             start, stop, step = index.indices(len(self.components))
-            return ProcessingPath(self.components[start:stop:step], 
+            return ProcessingPath(self.components[start:stop:step],
                                   self.component_types[start:stop:step] if self.component_types is not None else None,
                                   self.delimiter)
         else:
@@ -322,7 +319,7 @@ class ProcessingPath:
             raise InvalidProcessingPathError('Component must be a non-empty string.')
         if self.component_types and (not isinstance(component_type, str) or not component_type):
             raise InvalidProcessingPathError('Component Type must be a non-empty string/type when a pre-existing component type is not None')
-        return ProcessingPath(self.components + (component,), 
+        return ProcessingPath(self.components + (component,),
                               self.component_types + (component_type,) if self.component_types is not None and component_type is not None else None,
                               self.delimiter)
 
@@ -410,7 +407,7 @@ class ProcessingPath:
         if not isinstance(old, (str, ProcessingPath)) or not isinstance(new, (str, ProcessingPath)):
             raise InvalidProcessingPathError(f'Replacement arguments must be strings or ProcessingPaths, received: old = {old}, new = {new}')
 
-        old = ProcessingPath.to_processing_path(old, None, self.delimiter) 
+        old = ProcessingPath.to_processing_path(old, None, self.delimiter)
         new = ProcessingPath.to_processing_path(new, component_types if self.component_types is not None else None, self.delimiter)
         if self == old:
             return new
@@ -582,10 +579,10 @@ class ProcessingPath:
         """
 
         ordered_indices, _ = zip(*sorted(enumerate(self._to_alphanum().split(self.delimiter)[1:]), key = lambda comp: comp[1]))
-        ordered_components = [self.components[i] for i in ordered_indices] 
+        ordered_components = [self.components[i] for i in ordered_indices]
         ordered_component_types = [self.component_types[i] for i in ordered_indices] if self.component_types else None
 
-        
+
         return ProcessingPath(
             ordered_components,
             ordered_component_types,
@@ -894,7 +891,7 @@ class ProcessingPath:
 
 # if __name__ == '__main__':
 #     path = ProcessingPath('a/b/c', ['list','list','terminal'],'/')
-# 
+#
 #     broken_path = '.i/<>/a/bcd%'
 #     d=ProcessingPath.infer_delimiter(broken_path)
 #     res=ProcessingPath.to_processing_path(broken_path,delimiter=d)
@@ -903,24 +900,24 @@ class ProcessingPath:
 #     res=ProcessingPath.to_processing_path(better_path,delimiter=ProcessingPath.infer_delimiter(better_path))
 #     res.depth
 #     ProcessingPath._validate_delimiter('.')
-# 
+#
 #     path_depth=ProcessingPath.to_processing_path('a.b.c',None,delimiter='.').depth
 #     path_ancestor=ProcessingPath.to_processing_path('a.b',['list','terminal'],delimiter='.')
 #     path2=ProcessingPath.to_processing_path('c.d',['list','list'],delimiter='.')
 #     path_child=ProcessingPath.to_processing_path('e.f.g',['list','list'],delimiter='.')
-# 
+#
 #     path=ProcessingPath.to_processing_path('a.b.c',None, delimiter='.')
 #     path.has_ancestor(path_ancestor)
 #     path[:-1].has_ancestor(path_ancestor)
 #     path_ancestor.is_ancestor_of(path)
-# 
+#
 #     path3 =  path2 / path_child
 #     path3.component_types
-# 
-# 
+#
+#
 #     path4 =  path3 / ProcessingPath('h',('terminal',))
 #     path4.component_types
-# 
+#
 #     paths = [
 #         ProcessingPath('a<>b'),
 #         ProcessingPath('b<>b'),
@@ -931,6 +928,6 @@ class ProcessingPath:
 #         ProcessingPath('e'),
 #         ProcessingPath('c<>b<>f<>g')
 #     ]
-# 
-# 
+#
+#
 #     ProcessingPath.keep_descendants(paths)

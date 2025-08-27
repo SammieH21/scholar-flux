@@ -1,12 +1,11 @@
-from typing import Any, List, Dict, Union, Optional
-from scholar_flux.exceptions import StorageCacheException
+from typing import Any, List, Dict, Optional
 import logging
 logger = logging.getLogger(__name__)
-from scholar_flux.data_storage.base import BaseStorage
+from scholar_flux.data_storage.base import ABCStorage
 from scholar_flux.utils.repr_utils import generate_repr_from_string
 
 
-class InMemoryStorage(BaseStorage):
+class InMemoryStorage(ABCStorage):
     """
     Default storage class that implements in-memory cache using a dictionary.
     This class provides methods to check the cache, delete from the cache,
@@ -51,8 +50,7 @@ class InMemoryStorage(BaseStorage):
 
     def retrieve_keys(self)-> Optional[List[str]]:
         """Retrieves the full list of all cache keys found within the current namespace"""
-        return list(key for key in self.memory_cache.keys()
-                    if not self.namespace or key.startswith(self.namespace)) or []
+        return [key for key in self.memory_cache if not self.namespace or key.startswith(self.namespace)] or []
 
     def update(self,key:str,data:Any) -> None:
         """Attempts to update the data associated with a specific cache key in the namespace"""
@@ -67,7 +65,7 @@ class InMemoryStorage(BaseStorage):
 
     def delete_all(self) -> None:
         """Attempts to delete all cache keys found within the current namespace"""
-        logger.debug(f"deleting all record within cache...")
+        logger.debug("deleting all record within cache...")
         try:
             n = len(self.memory_cache)
             if not self.namespace:

@@ -16,7 +16,8 @@ requirements.txt
 # Databases and Requests Caching
 **/*.sqlite
 **/requests_cache
-**/http_cache
+**/http_cache/*
+**/testing_encrypted_session_cache/*
 
 # Virtual environment
 **/.env

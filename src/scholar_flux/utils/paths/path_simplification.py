@@ -1,16 +1,14 @@
 # import dependencies)
 from __future__ import annotations
 import logging
-from typing import (Optional, List, Dict, DefaultDict, Union, Any, Tuple, Pattern, Set,
-                    ClassVar, Hashable, Callable, Iterable, Generator, Iterator, TYPE_CHECKING)
-from collections import defaultdict, UserDict
+from typing import (Optional, List, Dict, Union, Any, Set)
+from collections import defaultdict
 
-from scholar_flux.exceptions.path_exceptions import  PathSimplificationError, InvalidPathNodeError
+from scholar_flux.exceptions.path_exceptions import  PathSimplificationError
 from scholar_flux.utils import unlist_1d
 from scholar_flux.utils.paths import  ProcessingPath, PathNode
 
 # configure logging
-import logging
 logger = logging.getLogger(__name__)
 
 

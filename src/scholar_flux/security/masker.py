@@ -27,7 +27,7 @@ class SensitiveDataMasker:
     def update(self, pattern: MaskingPattern | set[MaskingPattern]) -> None:
         """adds a pattern to the self.patterns attribute"""
         if not isinstance(pattern, set):
-            pattern = set([pattern])
+            pattern = {pattern}
         self.patterns.update(pattern)
 
     def remove_pattern_by_name(self, name: str) -> int:

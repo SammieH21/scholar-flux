@@ -151,11 +151,11 @@ class SearchAPIConfig(BaseModel):
         if not parameter_map:
             return values
 
-        if not values.api_key and provider_info:
-            if api_key := cls._load_api_key(provider_info):
-                values.api_key = api_key
+        if not values.api_key:
+            # attempts to load an API key if the provider config is required and contains an API key that can be read
+            values.api_key = cls._load_api_key(provider_info)
 
-                
+
         # Remaining steps involve preparing api specific parameters based on the identified api mappings
         api_specific_parameter_mappings = parameter_map.api_specific_parameters or {}
         api_specific_parameter_values = values.api_specific_parameters or {}
@@ -276,7 +276,7 @@ class SearchAPIConfig(BaseModel):
                            f"and use the base of the URL, '{url_basename}', as the provider name. "
                            "If this is not the expected behavior, omit the `base_url` parameter entirely.")
 
-            provider_name = cls._extract_url_basename(base_url)
+            provider_name = url_basename
         elif provider_name and base_url:
             logger.info("Initializing the SearchAPIConfig non-default parameters: "
                         f"base_url={base_url} and provider_name={provider_name}")
@@ -326,7 +326,8 @@ class SearchAPIConfig(BaseModel):
         if match:
             return match.group(1)
         else:
-            return ""
+            logger.warning(f"Couldn't extract the base URL for the URL, {hostname}. Falling back to using the host name")
+            return hostname # fall back to using the hostname - more preferable than omitting entirely
 
     @property
     def url_basename(self)->str:

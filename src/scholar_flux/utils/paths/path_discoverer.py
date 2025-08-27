@@ -1,18 +1,12 @@
 from __future__ import annotations
-import re
-import copy
-from typing import Optional, Union, Any, Set, ClassVar, Generator
-from collections import defaultdict
+from typing import Optional, Union, Any, Set, ClassVar
 from dataclasses import dataclass, field
-from collections import UserDict
 from scholar_flux.exceptions.path_exceptions import PathDiscoveryError
-                                                   
 
-from types import GeneratorType
 
-from scholar_flux.utils.paths import ProcessingPath, PathNode
+
+from scholar_flux.utils.paths import ProcessingPath
 from scholar_flux.utils import is_nested
-from weakref import WeakSet
 
 import logging
 logger = logging.getLogger(__name__)
@@ -68,7 +62,7 @@ class PathDiscoverer:
         records = records or self.records
         try:
             if records is None:
-                raise ValueError(f"The value provided to 'records' is invalid: No data to process.")
+                raise ValueError("The value provided to 'records' is invalid: No data to process.")
 
             current_path = current_path or ProcessingPath(delimiter=self.DEFAULT_DELIMITER)
             self.path_mappings[current_path]=None
@@ -203,4 +197,4 @@ class PathDiscoverer:
     def clear(self):
         """Removes all path-value mappings from the self.path_mappings dictionary."""
         self.path_mappings.clear()
-        logger.debug(f'Cleared all paths from the Discoverer...')
+        logger.debug('Cleared all paths from the Discoverer...')

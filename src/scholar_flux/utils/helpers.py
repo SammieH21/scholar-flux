@@ -1,15 +1,13 @@
 import re
 import hashlib
 import requests
-from urllib.parse import urlparse
 from typing import Any, Dict, List, Tuple, Set, Optional, Union, TypeVar, Hashable, Callable
 from collections.abc import Iterable
+import logging
+logger = logging.getLogger(__name__)
 
 JSON_TYPE= TypeVar('JSON_TYPE', bound=list | dict | str | int | None)
 T = TypeVar('T', bound=Hashable)
-
-import logging
-logger = logging.getLogger(__name__)
 
 
 def quote_if_string(value: Any) -> Any:
@@ -260,7 +258,7 @@ def try_dict(value: List[Dict] | Dict) -> Optional[Dict]:
         return dict(enumerate(value))
     try:
         return dict(value)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError):
         return None
 
 

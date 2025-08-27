@@ -2,11 +2,10 @@ import logging
 from typing import Any, List, Dict, Optional, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import CacheDataEncoder
-from scholar_flux.data_storage.base import BaseStorage
+from scholar_flux.data_storage.base import ABCStorage
 from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions import SQLAlchemyImportError  # Custom exception for missing SQLAlchemy
 
-import base64
 import cattrs
 
 logger = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ else:
     except ImportError:
         # Dummies for names so code still parses, but using stubs or Nones for runtime
         create_engine = None
-        Column = lambda *a, **k: None  # type: ignore
+        def Column(*args, **kwargs): None  # type: ignore
         String = Integer = JSON = exc = func = None
         DeclarativeBase = object  # type: ignore
         sessionmaker = None
@@ -45,7 +44,7 @@ else:
     Base = None  # type: ignore
     CacheTable = None  # type: ignore
 
-class SQLAlchemyStorage(BaseStorage):
+class SQLAlchemyStorage(ABCStorage):
 
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_CONFIG: Dict[str, Any] = {
@@ -54,7 +53,7 @@ class SQLAlchemyStorage(BaseStorage):
     }
 
     def __init__(self, url: Optional[str] = None,
-                 namespace: Optional[str] = None, 
+                 namespace: Optional[str] = None,
                  ttl: None = None,
                  **sqlalchemy_config) -> None:
         """

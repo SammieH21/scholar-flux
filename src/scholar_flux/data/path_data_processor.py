@@ -1,11 +1,9 @@
-from typing import Dict, List, Any, Optional, DefaultDict, Union
-from scholar_flux.utils import (PathNodeIndex, PathNode, PathSimplifier,
-                                ProcessingPath, PathDiscoverer,
+from typing import Any, Optional, Union
+from scholar_flux.utils import (PathNodeIndex, ProcessingPath, PathDiscoverer,
                                 as_list_1d)
 from scholar_flux.data.base_processor import ABCDataProcessor
 # from scholar_flux.data.recursive_data_processor import RecursiveDataProcessor
 # from scholar_flux.data.dynamic_data_processor import DynamicDataProcessor
-from scholar_flux.utils import FileUtils
 import re
 import logging
 
@@ -144,9 +142,7 @@ class PathDataProcessor(ABCDataProcessor):
         record_pattern = '|'.join( record_keys if use_regex else map(re.escape, as_list_1d(record_keys)) )
 
         contains_record_pattern = any(re.search(record_pattern, path.to_string()) for path in record_dict) if record_pattern else None
-        if contains_record_pattern is not None and contains_record_pattern:
-            return True
-        return False
+        return bool(contains_record_pattern)
 
     def discover_keys(self) -> Optional[dict]:
         """

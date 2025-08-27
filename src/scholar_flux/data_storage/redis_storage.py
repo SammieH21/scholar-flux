@@ -1,7 +1,7 @@
 import json
 
 from scholar_flux.exceptions import RedisImportError
-from scholar_flux.data_storage.base import BaseStorage
+from scholar_flux.data_storage.base import ABCStorage
 from typing import Any, Dict, List, Optional, cast, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import CacheDataEncoder
@@ -19,7 +19,7 @@ else:
         redis = None
         RedisError = Exception
 
-class RedisStorage(BaseStorage):
+class RedisStorage(ABCStorage):
 
     DEFAULT_NAMESPACE: str = 'SFAPI'
     DEFAULT_REDIS_CONFIG = {'host':'localhost',
@@ -77,7 +77,7 @@ class RedisStorage(BaseStorage):
         """
         try:
             namespace_key = self._prefix(key)
-            cache_data = cast(Optional[str], self.client.get(namespace_key))
+            cache_data = cast('Optional[str]', self.client.get(namespace_key))
             if cache_data is None:
                 logger.info(f"Record for key {key} (namespace = '{self.namespace}') not found...")
                 return None
@@ -173,7 +173,8 @@ class RedisStorage(BaseStorage):
             if not self.namespace:
                 return None
 
-            matched_keys = [key for key in self.client.scan_iter(f"{self.namespace}:*")]
+            #matched_keys = [key for key in self.client.scan_iter(f"{self.namespace}:*")]
+            matched_keys = list(self.client.scan_iter(f"{self.namespace}:*"))
 
             for key in matched_keys:
                 self.client.delete(key)

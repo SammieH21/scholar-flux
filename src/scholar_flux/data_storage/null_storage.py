@@ -1,15 +1,13 @@
-from typing import Any, List, Dict, Union, Optional
-from abc import ABC, abstractmethod
-from scholar_flux.data_storage.base import BaseStorage
+from typing import Any, List, Dict, Optional
+from scholar_flux.data_storage.base import ABCStorage
 
 import logging
 logger = logging.getLogger(__name__)
 
-from typing import Any, Dict, List, Optional
 
-class NullStorage(BaseStorage):
+class NullStorage(ABCStorage):
     """
-    NullStorage is a no-op implementation of BaseStorage.
+    NullStorage is a no-op implementation of ABCStorage.
     Useful when you want to disable storage without changing code logic.
     """
 

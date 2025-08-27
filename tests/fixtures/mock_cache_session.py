@@ -77,8 +77,18 @@ def default_secret_salt():
     return os.urandom(16)
 
 @pytest.fixture(scope='session')
-def incorrect_secret_salt():
-    return os.urandom(15)
+def incorrect_secret_key():
+    try:
+        from cryptography.fernet import Fernet
+        return Fernet.generate_key()
+    except:
+        pytest.skip()
+
+
+@pytest.fixture(scope='session')
+def incorrect_secret_salt(default_secret_salt):
+    secret_salt = os.urandom(18)
+    return secret_salt
 
 @pytest.fixture(scope='session')
 def default_encryption_cache_session_manager(default_encryption_cache_filename,
@@ -111,12 +121,12 @@ def default_memory_cache_session(default_memory_cache_session_manager):
 def incorrect_secret_salt_encryption_cache_session_manager(default_encryption_cache_filename,
                                                            default_cache_directory,
                                                            default_encryption_serializer_pipeline,
-                                                           default_secret_key, incorrect_secret_salt
+                                                           incorrect_secret_key, incorrect_secret_salt
                                              ):
     if not default_encryption_serializer_pipeline:
         pytest.skip()
 
-    create_serializer = default_encryption_serializer_pipeline(secret_key = default_secret_key, salt = incorrect_secret_salt)
+    create_serializer = default_encryption_serializer_pipeline(secret_key = incorrect_secret_key, salt = incorrect_secret_salt)
     return sm.CachedSessionManager(user_agent="test_session",
                                    cache_name=default_encryption_cache_filename,
                                    cache_directory=default_cache_directory,

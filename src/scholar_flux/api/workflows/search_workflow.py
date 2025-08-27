@@ -2,10 +2,11 @@ from __future__ import annotations
 from pydantic import  Field, PrivateAttr
 from typing import  Dict, Any, Optional, List
 from typing_extensions import Self
-from scholar_flux.api.base_coordinator import BaseCoordinator
-from scholar_flux.api.models import ResponseResult
 import logging
 from scholar_flux.api.workflows.models import (BaseStepContext, BaseWorkflowStep, BaseWorkflow, BaseWorkflowResult)
+
+from scholar_flux.api.models import ResponseResult
+from scholar_flux.api.base_coordinator import BaseCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +82,8 @@ class SearchWorkflow(BaseWorkflow):
 
                 with search_coordinator.api.with_config_parameters(**step.config_parameters):
                     step_search_parameters = (step.search_parameters |
-                                              keyword_parameters | 
-                                              step.additional_kwargs 
+                                              keyword_parameters |
+                                              step.additional_kwargs
                                              )
                     if verbose:
                         logger.debug(f'step {i}: Config Parameters =  {search_coordinator.api.config}')
