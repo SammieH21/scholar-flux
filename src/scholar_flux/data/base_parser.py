@@ -4,6 +4,7 @@ import json
 import requests
 
 import logging
+
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     import xmltodict
@@ -19,11 +20,13 @@ else:
     except ImportError:
         yaml = None
 
+
 class BaseDataParser:
     """
     Base class reponsible for parsing typical formats seen in APIs
     that send news and academic articles in XML, JSON, and YAML formats.
     """
+
     def __init__(self):
         """
         On initialization, the data parser is set to use built-in class methods to
@@ -39,19 +42,21 @@ class BaseDataParser:
     @classmethod
     def detect_format(cls, response: requests.Response) -> str | None:
         """Helper method for determining the format corresponding to a response object"""
-        content_type = response.headers.get('Content-Type', '')
-        if 'xml' in content_type:
-            return 'xml'
-        elif 'json' in content_type:
-            return 'json'
-        elif 'yaml' in content_type or 'yml' in content_type:
-            return 'yaml'
+        content_type = response.headers.get("Content-Type", "")
+        if "xml" in content_type:
+            return "xml"
+        elif "json" in content_type:
+            return "json"
+        elif "yaml" in content_type or "yml" in content_type:
+            return "yaml"
         else:
             logger.warning("Unsupported content type: %s", content_type)
-            return 'unknown'
+            return "unknown"
 
     @classmethod
-    def parse_from_defaults(cls, response: requests.Response) -> dict | list[dict] | None:
+    def parse_from_defaults(
+        cls, response: requests.Response
+    ) -> dict | list[dict] | None:
         """
         Detects the API response format if a format is not already specified and
         uses one of the default structures to parse the data structure into a dictionary
@@ -96,18 +101,19 @@ class BaseDataParser:
     @classmethod
     def get_default_parsers(cls) -> dict[str, Callable]:
         format_parsers = {
-                    'xml': cls.parse_xml,
-                    'json': cls.parse_json,
-                    'yaml': cls.parse_yaml,
-                }
+            "xml": cls.parse_xml,
+            "json": cls.parse_json,
+            "yaml": cls.parse_yaml,
+        }
         return format_parsers
 
     def parse(self, response: requests.Response) -> dict | list[dict] | None:
         """Uses one of the default parsing methods to extract a dictionary of data from the response content"""
         return self.parse_from_defaults(response)
 
-
-    def __call__(self, response: requests.Response, *args, **kwargs) -> dict | list[dict] | None:
+    def __call__(
+        self, response: requests.Response, *args, **kwargs
+    ) -> dict | list[dict] | None:
         """
         Helper method for Parsing API response content intto dictionary (json) structure.
 
@@ -126,4 +132,4 @@ class BaseDataParser:
         Useful for showing the options being used for parsing response content into dictionary objects.
         """
         class_name = self.__class__.__name__
-        return f'{class_name}(format_parsers={self.get_default_parsers().keys()})'
+        return f"{class_name}(format_parsers={self.get_default_parsers().keys()})"

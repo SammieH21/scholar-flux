@@ -16,3 +16,4 @@ def plos_coordinator(plos_search_api):
     coordinator = SearchCoordinator(search_api=plos_search_api)
     return coordinator
 
+__all__ = ['plos_search_api', 'plos_coordinator']

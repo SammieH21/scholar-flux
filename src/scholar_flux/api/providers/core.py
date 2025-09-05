@@ -9,10 +9,10 @@ provider = ProviderConfig(
         api_key_parameter="api_key",
         api_key_required=False,
         auto_calculate_page=True,
-        ),
+    ),
     provider_name="core",
     base_url="https://api.core.ac.uk/v3/search/works",
     api_key_env_var="CORE_API_KEY",
     records_per_page=25,
-    docs_url="https://api.core.ac.uk/docs/v3#section/Welcome!"
+    docs_url="https://api.core.ac.uk/docs/v3#section/Welcome!",
 )

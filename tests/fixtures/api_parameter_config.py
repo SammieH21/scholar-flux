@@ -16,3 +16,5 @@ def default_api_parameter_config(default_api_parameter_map):
     config=APIParameterConfig(parameter_map=default_api_parameter_map)
     print("config type:",type(config))
     return config
+
+__all__ = ['default_api_parameter_map', 'default_api_parameter_config']

@@ -11,49 +11,61 @@ provider = ProviderConfig(
         auto_calculate_page=False,
         api_specific_parameters=dict(
             db=APISpecificParameter(
-                name='db',
-                description='A database to connect to for retrieving records/metadata',
+                name="db",
+                description="A database to connect to for retrieving records/metadata",
                 validator=None,
-                default = 'pubmed',
-                required = False),
+                default="pubmed",
+                required=False,
+            ),
             cmd=APISpecificParameter(
-                name='cmd',
-                description=('An optional command to run in order to enter a supported command to the query. '
-                             'Example: cmd=neighbor_history (Used to determine computational neighbors '
-                             'during an Entrez search)'),
+                name="cmd",
+                description=(
+                    "An optional command to run in order to enter a supported command to the query. "
+                    "Example: cmd=neighbor_history (Used to determine computational neighbors "
+                    "during an Entrez search)"
+                ),
                 validator=None,
-                required = False),
+                required=False,
+            ),
             query_key=APISpecificParameter(
-                name='query_key',
-                description=('The key associated with the previous esearch. When use_history is enabled for an '
-                             'esearch, this parameter, when provided together with the WebEnv parameter, allows '
-                             'for the retrieval of abstracts/metadata associated with the previous search term. '
-                             'without the explicit specification of article Ids'),
+                name="query_key",
+                description=(
+                    "The key associated with the previous esearch. When use_history is enabled for an "
+                    "esearch, this parameter, when provided together with the WebEnv parameter, allows "
+                    "for the retrieval of abstracts/metadata associated with the previous search term. "
+                    "without the explicit specification of article Ids"
+                ),
                 validator=None,
-                required = False),
+                required=False,
+            ),
             WebEnv=APISpecificParameter(
-                name='WebEnv',
-                description=('The environment corresponding to previously executed searches: used to retrieve '
-                             'associated abstracts and articles without needing to specify manually them by ID'),
+                name="WebEnv",
+                description=(
+                    "The environment corresponding to previously executed searches: used to retrieve "
+                    "associated abstracts and articles without needing to specify manually them by ID"
+                ),
                 validator=None,
-                required = False),
+                required=False,
+            ),
             id=APISpecificParameter(
-                name='id',
-                description='Ids corresponding to the metadata and abstracts of publications',
-                default = None,
+                name="id",
+                description="Ids corresponding to the metadata and abstracts of publications",
+                default=None,
                 validator=None,
-                required = False),
+                required=False,
+            ),
             retmode=APISpecificParameter(
-                name='retmode',
-                description='The format to retrieve',
-                default = 'xml',
+                name="retmode",
+                description="The format to retrieve",
+                default="xml",
                 validator=None,
-                required = False)
-        )
+                required=False,
+            ),
+        ),
     ),
     provider_name="pubmed_efetch",
     base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
     api_key_env_var="PUBMED_API_KEY",
     records_per_page=20,
-    docs_url="https://www.ncbi.nlm.nih.gov/books/NBK25499/"
+    docs_url="https://www.ncbi.nlm.nih.gov/books/NBK25499/",
 )

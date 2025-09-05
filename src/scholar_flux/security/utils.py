@@ -1,5 +1,6 @@
-from typing import  Any, Optional
+from typing import Any, Optional
 from pydantic import SecretStr
+
 
 class SecretUtils:
     @staticmethod
@@ -13,7 +14,11 @@ class SecretUtils:
             obj (SecretStr): A SecretStr representation of the oiginal object
         """
 
-        return obj if isinstance(obj, SecretStr) else SecretStr(str(obj)) if obj is not None else obj
+        return (
+            obj
+            if isinstance(obj, SecretStr)
+            else SecretStr(str(obj)) if obj is not None else obj
+        )
 
     @staticmethod
     def unmask_secret(obj: Any) -> Any:
@@ -27,4 +32,3 @@ class SecretUtils:
         """
 
         return obj.get_secret_value() if isinstance(obj, SecretStr) else obj
-

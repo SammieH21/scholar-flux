@@ -28,8 +28,9 @@ class RateLimiter:
             min_interval: Minimum seconds between successive calls.
         """
 
-
-        self.min_interval = self._validate(min_interval if min_interval is not None else self.DEFAULT_MIN_INTERVAL)
+        self.min_interval = self._validate(
+            min_interval if min_interval is not None else self.DEFAULT_MIN_INTERVAL
+        )
         self._last_call: float | int | None = None
 
     @staticmethod
@@ -39,8 +40,10 @@ class RateLimiter:
         that is also greater than or equal to 0
         """
         if not isinstance(min_interval, (int, float)):
-            raise APIParameterException("min_interval must be an number greater than or "
-                                        f"equal to 0. Received value {min_interval}")
+            raise APIParameterException(
+                "min_interval must be an number greater than or "
+                f"equal to 0. Received value {min_interval}"
+            )
         if min_interval < 0:
             raise APIParameterException("min_interval must be non-negative")
         return min_interval
@@ -62,10 +65,15 @@ class RateLimiter:
             APIParameterException: Occurs if the value provided is either not an integer/float or is less than 0
         """
 
-        min_interval = self._validate(min_interval if min_interval is not None
-                                      else (self.min_interval if self.min_interval is not None
-                                            else self.DEFAULT_MIN_INTERVAL)
-                                     )
+        min_interval = self._validate(
+            min_interval
+            if min_interval is not None
+            else (
+                self.min_interval
+                if self.min_interval is not None
+                else self.DEFAULT_MIN_INTERVAL
+            )
+        )
 
         if self._last_call is not None and min_interval:
             self._wait(min_interval, self._last_call)
@@ -96,7 +104,6 @@ class RateLimiter:
             logger.info(f"RateLimiter: sleeping {remaining:.2f}s to respect rate limit")
             time.sleep(remaining)
 
-
     def __call__(self, fn):
         """
         Rate limits the current function when used as a decorator. Can be
@@ -108,10 +115,12 @@ class RateLimiter:
             def send_request(...):
                 ...
         """
+
         @wraps(fn)
         def wrapped(*args, **kwargs):
             self.wait()
             return fn(*args, **kwargs)
+
         return wrapped
 
     def __enter__(self):
@@ -147,12 +156,11 @@ class RateLimiter:
         """
         current_min_interval = self.min_interval
         try:
-             self.wait(min_interval)
-             yield self
+            self.wait(min_interval)
+            yield self
 
         finally:
             self.min_interval = current_min_interval
-
 
 
 # if __name__ == "__main__":

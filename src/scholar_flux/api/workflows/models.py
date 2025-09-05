@@ -11,9 +11,14 @@ logger = logging.getLogger(__name__)
 class BaseStepContext(BaseModel):
     """Base class for step contexts"""
 
+
 class BaseWorkflowStep(BaseModel):
     """Base class for workflow steps"""
-    additional_kwargs: Dict[str, Any] = Field(default_factory=dict, description="Optional keyword parameters to specify for this step.")
+
+    additional_kwargs: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional keyword parameters to specify for this step.",
+    )
 
     def pre_transform(self, ctx: Any, *args, **kwargs) -> Self:
         return self.model_copy()
@@ -21,8 +26,10 @@ class BaseWorkflowStep(BaseModel):
     def post_transform(self, ctx: Any, *args, **kwargs) -> Any:
         return ctx
 
+
 class BaseWorkflowResult(BaseModel):
     """Base class for returning the results from a Workflow"""
+
 
 class BaseWorkflow(BaseModel, ABC):
     def _run(self, *positional_parameters, **keyword_parameters) -> BaseWorkflowResult:

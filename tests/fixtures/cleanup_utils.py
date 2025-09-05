@@ -12,3 +12,5 @@ def cleanup(tmp_path):
         for name in dirs:
             os.rmdir(os.path.join(root, name))
 
+
+__all__ = ['cleanup']

@@ -151,7 +151,12 @@ def sqlite_db_url():
     return 'sqlite:///' + str(sqlite_db_url)
 
 
-#def test_default_cache_session(default_cache_session):
-#    assert default_cache_session is not None
-
-
+__all__= ['default_cache_session_manager', 'default_cache_session',
+          'default_seconds_cache_expiration', 'default_backend',
+          'default_cache_filename', 'default_cache_directory',
+          'default_memory_cache_session_manager', 'default_memory_cache_session',
+          'default_encryption_cache_session', 'default_secret_salt',
+          'default_secret_key', 'default_encryption_cache_session_manager',
+          'default_encryption_cache_filename', 'default_encryption_serializer_pipeline',
+          'incorrect_secret_key', 'incorrect_secret_salt',
+          'incorrect_secret_salt_encryption_cache_session_manager', 'sqlite_db_url']

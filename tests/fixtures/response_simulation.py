@@ -21,6 +21,34 @@ def mock_response():
     return response
 
 @pytest.fixture
+def mock_successful_response():
+    """Create a response object that simulates a 429 rate limit exceeded error"""
+    mock_response = Response()
+    mock_response.status_code = 200
+    return mock_response
+
+@pytest.fixture
+def mock_internal_error_response():
+    """Create a response object that simulates a 500 internal error"""
+    mock_response = Response()
+    mock_response.status_code = 500
+    return mock_response
+
+@pytest.fixture
+def mock_unauthorized_response():
+    """Create a response object that simulates a 401 unauthorized error"""
+    mock_response = Response()
+    mock_response.status_code = 401
+    return mock_response
+
+@pytest.fixture
+def mock_rate_limit_exceeded_response():
+    """Create a response object that simulates a 429 rate limit exceeded error"""
+    mock_response = Response()
+    mock_response.status_code = 429
+    return mock_response
+
+@pytest.fixture
 def mock_cache_storage_data():
     """Test data for cache operations."""
     return {
@@ -89,7 +117,7 @@ def mock_pubmed_search_response(mock_pubmed_search_data) -> Response:
     mock_response._content = mock_pubmed_search_data['_content'].encode('utf-8')
     mock_response.headers.update({'Content-Type': "text/xml"})
     mock_response.encoding = "UTF-8"
-    
+
     return cast(Response, mock_response)
 
 
@@ -104,7 +132,7 @@ def mock_pubmed_fetch_response(mock_pubmed_fetch_data) -> Response:
     mock_response._content = mock_pubmed_fetch_data['_content'].encode('utf-8')
     mock_response.headers.update({'Content-Type': "text/xml"})
     mock_response.encoding = "UTF-8"
-    
+
     return cast(Response, mock_response)
 
 
@@ -121,7 +149,7 @@ def academic_json_response(mock_academic_json) -> Response:
     mock_response._content = json.dumps(mock_academic_json).encode('utf-8')
     mock_response.headers.update({"Content-Type": "application/json"})
     mock_response.encoding = "utf-8"
-    
+
     return cast(Response, mock_response)
 
 @pytest.fixture
@@ -138,5 +166,15 @@ def mock_academic_json_response(mock_academic_json) -> Response:
     mock_response.json.return_value = mock_academic_json
     mock_response.headers = {"Content-Type": "application/json"}
     mock_response.raise_for_status = lambda: 200
-    
+
     return cast(Response, mock_response)
+
+__all__ = ['mock_response', 'mock_cache_storage_data', 'mock_academic_json_path',
+           'mock_pubmed_search_json_path', 'mock_pubmed_fetch_json_path',
+           'mock_academic_json', 'mock_successful_response',
+           'mock_internal_error_response', 'mock_unauthorized_response',
+           'mock_rate_limit_exceeded_response', 'mock_academic_json_response',
+           'academic_json_response', 'mock_pubmed_search_data',
+           'mock_pubmed_fetch_data', 'mock_pubmed_search_endpoint',
+           'mock_pubmed_fetch_endpoint', 'mock_pubmed_search_response',
+           'mock_pubmed_fetch_response']

@@ -12,10 +12,10 @@ provider = ProviderConfig(
         auto_calculate_page=True,
         api_specific_parameters=dict(
             mailto=APISpecificParameter(
-                name='mailto',
+                name="mailto",
                 description="An optional contact email for API usagefeedback (must be a valid email address",
                 validator=validate_and_process_email,
-                required = False
+                required=False,
             ),
         ),
     ),
@@ -23,5 +23,5 @@ provider = ProviderConfig(
     base_url="https://api.crossref.org/works",
     api_key_env_var="CROSSREF_API_KEY",
     records_per_page=25,
-    docs_url="https://www.crossref.org/documentation/retrieve-metadata/rest-api/"
+    docs_url="https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
 )

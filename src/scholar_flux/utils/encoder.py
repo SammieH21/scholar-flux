@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class CacheDataEncoder:
     """
     A utility class to encode data into a base64 string representation or decode it back from base64.
@@ -14,7 +15,9 @@ class CacheDataEncoder:
     """
 
     @staticmethod
-    def is_base64(s: Union[str, bytes], hash_prefix: Optional[str] ='<hashbytes>') -> bool:
+    def is_base64(
+        s: Union[str, bytes], hash_prefix: Optional[str] = "<hashbytes>"
+    ) -> bool:
         """
         Check if a given string is a valid base64 encoded string.
 
@@ -27,9 +30,13 @@ class CacheDataEncoder:
         """
         if isinstance(s, str):
             # removes the hash_prefix if it exists, then encodes the data
-            hash_prefix = hash_prefix or ''
-            s_fmt = s.replace(hash_prefix, '', 1) if hash_prefix and s.startswith(hash_prefix) else s
-            s_bytes = s_fmt.encode('utf-8')
+            hash_prefix = hash_prefix or ""
+            s_fmt = (
+                s.replace(hash_prefix, "", 1)
+                if hash_prefix and s.startswith(hash_prefix)
+                else s
+            )
+            s_bytes = s_fmt.encode("utf-8")
         elif isinstance(s, bytes):
             s_bytes = s
         else:
@@ -47,12 +54,14 @@ class CacheDataEncoder:
 
         # Validate by encoding and decoding
         try:
-            return base64.b64encode(base64.b64decode(s_bytes)).strip(b'=') == s_bytes.strip(b'=')
+            return base64.b64encode(base64.b64decode(s_bytes)).strip(
+                b"="
+            ) == s_bytes.strip(b"=")
         except Exception:
             return False
 
     @staticmethod
-    def is_nonreadable(s: bytes, p = .5) -> bool:
+    def is_nonreadable(s: bytes, p=0.5) -> bool:
         """
         Check if a decoded string contains a high percentage of non-printable characters.
 
@@ -64,10 +73,12 @@ class CacheDataEncoder:
             bool: True if the string is likely gibberish, False otherwise.
         """
         non_printable_count = sum(1 for c in s if not (32 <= c <= 126))
-        return non_printable_count > 1 and non_printable_count / len(s) > p  # Threshold set at a proportion of p non-printable characters
+        return (
+            non_printable_count > 1 and non_printable_count / len(s) > p
+        )  # Threshold set at a proportion of p non-printable characters
 
     @staticmethod
-    def encode(data: Any, hash_prefix: Optional[str] ='<hashbytes>') -> Any:
+    def encode(data: Any, hash_prefix: Optional[str] = "<hashbytes>") -> Any:
         """
         Encode data to a base64 string representation or dictionary.
 
@@ -86,18 +97,22 @@ class CacheDataEncoder:
 
         if isinstance(data, bytes):
             try:
-                hash_prefix = hash_prefix or ''
-                return hash_prefix + base64.b64encode(data).decode('utf-8')
+                hash_prefix = hash_prefix or ""
+                return hash_prefix + base64.b64encode(data).decode("utf-8")
             except Exception as e:
                 logger.error(f"Error encoding bytes to base64: {e}")
                 raise ValueError("Failed to encode bytes to base64.") from e
 
         elif isinstance(data, dict):
             try:
-                return {key: CacheDataEncoder.encode(value) for key, value in data.items()}
+                return {
+                    key: CacheDataEncoder.encode(value) for key, value in data.items()
+                }
             except Exception as e:
                 logger.error(f"Error encoding a dictionary element to base64: {e}")
-                raise ValueError("Failed to encode dictionary element to base64.") from e
+                raise ValueError(
+                    "Failed to encode dictionary element to base64."
+                ) from e
 
         elif isinstance(data, list):
             try:
@@ -113,12 +128,10 @@ class CacheDataEncoder:
                 logger.error(f"Error encoding a tuple element to base64: {e}")
                 raise ValueError("Failed to encode tuple element to base64.") from e
 
-
-
         return data  # Return unmodified non-encodable types
 
     @staticmethod
-    def decode(data: Any, hash_prefix: Optional[str] ='<hashbytes>') -> Any:
+    def decode(data: Any, hash_prefix: Optional[str] = "<hashbytes>") -> Any:
         """
         Decode base64 string back to bytes or recursively decode elements within dictionaries and lists.
 
@@ -135,12 +148,20 @@ class CacheDataEncoder:
         if data is None:
             return None
 
-        if isinstance(hash_prefix, str) and isinstance(data,str) and not data.startswith(hash_prefix):
+        if (
+            isinstance(hash_prefix, str)
+            and isinstance(data, str)
+            and not data.startswith(hash_prefix)
+        ):
             return data
 
         if isinstance(data, str):
             try:
-                data_fmt = data.replace(hash_prefix, '', 1) if hash_prefix is not None else data
+                data_fmt = (
+                    data.replace(hash_prefix, "", 1)
+                    if hash_prefix is not None
+                    else data
+                )
                 if not CacheDataEncoder.is_base64(data_fmt):
                     return data
 
@@ -149,15 +170,21 @@ class CacheDataEncoder:
                     return data  # Return original if decoded data is likely gibberish
                 return decoded_bytes
             except (ValueError, TypeError) as e:
-                logger.error(f"Invalid or malformed base64 data; returning original input. {e}")
+                logger.error(
+                    f"Invalid or malformed base64 data; returning original input. {e}"
+                )
                 return data  # Return original if decoding error occurs
 
         elif isinstance(data, dict):
             try:
-                return {key: CacheDataEncoder.decode(value) for key, value in data.items()}
+                return {
+                    key: CacheDataEncoder.decode(value) for key, value in data.items()
+                }
             except Exception as e:
                 logger.error(f"Error decoding a dictionary element from base64: {e}")
-                raise ValueError("Failed to decode dictionary element from base64.") from e
+                raise ValueError(
+                    "Failed to decode dictionary element from base64."
+                ) from e
 
         elif isinstance(data, list):
             try:
@@ -175,7 +202,8 @@ class CacheDataEncoder:
 
         return data  # Return unmodified non-decodable types
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Example usage of CacheDataEncoder class
     try:
         original_data = b"example data"
@@ -195,4 +223,3 @@ if __name__ == '__main__':
 
     except ValueError as e:
         logger.error(f"An error occurred: {e}")
-

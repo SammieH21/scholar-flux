@@ -14,6 +14,7 @@ class MaskingPattern(Protocol):
     The base class for creating MaskingPattern objects
     that can be used to mask fields based on defined rules
     """
+
     name: str
 
     @abstractmethod
@@ -53,6 +54,7 @@ class MaskingPattern(Protocol):
         """
         pass
 
+
 @dataclass(frozen=True)
 class KeyMaskingPattern(MaskingPattern):
     """
@@ -85,13 +87,14 @@ class KeyMaskingPattern(MaskingPattern):
             text (str): The text to clean of sensitive fields
         """
         flags = re.IGNORECASE if self.ignore_case else 0
-        pattern = fr"{re.escape(self.field)}\s*[:\=]\s*'?{self.pattern}'?"
+        pattern = rf"{re.escape(self.field)}\s*[:\=]\s*'?{self.pattern}'?"
         replacement = f"{self.field}={self.replacement}"
         return re.sub(pattern, replacement, text, flags=flags)
 
     def _identity_key(self) -> str:
         """Identifies the current pattern based on name, field, pattern, and class"""
         return str((type(self).__name__, self.name, self.field, self.pattern))
+
 
 @dataclass(frozen=True)
 class StringMaskingPattern(MaskingPattern):
@@ -119,7 +122,7 @@ class StringMaskingPattern(MaskingPattern):
     def __post_init__(self):
         """Uses the mask_pattern field to determine whether or not to mask a particular string"""
         if self.mask_pattern and not isinstance(self.pattern, SecretStr):
-            object.__setattr__(self, 'pattern', SecretUtils.mask_secret(self.pattern))
+            object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))
 
     def apply_masking(self, text: str) -> str:
         """
@@ -142,7 +145,10 @@ class StringMaskingPattern(MaskingPattern):
 
     def _identity_key(self) -> str:
         """Identifies the current pattern based on name, field, pattern, and class"""
-        return str((type(self).__name__, self.name, SecretUtils.unmask_secret(self.pattern)))
+        return str(
+            (type(self).__name__, self.name, SecretUtils.unmask_secret(self.pattern))
+        )
+
 
 class MaskingPatternSet(set[MaskingPattern]):
     def __init__(self):
@@ -153,14 +159,14 @@ class MaskingPatternSet(set[MaskingPattern]):
             raise TypeError(f"Expected a MaskingPattern, got {type(item)}")
         super().add(item)
 
-    def update(self, *others: Iterable[MaskingPattern])-> None:
+    def update(self, *others: Iterable[MaskingPattern]) -> None:
         for patterns in others:
             if isinstance(patterns, MaskingPattern):
                 super().add(patterns)
             else:
                 for element in patterns:
                     if not isinstance(element, MaskingPattern):
-                        raise TypeError(f"Expected a masking pattern, received type {type(others)}")
+                        raise TypeError(
+                            f"Expected a masking pattern, received type {type(others)}"
+                        )
                 super().update(patterns)
-
-

@@ -1,10 +1,17 @@
 from typing import List, Optional, Set, Any
 from pydantic import SecretStr
-from scholar_flux.security.patterns import MaskingPattern, MaskingPatternSet, KeyMaskingPattern, StringMaskingPattern
+from scholar_flux.security.patterns import (
+    MaskingPattern,
+    MaskingPatternSet,
+    KeyMaskingPattern,
+    StringMaskingPattern,
+)
 from scholar_flux.security.utils import SecretUtils
+
 
 class SensitiveDataMasker:
     """Container for masking patterns, each with a name."""
+
     def __init__(self, register_defaults: bool = True):
         """
         Initializes the SensitiveDataMasker for registering and applying different masking patterns,
@@ -40,7 +47,9 @@ class SensitiveDataMasker:
         """Get all patterns with a specific name."""
         return {p for p in self.patterns if p.name == name}
 
-    def add_sensitive_key_patterns(self, name: str, fields: List[str] | str, **kwargs) -> None:
+    def add_sensitive_key_patterns(
+        self, name: str, fields: List[str] | str, **kwargs
+    ) -> None:
         """
         Adds patterns that identify potentially sensitive strings with the aim of filtering
         them from logs.
@@ -64,7 +73,9 @@ class SensitiveDataMasker:
             pattern = KeyMaskingPattern(name=name, field=field, **kwargs)
             self.add_pattern(pattern)
 
-    def add_sensitive_string_patterns(self, name: str, patterns: List[str] | str, **kwargs) -> None:
+    def add_sensitive_string_patterns(
+        self, name: str, patterns: List[str] | str, **kwargs
+    ) -> None:
         """
         Adds patterns that identify potentially sensitive strings with the aim of filtering
         them from logs.
@@ -83,12 +94,14 @@ class SensitiveDataMasker:
             mask_pattern = StringMaskingPattern(name=name, pattern=pattern, **kwargs)
             self.add_pattern(mask_pattern)
 
-    def register_secret_if_exists(self,
-                                field: str,
-                                value: SecretStr | Any,
-                                name: Optional[str] = None,
-                                use_regex: bool = False,
-                                ignore_case: bool = True) -> bool:
+    def register_secret_if_exists(
+        self,
+        field: str,
+        value: SecretStr | Any,
+        name: Optional[str] = None,
+        use_regex: bool = False,
+        ignore_case: bool = True,
+    ) -> bool:
         """
         Identifies fields already registered as secret strings and adds a relevant
         pattern for ensuring that the field, when unmasked for later use, doesn't
@@ -125,13 +138,13 @@ class SensitiveDataMasker:
                 name=name or field,
                 pattern=value,
                 use_regex=use_regex,
-                ignore_case=ignore_case
+                ignore_case=ignore_case,
             )
             self.add_pattern(mask_pattern)
             return True
         return False
 
-    def _register_api_defaults(self)->None:
+    def _register_api_defaults(self) -> None:
         """
         Contains the default fields that will be used to remove sensitive strings
         and parameters such as API keys, emails, etc. from text/logs.
@@ -140,19 +153,19 @@ class SensitiveDataMasker:
         for scrubbing text/logs
         """
         self.add_sensitive_key_patterns(
-            name='api_key',
-            fields=['api_key', 'apikey', 'API_KEY', 'APIKEY'],
-            pattern=r"[A-Za-z0-9\-_]+"
+            name="api_key",
+            fields=["api_key", "apikey", "API_KEY", "APIKEY"],
+            pattern=r"[A-Za-z0-9\-_]+",
         )
         self.add_sensitive_key_patterns(
-            name='emails',
-            fields=['email', 'mail', 'mailto'],
-            pattern=r'[a-zA-Z0-9._%+-]+(@|%40)[a-zA-Z0-9.-]+\.[a-zA-Z]+'
+            name="emails",
+            fields=["email", "mail", "mailto"],
+            pattern=r"[a-zA-Z0-9._%+-]+(@|%40)[a-zA-Z0-9.-]+\.[a-zA-Z]+",
         )
         self.add_sensitive_string_patterns(
-            name='auth_headers',
-            patterns=[r'[Aa]uthorization\s*:\s*[Bb]earer\s+[A-Za-z0-9\-_]+'],
-            replacement='Authorization: Bearer ***'
+            name="auth_headers",
+            patterns=[r"[Aa]uthorization\s*:\s*[Bb]earer\s+[A-Za-z0-9\-_]+"],
+            replacement="Authorization: Bearer ***",
         )
 
     def mask_text(self, text: str) -> str:
@@ -203,5 +216,3 @@ class SensitiveDataMasker:
 
         """
         return SecretUtils.unmask_secret(obj)
-
-

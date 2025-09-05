@@ -1,6 +1,7 @@
 import pytest
 import json
 import datetime
+from textwrap import dedent
 from unittest.mock import patch
 from requests import Response
 from scholar_flux.api.retry_handler import RetryHandler
@@ -48,12 +49,27 @@ def test_execute_with_retry_max_retries_exceeded():
         result = handler.execute_with_retry(request_func)
     assert isinstance(result, Response) and result.status_code == 503
 
-def test_execute_with_retry_non_retryable_status():
+def test_execute_with_retry_non_retryable_status(caplog):
     handler = RetryHandler()
     response = response_factory(400)
     request_func = lambda: response
     result = handler.execute_with_retry(request_func)
     assert isinstance(result, Response) and result.status_code == 400
+    assert f"Request is a {type(response_factory())}, status_code=400" in caplog.text
+
+def test_nonresponse(caplog):
+    handler = RetryHandler()
+    value = 'a nonresponse'
+    with pytest.raises(RequestFailedException):
+        handler.execute_with_retry(value) #type:ignore
+
+def test_repr():
+    handler = RetryHandler()
+    assert repr(handler) == dedent(f"RetryHandler(max_retries={handler.max_retries},\n"
+                                   f"             backoff_factor={handler.backoff_factor},\n"
+                                   f"             max_backoff={handler.max_backoff},\n"
+                                   f"             retry_statuses={handler.retry_statuses})")
+
 
 def test_execute_with_retry_exception():
     handler = RetryHandler()
@@ -120,7 +136,7 @@ def test_log_retry_attempt_and_warning(caplog):
     with caplog.at_level("INFO"):
         handler.log_retry_attempt(2, 503)
         assert "Retrying in 2 seconds" in caplog.text
-        assert "503" in caplog.text
+        assert "due to status 503" in caplog.text
     with caplog.at_level("WARNING"):
         handler.log_retry_warning("warn!")
         assert "warn!" in caplog.text

@@ -1,26 +1,30 @@
-from typing import  Optional, Dict, Any
+from typing import Optional, Dict, Any
 import requests
 from urllib.parse import urljoin
 import logging
-from scholar_flux.exceptions import (RequestCreationException,
-                                     SessionCreationError,
-                                     APIParameterException)
+from scholar_flux.exceptions import (
+    RequestCreationException,
+    SessionCreationError,
+    APIParameterException,
+)
 
 from requests_cache import CachedSession
 from scholar_flux.sessions import SessionManager, CachedSessionManager
 
 logger = logging.getLogger(__name__)
 
+
 class BaseAPI:
     DEFAULT_TIMEOUT: int = 20
     DEFAULT_USE_CACHE: bool = False
 
-    def __init__(self,
-                 user_agent: Optional[str] = None,
-                 session: Optional[requests.Session] = None,
-                 timeout: Optional[int | float] = None,
-                 use_cache: Optional[bool] = None
-                ):
+    def __init__(
+        self,
+        user_agent: Optional[str] = None,
+        session: Optional[requests.Session] = None,
+        timeout: Optional[int | float] = None,
+        use_cache: Optional[bool] = None,
+    ):
         """
         Initializes the Base Api by defining the url that will contain the necessary setup logic to
         set up or use an existing session via dependency injection.
@@ -34,27 +38,32 @@ class BaseAPI:
                                         create a regular requests.Session unless a CachedSession is already provided.
         """
 
-        self.session: requests.Session = self.configure_session(session, user_agent, use_cache)
-        self.timeout = self._validate_timeout(timeout if timeout is not None else self.DEFAULT_TIMEOUT)
+        self.session: requests.Session = self.configure_session(
+            session, user_agent, use_cache
+        )
+        self.timeout = self._validate_timeout(
+            timeout if timeout is not None else self.DEFAULT_TIMEOUT
+        )
 
     @staticmethod
-    def _validate_timeout(timeout: int | float)-> int | float:
+    def _validate_timeout(timeout: int | float) -> int | float:
         if not isinstance(timeout, (int, float)) or timeout <= 0:
             raise APIParameterException(f"Invalid timeout value: {timeout}")
         return timeout
+
     @property
-    def user_agent(self)->Optional[str]:
+    def user_agent(self) -> Optional[str]:
         """
         The User-Agent should always reflect what is used in the session:
             this method retrieves the user agent from the session directly
         """
-        user_agent=self.session.headers.get('User-Agent')
+        user_agent = self.session.headers.get("User-Agent")
         if isinstance(user_agent, bytes):
-            return user_agent.decode('utf-8')
+            return user_agent.decode("utf-8")
         return user_agent
 
     @user_agent.setter
-    def user_agent(self,user_agent: Optional[str])->None:
+    def user_agent(self, user_agent: Optional[str]) -> None:
         """
         This property setter is used to directly update the session header without
         the need to update the user agent in both the session and the BaseAPI class.
@@ -62,14 +71,14 @@ class BaseAPI:
         in addition.
         """
         if user_agent:
-            self.session.headers.update({'User-Agent': user_agent})
+            self.session.headers.update({"User-Agent": user_agent})
 
-
-    def configure_session(self,
-                          session: Optional[requests.Session] = None,
-                          user_agent: Optional[str] = None,
-                          use_cache: Optional[bool] = None
-                         ) -> requests.Session:
+    def configure_session(
+        self,
+        session: Optional[requests.Session] = None,
+        user_agent: Optional[str] = None,
+        use_cache: Optional[bool] = None,
+    ) -> requests.Session:
         """
         Creates a session object if one does not already exist: If use_cache = True, then a cached session
         object will be used - a regular session if not already cached, will be overridden if the session
@@ -88,15 +97,22 @@ class BaseAPI:
             headers = session.headers if isinstance(session, requests.Session) else {}
 
             if user_agent:
-                headers['User-Agent'] = user_agent
+                headers["User-Agent"] = user_agent
 
             # caching is disabled by default if use_cache is not directly specified, a session is not specified,
             # and the DEFAULT_USE_CACHE class variable (which will only apply to new sessions) is set to False.
 
-            if all([use_cache is True or (use_cache is None and self.DEFAULT_USE_CACHE is True),
-                    not isinstance(session, CachedSession)]):
+            if all(
+                [
+                    use_cache is True
+                    or (use_cache is None and self.DEFAULT_USE_CACHE is True),
+                    not isinstance(session, CachedSession),
+                ]
+            ):
                 logger.debug("Creating a cached session for the BaseAPI.")
-                session = CachedSessionManager(user_agent = user_agent, backend='memory').configure_session()
+                session = CachedSessionManager(
+                    user_agent=user_agent, backend="memory"
+                ).configure_session()
 
             # create a regular non-cached session and override only if `use_cache` is explicitly set to False
             if use_cache is False and isinstance(session, CachedSession):
@@ -106,7 +122,7 @@ class BaseAPI:
             # initialize a default session if session is not already created
             if not session:
                 logger.debug("Creating a regular session for the BaseAPI.")
-                session = SessionManager(user_agent = user_agent).configure_session()
+                session = SessionManager(user_agent=user_agent).configure_session()
 
             if headers:
                 session.headers.update(headers)
@@ -114,11 +130,16 @@ class BaseAPI:
             return session
         except Exception as e:
             logger.error("An unexpected error occurred during session initialization.")
-            raise SessionCreationError(f"A new session could not be created successfully: {e}")
+            raise SessionCreationError(
+                f"A new session could not be created successfully: {e}"
+            )
 
-
-
-    def prepare_request(self, base_url: str, endpoint: Optional[str] = None, parameters: Optional[Dict[str, Any]] = None) -> requests.PreparedRequest:
+    def prepare_request(
+        self,
+        base_url: str,
+        endpoint: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> requests.PreparedRequest:
         """
         Prepares a GET request for the specified endpoint with optional parameters.
 
@@ -134,16 +155,22 @@ class BaseAPI:
             url = urljoin(base_url, endpoint) if endpoint else base_url
             parameters = parameters or {}
 
-            request = requests.Request('GET', url, params = parameters)
+            request = requests.Request("GET", url, params=parameters)
             prepared_request = request.prepare()
         except Exception as e:
-            raise RequestCreationException(f"The request could not be prepared for base_url={base_url}, endpoint={endpoint}: {e}")
+            raise RequestCreationException(
+                f"The request could not be prepared for base_url={base_url}, endpoint={endpoint}: {e}"
+            )
 
         return prepared_request
 
-    def send_request(self, base_url: str, endpoint: Optional[str] = None,
-                     parameters: Optional[Dict[str, Any]] = None,
-                     timeout: Optional[int | float] = None) -> requests.Response:
+    def send_request(
+        self,
+        base_url: str,
+        endpoint: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        timeout: Optional[int | float] = None,
+    ) -> requests.Response:
         """
         Sends a GET request to the specified endpoint with optional parameters.
 
@@ -157,9 +184,11 @@ class BaseAPI:
             requests.Response: The response object.
         """
 
-        timeout = self._validate_timeout(timeout if timeout is not None else self.timeout)
+        timeout = self._validate_timeout(
+            timeout if timeout is not None else self.timeout
+        )
 
-        prepared_request = self.prepare_request(base_url,endpoint, parameters)
+        prepared_request = self.prepare_request(base_url, endpoint, parameters)
         base_url = urljoin(base_url, endpoint) if endpoint else base_url
 
         logger.debug(f"Sending request to {base_url}")
@@ -172,7 +201,7 @@ class BaseAPI:
             raise
 
     @staticmethod
-    def _validate_parameters(parameters: dict[str,Any]) -> dict[str,Any]:
+    def _validate_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
         """
         Helper for validating parameters provided to the API at run-time:
         in the event that the parameters are valid, the function returns them as is.
@@ -201,5 +230,3 @@ class BaseAPI:
         """Helper method for identifying the configuration for the BaseAPI"""
         class_name = self.__class__.__name__
         return f"{class_name}(session={self.session.__class__}, timeout={self.timeout})"
-
-

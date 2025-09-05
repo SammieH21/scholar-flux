@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, Optional, Literal
 from urllib.parse import urlparse
 from requests import Response
-from scholar_flux.data_storage.base import ABCStorage
+from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.data_storage.null_storage import NullStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
@@ -17,6 +17,7 @@ from scholar_flux.package_metadata import __version__
 import json
 
 logger = logging.getLogger(__name__)
+
 
 class DataCacheManager:
     """
@@ -38,7 +39,9 @@ class DataCacheManager:
     """
 
     def __init__(self, cache_storage: Optional[ABCStorage] = None) -> None:
-        self.cache_storage: ABCStorage = cache_storage if cache_storage is not None else InMemoryStorage()
+        self.cache_storage: ABCStorage = (
+            cache_storage if cache_storage is not None else InMemoryStorage()
+        )
 
     def verify_cache(self, cache_key: Optional[str]) -> bool:
         """
@@ -62,9 +65,10 @@ class DataCacheManager:
         return False
 
     @staticmethod
-    def _verify_cached_response(cache_key: str,
-                                cached_response: Dict[str, Any]) -> bool:
-        """ Verifies whether the cache key matches the key from cached_response (if available)
+    def _verify_cached_response(
+        cache_key: str, cached_response: Dict[str, Any]
+    ) -> bool:
+        """Verifies whether the cache key matches the key from cached_response (if available)
             Note that this method expects that a cache key is provided
         Args:
             cache_key (str): The unique identifier for cached data.
@@ -75,28 +79,29 @@ class DataCacheManager:
         """
 
         if not isinstance(cached_response, dict):
-            logger.warning(
-                'The provided cached_response is not a dictionary'
-            )
+            logger.warning("The provided cached_response is not a dictionary")
             return False
 
-        cached_response_key = cached_response.get('cache_key')
+        cached_response_key = cached_response.get("cache_key")
         if not cached_response_key:
             logger.warning(
-                f'The provided cached key from the provided cached response (key={cached_response_key}) is empty'
+                f"The provided cached key from the provided cached response (key={cached_response_key}) is empty"
             )
             return False
 
         if cached_response_key != cache_key:
             logger.warning(
-                f'The provided cached response (key={cached_response_key}) is not associated with the provided cache key {cache_key}'
+                f"The provided cached response (key={cached_response_key}) is not associated with the provided cache key {cache_key}"
             )
             return False
         return True
 
-
-    def cache_is_valid(self, cache_key: str, response: Response,
-                       cached_response: Optional[Dict[str, Any]] = None) -> bool:
+    def cache_is_valid(
+        self,
+        cache_key: str,
+        response: Response,
+        cached_response: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """
         Determines whether the cached data for a given key is still valid.
 
@@ -119,14 +124,16 @@ class DataCacheManager:
             current_cached_response = self.cache_storage.retrieve(cache_key) or {}
 
         current_hash = self.generate_response_hash(response)
-        previous_hash = current_cached_response.get('response_hash')
+        previous_hash = current_cached_response.get("response_hash")
 
         if current_hash != previous_hash:
             logger.info(f"Cached data is outdated for key: {cache_key}")
             return False
 
         if current_cached_response.get("processed_response") is None:
-            logger.info(f"Previously processed response is missing for recorded cache key: {cache_key}")
+            logger.info(
+                f"Previously processed response is missing for recorded cache key: {cache_key}"
+            )
             return False
 
         logger.info(f"Cached data is valid for key: {cache_key}")
@@ -141,7 +148,7 @@ class DataCacheManager:
         metadata: Optional[Dict[str, Any]] = None,
         extracted_records: Optional[Any] = None,
         processed_response: Optional[Any] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Updates the cache storage with new data.
@@ -155,15 +162,18 @@ class DataCacheManager:
             processed_response: Optional; The response data processed for specific use. Defaults to None.
             kwargs: Optional additional hashable dictionary fields that can be stored using sql cattrs encodings or in-memory cache.
         """
-        self.cache_storage.update(cache_key,{
-            'response_hash': self.generate_response_hash(response),
-            'status_code':response.status_code,
-            'raw_response': response.content if store_raw else None,
-            'parsed_response': parsed_response,
-            'extracted_records': extracted_records,
-            'processed_response': processed_response,
-            'metadata': metadata
-        } | dict(**kwargs)
+        self.cache_storage.update(
+            cache_key,
+            {
+                "response_hash": self.generate_response_hash(response),
+                "status_code": response.status_code,
+                "raw_response": response.content if store_raw else None,
+                "parsed_response": parsed_response,
+                "extracted_records": extracted_records,
+                "processed_response": processed_response,
+                "metadata": metadata,
+            }
+            | dict(**kwargs),
         )
 
         logger.debug(f"Cache updated for key: {cache_key}")
@@ -186,9 +196,10 @@ class DataCacheManager:
                 logger.warning(f"Record for key {cache_key} not found...")
             return result
         except Exception as e:
-            logger.error(f"Error encountered during attempted retrieval from cache: {e}")
+            logger.error(
+                f"Error encountered during attempted retrieval from cache: {e}"
+            )
             raise StorageCacheException
-
 
     def retrieve_from_response(self, response: Response) -> Optional[Dict[str, Any]]:
         """
@@ -218,8 +229,9 @@ class DataCacheManager:
             self.cache_storage.delete(cache_key)
             logger.debug("Cache key deleted successfuly")
         except KeyError:
-            logger.warning(f"A record for the cache key: '{cache_key}', did not exist...")
-
+            logger.warning(
+                f"A record for the cache key: '{cache_key}', did not exist..."
+            )
 
     @staticmethod
     def generate_fallback_cache_key(response: Response) -> str:
@@ -235,7 +247,9 @@ class DataCacheManager:
         parsed_url = urlparse(response.url)
         simplified_url = f"{parsed_url.netloc}{parsed_url.path}"
         status_code = response.status_code
-        cache_key = hashlib.sha256(f"{simplified_url}_{status_code}".encode()).hexdigest()
+        cache_key = hashlib.sha256(
+            f"{simplified_url}_{status_code}".encode()
+        ).hexdigest()
         logger.debug(f"Generated fallback cache key: {cache_key}")
         return cache_key
 
@@ -266,9 +280,16 @@ class DataCacheManager:
         return cls(NullStorage())
 
     @classmethod
-    def with_storage(cls,
-                     storage: Optional[Literal['redis', 'sql', 'sqlalchemy', 'mongodb', 'pymongo',
-                                               'inmemory', 'null']] = None, *args, **kwargs) -> DataCacheManager:
+    def with_storage(
+        cls,
+        storage: Optional[
+            Literal[
+                "redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "null"
+            ]
+        ] = None,
+        *args,
+        **kwargs,
+    ) -> DataCacheManager:
         """
         Creates a DataCacheManager using a known storage device
 
@@ -281,24 +302,23 @@ class DataCacheManager:
         if not isinstance(storage, str):
             raise StorageCacheException(
                 "The chosen storage device for caching processed responses is not valid. Expected a valid string"
-                                       )
+            )
         match storage.lower():
-            case 'inmemory':
+            case "inmemory":
                 return cls(InMemoryStorage(*args, **kwargs))
-            case 'sql' | 'sqlalchemy':
+            case "sql" | "sqlalchemy":
                 return cls(SQLAlchemyStorage(*args, **kwargs))
-            case 'mongodb' | 'pymongo':
+            case "mongodb" | "pymongo":
                 return cls(MongoDBStorage(*args, **kwargs))
-            case 'redis':
+            case "redis":
                 return cls(RedisStorage(*args, **kwargs))
-            case 'null' | None:
+            case "null" | None:
                 return cls.null()
             case _:
                 raise StorageCacheException(
                     "The chosen storage device does not exist. Expected one of the following:"
                     " ['redis', 'sql', 'mongodb', 'inmemory', 'null']"
                 )
-
 
     def __bool__(self) -> bool:
         """
@@ -329,9 +349,7 @@ class DataCacheManager:
 
         obj_repr = repr(obj)
         class_name = obj.__class__.__name__
-        is_default_repr = (
-            obj_repr.startswith(f"<{class_name}") and " at 0x" in obj_repr
-        )
+        is_default_repr = obj_repr.startswith(f"<{class_name}") and " at 0x" in obj_repr
         if is_default_repr:
             state = json.dumps(obj.__dict__, sort_keys=True, default=str)
             combined = f"{package_version}:{class_name}:{state}"
@@ -347,9 +365,7 @@ class DataCacheManager:
         return generate_repr(self)
 
 
-
-if __name__ == '__main__':
-    import scholar_flux
-    redis = scholar_flux.DataCacheManager.with_storage('redis')
-    print(redis)
-print("DONE")
+# if __name__ == '__main__':
+#     import scholar_flux
+#     redis = scholar_flux.DataCacheManager.with_storage('redis')
+#     print(redis)

@@ -10,31 +10,46 @@ from scholar_flux.security import SensitiveDataMasker
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
-config_logger = logging.getLogger('ConfigLoader')
+config_logger = logging.getLogger("ConfigLoader")
+
 
 class ConfigLoader:
-    DEFAULT_ENV_PATH: Path = Path(__file__).resolve().parent.parent / '.env'  # Default directory for the package env file
+    DEFAULT_ENV_PATH: Path = (
+        Path(__file__).resolve().parent.parent / ".env"
+    )  # Default directory for the package env file
 
     # Values already present within the environment before loading
     DEFAULT_ENV: Dict[str, Any] = {
-        'SPRINGER_NATURE_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('SPRINGER_NATURE_API_KEY')),
-        'CROSSREF_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('CROSSREF_API_KEY')),
-        'CORE_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('CORE_API_KEY')),
-        'PUBMED_API_KEY': SensitiveDataMasker.mask_secret(os.getenv('PUBMED_API_KEY')),
-        'SCHOLAR_FLUX_CACHE_SECRET_KEY': SensitiveDataMasker.mask_secret(os.getenv('SCHOLAR_FLUX_CACHE_SECRET_KEY')),
-        'SCHOLAR_FLUX_CACHE_DIRECTORY': os.getenv('SCHOLAR_FLUX_CACHE_DIRECTORY') or None,
-        'SCHOLAR_FLUX_LOG_DIRECTORY': os.getenv('SCHOLAR_FLUX_LOG_DIRECTORY') or None,
-        'SCHOLAR_FLUX_LOG_LEVEL': os.getenv('SCHOLAR_FLUX_LOG_LEVEL') or 'DEBUG',
-        'DEFAULT_SCHOLAR_FLUX_PROVIDER': os.getenv('DEFAULT_SCHOLAR_FLUX_PROVIDER') or 'plos'
+        "SPRINGER_NATURE_API_KEY": SensitiveDataMasker.mask_secret(
+            os.getenv("SPRINGER_NATURE_API_KEY")
+        ),
+        "CROSSREF_API_KEY": SensitiveDataMasker.mask_secret(
+            os.getenv("CROSSREF_API_KEY")
+        ),
+        "CORE_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("CORE_API_KEY")),
+        "PUBMED_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("PUBMED_API_KEY")),
+        "SCHOLAR_FLUX_CACHE_SECRET_KEY": SensitiveDataMasker.mask_secret(
+            os.getenv("SCHOLAR_FLUX_CACHE_SECRET_KEY")
+        ),
+        "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY")
+        or None,
+        "SCHOLAR_FLUX_LOG_DIRECTORY": os.getenv("SCHOLAR_FLUX_LOG_DIRECTORY") or None,
+        "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL") or "DEBUG",
+        "DEFAULT_SCHOLAR_FLUX_PROVIDER": os.getenv("DEFAULT_SCHOLAR_FLUX_PROVIDER")
+        or "plos",
     }
 
     def __init__(self, env_path: Optional[Path | str] = None):
         """Utility class for loading environment variables from the operating system and .env files"""
 
         self.env_path: Path = self._process_env_path(env_path)
-        self.config: Dict[str, Any] = self.DEFAULT_ENV.copy()  # Use a copy to avoid modifying the class attribute
+        self.config: Dict[str, Any] = (
+            self.DEFAULT_ENV.copy()
+        )  # Use a copy to avoid modifying the class attribute
 
-    def try_loadenv(self, env_path: Optional[Path | str]=None, verbose: bool = False) -> Optional[Dict[str, Any]]:
+    def try_loadenv(
+        self, env_path: Optional[Path | str] = None, verbose: bool = False
+    ) -> Optional[Dict[str, Any]]:
         """
         Try to load environment variables from a specified .env file into the environment and return as a dict.
         """
@@ -43,13 +58,17 @@ class ConfigLoader:
             return dotenv_values(env_path)
         else:
             if verbose:
-                config_logger.debug(f"No environment file located at {env_path}. Loading defaults.")
+                config_logger.debug(
+                    f"No environment file located at {env_path}. Loading defaults."
+                )
             return {}
 
-    def load_dotenv(self,
-                    env_path: Optional[Path | str] = None,
-                    replace_all: bool = False,
-                    verbose: bool = False) -> dict:
+    def load_dotenv(
+        self,
+        env_path: Optional[Path | str] = None,
+        replace_all: bool = False,
+        verbose: bool = False,
+    ) -> dict:
         """
         Retrieves a list of nonmissing environment variables from the current .env file that are non-null
         Args:
@@ -63,20 +82,28 @@ class ConfigLoader:
         env_path = self._process_env_path(env_path or self.env_path)
 
         if verbose:
-            config_logger.debug(f"Attempting to load environment file located at {env_path}.")
+            config_logger.debug(
+                f"Attempting to load environment file located at {env_path}."
+            )
 
         env_config = self.try_loadenv(env_path, verbose=False)
 
         if env_config:
-            config_env_variables = {k: self._guard_secret(v, k)
-                                    for k, v in env_config.items()
-                                    if replace_all or v is not None}
+            config_env_variables = {
+                k: self._guard_secret(v, k)
+                for k, v in env_config.items()
+                if replace_all or v is not None
+            }
             return config_env_variables
 
         return {}
 
     @staticmethod
-    def _guard_secret(value: Any, key: str | int, matches: list | tuple = ('API_KEY', 'SECRET', 'MAIL')) -> Any | SecretStr:
+    def _guard_secret(
+        value: Any,
+        key: str | int,
+        matches: list | tuple = ("API_KEY", "SECRET", "MAIL"),
+    ) -> Any | SecretStr:
         """
         Helper method to flag and guard the values of api keys, secrets, and likely email addresses by transforming
         them into secret strings if they are non-missing
@@ -90,14 +117,14 @@ class ConfigLoader:
 
         """
         if isinstance(value, str) and matches is not None:
-            return (SensitiveDataMasker.mask_secret(value)
-                    if re.search('|'.join(matches), str(key)) and value is not None
-                    else value)
+            return (
+                SensitiveDataMasker.mask_secret(value)
+                if re.search("|".join(matches), str(key)) and value is not None
+                else value
+            )
         return value
 
-    def load_os_env(self,
-                    replace_all: bool = False,
-                    verbose: bool = False) -> dict:
+    def load_os_env(self, replace_all: bool = False, verbose: bool = False) -> dict:
         """
         Load any updated configuration settings from variables set within the system environment.
         The configuration setting must already exist in the config to be updated if available.
@@ -111,30 +138,37 @@ class ConfigLoader:
             dict: A dictionary of key-value pairs corresponding to environment variables
         """
         if verbose:
-            config_logger.debug("Attempting to load updated settings from the system environment.")
+            config_logger.debug(
+                "Attempting to load updated settings from the system environment."
+            )
 
-        updated_env_variables = {k: self._guard_secret(os.environ.get(k), k)
-                                 for k in self.config
-                                 if replace_all or os.environ.get(k) is not None}
+        updated_env_variables = {
+            k: self._guard_secret(os.environ.get(k), k)
+            for k in self.config
+            if replace_all or os.environ.get(k) is not None
+        }
         return updated_env_variables
 
-    def load_config(self, reload_env: bool = False,
-                    env_path: Optional[Path | str] = None,
-                    reload_os_env: bool = False,
-                    verbose: bool= False) -> None:
+    def load_config(
+        self,
+        reload_env: bool = False,
+        env_path: Optional[Path | str] = None,
+        reload_os_env: bool = False,
+        verbose: bool = False,
+    ) -> None:
         """
         Load configuration settings from a .env file.
         Optionally attempt to reload newly set environment variables from the OS
         """
 
-        os_config = self.load_os_env(verbose = verbose) if reload_os_env else {}
-        dotenv_config = self.load_dotenv(env_path, verbose = verbose) if reload_env else {}
+        os_config = self.load_os_env(verbose=verbose) if reload_os_env else {}
+        dotenv_config = (
+            self.load_dotenv(env_path, verbose=verbose) if reload_env else {}
+        )
 
         config_env_variables = os_config | dotenv_config
 
-        self.update_config(config_env_variables, verbose = verbose)
-
-
+        self.update_config(config_env_variables, verbose=verbose)
 
     def update_config(self, env_dict: dict[str, Any], verbose: bool = False) -> None:
         """
@@ -142,7 +176,9 @@ class ConfigLoader:
         with the provided dictionary of environment variable key-value pairs
         """
         if verbose and env_dict:
-            config_logger.debug("Updating the following variables into the config settings:", env_dict)
+            config_logger.debug(
+                "Updating the following variables into the config settings:", env_dict
+            )
         self.config.update(env_dict)
 
     def save_config(self, env_path: Optional[Path | str] = None) -> None:
@@ -154,7 +190,13 @@ class ConfigLoader:
             if value is not None:
                 self.write_key(key, value, env_path)
 
-    def write_key(self, key_name: str, key_value: str, env_path: Optional[Path | str] = None, create: bool = True) -> None:
+    def write_key(
+        self,
+        key_name: str,
+        key_value: str,
+        env_path: Optional[Path | str] = None,
+        create: bool = True,
+    ) -> None:
         """
         Write a key-value pair to a .env file.
         """
@@ -175,9 +217,9 @@ class ConfigLoader:
         raw_env_path = Path(str(env_path))
         return raw_env_path.resolve() if raw_env_path.exists() else cls.DEFAULT_ENV_PATH
 
+
 # # Example usage
 # if __name__ == "__main__":
 #     config_loader = ConfigLoader()
 #     config_loader.load_config(reload_env=True)
 #     config_loader.save_config()
-

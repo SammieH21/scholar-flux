@@ -6,7 +6,9 @@ from scholar_flux.exceptions.api_exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr
 
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class ProviderConfig(BaseModel):
     """
@@ -26,6 +28,7 @@ class ProviderConfig(BaseModel):
         api_key_env_var (Optional[str]): Indicates the environment variable to look for if the API requires or accepts API keys
         docs_url: (Optional[str]): An optional URL that indicates where documentation related to the use of the API can be found
     """
+
     provider_name: str
     base_url: str
     parameter_map: BaseAPIParameterMap
@@ -33,9 +36,9 @@ class ProviderConfig(BaseModel):
     request_delay: float = 6.1
     api_key_env_var: Optional[str] = None
     docs_url: Optional[str] = None
-    model_config: ClassVar[ConfigDict]  = ConfigDict(str_strip_whitespace=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(str_strip_whitespace=True)
 
-    @field_validator('provider_name', mode='after')
+    @field_validator("provider_name", mode="after")
     def normalize_provider_name(cls, v: str) -> str:
         """Helper method for normalizing the names of providers to a consistent structure"""
         return cls._normalize_name(v)
@@ -50,24 +53,29 @@ class ProviderConfig(BaseModel):
             (dict): A dictionary containing the URL, name, records_per_page, and request_delay
                     for the current provider.
         """
-        return self.model_dump(include={'provider_name', 'base_url', 'records_per_page', 'request_delay'})
+        return self.model_dump(
+            include={"provider_name", "base_url", "records_per_page", "request_delay"}
+        )
 
-    @field_validator('base_url')
+    @field_validator("base_url")
     def validate_base_url(cls, v: str) -> str:
         """Validates the current url and raises a APIParameterException if invalid"""
         if not isinstance(v, str) or not validate_url(v):
             logger.error(f"The URL provided to the ProviderConfig is invalid: {v}")
-            raise APIParameterException(f"The URL provided to the ProviderConfig is invalid: {v}")
-        return cls._normalize_url(v, normalize_https = False)
+            raise APIParameterException(
+                f"The URL provided to the ProviderConfig is invalid: {v}"
+            )
+        return cls._normalize_url(v, normalize_https=False)
 
-    @field_validator('docs_url')
+    @field_validator("docs_url")
     def validate_docs_url(cls, v: Optional[str]) -> Optional[str]:
         """Validates the documentation url and raises a APIParameterException if invalid"""
         if v is not None and not validate_url(v):
             logger.error(f"The URL provided to the ProviderConfig is invalid: {v}")
-            raise APIParameterException(f"The URL provided to the ProviderConfig is invalid: {v}")
-        return cls._normalize_url(v, normalize_https = False) if v is not None else None
-
+            raise APIParameterException(
+                f"The URL provided to the ProviderConfig is invalid: {v}"
+            )
+        return cls._normalize_url(v, normalize_https=False) if v is not None else None
 
     @staticmethod
     def _normalize_name(provider_name: str) -> str:
@@ -77,7 +85,7 @@ class ProviderConfig(BaseModel):
         Args:
             provider_name (str): The name of the provider to normalize
         """
-        return provider_name.lower().replace('_','').strip()
+        return provider_name.lower().replace("_", "").strip()
 
     @staticmethod
     def _normalize_url(url: str, normalize_https: bool = True) -> str:

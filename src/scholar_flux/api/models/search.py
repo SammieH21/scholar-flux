@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel,  Field, field_validator, SecretStr, model_validator
+from pydantic import BaseModel, Field, field_validator, SecretStr, model_validator
 from typing import Optional, Any, ClassVar
 from urllib.parse import urlparse
 from scholar_flux.api.validators import validate_url
@@ -13,6 +13,7 @@ import re
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class SearchAPIConfig(BaseModel):
     """
@@ -34,42 +35,55 @@ class SearchAPIConfig(BaseModel):
 
     """
 
-    provider_name: str = Field(default='', description="Provider Name or Base URL for the article API")
-    base_url: str = Field( default='', description="Base URL for the article API")
-    records_per_page: int = Field(20, ge=0, le=1000, description="Number of records per page (1-1000)")
-    request_delay: float = Field( 6.1, ge=0, description="Minimum delay between requests in seconds")
-    api_key: Optional[SecretStr] = Field(None,description="API key if required")
-    api_specific_parameters: Optional[dict[str, Any]] = Field(default=None,
-                                                            description=("Additional parameters specific to the current"
-                                                                         "API to add to the configuration.")
-                                                           )
+    provider_name: str = Field(
+        default="", description="Provider Name or Base URL for the article API"
+    )
+    base_url: str = Field(default="", description="Base URL for the article API")
+    records_per_page: int = Field(
+        20, ge=0, le=1000, description="Number of records per page (1-1000)"
+    )
+    request_delay: float = Field(
+        6.1, ge=0, description="Minimum delay between requests in seconds"
+    )
+    api_key: Optional[SecretStr] = Field(None, description="API key if required")
+    api_specific_parameters: Optional[dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Additional parameters specific to the current"
+            "API to add to the configuration."
+        ),
+    )
     DEFAULT_RECORDS_PER_PAGE: ClassVar[int] = 25
     DEFAULT_REQUEST_DELAY: ClassVar[float] = 6.1
-    DEFAULT_PROVIDER: ClassVar[str] = 'PLOS'
+    DEFAULT_PROVIDER: ClassVar[str] = "PLOS"
     MAX_API_KEY_LENGTH: ClassVar[int] = 512
 
-    @field_validator("provider_name",mode="before")
+    @field_validator("provider_name", mode="before")
     def validate_provider_name(cls, v: Optional[str]) -> str:
         """Validates the api key attribute  and triggers a validation error if not valid"""
 
         if v is None:
-            return ''
+            return ""
 
         if not isinstance(v, str):
-            raise ValueError(f"Incorrect type received for the provider_name. Expected None or string, received ({type(v)})")
+            raise ValueError(
+                f"Incorrect type received for the provider_name. Expected None or string, received ({type(v)})"
+            )
         return v.strip()
 
     @field_validator("base_url", mode="before")
     def validate_url_type(cls, v: Optional[str]) -> str:
         """Validates the type for the base url attribute and triggers a validation error if  invalid"""
         if v is None:
-            return ''
+            return ""
 
         if not isinstance(v, str):
-            raise ValueError(f"Incorrect type received for the base_url. Expected None or string, received ({type(v)})")
+            raise ValueError(
+                f"Incorrect type received for the base_url. Expected None or string, received ({type(v)})"
+            )
         return v.strip()
 
-    @field_validator('base_url',mode='after')
+    @field_validator("base_url", mode="after")
     def validate_url(cls, v: str):
         """Validates the current url and triggers a validation error if invalid"""
         if v and not validate_url(v):
@@ -77,24 +91,28 @@ class SearchAPIConfig(BaseModel):
             raise ValueError(f"The URL provided to the SearchAPIConfig is invalid: {v}")
         return v
 
-    @field_validator("request_delay",mode="before")
+    @field_validator("request_delay", mode="before")
     def set_default_request_delay(cls, v: Optional[int | float]):
         """
         Sets the request_delay (delay between each request):
         Triggers a validation error when request delay is an invalid type.
         Otherwise uses the DEFAULT_REQUEST_DELAY class attribute  if the supplied value is missing or is a negative number
         """
-        if v is not None and not isinstance(v, (int,float)):
-            raise ValueError(f"Incorrect type received for the request delay parameter. Expected integer or float, received ({type(v)})")
+        if v is not None and not isinstance(v, (int, float)):
+            raise ValueError(
+                f"Incorrect type received for the request delay parameter. Expected integer or float, received ({type(v)})"
+            )
         if v is None or v < 0:
-            return  cls.DEFAULT_REQUEST_DELAY
+            return cls.DEFAULT_REQUEST_DELAY
 
         if v == 0:
-            logger.warning("Request delay is 0: this may result in a `Too Many Requests` (429) status code "
-                           "if several requests are sent in succession")
+            logger.warning(
+                "Request delay is 0: this may result in a `Too Many Requests` (429) status code "
+                "if several requests are sent in succession"
+            )
         return v
 
-    @field_validator("records_per_page",mode="before")
+    @field_validator("records_per_page", mode="before")
     def set_records_per_page(cls, v: Optional[int]):
         """
         Sets the records_per_page parameter with the default if the supplied value is not valid:
@@ -102,12 +120,14 @@ class SearchAPIConfig(BaseModel):
         Otherwise uses the DEFAULT_RECORDS_PER_PAGE class attribute if the supplied value is missing or is a negative number
         """
         if v is not None and not isinstance(v, int):
-            raise ValueError(f"Incorrect type received for the records_per_page parameter. Expected integer, received ({type(v)})")
+            raise ValueError(
+                f"Incorrect type received for the records_per_page parameter. Expected integer, received ({type(v)})"
+            )
         if v is None or v < 0:
-            return  cls.DEFAULT_RECORDS_PER_PAGE
+            return cls.DEFAULT_RECORDS_PER_PAGE
         return v
 
-    @field_validator("api_key",mode="before")
+    @field_validator("api_key", mode="before")
     def validate_api_key(cls, v: Optional[SecretStr | str]) -> Optional[SecretStr]:
         """Validates the api key attribute  and triggers a validation error if not valid"""
 
@@ -115,20 +135,30 @@ class SearchAPIConfig(BaseModel):
             return v
 
         if not isinstance(v, (str, SecretStr)):
-            raise ValueError(f"Incorrect type received for the api_key. Expected None or string, received ({type(v)})")
+            raise ValueError(
+                f"Incorrect type received for the api_key. Expected None or string, received ({type(v)})"
+            )
 
         key = v.get_secret_value() if isinstance(v, SecretStr) else v
 
         if not key:
-            raise ValueError("Received an empty string as an api_key, expected None or a non-empty string")
+            raise ValueError(
+                "Received an empty string as an api_key, expected None or a non-empty string"
+            )
 
         if len(key) > cls.MAX_API_KEY_LENGTH:
-            raise ValueError(f"The received api_key is more than {cls.MAX_API_KEY_LENGTH} characters long - verify that the api_key is correct")
+            raise ValueError(
+                f"The received api_key is more than {cls.MAX_API_KEY_LENGTH} characters long - verify that the api_key is correct"
+            )
 
         if len(key) < 20:
-            logger.warning("The received api_key is less than 20 characters long - verify that the api_key is correct")
+            logger.warning(
+                "The received api_key is less than 20 characters long - verify that the api_key is correct"
+            )
         elif len(key) > 256:
-            logger.warning("The received api_key is more than 256 characters long - verify that the api_key is correct")
+            logger.warning(
+                "The received api_key is more than 256 characters long - verify that the api_key is correct"
+            )
 
         return SecretStr(v) if not isinstance(v, SecretStr) else v
 
@@ -139,11 +169,13 @@ class SearchAPIConfig(BaseModel):
         one or the other is not explicitly provided. Occurs as the last step in the validation process
         """
 
-        values.base_url, values.provider_name, provider_info = cls._prepare_provider_info(values.base_url,
-                                                                                          values.provider_name)
+        values.base_url, values.provider_name, provider_info = (
+            cls._prepare_provider_info(values.base_url, values.provider_name)
+        )
 
-
-        logger.info(f"Initializing SearchAPIConfig with provider_name: {values.provider_name}")
+        logger.info(
+            f"Initializing SearchAPIConfig with provider_name: {values.provider_name}"
+        )
 
         # identify the provider's parameter map - used for identifying parameters specific to the api
         parameter_map = provider_info.parameter_map if provider_info else None
@@ -155,42 +187,47 @@ class SearchAPIConfig(BaseModel):
             # attempts to load an API key if the provider config is required and contains an API key that can be read
             values.api_key = cls._load_api_key(provider_info)
 
-
         # Remaining steps involve preparing api specific parameters based on the identified api mappings
         api_specific_parameter_mappings = parameter_map.api_specific_parameters or {}
         api_specific_parameter_values = values.api_specific_parameters or {}
-        values.api_specific_parameters = cls._prepare_api_specific_parameters(api_specific_parameter_mappings,
-                                                                               api_specific_parameter_values)
+        values.api_specific_parameters = cls._prepare_api_specific_parameters(
+            api_specific_parameter_mappings, api_specific_parameter_values
+        )
 
         return values
 
     @classmethod
-    def _prepare_api_specific_parameters(cls,
-                                     api_specific_parameter_mappings: dict[str,APISpecificParameter],
-                                     api_specific_parameter_values: dict[Any, Any]
-                                        ) -> dict[str, Any]:
+    def _prepare_api_specific_parameters(
+        cls,
+        api_specific_parameter_mappings: dict[str, APISpecificParameter],
+        api_specific_parameter_values: dict[Any, Any],
+    ) -> dict[str, Any]:
         """Helper method for extracting both necessary and/or default API-specific parameters from its config"""
         if api_specific_parameter_mappings or api_specific_parameter_values:
-            ignored_keys = api_specific_parameter_values.keys() - api_specific_parameter_mappings.keys()
+            ignored_keys = (
+                api_specific_parameter_values.keys()
+                - api_specific_parameter_mappings.keys()
+            )
 
             if ignored_keys:
-                logger.warning("The following parameters are ignored by default, as they are not "
-                               f"defined in the Provider's Parameter map by default: {ignored_keys}"
-                              )
+                logger.warning(
+                    "The following parameters are ignored by default, as they are not "
+                    f"defined in the Provider's Parameter map by default: {ignored_keys}"
+                )
 
             logger.info("Attempting to retrieve additional api specific parameters")
             api_specific_parameter_values = {
-                parameter:cls._validate_api_specific_parameter(
-                    api_specific_parameter_values.get(parameter),
-                    parameter_metadata
-                ) for parameter, parameter_metadata in api_specific_parameter_mappings.items()
+                parameter: cls._validate_api_specific_parameter(
+                    api_specific_parameter_values.get(parameter), parameter_metadata
+                )
+                for parameter, parameter_metadata in api_specific_parameter_mappings.items()
             }
         return api_specific_parameter_values
 
     @classmethod
-    def _prepare_provider_info(cls,
-                               base_url: str,
-                               provider_name: str) -> tuple[str, str, Optional[ProviderConfig]]:
+    def _prepare_provider_info(
+        cls, base_url: str, provider_name: str
+    ) -> tuple[str, str, Optional[ProviderConfig]]:
         """
         Helper method to identify the base_url or provider_name in addition to provider info when one is missing.
         The provider information is also returned if available to assist with later validation steps.
@@ -199,21 +236,31 @@ class SearchAPIConfig(BaseModel):
         provider_info = None
         # account for incomplete information in the SearchAPIConfig
         if not base_url and not provider_name:
-            logger.info(f"Neither a base url nor a provider name was provided - falling back to default: {cls.DEFAULT_PROVIDER}")
+            logger.info(
+                f"Neither a base url nor a provider name was provided - falling back to default: {cls.DEFAULT_PROVIDER}"
+            )
 
             if provider_info := provider_registry.get(cls.DEFAULT_PROVIDER):
                 base_url = provider_info.base_url
                 provider_name = provider_info.provider_name
             else:
-                raise ValueError("Either a base url or a valid provider name must be specified. "
-                                 "SearchAPIConfig could not fall back to the default, {cls.DEFAULT_PROVIDER}")
+                raise ValueError(
+                    "Either a base url or a valid provider name must be specified. "
+                    "SearchAPIConfig could not fall back to the default, {cls.DEFAULT_PROVIDER}"
+                )
 
         # attempt to retrieve  the base url from the provider name if a base url is not provided
         elif not base_url:
-            provider_info = provider_registry.get(provider_name) if not base_url and provider_name else None
+            provider_info = (
+                provider_registry.get(provider_name)
+                if not base_url and provider_name
+                else None
+            )
 
             if not provider_info:
-                raise ValueError(f"A base url was not specified. And the provider could not be identified from the provider, {provider_name}")
+                raise ValueError(
+                    f"A base url was not specified. And the provider could not be identified from the provider, {provider_name}"
+                )
 
             base_url = provider_info.base_url
 
@@ -221,18 +268,23 @@ class SearchAPIConfig(BaseModel):
         elif not provider_name:
             provider_info = provider_registry.get_from_url(base_url)
 
-           # indicate the name of the provider from the provider info if not already provided
-            provider_name = (provider_info.provider_name
-                                   if provider_info
-                                   else cls._extract_url_basename(base_url))
+            # indicate the name of the provider from the provider info if not already provided
+            provider_name = (
+                provider_info.provider_name
+                if provider_info
+                else cls._extract_url_basename(base_url)
+            )
         else:
-            base_url, provider_name, provider_info = cls._resolve_provider_config(base_url, provider_name)
-
+            base_url, provider_name, provider_info = cls._resolve_provider_config(
+                base_url, provider_name
+            )
 
         return base_url, provider_name, provider_info
 
     @classmethod
-    def _resolve_provider_config(cls, base_url: str, provider_name: str) -> tuple[str, str, Optional[ProviderConfig]]:
+    def _resolve_provider_config(
+        cls, base_url: str, provider_name: str
+    ) -> tuple[str, str, Optional[ProviderConfig]]:
         """
         Helper method to resolve mismatches between the URL and the provider_name when both are provided.
         The default behavior is to always prefer a provided base_url over the provider_name to offer
@@ -248,56 +300,80 @@ class SearchAPIConfig(BaseModel):
             If neither the base URL and provider name resolve to a known provider, they will be returned as is.
         """
         # if both provider name and information is provided, prioritize the url first.
-        provider_from_url = provider_registry.get_from_url(base_url) if base_url else None
-        provider_from_name = provider_registry.get(provider_name) if provider_name else None
+        provider_from_url = (
+            provider_registry.get_from_url(base_url) if base_url else None
+        )
+        provider_from_name = (
+            provider_registry.get(provider_name) if provider_name else None
+        )
         provider_info = provider_from_url or provider_from_name
 
-        if isinstance(provider_from_url,ProviderConfig):
-            if isinstance(provider_from_name, ProviderConfig) and \
-               provider_from_url.provider_name != provider_from_name.provider_name:
+        if isinstance(provider_from_url, ProviderConfig):
+            if (
+                isinstance(provider_from_name, ProviderConfig)
+                and provider_from_url.provider_name != provider_from_name.provider_name
+            ):
 
-                logger.warning(f"The URL, {base_url} and provider_name {provider_name} were both provided, "
-                               "each resolving to two different providers. \nPreferring provider: "
-                               f"{provider_from_url.provider_name} resolved from the provided URL.")
+                logger.warning(
+                    f"The URL, {base_url} and provider_name {provider_name} were both provided, "
+                    "each resolving to two different providers. \nPreferring provider: "
+                    f"{provider_from_url.provider_name} resolved from the provided URL."
+                )
 
             elif not isinstance(provider_from_name, ProviderConfig):
-                logger.warning(f"The provided base URL resolves to a provider while the provider name, "
-                               f"{provider_name}, does not. \nPreferring provider: "
-                              f"{provider_from_url.provider_name} resolved from the provided URL.")
+                logger.warning(
+                    f"The provided base URL resolves to a provider while the provider name, "
+                    f"{provider_name}, does not. \nPreferring provider: "
+                    f"{provider_from_url.provider_name} resolved from the provided URL."
+                )
 
-            logger.info(f"Defaulting to the use of the provider_name resolved from the URL, {base_url}")
+            logger.info(
+                f"Defaulting to the use of the provider_name resolved from the URL, {base_url}"
+            )
             provider_name = provider_from_url.provider_name
 
         elif isinstance(provider_from_name, ProviderConfig):
             url_basename = cls._extract_url_basename(base_url)
-            logger.warning(f"The provided URL does not resolve to a default provider while the "
-                           f"provided name resolves to API, {provider_from_name.provider_name}.\n"
-                           f"The default behavior is to assume that the provided URL is a new provider "
-                           f"and use the base of the URL, '{url_basename}', as the provider name. "
-                           "If this is not the expected behavior, omit the `base_url` parameter entirely.")
+            logger.warning(
+                f"The provided URL does not resolve to a default provider while the "
+                f"provided name resolves to API, {provider_from_name.provider_name}.\n"
+                f"The default behavior is to assume that the provided URL is a new provider "
+                f"and use the base of the URL, '{url_basename}', as the provider name. "
+                "If this is not the expected behavior, omit the `base_url` parameter entirely."
+            )
 
             provider_name = url_basename
         elif provider_name and base_url:
-            logger.info("Initializing the SearchAPIConfig non-default parameters: "
-                        f"base_url={base_url} and provider_name={provider_name}")
+            logger.info(
+                "Initializing the SearchAPIConfig non-default parameters: "
+                f"base_url={base_url} and provider_name={provider_name}"
+            )
         return base_url, provider_name, provider_info
 
-
     @classmethod
-    def _validate_api_specific_parameter(cls, parameter_value: Any, parameter_metadata: APISpecificParameter) -> Any:
+    def _validate_api_specific_parameter(
+        cls, parameter_value: Any, parameter_metadata: APISpecificParameter
+    ) -> Any:
         """Helper method for validating parameters during api-specific parameter validation"""
 
-        logger.debug(f"validating the value for the additional parameter, {parameter_metadata.name}")
-        if parameter_value is None and parameter_metadata.default is None and parameter_metadata.required:
-            raise ValueError(f"The value for the additional parameter, {parameter_metadata.name},"
-                             "was not provided and has no default")
+        logger.debug(
+            f"validating the value for the additional parameter, {parameter_metadata.name}"
+        )
+        if (
+            parameter_value is None
+            and parameter_metadata.default is None
+            and parameter_metadata.required
+        ):
+            raise ValueError(
+                f"The value for the additional parameter, {parameter_metadata.name},"
+                "was not provided and has no default"
+            )
             return parameter_metadata.default
 
         if parameter_metadata.validator:
-            parameter_value =  parameter_metadata.validator(parameter_value)
+            parameter_value = parameter_metadata.validator(parameter_value)
 
         return parameter_value
-
 
     @classmethod
     def _extract_url_basename(cls, url: str) -> str:
@@ -317,25 +393,31 @@ class SearchAPIConfig(BaseModel):
 
         if not hostname:
             # Handle case when urlparse fails to get hostname
-            hostname = url.split('/')[0]
+            hostname = url.split("/")[0]
 
         # Regular expression to match the main site name in the hostname
-        pattern = re.compile(r'^(?:.*\.)?([a-zA-Z0-9-_]+)\.(?:com|org|net|ac\.uk|io|gov|edu)')
+        pattern = re.compile(
+            r"^(?:.*\.)?([a-zA-Z0-9-_]+)\.(?:com|org|net|ac\.uk|io|gov|edu)"
+        )
         match = pattern.search(hostname)
 
         if match:
             return match.group(1)
         else:
-            logger.warning(f"Couldn't extract the base URL for the URL, {hostname}. Falling back to using the host name")
-            return hostname # fall back to using the hostname - more preferable than omitting entirely
+            logger.warning(
+                f"Couldn't extract the base URL for the URL, {hostname}. Falling back to using the host name"
+            )
+            return hostname  # fall back to using the hostname - more preferable than omitting entirely
 
     @property
-    def url_basename(self)->str:
+    def url_basename(self) -> str:
         """Uses the _extract_url_basename method from the provider URL associated with the current config instance"""
         return self._extract_url_basename(self.base_url)
 
     @classmethod
-    def _load_api_key(cls, provider_info: Optional[ProviderConfig] = None) -> Optional[SecretStr]:
+    def _load_api_key(
+        cls, provider_info: Optional[ProviderConfig] = None
+    ) -> Optional[SecretStr]:
         """
         Helper method that determines whether or not the API key associated with a specific provider is loaded.
         This method is generally called in circumstances where a key is required but not provided. It will
@@ -350,15 +432,24 @@ class SearchAPIConfig(BaseModel):
         """
 
         # skip attempting to load an API key altogether if an environment variable for the config does not exist
-        if not isinstance(provider_info, ProviderConfig) or provider_info.api_key_env_var is None:
+        if (
+            not isinstance(provider_info, ProviderConfig)
+            or provider_info.api_key_env_var is None
+        ):
             return None
 
-        logger.info("Attempting to read an API key from the environment variable "
-                    "for the provider, {provider_info.provider_name}...")
+        logger.info(
+            "Attempting to read an API key from the environment variable "
+            "for the provider, {provider_info.provider_name}..."
+        )
 
         # attempt to load the api key if a variable is referenced in the provider config
-        if api_key := config.get(provider_info.api_key_env_var) or os.environ.get(provider_info.api_key_env_var):
-            logger.info(f"API key successfully loaded for the provider, {provider_info.provider_name}")
+        if api_key := config.get(provider_info.api_key_env_var) or os.environ.get(
+            provider_info.api_key_env_var
+        ):
+            logger.info(
+                f"API key successfully loaded for the provider, {provider_info.provider_name}"
+            )
             # logger.info(f"Retrieved api key from config for provider: {provider_info.provider_name}")
             return SecretStr(api_key) if isinstance(api_key, str) else api_key
 
@@ -366,18 +457,13 @@ class SearchAPIConfig(BaseModel):
         #                "and was not specified. API keys from the previous provider, if provided "
         #                "may be invalid.")
 
-        logger.warning(f"Could not load the required api key for: {provider_info.provider_name}")
+        logger.warning(
+            f"Could not load the required api key for: {provider_info.provider_name}"
+        )
         return None
 
-
-
-
     @classmethod
-    def update(
-        cls,
-        current_config: SearchAPIConfig,
-        **overrides
-    ) -> SearchAPIConfig:
+    def update(cls, current_config: SearchAPIConfig, **overrides) -> SearchAPIConfig:
         """
         Create a new SearchAPIConfig by updating an existing config with new values and/or
         switching to a different provider. This method ensures that the new provider's base_url
@@ -396,43 +482,54 @@ class SearchAPIConfig(BaseModel):
 
         # resolve provider inconsistencies: highest priority = base_url, second = provider_name
         # retrieve provider from base url if couldn't retrieve it from the provider name
-        provider_name = overrides.get('provider_name')
-        base_url = overrides.get('base_url')
+        provider_name = overrides.get("provider_name")
+        base_url = overrides.get("base_url")
 
-        provider_info = provider_registry.get_from_url(base_url) or \
-                provider_registry.get(provider_name or '')
+        provider_info = provider_registry.get_from_url(
+            base_url
+        ) or provider_registry.get(provider_name or "")
 
-        previous_config_url = cls._extract_url_basename(config_dict.get('base_url',''))
-        current_config_url = cls._extract_url_basename(base_url or '')
+        previous_config_url = cls._extract_url_basename(config_dict.get("base_url", ""))
+        current_config_url = cls._extract_url_basename(base_url or "")
 
         # determines whether to replace the API key with one more specific to the provider
         if provider_info:
             # if a previous api key is not needed, remove the previous configuration's key
-            if cls._extract_url_basename(provider_info.base_url) != previous_config_url and \
-                    provider_info.parameter_map.api_key_parameter is None \
-                    and config_dict.get('api_key') is not None:
+            if (
+                cls._extract_url_basename(provider_info.base_url) != previous_config_url
+                and provider_info.parameter_map.api_key_parameter is None
+                and config_dict.get("api_key") is not None
+            ):
 
-                logger.debug(f"An API key is not required for the provider, {provider_info.provider_name}. Omitting..")
-                config_dict.pop('api_key')
+                logger.debug(
+                    f"An API key is not required for the provider, {provider_info.provider_name}. Omitting.."
+                )
+                config_dict.pop("api_key")
 
             # use the previous base url and provider info if the current options are associated with a providere
-            overrides['base_url'] = base_url or provider_info.base_url
-            overrides['provider_name'] = provider_name or provider_info.provider_name
+            overrides["base_url"] = base_url or provider_info.base_url
+            overrides["provider_name"] = provider_name or provider_info.provider_name
 
         else:
             # if a provider is not associated with the current url/provider name, remove the previous key
             if current_config_url != previous_config_url and current_config_url:
-                logger.debug("The previous API key may not be applicable to the new provider. Omitting..")
-                config_dict.pop('api_key')
+                logger.debug(
+                    "The previous API key may not be applicable to the new provider. Omitting.."
+                )
+                config_dict.pop("api_key")
 
-            overrides['provider_name'] = provider_name or config_dict.get('provider_name')
+            overrides["provider_name"] = provider_name or config_dict.get(
+                "provider_name"
+            )
 
         # Flatten and retrieve any nested api_specific_parameters
         api_specific_parameters = config_dict.pop("api_specific_parameters", None) or {}
-        api_specific_parameters |= (overrides.pop("api_specific_parameters", None) or {})
+        api_specific_parameters |= overrides.pop("api_specific_parameters", None) or {}
 
         # Merge in explicit overrides (these take highest precedence)
-        config_dict |= {k: v for k, v in overrides.items() if v is not None} | api_specific_parameters
+        config_dict |= {
+            k: v for k, v in overrides.items() if v is not None
+        } | api_specific_parameters
 
         # make the additional parameters a harmonized field in the dictionary
         config_dict = cls._extract_api_specific_parametsr(config_dict)
@@ -440,8 +537,9 @@ class SearchAPIConfig(BaseModel):
         return cls.model_validate(config_dict)
 
     @classmethod
-    def _extract_api_specific_parametsr(cls,
-                                       config_dict: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    def _extract_api_specific_parametsr(
+        cls, config_dict: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """
         Helper class method to ensure that api_specific_parameters are handled accordingly in constructor
         methods that can receive api specific parameters as keyword arguments.
@@ -457,23 +555,27 @@ class SearchAPIConfig(BaseModel):
 
         core_fields = set(cls.model_fields)
 
-        core_parameters = {parameter: value for parameter, value in config_dict.items() if parameter in core_fields}
+        core_parameters = {
+            parameter: value
+            for parameter, value in config_dict.items()
+            if parameter in core_fields
+        }
 
-        api_specific_parameters = core_parameters.pop('api_specific_parameters', {})
-        api_specific_parameters.update({parameter: value for parameter, value in config_dict.items()
-                                        if parameter not in core_fields})
-
+        api_specific_parameters = core_parameters.pop("api_specific_parameters", {})
+        api_specific_parameters.update(
+            {
+                parameter: value
+                for parameter, value in config_dict.items()
+                if parameter not in core_fields
+            }
+        )
 
         class_parameter_dict = core_parameters | api_specific_parameters
-        class_parameter_dict |= {'api_specific_parameters':api_specific_parameters}
+        class_parameter_dict |= {"api_specific_parameters": api_specific_parameters}
         return class_parameter_dict
 
-
     @classmethod
-    def from_defaults(cls,
-                      provider_name: str,
-                      **overrides
-                      ) -> SearchAPIConfig:
+    def from_defaults(cls, provider_name: str, **overrides) -> SearchAPIConfig:
         """
         Uses the default configuration for the chosen provider to
         create a SearchAPIConfig object containing configuration parameters
@@ -487,20 +589,23 @@ class SearchAPIConfig(BaseModel):
             SearchAPIConfig: a default APIConfig object based on the chosen parameters
         """
 
-        provider=provider_registry.get(provider_name)
+        provider = provider_registry.get(provider_name)
 
         if not provider:
-            raise NotImplementedError(f"Provider '{provider_name}' config not implemented")
+            raise NotImplementedError(
+                f"Provider '{provider_name}' config not implemented"
+            )
 
+        custom_parameter_config = cls._extract_api_specific_parametsr(overrides)
+        custom_parameter_config["provider_name"] = provider.provider_name
 
-        custom_parameter_config =  cls._extract_api_specific_parametsr(overrides)
-        custom_parameter_config['provider_name'] = provider.provider_name
+        config_dict: dict[str, Any] = (
+            provider.search_config_defaults() | custom_parameter_config
+        )
 
-        config_dict: dict[str, Any] = provider.search_config_defaults() | custom_parameter_config
-
-        api_key = config_dict.get('api_key')
+        api_key = config_dict.get("api_key")
         if api_key and isinstance(api_key, str):
-            config_dict['api_key'] = SecretStr(api_key)
+            config_dict["api_key"] = SecretStr(api_key)
 
         return cls.model_validate(config_dict)
 

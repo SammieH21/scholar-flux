@@ -1,7 +1,8 @@
 from typing import Any, List, Dict, Optional
-from scholar_flux.data_storage.base import ABCStorage
+from scholar_flux.data_storage.abc_storage import ABCStorage
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 

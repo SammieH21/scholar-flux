@@ -6,6 +6,7 @@ from functools import lru_cache
 import pkgutil
 import importlib
 
+
 class ProviderUtils:
 
     @classmethod
@@ -21,15 +22,21 @@ class ProviderUtils:
 
         providers_module_path = scholar_flux_api_providers.__path__
         providers_module_name = scholar_flux_api_providers.__name__
-        config_generator = (cls.load_provider_config(f"{providers_module_name}.{module.name}")
-                            for module in pkgutil.iter_modules(providers_module_path))
-        provider_configs = {provider.provider_name: provider
-                            for provider in config_generator if provider is not None}
+        config_generator = (
+            cls.load_provider_config(f"{providers_module_name}.{module.name}")
+            for module in pkgutil.iter_modules(providers_module_path)
+        )
+        provider_configs = {
+            provider.provider_name: provider
+            for provider in config_generator
+            if provider is not None
+        }
         return provider_configs
 
     @classmethod
-    def load_provider_config(cls, provider_module: str,
-                             provider_config_variable:str = 'provider') -> Optional[ProviderConfig]:
+    def load_provider_config(
+        cls, provider_module: str, provider_config_variable: str = "provider"
+    ) -> Optional[ProviderConfig]:
         """
         Helper method that loads a single config from the provided module in the event that
         The module contains a ProviderConfig by the same name as the provider_config_variable.
@@ -48,7 +55,7 @@ class ProviderUtils:
 
         try:
             module = importlib.import_module(provider_module)
-            config =  getattr(module, provider_config_variable, None)
+            config = getattr(module, provider_config_variable, None)
             return config if isinstance(config, ProviderConfig) else None
 
         except (ModuleNotFoundError, AttributeError):

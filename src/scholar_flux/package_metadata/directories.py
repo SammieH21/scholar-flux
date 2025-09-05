@@ -4,11 +4,14 @@ from typing import Optional, Literal
 
 PARENT_DIRECTORY_CANDIDATES = [
     lambda: Path(__file__).parent.parent,
-    lambda: Path.home() / '.scholar_flux'
+    lambda: Path.home() / ".scholar_flux",
 ]
 
-def get_default_writable_directory(directory_type: Literal['package_cache', 'logs'],
-                           subdirectory: Optional[str | Path] = None) -> Path:
+
+def get_default_writable_directory(
+    directory_type: Literal["package_cache", "logs"],
+    subdirectory: Optional[str | Path] = None,
+) -> Path:
     """
     This is a helper function that, in case a default directory is not specified
     for caching and logging in package-specific functionality, it can serve as a
@@ -23,8 +26,10 @@ def get_default_writable_directory(directory_type: Literal['package_cache', 'log
         RuntimeError if a writeable directory cannot be identified
     """
 
-    if directory_type not in ['package_cache', 'logs']:
-        raise ValueError("Received an incorrect directory_type when identifying writable directories.")
+    if directory_type not in ["package_cache", "logs"]:
+        raise ValueError(
+            "Received an incorrect directory_type when identifying writable directories."
+        )
 
     for candidate_func in PARENT_DIRECTORY_CANDIDATES:
         try:
@@ -38,4 +43,6 @@ def get_default_writable_directory(directory_type: Literal['package_cache', 'log
         except (PermissionError, OSError):
             continue
 
-    raise RuntimeError(f"Could not locate a writable {directory_type} directory for scholar_flux")
+    raise RuntimeError(
+        f"Could not locate a writable {directory_type} directory for scholar_flux"
+    )

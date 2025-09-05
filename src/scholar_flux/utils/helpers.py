@@ -1,13 +1,25 @@
 import re
 import hashlib
 import requests
-from typing import Any, Dict, List, Tuple, Set, Optional, Union, TypeVar, Hashable, Callable
+from typing import (
+    Any,
+    Dict,
+    List,
+    Tuple,
+    Set,
+    Optional,
+    Union,
+    TypeVar,
+    Hashable,
+    Callable,
+)
 from collections.abc import Iterable
 import logging
+
 logger = logging.getLogger(__name__)
 
-JSON_TYPE= TypeVar('JSON_TYPE', bound=list | dict | str | int | None)
-T = TypeVar('T', bound=Hashable)
+JSON_TYPE = TypeVar("JSON_TYPE", bound=list | dict | str | int | None)
+T = TypeVar("T", bound=Hashable)
 
 
 def quote_if_string(value: Any) -> Any:
@@ -22,6 +34,7 @@ def quote_if_string(value: Any) -> Any:
         return f"'{value}'"
     return value
 
+
 def try_quote_numeric(value: Any) -> Optional[str]:
     """
     Attempt to quote numeric values to distinguish them from string values and integers.
@@ -30,11 +43,12 @@ def try_quote_numeric(value: Any) -> Optional[str]:
     Returns:
         Optional[str]: Returns a quoted string if successful. Otherwise None
     """
-    if ((isinstance(value, str) and value.isdigit()) or isinstance(value, int)):
+    if (isinstance(value, str) and value.isdigit()) or isinstance(value, int):
         return f"'{value}'"
     return None
 
-def quote_numeric(value: Any)->str:
+
+def quote_numeric(value: Any) -> str:
     """
     Attempts to quote as a numeric value and returns the original value if successful
     Otherwise returns the orignal element
@@ -46,12 +60,15 @@ def quote_numeric(value: Any)->str:
         ValueError: If the value cannot be quoted
 
     """
-    quoted_value =  try_quote_numeric(value)
+    quoted_value = try_quote_numeric(value)
     if quoted_value is None:
-        raise ValueError("The value, ({value}) could not be quoted as numeric string or an integer")
+        raise ValueError(
+            "The value, ({value}) could not be quoted as numeric string or an integer"
+        )
     return quoted_value
 
-def flatten(current_data: Optional[Dict|List]) -> Optional[Dict|List]:
+
+def flatten(current_data: Optional[Dict | List]) -> Optional[Dict | List]:
     """
     Flattens a dictionary or list if it contains a single element that is a dictionary.
 
@@ -61,9 +78,14 @@ def flatten(current_data: Optional[Dict|List]) -> Optional[Dict|List]:
     Returns:
         Optional[Dict|List]: The flattened dictionary if the input meets the flattening condition, otherwise returns the input unchanged.
     """
-    if isinstance(current_data, list) and len(current_data) == 1 and isinstance(current_data[0], dict):
+    if (
+        isinstance(current_data, list)
+        and len(current_data) == 1
+        and isinstance(current_data[0], dict)
+    ):
         return current_data[0]
     return current_data
+
 
 def as_tuple(obj: Any) -> tuple:
     """
@@ -83,9 +105,10 @@ def as_tuple(obj: Any) -> tuple:
         case None:
             return tuple()
         case _:
-            return (obj, )
+            return (obj,)
 
-def pattern_search(json_dict: Dict,key_to_find: str, regex: bool = True)->List:
+
+def pattern_search(json_dict: Dict, key_to_find: str, regex: bool = True) -> List:
     """
     Searches for keys matching the regex pattern in the given dictionary.
 
@@ -98,13 +121,18 @@ def pattern_search(json_dict: Dict,key_to_find: str, regex: bool = True)->List:
         A list of keys matching the pattern.
     """
     if regex:
-        pattern = re.compile(f'{key_to_find}')
-        filtered_values = [current_key for current_key in json_dict if pattern.fullmatch(current_key)]
+        pattern = re.compile(f"{key_to_find}")
+        filtered_values = [
+            current_key for current_key in json_dict if pattern.fullmatch(current_key)
+        ]
     else:
-        filtered_values = [current_key for current_key in json_dict if key_to_find in current_key]
+        filtered_values = [
+            current_key for current_key in json_dict if key_to_find in current_key
+        ]
     return filtered_values
 
-def nested_key_exists(obj: Any, key_to_find: str,regex: bool = False) -> bool:
+
+def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
     """
     Recursively checks if a specified key is present anywhere in a given JSON-like dictionary or list structure.
 
@@ -117,17 +145,17 @@ def nested_key_exists(obj: Any, key_to_find: str,regex: bool = False) -> bool:
         True if the key is present, False otherwise.
     """
     if isinstance(obj, dict):
-        match: Optional[List]=[]
+        match: Optional[List] = []
 
         if regex:
-            match = pattern_search(obj,key_to_find) or None
+            match = pattern_search(obj, key_to_find) or None
 
         elif key_to_find in obj:
             match = [key_to_find]
 
         if match:
-            keytype = 'pattern' if regex is True else 'key'
-            logger.debug(f'Found match for {keytype}: {key_to_find}; Fields: {match}')
+            keytype = "pattern" if regex is True else "key"
+            logger.debug(f"Found match for {keytype}: {key_to_find}; Fields: {match}")
             return True
         for key, value in obj.items():
             if nested_key_exists(value, key_to_find, regex):
@@ -137,6 +165,7 @@ def nested_key_exists(obj: Any, key_to_find: str,regex: bool = False) -> bool:
             if nested_key_exists(item, key_to_find, regex):
                 return True
     return False
+
 
 def get_nested_dictionary_data(data: Dict[str, Any], path: List[str]) -> Any:
     """
@@ -149,7 +178,9 @@ def get_nested_dictionary_data(data: Dict[str, Any], path: List[str]) -> Any:
     return data
 
 
-def get_nested_data(json: list | dict | None, path: list) -> list | dict | None | str | int:
+def get_nested_data(
+    json: list | dict | None, path: list
+) -> list | dict | None | str | int:
     """
     Recursively retrieves data from a nested dictionary using a sequence of keys.
 
@@ -166,14 +197,15 @@ def get_nested_data(json: list | dict | None, path: list) -> list | dict | None 
         try:
             if current_data:
                 current_data = current_data[key]
-                if idx != len(path) - 1 and not isinstance(path[idx+1],int):
-                    current_data=flatten(current_data)
+                if idx != len(path) - 1 and not isinstance(path[idx + 1], int):
+                    current_data = flatten(current_data)
         except (KeyError, IndexError, TypeError) as e:
             logger.debug(f"key not found: {str(e)}")
             return None
     return current_data
 
-def generate_response_hash(response: requests.Response)-> str:
+
+def generate_response_hash(response: requests.Response) -> str:
     """
     Generates a response hash from a response from requests.
     This function returns a unique identifier for the response
@@ -182,27 +214,34 @@ def generate_response_hash(response: requests.Response)-> str:
     url = response.url
 
     # Filter for relevant headers directly from the response object
-    relevant_headers = {k: v for k, v in response.headers.items() if k in ['ETag', 'Last-Modified']}
+    relevant_headers = {
+        k: v for k, v in response.headers.items() if k in ["ETag", "Last-Modified"]
+    }
     headers_string = str(sorted(relevant_headers.items()))
 
     # Assume response.content is the way to access the raw byte content
     # Check if response.content is not None or empty before hashing
-    content_hash = hashlib.sha256(response.content).hexdigest() if response.content else ''
+    content_hash = (
+        hashlib.sha256(response.content).hexdigest() if response.content else ""
+    )
 
     # Combine URL, headers, and content hash into a final cache key
     return hashlib.sha256(f"{url}{headers_string}{content_hash}".encode()).hexdigest()
 
-def compare_response_hashes(response1: requests.Response,
-                            response2: requests.Response) -> bool:
+
+def compare_response_hashes(
+    response1: requests.Response, response2: requests.Response
+) -> bool:
     """
     Determines whether two responses differ.
     This function uses hashing to generate an identifier unique key_to_find
     the content of the response for comparison purpose later dealing with cache
     """
-    hash1=generate_response_hash(response1)
-    hash2=generate_response_hash(response2)
+    hash1 = generate_response_hash(response1)
+    hash2 = generate_response_hash(response2)
 
-    return(hash1 is not None and hash2 is not None and hash1 == hash2)
+    return hash1 is not None and hash2 is not None and hash1 == hash2
+
 
 def coerce_int(value: Any) -> int | None:
     """Attempts to convert a value to an integer, returning None if the conversion fails."""
@@ -220,8 +259,9 @@ def try_int(value: JSON_TYPE | None) -> JSON_TYPE | int | None:
     Returns:
         Optional[int]:
     """
-    converted_value =  coerce_int(value)
+    converted_value = coerce_int(value)
     return converted_value or value
+
 
 def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
     """
@@ -274,6 +314,7 @@ def is_nested(obj: Any) -> bool:
     """
     return isinstance(obj, Iterable) and not isinstance(obj, str)
 
+
 def unlist_1d(current_data: Tuple | List) -> Any:
     """
     Retrieves an element from a list/tuple if it contains only a single element.
@@ -288,12 +329,12 @@ def unlist_1d(current_data: Tuple | List) -> Any:
         Optional[Any]: The unlisted object if it comes from a single element list/tuple,
                              otherwise returns the input unchanged.
     """
-    if isinstance(current_data, (tuple,list)) and len(current_data) == 1:
+    if isinstance(current_data, (tuple, list)) and len(current_data) == 1:
         return current_data[0]
     return current_data
 
 
-def as_list_1d(value: Any)->List:
+def as_list_1d(value: Any) -> List:
     """
     Nests a value into a single element list if the value is not already a list.
     Args:
@@ -304,10 +345,11 @@ def as_list_1d(value: Any)->List:
               Caveat: if the value is None, an empty list is returned
     """
     if value is not None:
-        return value if isinstance(value,list) else [value]
+        return value if isinstance(value, list) else [value]
     return []
 
-def path_search(obj: Union[Dict, List],key_to_find: str):
+
+def path_search(obj: Union[Dict, List], key_to_find: str):
     """
     Searches for keys matching the regex pattern in the given dictionary.
 
@@ -318,17 +360,22 @@ def path_search(obj: Union[Dict, List],key_to_find: str):
     Returns:
         A list of keys matching the pattern.
     """
-    pattern = re.compile(f'{key_to_find}')
-    filtered_values = [current_key for current_key in obj if pattern.fullmatch(current_key)]
+    pattern = re.compile(f"{key_to_find}")
+    filtered_values = [
+        current_key for current_key in obj if pattern.fullmatch(current_key)
+    ]
     return filtered_values
 
-def try_call(func: Callable,
-             args: Optional[tuple] = None,
-             kwargs:Optional[dict] = None,
-             suppress: tuple = (),
-             logger: Optional[logging.Logger] = None,
-             log_level: int = logging.WARNING,
-             default: Optional[Any] = None) -> Optional[Any]:
+
+def try_call(
+    func: Callable,
+    args: Optional[tuple] = None,
+    kwargs: Optional[dict] = None,
+    suppress: tuple = (),
+    logger: Optional[logging.Logger] = None,
+    log_level: int = logging.WARNING,
+    default: Optional[Any] = None,
+) -> Optional[Any]:
     """
     A helper function for calling another function safely in the event that
     one of the specified errors occur and are contained within the list of
@@ -355,13 +402,17 @@ def try_call(func: Callable,
 
     try:
         if not received_function:
-            raise TypeError(f"The current value must be a function. Received type({func})")
+            raise TypeError(
+                f"The current value must be a function. Received type({func})"
+            )
 
         kwargs = kwargs or {}
         return func(*args, **kwargs)
     except suppress as e:
-        function_name = getattr(func, '__name__', repr(func))
+        function_name = getattr(func, "__name__", repr(func))
         if logger:
-            logger.log(log_level or logging.WARNING,
-                       f"An error occured in the call to the function argument, '{function_name}', args={args}, kwargs={kwargs}: {e}")
+            logger.log(
+                log_level or logging.WARNING,
+                f"An error occured in the call to the function argument, '{function_name}', args={args}, kwargs={kwargs}: {e}",
+            )
     return default

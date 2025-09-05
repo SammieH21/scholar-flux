@@ -8,9 +8,9 @@ logger = logging.getLogger(__name__)
 
 class ResponseValidator:
     @staticmethod
-    def validate_response(response: requests.Response,
-                          *,
-                          raise_on_error: bool = False) -> bool:
+    def validate_response(
+        response: requests.Response, *, raise_on_error: bool = False
+    ) -> bool:
         """
         Validates HTTP response for errors.
 
@@ -26,21 +26,20 @@ class ResponseValidator:
         """
         try:
             response.raise_for_status()
-            logger.debug("Successfully received response from %s",response.url)
+            logger.debug("Successfully received response from %s", response.url)
             return True
         except requests.HTTPError as e:
-            logger.error(f'Response validation failed: {e}')  # Better
+            logger.error(f"Response validation failed: {e}")  # Better
             if raise_on_error:
                 raise InvalidResponseException(response, str(e))
         return False
-
 
     @staticmethod
     def validate_content(
         response: requests.Response,
         expected_format: str = "application/json",
         *,
-        raise_on_error: bool = False
+        raise_on_error: bool = False,
     ) -> bool:
         """
         Validates the response content type.
@@ -56,16 +55,19 @@ class ResponseValidator:
         Raises:
             InvalidResponseException: If the content type does not match and raise_on_error is True.
         """
-        content_type = response.headers.get('Content-Type', '')
+        content_type = response.headers.get("Content-Type", "")
 
         if expected_format in content_type:
             return True
 
-        logger.warning(f"Content type validation failed: received '{content_type}', expected '{expected_format}'")
+        logger.warning(
+            f"Content type validation failed: received '{content_type}', expected '{expected_format}'"
+        )
 
         if raise_on_error:
             raise InvalidResponseException(
-                response, f'Invalid Response format: received {content_type} and expected {expected_format}'
+                response,
+                f"Invalid Response format: received {content_type} and expected {expected_format}",
             )
 
         return False

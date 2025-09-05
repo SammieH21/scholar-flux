@@ -88,3 +88,16 @@ def in_memory_nm_test_storage(storage_test_namespace):
 def null_test_storage():
     """Create a Null Data Storage instance"""
     return NullStorage()
+
+__all__ = ["redis_test_config",
+           "storage_test_namespace",
+           "mongo_test_config",
+           "sqlite_test_config",
+           "redis_test_storage",
+           "mongo_test_storage",
+           "mongo_nm_test_storage",
+           "sqlite_test_storage",
+           "sqlite_nm_test_storage",
+           "in_memory_test_storage",
+           "in_memory_nm_test_storage",
+           "null_test_storage"]

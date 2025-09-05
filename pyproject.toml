@@ -6,16 +6,19 @@ version = "0.1.0"
 readme = "README.md"
 license = "Apache-2.0"
 packages = [{include = "scholar_flux", from="src"}]
+
 [tool.poetry.dependencies]
 python = ">=3.10"
 requests = ">=2.25.0,<3.0.0"
 requests-cache = {extras = ["security"], version = "^1.2.0"}
 python-dotenv = ">=0.15.0"
 pydantic = "^2.10.6"
+
 [tool.poetry.extras]
 database = ["sqlalchemy", "redis", "pymongo", "sqlite"]
 cryptography = ["cryptography"]
 parsing = ["xmltodict", "pyyaml"]
+
 [tool.poetry.group.testing.dependencies]
 pytest = "^8.4.1"
 pytest-cov = "*"
@@ -28,6 +31,7 @@ flake8 = "^7.3.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
 [tool.ruff]
 lint.extend-select = ["C4", "NPY", "PD", "SIM", "TCH"]
 lint.ignore = ["C408", "E402", "TC001",  "TC002"]

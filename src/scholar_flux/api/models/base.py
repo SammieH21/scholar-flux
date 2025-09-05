@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import  Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 from scholar_flux.utils.repr_utils import generate_repr
@@ -18,11 +18,12 @@ class APISpecificParameter:
 
     @property
     def validator_name(self):
-        return self.validator.__name__ if self.validator else 'None'
+        return self.validator.__name__ if self.validator else "None"
 
     def __repr__(self) -> str:
         """Helper method for displaying parameter information in a user-friendly manner"""
         return generate_repr(self)
+
 
 class BaseAPIParameterMap(BaseModel):
     """
@@ -47,9 +48,13 @@ class BaseAPIParameterMap(BaseModel):
     api_key_parameter: Optional[str] = None
     api_key_required: bool = False
     auto_calculate_page: bool = True
-    api_specific_parameters: Dict[str, APISpecificParameter] = Field(default_factory=dict)
+    api_specific_parameters: Dict[str, APISpecificParameter] = Field(
+        default_factory=dict
+    )
 
-    def update(self, other: BaseAPIParameterMap | Dict[str,Any]) -> BaseAPIParameterMap:
+    def update(
+        self, other: BaseAPIParameterMap | Dict[str, Any]
+    ) -> BaseAPIParameterMap:
         """
         Update the current instance with values from another BaseAPIParameterMap or dictionary.
 
@@ -61,11 +66,11 @@ class BaseAPIParameterMap(BaseModel):
         """
         if isinstance(other, BaseAPIParameterMap):
             other = other.to_dict()
-        updated_dict=self.to_dict() | other
+        updated_dict = self.to_dict() | other
         return self.from_dict(updated_dict)
 
     @classmethod
-    def from_dict(cls, obj: Dict[str,Any]) -> BaseAPIParameterMap:
+    def from_dict(cls, obj: Dict[str, Any]) -> BaseAPIParameterMap:
         """
         Create a new instance of BaseAPIParameterMap from a dictionary.
 
@@ -77,7 +82,7 @@ class BaseAPIParameterMap(BaseModel):
         """
         return cls(**obj)
 
-    def to_dict(self) -> Dict[str,Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """
         Convert the current instance into a dictionary representation.
 

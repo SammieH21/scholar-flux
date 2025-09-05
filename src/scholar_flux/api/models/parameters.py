@@ -1,5 +1,5 @@
 from pydantic import model_validator
-from typing import  Optional, Dict, Any
+from typing import Optional, Dict, Any
 from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
@@ -7,6 +7,7 @@ from scholar_flux.api.providers import provider_registry
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class APIParameterMap(BaseAPIParameterMap):
     """
@@ -41,7 +42,9 @@ class APIParameterMap(BaseAPIParameterMap):
         return values
 
     @model_validator(mode="before")
-    def validate_api_specific_parameter_mappings(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def validate_api_specific_parameter_mappings(
+        cls, values: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Validates the additional mappings provided to the APIParameterMap,
         ensuring a dictionary with keys and values that are strings.
@@ -58,21 +61,27 @@ class APIParameterMap(BaseAPIParameterMap):
         api_specific_parameters = values.get("api_specific_parameters", {})
 
         if not isinstance(api_specific_parameters, dict):
-            raise APIParameterException("All api_specific_parameters must be a dict. "
-                                        f"Received type {api_specific_parameters}")
+            raise APIParameterException(
+                "All api_specific_parameters must be a dict. "
+                f"Received type {api_specific_parameters}"
+            )
 
         for parameter_name, parameter_metadata in api_specific_parameters.items():
-            if not isinstance(parameter_name, str) or not isinstance(parameter_metadata, (dict, APISpecificParameter)):
-                raise APIParameterException("Keys and values in api_specific_parameters must "
-                                            "be strings and APISpecificParameter classes or "
-                                            "dictionaries of api specific parameters respectively. "
-                                            f"Received types {type(parameter_name)}:{type(parameter_metadata)}")
+            if not isinstance(parameter_name, str) or not isinstance(
+                parameter_metadata, (dict, APISpecificParameter)
+            ):
+                raise APIParameterException(
+                    "Keys and values in api_specific_parameters must "
+                    "be strings and APISpecificParameter classes or "
+                    "dictionaries of api specific parameters respectively. "
+                    f"Received types {type(parameter_name)}:{type(parameter_metadata)}"
+                )
         return values
 
-
     @classmethod
-    def from_defaults(cls, provider_name: str,
-                      **additional_parameters) -> "APIParameterMap":
+    def from_defaults(
+        cls, provider_name: str, **additional_parameters
+    ) -> "APIParameterMap":
         """
         Factory method that uses the `APIParameterMap.get_defaults` classmethod
         to retrieve the provider config. Raises an error if the provider does not exist
@@ -88,17 +97,22 @@ class APIParameterMap(BaseAPIParameterMap):
             NotImplementedError: If the API name is unknown.
         """
 
-
         parameter_map = cls.get_defaults(provider_name, **additional_parameters)
 
         if parameter_map is None:
-            logger.error(f"Default APIParameterMap for '{provider_name}' not implemented")
-            raise NotImplementedError(f"The requested API default config '{provider_name}' has not been implemented")
+            logger.error(
+                f"Default APIParameterMap for '{provider_name}' not implemented"
+            )
+            raise NotImplementedError(
+                f"The requested API default config '{provider_name}' has not been implemented"
+            )
 
         return parameter_map
 
     @classmethod
-    def get_defaults(cls, provider_name: str, **additional_parameters) -> Optional["APIParameterMap"]:
+    def get_defaults(
+        cls, provider_name: str, **additional_parameters
+    ) -> Optional["APIParameterMap"]:
         """
         Factory method to create APIParameterMap instances with sensible defaults for
         known APIs. Returns `None` in the event that an APIParameterMap cannot be found.
@@ -122,12 +136,17 @@ class APIParameterMap(BaseAPIParameterMap):
             return None
 
         defaults = provider_info.parameter_map
-        class_vars = defaults.to_dict() if isinstance(defaults, BaseAPIParameterMap) else defaults
+        class_vars = (
+            defaults.to_dict()
+            if isinstance(defaults, BaseAPIParameterMap)
+            else defaults
+        )
 
         if additional_parameters:
             class_vars = class_vars | additional_parameters
 
         return cls(**class_vars)
+
 
 class APIParameterConfig:
     """
@@ -180,18 +199,18 @@ class APIParameterConfig:
             self.parameter_map.records_per_page: records_per_page,
         }
 
-        parameters = self._get_api_specific_parameters(parameters, **api_specific_parameters)
+        parameters = self._get_api_specific_parameters(
+            parameters, **api_specific_parameters
+        )
 
         parameters = self._get_api_key(parameters, **api_specific_parameters)
-
 
         # Filter out None values from parameters
         return {k: v for k, v in parameters.items() if k is not None and v is not None}
 
-
-    def _calculate_start_index(self,
-                               page: Optional[int] = None,
-                               records_per_page: Optional[int] = None) -> Optional[int]:
+    def _calculate_start_index(
+        self, page: Optional[int] = None, records_per_page: Optional[int] = None
+    ) -> Optional[int]:
         """
         Helper method for retrieving the start index as an offset and records_per_page if auto_calculate_page is True,
         and as a regular page number otherwise, if offset is calculated on the server side.
@@ -213,22 +232,29 @@ class APIParameterConfig:
         if not self.parameter_map.start:
             return None
 
-        if not isinstance(page,int) or page < 1:
+        if not isinstance(page, int) or page < 1:
             logger.error(f"Expected a non-zero integer for page. Received '{page}'")
-            raise APIParameterException(f"Expected a non-zero integer for page. Received '{page}'")
+            raise APIParameterException(
+                f"Expected a non-zero integer for page. Received '{page}'"
+            )
 
-        if not isinstance(records_per_page,int) or records_per_page < 1:
-            logger.error(f"Expected a non-zero integer for records_per_page. Received '{records_per_page}'")
-            raise APIParameterException(f"Expected a non-zero integer for records_per_page. Received '{records_per_page}'")
+        if not isinstance(records_per_page, int) or records_per_page < 1:
+            logger.error(
+                f"Expected a non-zero integer for records_per_page. Received '{records_per_page}'"
+            )
+            raise APIParameterException(
+                f"Expected a non-zero integer for records_per_page. Received '{records_per_page}'"
+            )
 
         if not self.parameter_map.auto_calculate_page:
 
             return page
 
-
         return 1 + (page - 1) * records_per_page
 
-    def _get_api_specific_parameters(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
+    def _get_api_specific_parameters(
+        self, parameters: Optional[dict], **api_specific_parameters
+    ) -> dict:
         """
         Helper method for extracting api specific parameters from additional arguments provided from
         the list of additional key-value pairs, if not already provided in the parameters dictionary.
@@ -249,13 +275,19 @@ class APIParameterConfig:
 
         # raise an error if parameters is not actually a dictionary
         if not isinstance(parameters, dict):
-            raise APIParameterException(f"Expected `parameters` to be a dictionary, instead received {type(parameters)}")
+            raise APIParameterException(
+                f"Expected `parameters` to be a dictionary, instead received {type(parameters)}"
+            )
 
         api_parameter_mappings = self.parameter_map.model_dump()
-        api_specific_parameter_names = api_parameter_mappings.pop('api_specific_parameters')
+        api_specific_parameter_names = api_parameter_mappings.pop(
+            "api_specific_parameters"
+        )
 
         if duplicated_keys := api_specific_parameters.keys() & parameters.keys():
-            logger.warning(f"Overwriting the following keys that have been specified twice: {list(duplicated_keys)}")
+            logger.warning(
+                f"Overwriting the following keys that have been specified twice: {list(duplicated_keys)}"
+            )
 
         # Include additional parameters provided via api_specific_parameters by mapping universal keys to API-specific names
         extra_parameters = {
@@ -264,11 +296,15 @@ class APIParameterConfig:
             if api_specific_parameters.get(api_parameter_name) is not None
         }
 
-        parameters = parameters | extra_parameters # so extractions don't modify the original obeject
+        parameters = (
+            parameters | extra_parameters
+        )  # so extractions don't modify the original obeject
 
         return parameters
 
-    def _get_api_key(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
+    def _get_api_key(
+        self, parameters: Optional[dict], **api_specific_parameters
+    ) -> dict:
         """
         Helper method for extracting the api key from a dictionary of parameters, if
             not already provided in the parameters dictionary
@@ -289,16 +325,20 @@ class APIParameterConfig:
 
         # raise an error if parameters is not actually a dictionary
         if not isinstance(parameters, dict):
-            raise APIParameterException(f"Expected `parameters` to be a dictionary, instead received {type(parameters)}")
+            raise APIParameterException(
+                f"Expected `parameters` to be a dictionary, instead received {type(parameters)}"
+            )
 
         # Include API key if provided
         if self.parameter_map.api_key_parameter:
             key_name = self.parameter_map.api_key_parameter
-            api_key = api_specific_parameters.get('api_key')
+            api_key = api_specific_parameters.get("api_key")
 
             # set the api key if it exists
             if api_key:
-                parameters = parameters | {key_name: api_key} # so extractions don't modify the original obeject
+                parameters = parameters | {
+                    key_name: api_key
+                }  # so extractions don't modify the original obeject
 
             # raise an error if an api key is required, but does not exist
             elif self.parameter_map.api_key_required:
@@ -307,10 +347,10 @@ class APIParameterConfig:
         # returns a new dictionary with the api key
         return parameters
 
-
     @classmethod
-    def get_defaults(cls, provider_name: str,
-                      **additional_parameters) -> Optional["APIParameterConfig"]:
+    def get_defaults(
+        cls, provider_name: str, **additional_parameters
+    ) -> Optional["APIParameterConfig"]:
         """
         Factory method to create APIParameterConfig instances with sensible defaults for
         known APIs. Avoids throwing an error if the provider name does not already exist
@@ -324,12 +364,15 @@ class APIParameterConfig:
                                             Returns None if a mapping for the provider_name isn't retrieved
         """
 
-        parameter_map = APIParameterMap.get_defaults(provider_name, **additional_parameters)
+        parameter_map = APIParameterMap.get_defaults(
+            provider_name, **additional_parameters
+        )
         return cls(parameter_map) if parameter_map else None
 
     @classmethod
-    def from_defaults(cls, provider_name: str,
-                      **additional_parameters) -> "APIParameterConfig":
+    def from_defaults(
+        cls, provider_name: str, **additional_parameters
+    ) -> "APIParameterConfig":
         """
         Factory method to create APIParameterConfig instances with sensible defaults for
         known APIs. If the provider_name does not exist, the code will raise an exception
@@ -346,11 +389,14 @@ class APIParameterConfig:
             NotImplementedError: If the API name is unknown.
 
         """
-        parameter_map = APIParameterMap.from_defaults(provider_name, **additional_parameters)
+        parameter_map = APIParameterMap.from_defaults(
+            provider_name, **additional_parameters
+        )
         return cls(parameter_map)
 
     def __repr__(self) -> str:
         """Helper method for displaying the config and parameter mappings for the api in a user-friendly manner"""
         class_name = self.__class__.__name__
-        return generate_repr_from_string(class_name,
-                                         dict(parameter_map = repr(self.parameter_map)))
+        return generate_repr_from_string(
+            class_name, dict(parameter_map=repr(self.parameter_map))
+        )

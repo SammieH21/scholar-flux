@@ -10,9 +10,10 @@ from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
 from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage import DataCacheManager
+from scholar_flux.exceptions import OptionalDependencyImportError
 
 
-@pytest.mark.parametrize("storage", [
+@pytest.mark.parametrize("storage_type", [
     'redis_test_storage', 
     'mongo_test_storage',
     'mongo_nm_test_storage',
@@ -21,10 +22,15 @@ from scholar_flux.data_storage import DataCacheManager
     'in_memory_test_storage',
     'in_memory_nm_test_storage',
 ])
-def test_basic_cache_manager_operations(request, storage, mock_response, mock_cache_storage_data):
+
+def test_basic_cache_manager_operations(request, storage_type, db_dependency_unavailable, mock_response, mock_cache_storage_data):
     """Test basic cache operations with different storage types."""
     # Create cache manager with specific storage
-    storage = request.getfixturevalue(storage)
+    dependency_name = storage_type.split('_')[0] if not storage_type.startswith('sql') else 'sqlalchemy'
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+
+    storage = request.getfixturevalue(storage_type)
     storage.delete_all()
     # Test cache key generation
     cache_key = DataCacheManager.generate_fallback_cache_key(mock_response)
@@ -105,8 +111,13 @@ def test_null_storage_behavior(mock_response, null_test_storage):
     'in_memory_test_storage',
     'null_test_storage'
 ])
-def test_bool_operator(request, storage_type):
+def test_bool_operator(request, storage_type, db_dependency_unavailable):
     """Test the __bool__ operator."""
+
+    dependency_name = storage_type.split('_')[0] if not storage_type.startswith('sql') else 'sqlalchemy'
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+
     storage = request.getfixturevalue(storage_type)
 
     # Only Null storage should return False
@@ -121,8 +132,12 @@ def test_bool_operator(request, storage_type):
     'sqlite_test_storage',
     'in_memory_test_storage',
 ])
-def test_cache_retrieval_with_none_data(request, mock_response, storage_type):
+def test_cache_retrieval_with_none_data(request, mock_response, storage_type, db_dependency_unavailable):
     """Test cache retrieval when data is None or empty."""
+
+    dependency_name = storage_type.split('_')[0] if not storage_type.startswith('sql') else 'sqlalchemy'
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
 
     storage = request.getfixturevalue(storage_type)
     cache_key = DataCacheManager.generate_fallback_cache_key(mock_response)
@@ -152,8 +167,13 @@ def test_cache_retrieval_with_none_data(request, mock_response, storage_type):
     'sqlite_test_storage',
     'in_memory_test_storage',
 ])
-def test_delete_nonexistent_key(request, mock_response, storage_type):
+def test_delete_nonexistent_key(request, mock_response, storage_type, db_dependency_unavailable):
     """Test deleting a key that doesn't exist."""
+
+    dependency_name = storage_type.split('_')[0] if not storage_type.startswith('sql') else 'sqlalchemy'
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+
     storage = request.getfixturevalue(storage_type)
     cache_key = DataCacheManager.generate_fallback_cache_key(mock_response)
     cache_key = DataCacheManager.generate_fallback_cache_key(mock_response)

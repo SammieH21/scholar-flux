@@ -4,17 +4,21 @@ from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.data.base_extractor import BaseDataExtractor
 
 import logging
+
 logger = logging.getLogger(__name__)
 
-class DataExtractor(BaseDataExtractor):
-    DEFAULT_DYNAMIC_RECORD_IDENTIFIERS = ('title','doi', 'abstract')
-    DEFAULT_DYNAMIC_METADATA_IDENTIFIERS = ('metadata', 'facets', 'IdList')
 
-    def __init__(self,
-                 record_path: Optional[list] = None,
-                 metadata_path: Optional[list[list] | dict[str, list]] = None,
-                 dynamic_record_identifiers: Optional[list | tuple] = None,
-                 dynamic_metadata_identifiers: Optional[list | tuple] = None):
+class DataExtractor(BaseDataExtractor):
+    DEFAULT_DYNAMIC_RECORD_IDENTIFIERS = ("title", "doi", "abstract")
+    DEFAULT_DYNAMIC_METADATA_IDENTIFIERS = ("metadata", "facets", "IdList")
+
+    def __init__(
+        self,
+        record_path: Optional[list] = None,
+        metadata_path: Optional[list[list] | dict[str, list]] = None,
+        dynamic_record_identifiers: Optional[list | tuple] = None,
+        dynamic_metadata_identifiers: Optional[list | tuple] = None,
+    ):
         """
         Initialize the DataExtractor with optional path overrides for metadata and records.
         The data extractor provides two ways to identify metadata paths and record paths:
@@ -52,19 +56,25 @@ class DataExtractor(BaseDataExtractor):
         """
         super().__init__(record_path, metadata_path)
 
-        self.dynamic_record_identifiers = (dynamic_record_identifiers
-                                            if dynamic_record_identifiers is not None
-                                            else self.DEFAULT_DYNAMIC_RECORD_IDENTIFIERS
-                                           )
-        self.dynamic_metadata_identifiers = (dynamic_metadata_identifiers
-                                            if dynamic_metadata_identifiers is not None
-                                            else self.DEFAULT_DYNAMIC_METADATA_IDENTIFIERS
-                                           )
-        self._validate_dynamic_identifiers(dynamic_record_identifiers, dynamic_metadata_identifiers)
+        self.dynamic_record_identifiers = (
+            dynamic_record_identifiers
+            if dynamic_record_identifiers is not None
+            else self.DEFAULT_DYNAMIC_RECORD_IDENTIFIERS
+        )
+        self.dynamic_metadata_identifiers = (
+            dynamic_metadata_identifiers
+            if dynamic_metadata_identifiers is not None
+            else self.DEFAULT_DYNAMIC_METADATA_IDENTIFIERS
+        )
+        self._validate_dynamic_identifiers(
+            dynamic_record_identifiers, dynamic_metadata_identifiers
+        )
 
-    def _validate_dynamic_identifiers(self,
-                                      dynamic_record_identifiers: Optional[list | tuple] = None,
-                                      dynamic_metadata_identifiers: Optional[list | tuple] = None):
+    def _validate_dynamic_identifiers(
+        self,
+        dynamic_record_identifiers: Optional[list | tuple] = None,
+        dynamic_metadata_identifiers: Optional[list | tuple] = None,
+    ):
         """
         Method used to validate the dynamic record identifiers provided to the DataExtractor prior to its later use
         In extracting metadata and records
@@ -79,25 +89,41 @@ class DataExtractor(BaseDataExtractor):
         try:
             if dynamic_record_identifiers is not None:
                 if not isinstance(dynamic_record_identifiers, (list, tuple)):
-                    raise KeyError(f"The dynamic record identifiers provided must be a tuple or list. Received: {type(dynamic_record_identifiers)}")
-                if not all(isinstance(path, (str)) for path in dynamic_record_identifiers):
-                    raise KeyError(f"At least one value in the provided dynamic record identifier is not an integer or string: {dynamic_record_identifiers}")
+                    raise KeyError(
+                        f"The dynamic record identifiers provided must be a tuple or list. Received: {type(dynamic_record_identifiers)}"
+                    )
+                if not all(
+                    isinstance(path, (str)) for path in dynamic_record_identifiers
+                ):
+                    raise KeyError(
+                        f"At least one value in the provided dynamic record identifier is not an integer or string: {dynamic_record_identifiers}"
+                    )
 
             if dynamic_metadata_identifiers is not None:
                 if not isinstance(dynamic_metadata_identifiers, (list, tuple)):
-                    raise KeyError(f"The dynamic metadata identifiers provided must be a tuple or list. Received: {type(dynamic_metadata_identifiers)}")
-                if not all(isinstance(path, (str)) for path in dynamic_metadata_identifiers):
-                    raise KeyError(f"At least one value in the provided dynamic metadata identifier is not an integer or string: {dynamic_metadata_identifiers}")
+                    raise KeyError(
+                        f"The dynamic metadata identifiers provided must be a tuple or list. Received: {type(dynamic_metadata_identifiers)}"
+                    )
+                if not all(
+                    isinstance(path, (str)) for path in dynamic_metadata_identifiers
+                ):
+                    raise KeyError(
+                        f"At least one value in the provided dynamic metadata identifier is not an integer or string: {dynamic_metadata_identifiers}"
+                    )
 
         except (KeyError, TypeError) as e:
-            raise DataExtractionException(f"Error initializing the DataExtractor: At least one of the inputs are invalid. {e}") from e
+            raise DataExtractionException(
+                f"Error initializing the DataExtractor: At least one of the inputs are invalid. {e}"
+            ) from e
         return None
 
-    def _validate_inputs(self,record_path: Optional[list] = None,
-                         metadata_path: Optional[list[list] | dict[str, list]] = None,
-                         dynamic_record_identifiers: Optional[list | tuple] = None,
-                         dynamic_metadata_identifiers: Optional[list | tuple] = None
-                        ):
+    def _validate_inputs(
+        self,
+        record_path: Optional[list] = None,
+        metadata_path: Optional[list[list] | dict[str, list]] = None,
+        dynamic_record_identifiers: Optional[list | tuple] = None,
+        dynamic_metadata_identifiers: Optional[list | tuple] = None,
+    ):
         """
         Method used to validate the inputs provided to the DataExtractor prior to its later use
         In extracting metadata and records
@@ -112,10 +138,14 @@ class DataExtractor(BaseDataExtractor):
             DataExtractionException: Indicates an error in the DataExtractor and identifies where the inputs take on an invalid value
         """
         self._validate_paths(record_path, metadata_path)
-        self._validate_dynamic_identifiers(dynamic_record_identifiers, dynamic_metadata_identifiers)
+        self._validate_dynamic_identifiers(
+            dynamic_record_identifiers, dynamic_metadata_identifiers
+        )
         return None
 
-    def dynamic_identification(self, parsed_page_dict: dict) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    def dynamic_identification(
+        self, parsed_page_dict: dict
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """
         Dynamically identify and separate metadata from records. This function recursively traverses the
         dictionary and uses a heuristic to determine whether a specific record corresponds to metadata
@@ -139,7 +169,7 @@ class DataExtractor(BaseDataExtractor):
             if key in self.dynamic_metadata_identifiers:
                 metadata[key] = value
 
-            elif isinstance(value, dict) :
+            elif isinstance(value, dict):
                 sub_metadata, sub_records = self.dynamic_identification(value)
                 metadata.update(sub_metadata)
                 records.extend(sub_records)
@@ -148,16 +178,22 @@ class DataExtractor(BaseDataExtractor):
                 if all(isinstance(item, dict) for item in value):
                     if len(value) == 0:
                         logger.debug(f"Element at key: {key} is empty")
-                    elif len(value) > 1:  # assuming it's records if it's a list of dicts
+                    elif (
+                        len(value) > 1
+                    ):  # assuming it's records if it's a list of dicts
 
                         records.extend(value)
                     else:
                         record = value[0]
-                        if self._identify_by_key(record, self.dynamic_record_identifiers):
+                        if self._identify_by_key(
+                            record, self.dynamic_record_identifiers
+                        ):
                             records.extend(value)
                             continue
 
-                        sub_metadata, sub_records = self.dynamic_identification(value[0])
+                        sub_metadata, sub_records = self.dynamic_identification(
+                            value[0]
+                        )
                         metadata.update(sub_metadata)
                         records.extend(sub_records)
             else:
@@ -178,12 +214,20 @@ class DataExtractor(BaseDataExtractor):
             key_identifiers (list | tuple):
                               contains keys to check for. if the key exists, we'll
         """
-        return all([
-            isinstance(record, dict),
-            any(True for id_key in (key_identifiers or []) if any(id_key in record_key for record_key in record))
-        ])
+        return all(
+            [
+                isinstance(record, dict),
+                any(
+                    True
+                    for id_key in (key_identifiers or [])
+                    if any(id_key in record_key for record_key in record)
+                ),
+            ]
+        )
 
-    def extract(self, parsed_page: Union[list[dict],dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
+    def extract(
+        self, parsed_page: Union[list[dict], dict]
+    ) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
         """
         Extract both records and metadata from the parsed page dictionary.
 
@@ -211,11 +255,14 @@ class DataExtractor(BaseDataExtractor):
         json/data dictionaries from the api response.
         """
         class_name = self.__class__.__name__
-        pad = '\n' + ' ' * (len(class_name) + 1)
-        return (f'{class_name}(record_path={self.record_path},'
-                f'{pad}metadata_path={self.metadata_path},'
-                f'{pad}dynamic_record_identifiers={self.dynamic_record_identifiers}),'
-                f'{pad}dynamic_metadata_identifiers={self.dynamic_metadata_identifiers})')
+        pad = "\n" + " " * (len(class_name) + 1)
+        return (
+            f"{class_name}(record_path={self.record_path},"
+            f"{pad}metadata_path={self.metadata_path},"
+            f"{pad}dynamic_record_identifiers={self.dynamic_record_identifiers}),"
+            f"{pad}dynamic_metadata_identifiers={self.dynamic_metadata_identifiers})"
+        )
+
 
 # # Example of using DataExtractor with default paths
 # if __name__ == "__main__":

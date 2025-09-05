@@ -53,3 +53,5 @@ def mock_api_parsed_json_records():
             }
         }
     ]
+
+__all__ = ['sample_json', 'mock_api_parsed_json_records']

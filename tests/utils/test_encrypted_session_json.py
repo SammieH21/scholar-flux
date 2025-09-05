@@ -15,11 +15,14 @@ logger = logging.getLogger(__name__)
 import scholar_flux.sessions.session_manager as sm
 from scholar_flux.utils import config_settings
 from scholar_flux.exceptions.util_exceptions import SessionCreationError
+from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
 from time import sleep
 from base64 import b64encode, b64decode
 
-def test_encryption_factory_secret_initialization():
-    from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
+def test_encryption_factory_secret_initialization(session_encryption_dependency):
+
+    if not session_encryption_dependency:
+        pytest.skip()
 
     faulty_secret_key = b'%this%a%bad%string%is%a%secret%key%%%%'
 
@@ -28,7 +31,7 @@ def test_encryption_factory_secret_initialization():
         EncryptionPipelineFactory(faulty_b64_encoded_secret_key)
 
     with pytest.raises(SecretKeyError):
-        EncryptionPipelineFactory(123)
+        EncryptionPipelineFactory(123) # type:ignore
 
     secret_key = b'%this%string%is%a%secret%key%%%%'
     byte44_encoded_secret_key = b64encode(secret_key)
@@ -45,7 +48,11 @@ def test_encryption_factory_secret_initialization():
     factory_with_str = EncryptionPipelineFactory(byte44_encoded_secret_key.decode('utf-8'), salt='')
     assert isinstance(factory_with_str.secret_key, bytes) and secret_key == b64decode(factory_with_str.secret_key)
 
-def test_missing_encryption():
+def test_missing_encryption(session_encryption_dependency):
+
+    if not session_encryption_dependency:
+        pytest.skip()
+
     with patch('scholar_flux.sessions.encryption.Signer', None):
         with pytest.raises(ItsDangerousImportError):
             from scholar_flux.sessions.encryption import EncryptionPipelineFactory
@@ -58,7 +65,11 @@ def test_missing_encryption():
 
 def test_encrypted_cached_session_initialization(default_encryption_cache_session_manager,
                                                  incorrect_secret_salt_encryption_cache_session_manager,
-                                                 mock_academic_json):
+                                                 session_encryption_dependency):
+
+    if not session_encryption_dependency:
+        pytest.skip()
+
     session = default_encryption_cache_session_manager.configure_session()
     incorrect_session = incorrect_secret_salt_encryption_cache_session_manager.configure_session()
     assert isinstance(session, CachedSession)
@@ -91,7 +102,7 @@ def test_encrypted_cached_session_initialization(default_encryption_cache_sessio
     api_two = SearchAPI.from_defaults(query= 'darkness', provider_name = 'plos', session = incorrect_session, request_delay=0,
                                   base_url = URL)
 
-    
+
     with requests_mock.Mocker() as m:
         m.get(prepared_request.url, status_code = 200)
 

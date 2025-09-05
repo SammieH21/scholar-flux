@@ -7,10 +7,13 @@ from scholar_flux.utils.config_loader import ConfigLoader
 
 config_settings = ConfigLoader()
 
-def initialize_package(log: bool=True,
-                       env_path: Optional[str] = None,
-                       config_params: Optional[dict[str, Any]] = None,
-                       logging_params:Optional[dict[str, Any]] = None ) -> tuple[dict[str, Any], logging.Logger, security.SensitiveDataMasker]:
+
+def initialize_package(
+    log: bool = True,
+    env_path: Optional[str] = None,
+    config_params: Optional[dict[str, Any]] = None,
+    logging_params: Optional[dict[str, Any]] = None,
+) -> tuple[dict[str, Any], logging.Logger, security.SensitiveDataMasker]:
     """
     Function used for initializing the scholar_flux package
     Imports a '.env' config file in the event that it is available at a default location
@@ -43,13 +46,12 @@ def initialize_package(log: bool=True,
     masker = security.SensitiveDataMasker()
     masking_filter = security.MaskingFilter(masker)
 
-
     # Attempt to load configuration parameters from the provided env file
-    config_params_dict: dict= {'reload_env': True}
+    config_params_dict: dict = {"reload_env": True}
     config_params_dict.update(config_params or {})
 
     if env_path:
-        config_params_dict['env_path'] = env_path
+        config_params_dict["env_path"] = env_path
 
     # if the original config_params is empty/None, load with verbose settings:
     verbose = bool(config_params_dict)
@@ -57,15 +59,18 @@ def initialize_package(log: bool=True,
         config_settings.load_config(**config_params_dict, verbose=verbose)
         config = config_settings.config
     except Exception as e:
-        raise ValueError(f"Failed to load the configuration settings for the scholar_flux package: {e}")
+        raise ValueError(
+            f"Failed to load the configuration settings for the scholar_flux package: {e}"
+        )
 
     # declares the default parameters from scholar_flux after loading configuration environment variables
-    logging_params_dict: dict={'logger':logger,
-                               'log_directory': config.get('SCHOLAR_FLUX_LOG_DIRECTORY'),
-                               'log_file': config.get('SCHOLAR_FLUX_LOG_FILE', 'application.log'),
-                               'log_level': config.get('SCHOLAR_FLUX_LOG_LEVEL',logging.DEBUG),
-                               'logging_filter': masking_filter
-                              }
+    logging_params_dict: dict = {
+        "logger": logger,
+        "log_directory": config.get("SCHOLAR_FLUX_LOG_DIRECTORY"),
+        "log_file": config.get("SCHOLAR_FLUX_LOG_FILE", "application.log"),
+        "log_level": config.get("SCHOLAR_FLUX_LOG_LEVEL", logging.DEBUG),
+        "logging_filter": masking_filter,
+    }
 
     logging_params_dict.update(logging_params or {})
 
@@ -77,7 +82,9 @@ def initialize_package(log: bool=True,
             # ensure the logger does not output if logging is turned off
             logger.addHandler(logging.NullHandler())
     except Exception as e:
-        raise ValueError(f"Failed to initialize the logging for the scholar_flux package: {e}")
+        raise ValueError(
+            f"Failed to initialize the logging for the scholar_flux package: {e}"
+        )
 
     logging.debug(
         "Loaded Scholar Flux with the following parameters:\n"
@@ -88,4 +95,4 @@ def initialize_package(log: bool=True,
     return config_settings.config, logger, masker
 
 
-__all__ = ['initialize_package', 'config_settings']
+__all__ = ["initialize_package", "config_settings"]

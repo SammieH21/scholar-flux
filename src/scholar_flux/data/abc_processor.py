@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 from abc import ABC, abstractmethod
 from scholar_flux.utils.repr_utils import generate_repr
 
+
 class ABCDataProcessor(ABC):
     """
     Initializes record keys and header/body paths in the object instance using defined methods.
@@ -15,6 +16,7 @@ class ABCDataProcessor(ABC):
     Returns:
     - None
     """
+
     def __init__(self, *args, **kwargs) -> None:
         """
         Initializes record keys and header/body paths in the object instance using defined methods.
@@ -39,7 +41,6 @@ class ABCDataProcessor(ABC):
         Abstract method to be optionally implement to ignore certain keys in records when processing records
         """
         pass
-
 
     def define_record_path(self, *args, **kwargs) -> Optional[Tuple]:
         """
@@ -102,4 +103,4 @@ class ABCDataProcessor(ABC):
         Useful for showing the options being used to process the records that originate
         from the parsed api response.
         """
-        return generate_repr(self, exclude = ('json_data',))
+        return generate_repr(self, exclude=("json_data",))

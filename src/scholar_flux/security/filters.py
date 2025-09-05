@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 from scholar_flux.security.masker import SensitiveDataMasker
 
+
 class MaskingFilter(logging.Filter):
     def __init__(self, masker: Optional[SensitiveDataMasker] = None):
         """
@@ -20,4 +21,3 @@ class MaskingFilter(logging.Filter):
         if isinstance(record.msg, str):
             record.msg = self.masker.mask_text(record.msg)
         return True
-

@@ -1,11 +1,12 @@
 import json
 
 from scholar_flux.exceptions import RedisImportError
-from scholar_flux.data_storage.base import ABCStorage
+from scholar_flux.data_storage.abc_storage import ABCStorage
 from typing import Any, Dict, List, Optional, cast, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import CacheDataEncoder
-import  logging
+import logging
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -19,18 +20,19 @@ else:
         redis = None
         RedisError = Exception
 
+
 class RedisStorage(ABCStorage):
 
-    DEFAULT_NAMESPACE: str = 'SFAPI'
-    DEFAULT_REDIS_CONFIG = {'host':'localhost',
-                      'port':6379,
-                      'db':0}
+    DEFAULT_NAMESPACE: str = "SFAPI"
+    DEFAULT_REDIS_CONFIG = {"host": "localhost", "port": 6379, "db": 0}
 
-    def __init__(self,
-                 host: Optional[str] = None,
-                 namespace: Optional[str] = None,
-                 ttl: Optional[int] = None,
-                 **redis_config):
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        namespace: Optional[str] = None,
+        ttl: Optional[int] = None,
+        **redis_config,
+    ):
         """
         Initialize the Redis storage backend and connect to the Redis server.
 
@@ -54,7 +56,7 @@ class RedisStorage(ABCStorage):
         self.config: dict = self.DEFAULT_REDIS_CONFIG | redis_config
 
         if host:
-            self.config['host'] = host
+            self.config["host"] = host
 
         self.client = redis.Redis(**self.config)
         self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
@@ -77,9 +79,11 @@ class RedisStorage(ABCStorage):
         """
         try:
             namespace_key = self._prefix(key)
-            cache_data = cast('Optional[str]', self.client.get(namespace_key))
+            cache_data = cast("Optional[str]", self.client.get(namespace_key))
             if cache_data is None:
-                logger.info(f"Record for key {key} (namespace = '{self.namespace}') not found...")
+                logger.info(
+                    f"Record for key {key} (namespace = '{self.namespace}') not found..."
+                )
                 return None
 
             if isinstance(cache_data, bytes):
@@ -87,7 +91,9 @@ class RedisStorage(ABCStorage):
             return CacheDataEncoder.decode(json.loads(cache_data))
 
         except RedisError as e:
-            logger.error(f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}): {e}'")
+            logger.error(
+                f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}): {e}'"
+            )
         return None
 
     def retrieve_all(self) -> Dict[str, Any]:
@@ -100,11 +106,13 @@ class RedisStorage(ABCStorage):
         """
         try:
             matched_keys = self.retrieve_keys()
-            results = {key:self.retrieve(key) for key in matched_keys}
+            results = {key: self.retrieve(key) for key in matched_keys}
             return results
 
         except RedisError as e:
-            logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}: {e}'")
+            logger.error(
+                f"Error during attempted retrieval of all keys from namespace '{self.namespace}: {e}'"
+            )
         return {}
 
     def retrieve_keys(self) -> List[str]:
@@ -116,13 +124,16 @@ class RedisStorage(ABCStorage):
         """
         keys = []
         try:
-            keys = [key.decode() if isinstance(key,bytes) else key
-                            for key in self.client.scan_iter(f"{self.namespace}:*")]
+            keys = [
+                key.decode() if isinstance(key, bytes) else key
+                for key in self.client.scan_iter(f"{self.namespace}:*")
+            ]
         except RedisError as e:
-            logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}: {e}'")
+            logger.error(
+                f"Error during attempted retrieval of all keys from namespace '{self.namespace}: {e}'"
+            )
 
         return keys
-
 
     def update(self, key: str, data: Any) -> None:
         """
@@ -142,7 +153,9 @@ class RedisStorage(ABCStorage):
             logger.debug(f"Cache updated for key: {namespace_key}")
 
         except RedisError as e:
-            logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}: {e}'")
+            logger.error(
+                f"Error during attempted update of key {key} (namespace = '{self.namespace}: {e}'"
+            )
 
     def delete(self, key: str) -> None:
         """
@@ -157,10 +170,14 @@ class RedisStorage(ABCStorage):
             if self.verify_cache(key):
                 self.client.delete(namespace_key)
             else:
-                logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
+                logger.info(
+                    f"Record for key {key} (namespace = '{self.namespace}') does not exist"
+                )
 
         except RedisError as e:
-            logger.error(f"Error during attempted deletion of key {key} (namespace = '{self.namespace}): {e}'")
+            logger.error(
+                f"Error during attempted deletion of key {key} (namespace = '{self.namespace}): {e}'"
+            )
 
     def delete_all(self) -> None:
         """
@@ -173,16 +190,18 @@ class RedisStorage(ABCStorage):
             if not self.namespace:
                 return None
 
-            #matched_keys = [key for key in self.client.scan_iter(f"{self.namespace}:*")]
+            # matched_keys = [key for key in self.client.scan_iter(f"{self.namespace}:*")]
             matched_keys = list(self.client.scan_iter(f"{self.namespace}:*"))
 
             for key in matched_keys:
                 self.client.delete(key)
 
         except RedisError as e:
-            logger.error(f"Error during attempted deletion of all keys from namespace '{self.namespace}: {e}'")
+            logger.error(
+                f"Error during attempted deletion of all keys from namespace '{self.namespace}: {e}'"
+            )
 
-    def verify_cache(self,key: str) -> bool:
+    def verify_cache(self, key: str) -> bool:
         """
         Check if specific cache key exists.
 
@@ -196,13 +215,17 @@ class RedisStorage(ABCStorage):
         """
         try:
             if not key:
-                raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
+                raise ValueError(
+                    f"Key invalid. Received {key} (namespace = '{self.namespace}')"
+                )
             namespace_key = self._prefix(key)
 
             if self.client.exists(namespace_key):
                 return True
 
         except RedisError as e:
-            logger.error(f"Error during the verification of the existence of key {key} (namespace = '{self.namespace}): {e}'")
+            logger.error(
+                f"Error during the verification of the existence of key {key} (namespace = '{self.namespace}): {e}'"
+            )
 
         return False

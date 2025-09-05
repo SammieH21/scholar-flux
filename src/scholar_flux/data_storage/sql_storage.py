@@ -2,9 +2,11 @@ import logging
 from typing import Any, List, Dict, Optional, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import CacheDataEncoder
-from scholar_flux.data_storage.base import ABCStorage
+from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.package_metadata import get_default_writable_directory
-from scholar_flux.exceptions import SQLAlchemyImportError  # Custom exception for missing SQLAlchemy
+from scholar_flux.exceptions import (
+    SQLAlchemyImportError,
+)  # Custom exception for missing SQLAlchemy
 
 import cattrs
 
@@ -14,16 +16,21 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from sqlalchemy import create_engine, Column, String, Integer, JSON, exc, func
     from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
     SQLALCHEMY_AVAILABLE = True
 else:
     try:
         from sqlalchemy import create_engine, Column, String, Integer, JSON, exc, func
         from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
         SQLALCHEMY_AVAILABLE = True
     except ImportError:
         # Dummies for names so code still parses, but using stubs or Nones for runtime
         create_engine = None
-        def Column(*args, **kwargs): None  # type: ignore
+
+        def Column(*args, **kwargs):
+            None  # type: ignore
+
         String = Integer = JSON = exc = func = None
         DeclarativeBase = object  # type: ignore
         sessionmaker = None
@@ -31,31 +38,38 @@ else:
 
 # Define ORM classes if SQLAlchemy is available or for type checking
 if TYPE_CHECKING or SQLALCHEMY_AVAILABLE:
+
     class Base(DeclarativeBase):  # type: ignore
         pass
 
     class CacheTable(Base):  # type: ignore
-        __tablename__ = 'cache'
+        __tablename__ = "cache"
         id = Column(Integer, primary_key=True, autoincrement=True)
         key = Column(String, unique=True, nullable=False)
         cache = Column(JSON, nullable=False)
+
 else:
     # Runtime stubs so code can be parsed, but will error if actually used
     Base = None  # type: ignore
     CacheTable = None  # type: ignore
 
+
 class SQLAlchemyStorage(ABCStorage):
 
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_CONFIG: Dict[str, Any] = {
-         'url': lambda: 'sqlite:///' + str(get_default_writable_directory('package_cache') / 'data_store.sqlite'),
-        'echo': False
+        "url": lambda: "sqlite:///"
+        + str(get_default_writable_directory("package_cache") / "data_store.sqlite"),
+        "echo": False,
     }
 
-    def __init__(self, url: Optional[str] = None,
-                 namespace: Optional[str] = None,
-                 ttl: None = None,
-                 **sqlalchemy_config) -> None:
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        namespace: Optional[str] = None,
+        ttl: None = None,
+        **sqlalchemy_config,
+    ) -> None:
         """
         Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter.
         This class uses the innate flexibility of SQLAlchemy to support backends such as SQLite, Postgres, DuckDB, etc.
@@ -73,10 +87,12 @@ class SQLAlchemyStorage(ABCStorage):
         if not SQLALCHEMY_AVAILABLE:
             raise SQLAlchemyImportError
 
-        sqlalchemy_config['url'] = url or self.DEFAULT_CONFIG['url']()
-        sqlalchemy_config['echo'] = (sqlalchemy_config.get('echo')
-                                     if isinstance(sqlalchemy_config.get('echo'), bool)
-                                     else self.DEFAULT_CONFIG['echo'])
+        sqlalchemy_config["url"] = url or self.DEFAULT_CONFIG["url"]()
+        sqlalchemy_config["echo"] = (
+            sqlalchemy_config.get("echo")
+            if isinstance(sqlalchemy_config.get("echo"), bool)
+            else self.DEFAULT_CONFIG["echo"]
+        )
 
         self.config: dict = sqlalchemy_config
         self.engine = create_engine(**self.config)
@@ -103,9 +119,15 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 namespace_key = self._prefix(key)
-                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
+                record = (
+                    session.query(CacheTable)
+                    .filter(CacheTable.key == namespace_key)
+                    .first()
+                )
                 if record:
-                    return CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
+                    return CacheDataEncoder.decode(
+                        self.converter.structure(record.cache, dict)
+                    )
                 return None
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error retrieving key {key}: {e}")
@@ -123,9 +145,13 @@ class SQLAlchemyStorage(ABCStorage):
             cache = {}
             try:
                 records = session.query(CacheTable).all()
-                cache = {str(record.key): CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
-                         for record in records
-                         if not self.namespace or str(record.key).startswith(self.namespace)}
+                cache = {
+                    str(record.key): CacheDataEncoder.decode(
+                        self.converter.structure(record.cache, dict)
+                    )
+                    for record in records
+                    if not self.namespace or str(record.key).startswith(self.namespace)
+                }
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error retrieving all records: {e}")
             return cache
@@ -140,7 +166,11 @@ class SQLAlchemyStorage(ABCStorage):
 
         with self.Session() as session:
             try:
-                keys = [str(record.key) for record in session.query(CacheTable).all() if not self.namespace or str(record.key).startswith(self.namespace)]
+                keys = [
+                    str(record.key)
+                    for record in session.query(CacheTable).all()
+                    if not self.namespace or str(record.key).startswith(self.namespace)
+                ]
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error retrieving keys: {e}")
                 keys = []
@@ -159,8 +189,14 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 namespace_key = self._prefix(key)
-                structured_data = self.converter.unstructure(CacheDataEncoder.encode(data))
-                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
+                structured_data = self.converter.unstructure(
+                    CacheDataEncoder.encode(data)
+                )
+                record = (
+                    session.query(CacheTable)
+                    .filter(CacheTable.key == namespace_key)
+                    .first()
+                )
                 if record:
                     record.cache = structured_data
                 else:
@@ -183,7 +219,11 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 namespace_key = self._prefix(key)
-                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
+                record = (
+                    session.query(CacheTable)
+                    .filter(CacheTable.key == namespace_key)
+                    .first()
+                )
                 if record:
                     session.delete(record)
                     session.commit()
@@ -198,7 +238,11 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 if self.namespace:
-                    num_deleted = session.query(CacheTable).filter(CacheTable.key.startswith(self.namespace)).delete()
+                    num_deleted = (
+                        session.query(CacheTable)
+                        .filter(CacheTable.key.startswith(self.namespace))
+                        .delete()
+                    )
                     session.commit()
                 else:
                     num_deleted = session.query(CacheTable).delete()
@@ -208,7 +252,7 @@ class SQLAlchemyStorage(ABCStorage):
                 logger.error(f"Error deleting all records: {e}")
                 session.rollback()
 
-    def verify_cache(self,key: str) -> bool:
+    def verify_cache(self, key: str) -> bool:
         """
         Check if specific cache key exists.
 

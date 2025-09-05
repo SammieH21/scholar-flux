@@ -1,4 +1,8 @@
-from scholar_flux.exceptions import ItsDangerousImportError, CryptographyImportError, SecretKeyError
+from scholar_flux.exceptions import (
+    ItsDangerousImportError,
+    CryptographyImportError,
+    SecretKeyError,
+)
 from requests_cache.serializers.pipeline import SerializerPipeline, Stage
 from requests_cache.serializers.cattrs import CattrStage
 from scholar_flux import config
@@ -17,14 +21,17 @@ else:
         from itsdangerous import Signer
         from cryptography.fernet import Fernet
     except ImportError:
-        Signer=None
-        Fernet=None
+        Signer = None
+        Fernet = None
 
 
 logger = logging.getLogger(__name__)
 
+
 class EncryptionPipelineFactory:
-    def __init__(self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ''):
+    def __init__(
+        self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ""
+    ):
         """
         Helper class used to create a factory for encrypting and decrypting pipelines
         using a secret key.
@@ -54,7 +61,7 @@ class EncryptionPipelineFactory:
             self._validate_key(prepared_key)
 
         self.secret_key = prepared_key or self.generate_secret_key()
-        self.salt = salt or ''
+        self.salt = salt or ""
 
     @staticmethod
     def _prepare_key(key: Optional[str | bytes]) -> bytes | None:
@@ -66,17 +73,21 @@ class EncryptionPipelineFactory:
         cache_secret_key = config.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
 
         if not key and cache_secret_key:
-            logger.debug("Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build cache‑session"
-                         " encryption pipeline")
+            logger.debug(
+                "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build cache‑session"
+                " encryption pipeline"
+            )
 
-            key = (cache_secret_key.get_secret_value()
-                   if isinstance(cache_secret_key, SecretStr)
-                   else cache_secret_key)
+            key = (
+                cache_secret_key.get_secret_value()
+                if isinstance(cache_secret_key, SecretStr)
+                else cache_secret_key
+            )
 
         if key is None:
             return None
 
-        byte_key =  key.encode('utf-8') if isinstance(key, str) else key
+        byte_key = key.encode("utf-8") if isinstance(key, str) else key
         if not isinstance(byte_key, bytes):
             raise SecretKeyError("secret_key must be bytes or UTF-8 string")
 
@@ -92,11 +103,12 @@ class EncryptionPipelineFactory:
         try:
             Fernet(key)
         except Exception as e:
-            raise SecretKeyError("Provided secret_key is not a valid Fernet key.") from e
-
+            raise SecretKeyError(
+                "Provided secret_key is not a valid Fernet key."
+            ) from e
 
     @staticmethod
-    def generate_secret_key()-> bytes:
+    def generate_secret_key() -> bytes:
         """Generate a secret key for Fernet encryption"""
         return Fernet.generate_key()
 
@@ -121,8 +133,8 @@ class EncryptionPipelineFactory:
         """
         return Stage(
             self.signer(secret_key=self.secret_key, salt=self.salt),
-            dumps='sign',
-            loads='unsign',
+            dumps="sign",
+            loads="unsign",
         )
 
     def create_pipeline(self) -> SerializerPipeline:
@@ -131,13 +143,14 @@ class EncryptionPipelineFactory:
 
         return SerializerPipeline(
             [base_stage, Stage(pickle), self.signer_stage(), self.encryption_stage()],
-            name='safe_pickle_with_encryption',
+            name="safe_pickle_with_encryption",
             is_binary=True,
         )
 
     def __call__(self) -> SerializerPipeline:
         """Helper method for being able to create the serializer pipeline by calling the factory object"""
         return self.create_pipeline()
+
 
 # # Example usage
 # if __name__ == "__main__":
@@ -149,6 +162,3 @@ class EncryptionPipelineFactory:
 #     response = session.get("https://docs.python.org/3/library/typing.html")
 #     cached_response = session.get("https://docs.python.org/3/library/typing.html")
 #
-
-
-
