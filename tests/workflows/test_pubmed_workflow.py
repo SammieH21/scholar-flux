@@ -7,10 +7,10 @@ def test_direct_pubmed_workflow(
                               mock_pubmed_search_endpoint,
                               mock_pubmed_fetch_endpoint,
                               mock_pubmed_search_data,
-                              mock_pubmed_fetch_data,
-                              pubmed_api_key):
+                              mock_pubmed_fetch_data
+                              ):
 
-    assert pubmed_api_key
+    pubmed_api_key = "this_is_a_mocked_api_key"
     with requests_mock.Mocker() as m:
         m.get(mock_pubmed_search_endpoint,
               content = mock_pubmed_search_data['_content'].encode(),
@@ -41,14 +41,12 @@ def test_direct_pubmed_workflow(
     assert result.result.data is not None
 
 
-def test_workflow_default(
-                              mock_pubmed_search_endpoint,
-                              mock_pubmed_fetch_endpoint,
-                              mock_pubmed_search_data,
-                              mock_pubmed_fetch_data,
-                              pubmed_api_key):
+def test_workflow_default( mock_pubmed_search_endpoint,
+                          mock_pubmed_fetch_endpoint,
+                          mock_pubmed_search_data,
+                          mock_pubmed_fetch_data):
 
-    assert pubmed_api_key
+    pubmed_api_key = "this_is_a_mocked_api_key"
     with requests_mock.Mocker() as m:
         m.get(mock_pubmed_search_endpoint,
               content = mock_pubmed_search_data['_content'].encode(),

@@ -6,7 +6,7 @@ version = "0.1.0"
 readme = "README.md"
 license = "Apache-2.0"
 packages = [{include = "scholar_flux", from="src"}]
-include = ["src/scholar_flux/py.typed"]
+include = ["src/scholar_flux/py.typed", "README.md", "LICENSE", "NOTICE"]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
@@ -14,9 +14,15 @@ requests = ">=2.25.0,<3.0.0"
 requests-cache = {extras = ["security"], version = "^1.2.0"}
 python-dotenv = ">=0.15.0"
 pydantic = "^2.10.6"
+sqlalchemy = {version = ">=2.0.0", optional = true}
+redis = {version = ">=4.0.0", optional = true}
+pymongo = {version = ">=4.0.0", optional = true}
+cryptography = {version = ">=3.0.0", optional = true}
+xmltodict = {version = ">=0.12.0", optional = true}
+pyyaml = {version = ">=5.0.0", optional = true}
 
 [tool.poetry.extras]
-database = ["sqlalchemy", "redis", "pymongo", "sqlite"]
+database = ["sqlalchemy", "redis", "pymongo"]
 cryptography = ["cryptography"]
 parsing = ["xmltodict", "pyyaml"]
 
@@ -46,13 +52,10 @@ line-length = 120
     "ANN",    # don’t require type annotations
     "ARG",     # Allow Unused function args 
     "S101",   # allow plain `assert` (pytest’s way)
-    # "F401",   # Allow unused imports 
     "SIM117", # allow nested `with` statements for readability purposes
     "E731",   # Allow assignment of a lambda
     "B018",   # allow useless expressions (fine in asserts)
     "FBT",    # ignore boolean positional arguments
     "PT004",  # fixture without value
     "ARG001", # unused function args (pytest fixtures often look unused)
-    # "N818",
-    # "T20"
 ]

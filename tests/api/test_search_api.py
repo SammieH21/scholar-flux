@@ -261,8 +261,8 @@ def test_prepare_search_url_and_params():
     assert "foo=bar" in req.url
     assert "api_key=123" in req.url
 
-def test_core_api_filtering(core_api_key, monkeypatch, caplog, scholar_flux_logger):
-    assert core_api_key
+def test_core_api_filtering(monkeypatch, caplog, scholar_flux_logger):
+    core_api_key = 'this_is_a_mock_api_key'
     api = SearchAPI.from_defaults(query='a search string',provider_name='core',api_key=core_api_key)
     api.masker.clear()
     assert not api.masker.patterns

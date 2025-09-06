@@ -27,9 +27,10 @@ venv.bak/
 **/env/
 **/env.bak/
 
-# Environments
-**/.env
-**/.venv
+# Coverage reports
+.coverage
+.coverage.*
+coverage.xml
 
 # VS Code settings
 .vscode/
