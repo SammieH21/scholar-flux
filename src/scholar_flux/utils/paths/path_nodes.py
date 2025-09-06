@@ -176,8 +176,4 @@ class PathNode:
         Returns:
             bool: True if the objects are equal, False otherwise.
         """
-        return (
-            isinstance(other, PathNode)
-            and self.path == other.path
-            and self.value == other.value
-        )
+        return isinstance(other, PathNode) and self.path == other.path and self.value == other.value

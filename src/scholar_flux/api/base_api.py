@@ -38,12 +38,8 @@ class BaseAPI:
                                         create a regular requests.Session unless a CachedSession is already provided.
         """
 
-        self.session: requests.Session = self.configure_session(
-            session, user_agent, use_cache
-        )
-        self.timeout = self._validate_timeout(
-            timeout if timeout is not None else self.DEFAULT_TIMEOUT
-        )
+        self.session: requests.Session = self.configure_session(session, user_agent, use_cache)
+        self.timeout = self._validate_timeout(timeout if timeout is not None else self.DEFAULT_TIMEOUT)
 
     @staticmethod
     def _validate_timeout(timeout: int | float) -> int | float:
@@ -104,15 +100,12 @@ class BaseAPI:
 
             if all(
                 [
-                    use_cache is True
-                    or (use_cache is None and self.DEFAULT_USE_CACHE is True),
+                    use_cache is True or (use_cache is None and self.DEFAULT_USE_CACHE is True),
                     not isinstance(session, CachedSession),
                 ]
             ):
                 logger.debug("Creating a cached session for the BaseAPI.")
-                session = CachedSessionManager(
-                    user_agent=user_agent, backend="memory"
-                ).configure_session()
+                session = CachedSessionManager(user_agent=user_agent, backend="memory").configure_session()
 
             # create a regular non-cached session and override only if `use_cache` is explicitly set to False
             if use_cache is False and isinstance(session, CachedSession):
@@ -130,9 +123,7 @@ class BaseAPI:
             return session
         except Exception as e:
             logger.error("An unexpected error occurred during session initialization.")
-            raise SessionCreationError(
-                f"A new session could not be created successfully: {e}"
-            )
+            raise SessionCreationError(f"A new session could not be created successfully: {e}")
 
     def prepare_request(
         self,
@@ -184,9 +175,7 @@ class BaseAPI:
             requests.Response: The response object.
         """
 
-        timeout = self._validate_timeout(
-            timeout if timeout is not None else self.timeout
-        )
+        timeout = self._validate_timeout(timeout if timeout is not None else self.timeout)
 
         prepared_request = self.prepare_request(base_url, endpoint, parameters)
         base_url = urljoin(base_url, endpoint) if endpoint else base_url

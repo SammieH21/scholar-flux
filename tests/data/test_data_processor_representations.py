@@ -1,6 +1,7 @@
 from scholar_flux.data import DataProcessor, RecursiveDataProcessor, PathDataProcessor
 from scholar_flux.utils import quote_if_string
 
+
 def test_data_processor_repr():
     processor = DataProcessor()
 
@@ -10,12 +11,15 @@ def test_data_processor_repr():
     keep_keys = quote_if_string(processor.keep_keys)
     regex = quote_if_string(processor.regex)
 
-    expected = (f"DataProcessor(record_keys={record_keys},\n"
-                f"              ignore_keys={ignore_keys},\n"
-                f"              keep_keys={keep_keys},\n"
-                f"              value_delimiter={value_delimiter},\n"
-                f"              regex={regex})")
+    expected = (
+        f"DataProcessor(record_keys={record_keys},\n"
+        f"              ignore_keys={ignore_keys},\n"
+        f"              keep_keys={keep_keys},\n"
+        f"              value_delimiter={value_delimiter},\n"
+        f"              regex={regex})"
+    )
     assert processor.__repr__() == expected
+
 
 def test_path_data_processor_repr():
     processor = PathDataProcessor()
@@ -25,13 +29,16 @@ def test_path_data_processor_repr():
     keep_keys = quote_if_string(processor.keep_keys)
     path_node_index = quote_if_string(processor.path_node_index)
 
-    expected = (f"PathDataProcessor(value_delimiter={value_delimiter},\n"
-                f"                  regex=True,\n"
-                f"                  ignore_keys={ignore_keys},\n"
-                f"                  keep_keys={keep_keys},\n"
-                f"                  path_node_index={path_node_index})")
+    expected = (
+        f"PathDataProcessor(value_delimiter={value_delimiter},\n"
+        f"                  regex=True,\n"
+        f"                  ignore_keys={ignore_keys},\n"
+        f"                  keep_keys={keep_keys},\n"
+        f"                  path_node_index={path_node_index})"
+    )
 
     assert processor.__repr__() == expected
+
 
 def test_recursive_data_processor_repr():
     processor = RecursiveDataProcessor()
@@ -44,11 +51,13 @@ def test_recursive_data_processor_repr():
     key_discoverer = quote_if_string(processor.key_discoverer)
     recursive_processor = quote_if_string(processor.recursive_processor)
 
-    expected = (f"RecursiveDataProcessor(value_delimiter={value_delimiter},\n"
-                f"                       ignore_keys={ignore_keys},\n"
-                f"                       keep_keys={keep_keys},\n"
-                f"                       regex={regex},\n"
-                f"                       use_full_path={use_full_path},\n"
-                f"                       key_discoverer={key_discoverer},\n"
-                f"                       recursive_processor={recursive_processor})")
+    expected = (
+        f"RecursiveDataProcessor(value_delimiter={value_delimiter},\n"
+        f"                       ignore_keys={ignore_keys},\n"
+        f"                       keep_keys={keep_keys},\n"
+        f"                       regex={regex},\n"
+        f"                       use_full_path={use_full_path},\n"
+        f"                       key_discoverer={key_discoverer},\n"
+        f"                       recursive_processor={recursive_processor})"
+    )
     assert processor.__repr__() == expected

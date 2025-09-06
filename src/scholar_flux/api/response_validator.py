@@ -8,9 +8,7 @@ logger = logging.getLogger(__name__)
 
 class ResponseValidator:
     @staticmethod
-    def validate_response(
-        response: requests.Response, *, raise_on_error: bool = False
-    ) -> bool:
+    def validate_response(response: requests.Response, *, raise_on_error: bool = False) -> bool:
         """
         Validates HTTP response for errors.
 
@@ -60,9 +58,7 @@ class ResponseValidator:
         if expected_format in content_type:
             return True
 
-        logger.warning(
-            f"Content type validation failed: received '{content_type}', expected '{expected_format}'"
-        )
+        logger.warning(f"Content type validation failed: received '{content_type}', expected '{expected_format}'")
 
         if raise_on_error:
             raise InvalidResponseException(

@@ -52,19 +52,11 @@ class InMemoryStorage(ABCStorage):
 
     def retrieve_all(self) -> Optional[Dict[str, Any]]:
         """Retrieves the full dictionary of all cache key-response mappings found within the current namespace"""
-        return {
-            k: v
-            for k, v in self.memory_cache.items()
-            if not self.namespace or k.startswith(self.namespace)
-        }
+        return {k: v for k, v in self.memory_cache.items() if not self.namespace or k.startswith(self.namespace)}
 
     def retrieve_keys(self) -> Optional[List[str]]:
         """Retrieves the full list of all cache keys found within the current namespace"""
-        return [
-            key
-            for key in self.memory_cache
-            if not self.namespace or key.startswith(self.namespace)
-        ] or []
+        return [key for key in self.memory_cache if not self.namespace or key.startswith(self.namespace)] or []
 
     def update(self, key: str, data: Any) -> None:
         """Attempts to update the data associated with a specific cache key in the namespace"""
@@ -85,11 +77,7 @@ class InMemoryStorage(ABCStorage):
             if not self.namespace:
                 self.memory_cache.clear()
             else:
-                filtered_cache = {
-                    k: v
-                    for k, v in self.memory_cache.items()
-                    if not k.startswith(self.namespace)
-                }
+                filtered_cache = {k: v for k, v in self.memory_cache.items() if not k.startswith(self.namespace)}
                 self.memory_cache.clear()
                 self.memory_cache.update(filtered_cache)
 
@@ -107,6 +95,11 @@ class InMemoryStorage(ABCStorage):
             raise ValueError(f"Key invalid. Received {key}")
         return namespace_key in self.memory_cache
 
+    @classmethod
+    def is_available(cls, *args, **kwargs) -> bool:
+        """Helper method that returns True, indicating that dictionary-based storage will always be available"""
+        return True
+
     def __repr__(self) -> str:
         """
         Helper method for creating an in-memory cache without overloading the repr with the spcifics of
@@ -114,9 +107,5 @@ class InMemoryStorage(ABCStorage):
         """
         class_name = self.__class__.__name__
         str_memory_cache = f"dict(n={len(self.memory_cache)})"
-        class_attribute_dict = dict(
-            namespace=self.namespace, memory_cache=str_memory_cache
-        )
-        return generate_repr_from_string(
-            class_name, attribute_dict=class_attribute_dict
-        )
+        class_attribute_dict = dict(namespace=self.namespace, memory_cache=str_memory_cache)
+        return generate_repr_from_string(class_name, attribute_dict=class_attribute_dict)

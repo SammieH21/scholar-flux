@@ -41,9 +41,7 @@ class DataProcessor(ABCDataProcessor):
         super().__init__()
 
         self._validate_inputs(record_keys, ignore_keys, keep_keys, value_delimiter)
-        self.record_keys: dict[str | int, list[str | int]] = (
-            self._prepare_record_keys(record_keys) or {}
-        )
+        self.record_keys: dict[str | int, list[str | int]] = self._prepare_record_keys(record_keys) or {}
         self.ignore_keys: list[str] = ignore_keys or []
         self.keep_keys: list[str] = keep_keys or []
         self.value_delimiter = value_delimiter
@@ -57,26 +55,14 @@ class DataProcessor(ABCDataProcessor):
         value_delimiter: Optional[str],
     ):
         """Helper class for ensuring that inputs to the data processor match the intended types"""
-        if (
-            record_keys is not None
-            and not isinstance(record_keys, list)
-            and not isinstance(record_keys, dict)
-        ):
-            raise DataProcessingException(
-                f"record_keys must be a list or dict, got {type(record_keys)}"
-            )
+        if record_keys is not None and not isinstance(record_keys, list) and not isinstance(record_keys, dict):
+            raise DataProcessingException(f"record_keys must be a list or dict, got {type(record_keys)}")
         if ignore_keys is not None and not isinstance(ignore_keys, list):
-            raise DataProcessingException(
-                f"ignore_keys must be a list, got {type(ignore_keys)}"
-            )
+            raise DataProcessingException(f"ignore_keys must be a list, got {type(ignore_keys)}")
         if keep_keys is not None and not isinstance(keep_keys, list):
-            raise DataProcessingException(
-                f"keep_keys must be a list, got {type(keep_keys)}"
-            )
+            raise DataProcessingException(f"keep_keys must be a list, got {type(keep_keys)}")
         if value_delimiter is not None and not isinstance(value_delimiter, str):
-            raise DataProcessingException(
-                f"value_delimiter must be a string, got {type(value_delimiter)}"
-            )
+            raise DataProcessingException(f"value_delimiter must be a string, got {type(value_delimiter)}")
 
     @staticmethod
     def _prepare_record_keys(
@@ -102,9 +88,7 @@ class DataProcessor(ABCDataProcessor):
             elif isinstance(record_keys, list):
                 # creates a dictionary where the joined list represents the key
                 record_keys_dict: Optional[dict[str | int, list[str | int]]] = {
-                    ".".join(f"{p}" for p in as_list_1d(record_key_path)): as_list_1d(
-                        record_key_path
-                    )
+                    ".".join(f"{p}" for p in as_list_1d(record_key_path)): as_list_1d(record_key_path)
                     for record_key_path in record_keys
                     if record_key_path != []
                 }
@@ -112,10 +96,7 @@ class DataProcessor(ABCDataProcessor):
             elif isinstance(record_keys, dict):
                 # retrieve the value in the dictionary as the full path to the element.
                 # If the path is an empty list, the path will defaults to the key instead
-                record_keys_dict = {
-                    key: (as_list_1d(path) or [key])
-                    for key, path in record_keys.items()
-                }
+                record_keys_dict = {key: (as_list_1d(path) or [key]) for key, path in record_keys.items()}
 
             else:
                 raise TypeError(
@@ -125,9 +106,7 @@ class DataProcessor(ABCDataProcessor):
 
             return record_keys_dict
         except (TypeError, AttributeError, ValueError) as e:
-            raise DataProcessingException(
-                "The record_keys attribute could not be prepared. Check the inputs: "
-            ) from e
+            raise DataProcessingException("The record_keys attribute could not be prepared. Check the inputs: ") from e
 
     @staticmethod
     def extract_key(
@@ -152,11 +131,7 @@ class DataProcessor(ABCDataProcessor):
             logger.warning(f"Cannot retrieve {key} as the record is None.")
             return None
 
-        nested_record_data = (
-            get_nested_data(record, path)
-            if path and isinstance(record, (list, dict))
-            else record
-        )
+        nested_record_data = get_nested_data(record, path) if path and isinstance(record, (list, dict)) else record
 
         if not isinstance(nested_record_data, dict):
             logger.warning(f"Cannot retrieve {key} from the following record: {record}")
@@ -182,19 +157,14 @@ class DataProcessor(ABCDataProcessor):
             # Simplified record data processing using dictionary comprehension
 
         processed_record_dict = (
-            {
-                key: self.extract_key(record_dict, path[-1], path[:-1])
-                for key, path in self.record_keys.items()
-            }
+            {key: self.extract_key(record_dict, path[-1], path[:-1]) for key, path in self.record_keys.items()}
             if self.record_keys
             else {}
         )
 
         return self.collapse_fields(processed_record_dict)
 
-    def collapse_fields(
-        self, processed_record_dict: dict
-    ) -> dict[str, list[str | int] | str | int]:
+    def collapse_fields(self, processed_record_dict: dict) -> dict[str, list[str | int] | str | int]:
         """Helper method for joining lists of data into a singular string for flattening"""
         if processed_record_dict and self.value_delimiter is not None:
             return {
@@ -241,13 +211,8 @@ class DataProcessor(ABCDataProcessor):
         """filter records, using regex pattern matching, checking if any of the keys provided in the function call exist"""
         use_regex = regex if regex is not None else False
         if record_keys:
-            logger.debug(
-                f"Finding field key matches within processing data: {record_keys}"
-            )
-            matches = [
-                nested_key_exists(record_dict, key, regex=use_regex)
-                for key in record_keys
-            ] or []
+            logger.debug(f"Finding field key matches within processing data: {record_keys}")
+            matches = [nested_key_exists(record_dict, key, regex=use_regex) for key in record_keys] or []
             return len([match for match in matches if match]) > 0
         return False
 

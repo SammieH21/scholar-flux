@@ -27,9 +27,7 @@ def get_default_writable_directory(
     """
 
     if directory_type not in ["package_cache", "logs"]:
-        raise ValueError(
-            "Received an incorrect directory_type when identifying writable directories."
-        )
+        raise ValueError("Received an incorrect directory_type when identifying writable directories.")
 
     for candidate_func in PARENT_DIRECTORY_CANDIDATES:
         try:
@@ -43,6 +41,4 @@ def get_default_writable_directory(
         except (PermissionError, OSError):
             continue
 
-    raise RuntimeError(
-        f"Could not locate a writable {directory_type} directory for scholar_flux"
-    )
+    raise RuntimeError(f"Could not locate a writable {directory_type} directory for scholar_flux")

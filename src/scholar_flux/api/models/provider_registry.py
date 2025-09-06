@@ -61,8 +61,7 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
         # Check if the key already exists and handle overwriting behavior
         if not isinstance(key, str):
             raise APIParameterException(
-                f"The key provided to the ProviderRegistry is invalid. "
-                f"Expected a string, received {type(key)}"
+                f"The key provided to the ProviderRegistry is invalid. " f"Expected a string, received {type(key)}"
             )
 
         if not isinstance(value, ProviderConfig):

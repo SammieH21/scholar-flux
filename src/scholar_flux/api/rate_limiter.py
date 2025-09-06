@@ -28,9 +28,7 @@ class RateLimiter:
             min_interval: Minimum seconds between successive calls.
         """
 
-        self.min_interval = self._validate(
-            min_interval if min_interval is not None else self.DEFAULT_MIN_INTERVAL
-        )
+        self.min_interval = self._validate(min_interval if min_interval is not None else self.DEFAULT_MIN_INTERVAL)
         self._last_call: float | int | None = None
 
     @staticmethod
@@ -41,8 +39,7 @@ class RateLimiter:
         """
         if not isinstance(min_interval, (int, float)):
             raise APIParameterException(
-                "min_interval must be an number greater than or "
-                f"equal to 0. Received value {min_interval}"
+                "min_interval must be an number greater than or " f"equal to 0. Received value {min_interval}"
             )
         if min_interval < 0:
             raise APIParameterException("min_interval must be non-negative")
@@ -68,11 +65,7 @@ class RateLimiter:
         min_interval = self._validate(
             min_interval
             if min_interval is not None
-            else (
-                self.min_interval
-                if self.min_interval is not None
-                else self.DEFAULT_MIN_INTERVAL
-            )
+            else (self.min_interval if self.min_interval is not None else self.DEFAULT_MIN_INTERVAL)
         )
 
         if self._last_call is not None and min_interval:

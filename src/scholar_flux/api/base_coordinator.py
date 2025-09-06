@@ -24,9 +24,7 @@ class BaseCoordinator:
     from APIs and can make use of caching functionality for caching requests and responses.
     """
 
-    def __init__(
-        self, search_api: SearchAPI, response_coordinator: ResponseCoordinator
-    ):
+    def __init__(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator):
 
         self._api: SearchAPI = search_api
         self._response_coordinator: ResponseCoordinator = response_coordinator
@@ -72,8 +70,7 @@ class BaseCoordinator:
         """Allows the direct modification of the SearchAPI while ensuring type-safety"""
         if not isinstance(search_api, SearchAPI):
             raise InvalidCoordinatorParameterException(
-                "Expected a SearchAPI object. "
-                "Instead received type ({type(search_api)})"
+                "Expected a SearchAPI object. " "Instead received type ({type(search_api)})"
             )
         self._api = search_api
 
@@ -87,8 +84,7 @@ class BaseCoordinator:
         """Allows the direct modification of the SearchAPI while ensuring type-safety"""
         if not isinstance(response_coordinator, ResponseCoordinator):
             raise InvalidCoordinatorParameterException(
-                f"Expected a ResponseCoordinator object. "
-                f"Instead received type ({type(response_coordinator)})"
+                f"Expected a ResponseCoordinator object. " f"Instead received type ({type(response_coordinator)})"
             )
         self._response_coordinator = response_coordinator
 
@@ -113,13 +109,9 @@ class BaseCoordinator:
         try:
             response = self.api.search(**kwargs)
             if response is not None:
-                return self.response_coordinator.handle_response(
-                    response, kwargs.get("cache_key")
-                )
+                return self.response_coordinator.handle_response(response, kwargs.get("cache_key"))
         except RequestFailedException as e:
-            logger.error(
-                f"Failed to get a valid response from the {self.api.provider_name} API: {e}"
-            )
+            logger.error(f"Failed to get a valid response from the {self.api.provider_name} API: {e}")
         return None
 
     def __repr__(self) -> str:
@@ -128,7 +120,5 @@ class BaseCoordinator:
         Useful for showing the options being used to coordinate requests.
         """
         class_name = self.__class__.__name__
-        attribute_dict = dict(
-            api=repr(self.api), response_coordinator=self.response_coordinator
-        )
+        attribute_dict = dict(api=repr(self.api), response_coordinator=self.response_coordinator)
         return generate_repr_from_string(class_name, attribute_dict)

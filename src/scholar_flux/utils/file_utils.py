@@ -36,9 +36,7 @@ class FileUtils:
         """Save an object in text format with the specified extension (if provided)."""
         filepath = FileUtils.get_filepath(filepath, ext)
         with open(filepath, "w") as f:
-            obj = (
-                json.dumps(obj) if isinstance(obj, (dict, list)) and dump else str(obj)
-            )
+            obj = json.dumps(obj) if isinstance(obj, (dict, list)) and dump else str(obj)
             f.write(obj)
 
     @staticmethod
@@ -61,9 +59,7 @@ class FileUtils:
             obj = json.loads(obj)
             logger.debug(f"loaded data from {filepath} as dictionary/list")
         except json.JSONDecodeError as e:
-            logger.debug(
-                f"Couldn't load data as dictionary/list: {e}. Loaded data from {filepath} as text"
-            )
+            logger.debug(f"Couldn't load data as dictionary/list: {e}. Loaded data from {filepath} as text")
         return obj
 
     @staticmethod
@@ -88,9 +84,7 @@ class FileUtils:
         return lines
 
     @staticmethod
-    def append_to_file(
-        content: Union[str, List[str]], filepath: str, ext: str = ""
-    ) -> None:
+    def append_to_file(content: Union[str, List[str]], filepath: str, ext: str = "") -> None:
         """Append content to a file."""
         filepath = FileUtils.get_filepath(filepath, ext)
         with open(filepath, "a") as f:

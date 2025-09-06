@@ -12,15 +12,17 @@ from datetime import datetime, timedelta, timezone
 if TYPE_CHECKING:
     import pymongo
     from pymongo import MongoClient
-    from pymongo.errors import DuplicateKeyError, PyMongoError
+    from pymongo.errors import DuplicateKeyError, PyMongoError, ServerSelectionTimeoutError, ConnectionFailure
 else:
     try:
         import pymongo
         from pymongo import MongoClient
-        from pymongo.errors import DuplicateKeyError, PyMongoError
+        from pymongo.errors import DuplicateKeyError, PyMongoError, ServerSelectionTimeoutError, ConnectionFailure
     except ImportError:
         pymongo = None
         MongoClient = None
+        ServerSelectionTimeoutError = Exception
+        ConnectionFailure = Exception
         DuplicateKeyError = Exception
         PyMongoError = Exception
 
@@ -74,9 +76,7 @@ class MongoDBStorage(ABCStorage):
         if host:
             self.config["host"] = host
 
-        self.client: MongoClient = MongoClient(
-            host=self.config["host"], port=self.config["port"]
-        )
+        self.client: MongoClient = MongoClient(host=self.config["host"], port=self.config["port"])
         self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
         self.db = self.client[self.config["db"]]
         self.collection = self.db[self.config["collection"]]
@@ -104,18 +104,12 @@ class MongoDBStorage(ABCStorage):
             cache_data = self.collection.find_one({"key": namespace_key})
 
             if cache_data:
-                return {
-                    k: v
-                    for k, v in cache_data["data"].items()
-                    if k not in ("_id", "key")
-                }
+                return {k: v for k, v in cache_data["data"].items() if k not in ("_id", "key")}
 
         except PyMongoError as e:
             logger.error(f"Error retrieving all records: {e}")
 
-        logger.info(
-            f"Record for key {key} (namespace = '{self.namespace}') not found..."
-        )
+        logger.info(f"Record for key {key} (namespace = '{self.namespace}') not found...")
         return None
 
     def retrieve_all(self) -> Dict[str, Any]:
@@ -133,15 +127,9 @@ class MongoDBStorage(ABCStorage):
                 logger.info("Records not found...")
             else:
                 cache = {
-                    data["key"]: {
-                        k: v for k, v in data.items() if k not in ("_id", "cache_key")
-                    }
+                    data["key"]: {k: v for k, v in data.items() if k not in ("_id", "cache_key")}
                     for data in cache_data
-                    if data.get("key")
-                    and (
-                        not self.namespace
-                        or data.get("key", "").startswith(self.namespace)
-                    )
+                    if data.get("key") and (not self.namespace or data.get("key", "").startswith(self.namespace))
                 }
         except PyMongoError as e:
             logger.error(f"Error retrieving all records: {e}")
@@ -172,20 +160,12 @@ class MongoDBStorage(ABCStorage):
             namespace_key = self._prefix(key)
             data_dict = {"data": data}
             if self.ttl is not None:
-                data_dict["expireAt"] = datetime.now(timezone.utc) + timedelta(
-                    seconds=self.ttl
-                )
+                data_dict["expireAt"] = datetime.now(timezone.utc) + timedelta(seconds=self.ttl)
             if not self.verify_cache(namespace_key):
-                self.collection.update_one(
-                    {"key": namespace_key}, {"$set": data_dict}, upsert=True
-                )
+                self.collection.update_one({"key": namespace_key}, {"$set": data_dict}, upsert=True)
             else:
-                self.collection.replace_one(
-                    {"key": namespace_key}, data_dict, upsert=True
-                )
-            logger.debug(
-                f"Cache updated for key: {key} (namespace = '{self.namespace}')"
-            )
+                self.collection.replace_one({"key": namespace_key}, data_dict, upsert=True)
+            logger.debug(f"Cache updated for key: {key} (namespace = '{self.namespace}')")
 
         except DuplicateKeyError as e:
             logger.warning(f"Duplicate key error updating cache: {e}")
@@ -197,13 +177,9 @@ class MongoDBStorage(ABCStorage):
             namespace_key = self._prefix(key)
             result = self.collection.delete_one({"key": namespace_key})
             if result.deleted_count > 0:
-                logger.debug(
-                    f"Key: {key}  (namespace = '{self.namespace}') successfully deleted"
-                )
+                logger.debug(f"Key: {key}  (namespace = '{self.namespace}') successfully deleted")
             else:
-                logger.info(
-                    f"Key: {key}  (namespace = '{self.namespace}') does not exist in cache."
-                )
+                logger.info(f"Key: {key}  (namespace = '{self.namespace}') does not exist in cache.")
         except PyMongoError as e:
             logger.error(f"Error deleting key {key}: {e}")
 
@@ -230,9 +206,27 @@ class MongoDBStorage(ABCStorage):
             ValueError: If provided key is empty or None.
         """
         if not key:
-            raise ValueError(
-                f"Key invalid. Received {key} (namespace = '{self.namespace}')"
-            )
+            raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
 
         found_data = self.retrieve(key)
         return found_data is not None
+
+    @classmethod
+    def is_available(cls, host: str = "localhost", port: int = 6379, verbose: bool = True) -> bool:
+        """Helper method that returns True, indicating that dictionary-based storage will always be available"""
+
+        if not pymongo:
+            logger.warning("The pymongo module is not available")
+            return False
+
+        try:
+            client: MongoClient = MongoClient(f"mongodb://{host}:{port}", serverSelectionTimeoutMS=1000)
+            client.server_info()
+
+            if verbose:
+                logger.info(f"The MongoDB service is available at {host}:{port}")
+            return True
+
+        except (ServerSelectionTimeoutError, ConnectionFailure) as e:
+            logger.warning(f"An active MongoDB service could not be found at {host}:{port}: {e}")
+            return False

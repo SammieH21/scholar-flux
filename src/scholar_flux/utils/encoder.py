@@ -15,9 +15,7 @@ class CacheDataEncoder:
     """
 
     @staticmethod
-    def is_base64(
-        s: Union[str, bytes], hash_prefix: Optional[str] = "<hashbytes>"
-    ) -> bool:
+    def is_base64(s: Union[str, bytes], hash_prefix: Optional[str] = "<hashbytes>") -> bool:
         """
         Check if a given string is a valid base64 encoded string.
 
@@ -31,11 +29,7 @@ class CacheDataEncoder:
         if isinstance(s, str):
             # removes the hash_prefix if it exists, then encodes the data
             hash_prefix = hash_prefix or ""
-            s_fmt = (
-                s.replace(hash_prefix, "", 1)
-                if hash_prefix and s.startswith(hash_prefix)
-                else s
-            )
+            s_fmt = s.replace(hash_prefix, "", 1) if hash_prefix and s.startswith(hash_prefix) else s
             s_bytes = s_fmt.encode("utf-8")
         elif isinstance(s, bytes):
             s_bytes = s
@@ -54,9 +48,7 @@ class CacheDataEncoder:
 
         # Validate by encoding and decoding
         try:
-            return base64.b64encode(base64.b64decode(s_bytes)).strip(
-                b"="
-            ) == s_bytes.strip(b"=")
+            return base64.b64encode(base64.b64decode(s_bytes)).strip(b"=") == s_bytes.strip(b"=")
         except Exception:
             return False
 
@@ -105,14 +97,10 @@ class CacheDataEncoder:
 
         elif isinstance(data, dict):
             try:
-                return {
-                    key: CacheDataEncoder.encode(value) for key, value in data.items()
-                }
+                return {key: CacheDataEncoder.encode(value) for key, value in data.items()}
             except Exception as e:
                 logger.error(f"Error encoding a dictionary element to base64: {e}")
-                raise ValueError(
-                    "Failed to encode dictionary element to base64."
-                ) from e
+                raise ValueError("Failed to encode dictionary element to base64.") from e
 
         elif isinstance(data, list):
             try:
@@ -148,20 +136,12 @@ class CacheDataEncoder:
         if data is None:
             return None
 
-        if (
-            isinstance(hash_prefix, str)
-            and isinstance(data, str)
-            and not data.startswith(hash_prefix)
-        ):
+        if isinstance(hash_prefix, str) and isinstance(data, str) and not data.startswith(hash_prefix):
             return data
 
         if isinstance(data, str):
             try:
-                data_fmt = (
-                    data.replace(hash_prefix, "", 1)
-                    if hash_prefix is not None
-                    else data
-                )
+                data_fmt = data.replace(hash_prefix, "", 1) if hash_prefix is not None else data
                 if not CacheDataEncoder.is_base64(data_fmt):
                     return data
 
@@ -170,21 +150,15 @@ class CacheDataEncoder:
                     return data  # Return original if decoded data is likely gibberish
                 return decoded_bytes
             except (ValueError, TypeError) as e:
-                logger.error(
-                    f"Invalid or malformed base64 data; returning original input. {e}"
-                )
+                logger.error(f"Invalid or malformed base64 data; returning original input. {e}")
                 return data  # Return original if decoding error occurs
 
         elif isinstance(data, dict):
             try:
-                return {
-                    key: CacheDataEncoder.decode(value) for key, value in data.items()
-                }
+                return {key: CacheDataEncoder.decode(value) for key, value in data.items()}
             except Exception as e:
                 logger.error(f"Error decoding a dictionary element from base64: {e}")
-                raise ValueError(
-                    "Failed to decode dictionary element from base64."
-                ) from e
+                raise ValueError("Failed to decode dictionary element from base64.") from e
 
         elif isinstance(data, list):
             try:

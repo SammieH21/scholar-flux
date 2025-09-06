@@ -64,13 +64,9 @@ class PathDiscoverer:
         records = records or self.records
         try:
             if records is None:
-                raise ValueError(
-                    "The value provided to 'records' is invalid: No data to process."
-                )
+                raise ValueError("The value provided to 'records' is invalid: No data to process.")
 
-            current_path = current_path or ProcessingPath(
-                delimiter=self.DEFAULT_DELIMITER
-            )
+            current_path = current_path or ProcessingPath(delimiter=self.DEFAULT_DELIMITER)
             self.path_mappings[current_path] = None
 
             # record the next element deep if max_depth has not already been reached
@@ -88,9 +84,7 @@ class PathDiscoverer:
             raise PathDiscoveryError from e
 
         except TypeError as e:
-            logger.error(
-                f"An unsupported type was encountered during path discovery: {e}"
-            )
+            logger.error(f"An unsupported type was encountered during path discovery: {e}")
             raise PathDiscoveryError from e
 
         return None
@@ -123,9 +117,7 @@ class PathDiscoverer:
                     path_node = ProcessingPath(str(key), ("dict",))
 
                     # ensure that the first element of a path starts with an indexable key
-                    new_path = (
-                        current_path / path_node if current_path.depth else path_node
-                    )
+                    new_path = current_path / path_node if current_path.depth else path_node
 
                     if is_nested(value):
                         if recursive:
@@ -145,12 +137,8 @@ class PathDiscoverer:
             elif isinstance(record, list):
                 # process lists with indices serving as keys
                 for index, item in enumerate(record):
-                    path_node = ProcessingPath(
-                        str(index), ("list",), delimiter=self.DEFAULT_DELIMITER
-                    )
-                    new_path = (
-                        current_path / path_node if current_path.depth else path_node
-                    )
+                    path_node = ProcessingPath(str(index), ("list",), delimiter=self.DEFAULT_DELIMITER)
+                    new_path = current_path / path_node if current_path.depth else path_node
 
                     # determine whether the next value is a nested structure (non-str iterable)
                     if is_nested(item):
@@ -168,19 +156,13 @@ class PathDiscoverer:
                         self.path_mappings[new_path] = item
                         self._log_recorded_paths(new_path, item)
             else:
-                raise TypeError(
-                    f"The data type for record, '{type(record)}', is unsupported."
-                )
+                raise TypeError(f"The data type for record, '{type(record)}', is unsupported.")
         except TypeError as e:
-            logger.error(
-                f"Type error encountered during traversal of the path, {current_path}: {e}"
-            )
+            logger.error(f"Type error encountered during traversal of the path, {current_path}: {e}")
             raise
 
     @staticmethod
-    def _log_early_stop(
-        path: ProcessingPath, value: Any, max_depth: Optional[int] = None
-    ):
+    def _log_early_stop(path: ProcessingPath, value: Any, max_depth: Optional[int] = None):
         """
         Logs the resulting value after stopping the addition of paths early by max depth.
 

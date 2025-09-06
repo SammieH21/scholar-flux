@@ -49,16 +49,10 @@ class ProcessingPath:
         object.__setattr__(
             self,
             "delimiter",
-            self._validate_delimiter(
-                delimiter if delimiter is not None else self.DEFAULT_DELIMITER
-            ),
+            self._validate_delimiter(delimiter if delimiter is not None else self.DEFAULT_DELIMITER),
         )
-        object.__setattr__(
-            self, "components", self._validate_and_split_path(components)
-        )
-        object.__setattr__(
-            self, "component_types", self._validate_component_types(component_types)
-        )
+        object.__setattr__(self, "components", self._validate_and_split_path(components))
+        object.__setattr__(self, "component_types", self._validate_component_types(component_types))
 
     @staticmethod
     def _validate_delimiter(delimiter: str) -> str:
@@ -79,9 +73,7 @@ class ProcessingPath:
             raise InvalidPathDelimiterError("Delimiter must be a non-empty string.")
 
         if delimiter.isspace():
-            raise InvalidPathDelimiterError(
-                "Delimiter must not be a whitespace character."
-            )
+            raise InvalidPathDelimiterError("Delimiter must not be a whitespace character.")
 
         if not len(set(delimiter).intersection(set(r"\/:<>|.%"))) > 0:
             raise InvalidPathDelimiterError(
@@ -89,9 +81,7 @@ class ProcessingPath:
             )
         return delimiter
 
-    def _validate_and_split_path(
-        self, path: Union[str, Tuple[str, ...], List[str]]
-    ) -> Tuple[str, ...]:
+    def _validate_and_split_path(self, path: Union[str, Tuple[str, ...], List[str]]) -> Tuple[str, ...]:
         """
         Validate and split the given path into components.
 
@@ -126,9 +116,7 @@ class ProcessingPath:
 
         # Check for empty components in the path after stripping whitespace
         if any(not p.strip() for p in path[1:]):
-            raise InvalidProcessingPathError(
-                "Non-root path components must be non-empty strings."
-            )
+            raise InvalidProcessingPathError("Non-root path components must be non-empty strings.")
 
         # Return the validated path as a tuple
         return tuple(path)
@@ -160,20 +148,14 @@ class ProcessingPath:
             component_types = list(component_types)
 
         # Ensure the component_types is a list of non-empty strings or types
-        if not isinstance(component_types, list) or not all(
-            isinstance(p, str) for p in component_types
-        ):
-            raise InvalidProcessingPathError(
-                "Path must be a list or tuple of strings or types."
-            )
+        if not isinstance(component_types, list) or not all(isinstance(p, str) for p in component_types):
+            raise InvalidProcessingPathError("Path must be a list or tuple of strings or types.")
 
         if not component_types:
             return None
 
         if any(not p.strip() for p in component_types[1:]):
-            raise InvalidProcessingPathError(
-                "Path components must be non-empty strings."
-            )
+            raise InvalidProcessingPathError("Path components must be non-empty strings.")
 
         # determine length difference between node components and
         component_type_length_diff = self.depth - len(component_types)
@@ -232,9 +214,7 @@ class ProcessingPath:
             >>> print(updated_path)  # Output: ProcessingPath(a/b/c)
         """
         validated_delimiter = self._validate_delimiter(new_delimiter)
-        return ProcessingPath(
-            self.components, self.component_types, validated_delimiter
-        )
+        return ProcessingPath(self.components, self.component_types, validated_delimiter)
 
     @classmethod
     def to_processing_path(
@@ -264,23 +244,17 @@ class ProcessingPath:
         if delimiter is None:
 
             if not infer_delimiter:
-                logger.debug(
-                    f"Infer delimiter is set to False. Default delimiter {cls.DEFAULT_DELIMITER} will be used"
-                )
+                logger.debug(f"Infer delimiter is set to False. Default delimiter {cls.DEFAULT_DELIMITER} will be used")
                 delimiter = cls.DEFAULT_DELIMITER
             else:
                 if isinstance(path, list):
-                    raise InvalidProcessingPathError(
-                        "Cannot infer delimiter for list of strings"
-                    )
+                    raise InvalidProcessingPathError("Cannot infer delimiter for list of strings")
                 return cls.with_inferred_delimiter(path, component_types)
 
         if isinstance(path, (str, list)):
             return cls(path, component_types, delimiter)
         else:
-            raise InvalidProcessingPathError(
-                f"Cannot convert {type(path)} to {cls.__name__}."
-            )
+            raise InvalidProcessingPathError(f"Cannot convert {type(path)} to {cls.__name__}.")
 
     @classmethod
     def with_inferred_delimiter(
@@ -341,30 +315,20 @@ class ProcessingPath:
         if isinstance(index, int):
             return ProcessingPath(
                 self.components[index],
-                (
-                    (self.component_types[index],)
-                    if self.component_types is not None
-                    else None
-                ),
+                ((self.component_types[index],) if self.component_types is not None else None),
                 self.delimiter,
             )
         elif isinstance(index, slice):
             start, stop, step = index.indices(len(self.components))
             return ProcessingPath(
                 self.components[start:stop:step],
-                (
-                    self.component_types[start:stop:step]
-                    if self.component_types is not None
-                    else None
-                ),
+                (self.component_types[start:stop:step] if self.component_types is not None else None),
                 self.delimiter,
             )
         else:
             raise IndexError(f"Invalid index for ProcessingPath: received {index}")
 
-    def append(
-        self, component: str, component_type: Optional[str] = None
-    ) -> ProcessingPath:
+    def append(self, component: str, component_type: Optional[str] = None) -> ProcessingPath:
         """Append a component to the path and return a new ProcessingPath object.
 
         Args:
@@ -378,9 +342,7 @@ class ProcessingPath:
         """
         if not isinstance(component, str) or not component:
             raise InvalidProcessingPathError("Component must be a non-empty string.")
-        if self.component_types and (
-            not isinstance(component_type, str) or not component_type
-        ):
+        if self.component_types and (not isinstance(component_type, str) or not component_type):
             raise InvalidProcessingPathError(
                 "Component Type must be a non-empty string/type when a pre-existing component type is not None"
             )
@@ -484,9 +446,7 @@ class ProcessingPath:
         Raises:
             InvalidProcessingPathError: If the replacement arguments are not strings or ProcessingPaths.
         """
-        if not isinstance(old, (str, ProcessingPath)) or not isinstance(
-            new, (str, ProcessingPath)
-        ):
+        if not isinstance(old, (str, ProcessingPath)) or not isinstance(new, (str, ProcessingPath)):
             raise InvalidProcessingPathError(
                 f"Replacement arguments must be strings or ProcessingPaths, received: old = {old}, new = {new}"
             )
@@ -529,10 +489,7 @@ class ProcessingPath:
         else:
             path = ProcessingPath.with_inferred_delimiter(value)
 
-        return (
-            path.update_delimiter("<<>>").to_string()
-            in self.update_delimiter("<<>>").to_string()
-        )
+        return path.update_delimiter("<<>>").to_string() in self.update_delimiter("<<>>").to_string()
 
     def __lt__(self, path: ProcessingPath) -> bool:
         """
@@ -596,15 +553,9 @@ class ProcessingPath:
             bool: True if the objects are equal, False otherwise.
         """
         if isinstance(other, ProcessingPath):
-            return (
-                self.components == other.components
-                and self.delimiter == other.delimiter
-            )
+            return self.components == other.components and self.delimiter == other.delimiter
         elif isinstance(other, str):
-            return (
-                self.components
-                == ProcessingPath(other, delimiter=self.delimiter).components
-            )
+            return self.components == ProcessingPath(other, delimiter=self.delimiter).components
         elif isinstance(other, (tuple, list)):
             return self.components == tuple(other)
         return False
@@ -664,12 +615,8 @@ class ProcessingPath:
                 return self.copy()
             new_components = self.components + (other,)
         else:
-            raise InvalidProcessingPathError(
-                f"Can only concatenate with a ProcessingPath or string. Received: {other}"
-            )
-        return ProcessingPath(
-            new_components, new_component_types, delimiter=self.delimiter
-        )
+            raise InvalidProcessingPathError(f"Can only concatenate with a ProcessingPath or string. Received: {other}")
+        return ProcessingPath(new_components, new_component_types, delimiter=self.delimiter)
 
     def sorted(self) -> ProcessingPath:
         """
@@ -686,15 +633,9 @@ class ProcessingPath:
             )
         )
         ordered_components = [self.components[i] for i in ordered_indices]
-        ordered_component_types = (
-            [self.component_types[i] for i in ordered_indices]
-            if self.component_types
-            else None
-        )
+        ordered_component_types = [self.component_types[i] for i in ordered_indices] if self.component_types else None
 
-        return ProcessingPath(
-            ordered_components, ordered_component_types, self.delimiter
-        )
+        return ProcessingPath(ordered_components, ordered_component_types, self.delimiter)
 
     def __reversed__(self) -> ProcessingPath:
         return self.reversed()
@@ -775,15 +716,9 @@ class ProcessingPath:
                 )
                 for comp in self.components
             ]
-            return self.delimiter.join(
-                [str(self.depth)] + padded_components
-                if depth_first
-                else padded_components
-            )
+            return self.delimiter.join([str(self.depth)] + padded_components if depth_first else padded_components)
         except Exception as e:
-            raise InvalidProcessingPathError(
-                f"Error generating alphanumeric representation for path '{self}': {e}"
-            )
+            raise InvalidProcessingPathError(f"Error generating alphanumeric representation for path '{self}': {e}")
 
     def _filter_indices_list(
         self, indices: List[int], include_matches: bool = False
@@ -793,11 +728,7 @@ class ProcessingPath:
         returns components and component types as a tuple
         """
         filtered_components = tuple(
-            [
-                component
-                for index, component in enumerate(self.components)
-                if (index in indices) == include_matches
-            ]
+            [component for index, component in enumerate(self.components) if (index in indices) == include_matches]
         )
 
         filtered_component_types = None
@@ -821,11 +752,7 @@ class ProcessingPath:
             ProcessingPath: A new ProcessingPath object without the specified numeric components.
         """
 
-        filtered_indices = [
-            index
-            for index, component in enumerate(self.components)
-            if component.isdigit()
-        ]
+        filtered_indices = [index for index, component in enumerate(self.components) if component.isdigit()]
 
         if not filtered_indices:
             return self.copy()
@@ -840,9 +767,7 @@ class ProcessingPath:
             filtered_indices, include_matches=False
         )
 
-        return ProcessingPath(
-            tuple(filtered_components), filtered_component_types, self.delimiter
-        )
+        return ProcessingPath(tuple(filtered_components), filtered_component_types, self.delimiter)
 
     def replace_indices(self, placeholder: str = "i") -> ProcessingPath:
         """Replace numeric components in the path with a placeholder.
@@ -853,10 +778,7 @@ class ProcessingPath:
         Returns:
             ProcessingPath: A new ProcessingPath object with numeric components replaced by the placeholder.
         """
-        new_components = tuple(
-            placeholder if component.isdigit() else component
-            for component in self.components
-        )
+        new_components = tuple(placeholder if component.isdigit() else component for component in self.components)
         return ProcessingPath(new_components, self.component_types, self.delimiter)
 
     def modify_parent(
@@ -869,9 +791,7 @@ class ProcessingPath:
         Args:
            new_parent_path
         """
-        new_parent_path = ProcessingPath.to_processing_path(
-            new_parent_path, new_component_types, self.delimiter
-        )
+        new_parent_path = ProcessingPath.to_processing_path(new_parent_path, new_component_types, self.delimiter)
         # if not new_parent_path.is_ancestor_of(self):
         #    raise InvalidProcessingPathError(f"The provided path: {new_parent_path} is not a subset of the current path: {self}. Check the provided path")
         return new_parent_path / self.get_name(1)
@@ -930,23 +850,15 @@ class ProcessingPath:
         Returns:
             ProcessingPath: A new ProcessingPath object without the specified components.
         """
-        filtered_indices = [
-            index
-            for index, comp in enumerate(self.components)
-            if comp not in removal_list
-        ]
+        filtered_indices = [index for index, comp in enumerate(self.components) if comp not in removal_list]
 
         filtered_components, filtered_component_types = self._filter_indices_list(
             filtered_indices, include_matches=True
         )
 
-        return ProcessingPath(
-            filtered_components, filtered_component_types, self.delimiter
-        )
+        return ProcessingPath(filtered_components, filtered_component_types, self.delimiter)
 
-    def remove_by_type(
-        self, removal_list: List[str], raise_on_error: bool = False
-    ) -> ProcessingPath:
+    def remove_by_type(self, removal_list: List[str], raise_on_error: bool = False) -> ProcessingPath:
         """Remove specified component types from the path.
 
         Args:
@@ -957,28 +869,18 @@ class ProcessingPath:
         """
         if self.component_types is None:
             if raise_on_error:
-                raise InvalidComponentTypeError(
-                    "The ProcessingPath has no component type is available to filter on"
-                )
+                raise InvalidComponentTypeError("The ProcessingPath has no component type is available to filter on")
             else:
-                logger.warning(
-                    "The ProcessingPath has no component type is available to filter on. Skipping filtering"
-                )
+                logger.warning("The ProcessingPath has no component type is available to filter on. Skipping filtering")
                 return self.copy()
 
-        filtered_indices = [
-            index
-            for index, comp in enumerate(self.component_types)
-            if comp not in removal_list
-        ]
+        filtered_indices = [index for index, comp in enumerate(self.component_types) if comp not in removal_list]
 
         filtered_components, filtered_component_types = self._filter_indices_list(
             filtered_indices, include_matches=True
         )
 
-        return ProcessingPath(
-            filtered_components, filtered_component_types, self.delimiter
-        )
+        return ProcessingPath(filtered_components, filtered_component_types, self.delimiter)
 
     def info_content(self, non_informative: List[str]) -> int:
         """Calculate the number of informative components in the path.
@@ -1003,11 +905,7 @@ class ProcessingPath:
         """
         return ProcessingPath(
             self.components[-max_components:],
-            (
-                self.component_types[-max_components:]
-                if self.component_types is not None
-                else None
-            ),
+            (self.component_types[-max_components:] if self.component_types is not None else None),
             self.delimiter,
         )
 
@@ -1017,10 +915,7 @@ class ProcessingPath:
         if not paths:
             return []
 
-        prepared_paths = [
-            path if isinstance(path, cls) else cls.with_inferred_delimiter(path)
-            for path in paths
-        ]
+        prepared_paths = [path if isinstance(path, cls) else cls.with_inferred_delimiter(path) for path in paths]
 
         sorted_paths = sorted(prepared_paths, key=lambda path: path.depth)
         max_depth = sorted_paths[-1].depth
@@ -1029,11 +924,7 @@ class ProcessingPath:
             current_path
             for i, current_path in enumerate(sorted_paths)
             if current_path.depth == max_depth
-            or not any(
-                current_path.is_ancestor_of(p)
-                for p in sorted_paths[i + 1 :]
-                if current_path.depth < p.depth
-            )
+            or not any(current_path.is_ancestor_of(p) for p in sorted_paths[i + 1 :] if current_path.depth < p.depth)
         ]
 
         return result

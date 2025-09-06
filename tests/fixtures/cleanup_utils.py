@@ -1,6 +1,7 @@
 import pytest
 import os
 
+
 @pytest.fixture(scope="function")
 def cleanup(tmp_path):
     """Fixture to clean up temporary files and directories after each test."""
@@ -13,4 +14,4 @@ def cleanup(tmp_path):
             os.rmdir(os.path.join(root, name))
 
 
-__all__ = ['cleanup']
+__all__ = ["cleanup"]

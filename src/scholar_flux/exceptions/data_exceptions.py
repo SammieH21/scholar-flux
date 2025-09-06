@@ -51,6 +51,4 @@ class DataValidationException(DataProcessingException):
     def __init__(self, validation_errors, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.validation_errors = validation_errors
-        self.message = "Data validation failed with errors: " + ", ".join(
-            validation_errors
-        )
+        self.message = "Data validation failed with errors: " + ", ".join(validation_errors)

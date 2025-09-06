@@ -2,7 +2,7 @@
 name = "scholar_flux"
 authors = ["Sammie L. Haskin <44345113+SammieH21@users.noreply.github.com>"]
 description = "The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications."
-version = "0.1.0"
+version = "0.1.0b.1"
 readme = "README.md"
 license = "Apache-2.0"
 packages = [{include = "scholar_flux", from="src"}]
@@ -59,3 +59,9 @@ line-length = 120
     "PT004",  # fixture without value
     "ARG001", # unused function args (pytest fixtures often look unused)
 ]
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+include = '\.pyi?$'
+extend-exclude = ''

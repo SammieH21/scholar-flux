@@ -66,9 +66,7 @@ class DataExtractor(BaseDataExtractor):
             if dynamic_metadata_identifiers is not None
             else self.DEFAULT_DYNAMIC_METADATA_IDENTIFIERS
         )
-        self._validate_dynamic_identifiers(
-            dynamic_record_identifiers, dynamic_metadata_identifiers
-        )
+        self._validate_dynamic_identifiers(dynamic_record_identifiers, dynamic_metadata_identifiers)
 
     def _validate_dynamic_identifiers(
         self,
@@ -92,9 +90,7 @@ class DataExtractor(BaseDataExtractor):
                     raise KeyError(
                         f"The dynamic record identifiers provided must be a tuple or list. Received: {type(dynamic_record_identifiers)}"
                     )
-                if not all(
-                    isinstance(path, (str)) for path in dynamic_record_identifiers
-                ):
+                if not all(isinstance(path, (str)) for path in dynamic_record_identifiers):
                     raise KeyError(
                         f"At least one value in the provided dynamic record identifier is not an integer or string: {dynamic_record_identifiers}"
                     )
@@ -104,9 +100,7 @@ class DataExtractor(BaseDataExtractor):
                     raise KeyError(
                         f"The dynamic metadata identifiers provided must be a tuple or list. Received: {type(dynamic_metadata_identifiers)}"
                     )
-                if not all(
-                    isinstance(path, (str)) for path in dynamic_metadata_identifiers
-                ):
+                if not all(isinstance(path, (str)) for path in dynamic_metadata_identifiers):
                     raise KeyError(
                         f"At least one value in the provided dynamic metadata identifier is not an integer or string: {dynamic_metadata_identifiers}"
                     )
@@ -138,14 +132,10 @@ class DataExtractor(BaseDataExtractor):
             DataExtractionException: Indicates an error in the DataExtractor and identifies where the inputs take on an invalid value
         """
         self._validate_paths(record_path, metadata_path)
-        self._validate_dynamic_identifiers(
-            dynamic_record_identifiers, dynamic_metadata_identifiers
-        )
+        self._validate_dynamic_identifiers(dynamic_record_identifiers, dynamic_metadata_identifiers)
         return None
 
-    def dynamic_identification(
-        self, parsed_page_dict: dict
-    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    def dynamic_identification(self, parsed_page_dict: dict) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """
         Dynamically identify and separate metadata from records. This function recursively traverses the
         dictionary and uses a heuristic to determine whether a specific record corresponds to metadata
@@ -178,22 +168,16 @@ class DataExtractor(BaseDataExtractor):
                 if all(isinstance(item, dict) for item in value):
                     if len(value) == 0:
                         logger.debug(f"Element at key: {key} is empty")
-                    elif (
-                        len(value) > 1
-                    ):  # assuming it's records if it's a list of dicts
+                    elif len(value) > 1:  # assuming it's records if it's a list of dicts
 
                         records.extend(value)
                     else:
                         record = value[0]
-                        if self._identify_by_key(
-                            record, self.dynamic_record_identifiers
-                        ):
+                        if self._identify_by_key(record, self.dynamic_record_identifiers):
                             records.extend(value)
                             continue
 
-                        sub_metadata, sub_records = self.dynamic_identification(
-                            value[0]
-                        )
+                        sub_metadata, sub_records = self.dynamic_identification(value[0])
                         metadata.update(sub_metadata)
                         records.extend(sub_records)
             else:
@@ -217,17 +201,11 @@ class DataExtractor(BaseDataExtractor):
         return all(
             [
                 isinstance(record, dict),
-                any(
-                    True
-                    for id_key in (key_identifiers or [])
-                    if any(id_key in record_key for record_key in record)
-                ),
+                any(True for id_key in (key_identifiers or []) if any(id_key in record_key for record_key in record)),
             ]
         )
 
-    def extract(
-        self, parsed_page: Union[list[dict], dict]
-    ) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
+    def extract(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
         """
         Extract both records and metadata from the parsed page dictionary.
 

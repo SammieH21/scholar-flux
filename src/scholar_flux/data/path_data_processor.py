@@ -60,9 +60,7 @@ class PathDataProcessor(ABCDataProcessor):
             logger.debug("Updating JSON data")
             self.json_data = json_data
 
-        discovered_paths = PathDiscoverer(self.json_data).discover_path_elements(
-            inplace=False
-        )
+        discovered_paths = PathDiscoverer(self.json_data).discover_path_elements(inplace=False)
         self.path_node_index = PathNodeIndex.from_path_mappings(discovered_paths or {})
         # self.path_node_index.index_json(json_data)
         logger.debug("JSON data loaded")
@@ -84,17 +82,12 @@ class PathDataProcessor(ABCDataProcessor):
         indexed_nodes = self.path_node_index.index.filter(record_idx_prefix)
 
         if not indexed_nodes:
-            logger.warning(
-                f"A record is not associated with the following index: {record_index}"
-            )
+            logger.warning(f"A record is not associated with the following index: {record_index}")
             return None
 
         if any(
             [
-                (
-                    keep_keys
-                    and not self.record_filter(indexed_nodes, keep_keys, regex=regex)
-                ),
+                (keep_keys and not self.record_filter(indexed_nodes, keep_keys, regex=regex)),
                 self.record_filter(indexed_nodes, ignore_keys, regex=regex),
             ]
         ):
@@ -123,9 +116,7 @@ class PathDataProcessor(ABCDataProcessor):
             raise ValueError("JSON Data has not been loaded successfully")
 
         if self.path_node_index is None:
-            raise ValueError(
-                "JSON data could not be loaded into the processing path index successfully"
-            )
+            raise ValueError("JSON data could not be loaded into the processing path index successfully")
 
         keep_keys = keep_keys or self.keep_keys
         ignore_keys = ignore_keys or self.ignore_keys
@@ -141,9 +132,7 @@ class PathDataProcessor(ABCDataProcessor):
         if combine_keys:
             self.path_node_index.combine_keys()
         # Process each record in the JSON data
-        processed_data = self.path_node_index.simplify_to_rows(
-            object_delimiter=self.value_delimiter
-        )
+        processed_data = self.path_node_index.simplify_to_rows(object_delimiter=self.value_delimiter)
 
         return processed_data
 
@@ -163,14 +152,10 @@ class PathDataProcessor(ABCDataProcessor):
         regex = regex if regex is not None else self.regex
         use_regex = regex if regex is not None else False
 
-        record_pattern = "|".join(
-            record_keys if use_regex else map(re.escape, as_list_1d(record_keys))
-        )
+        record_pattern = "|".join(record_keys if use_regex else map(re.escape, as_list_1d(record_keys)))
 
         contains_record_pattern = (
-            any(re.search(record_pattern, path.to_string()) for path in record_dict)
-            if record_pattern
-            else None
+            any(re.search(record_pattern, path.to_string()) for path in record_dict) if record_pattern else None
         )
         return bool(contains_record_pattern)
 
@@ -200,9 +185,7 @@ if __name__ == "__main__":
             "journal": {"topic": "Dreams"},
         },
     ]
-    processor = PathDataProcessor(
-        value_delimiter="<>", ignore_keys=["abs.*ct"], regex=False
-    )
+    processor = PathDataProcessor(value_delimiter="<>", ignore_keys=["abs.*ct"], regex=False)
     processed = processor.process_page(record_test_json)
 
     assert processed

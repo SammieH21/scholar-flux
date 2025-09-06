@@ -105,27 +105,17 @@ class KeyFilter:
         def matches_criteria(key: str, paths: List[str]) -> bool:
             if prefix and key.startswith(prefix):
                 return True
-            if min_length is not None and any(
-                len(path.split(".")) >= min_length for path in paths
-            ):
+            if min_length is not None and any(len(path.split(".")) >= min_length for path in paths):
                 return True
             if substring and any(substring in path for path in paths):
                 return True
             if pattern:
                 regex_pattern = re.compile(pattern)
-                if any(
-                    regex_pattern.fullmatch(node)
-                    for path in paths
-                    for node in path.split(".")
-                ):
+                if any(regex_pattern.fullmatch(node) for path in paths for node in path.split(".")):
                     return True
             return False
 
-        return {
-            key: paths
-            for key, paths in discovered_keys.items()
-            if matches_criteria(key, paths) == include_matches
-        }
+        return {key: paths for key, paths in discovered_keys.items() if matches_criteria(key, paths) == include_matches}
 
 
 class KeyDiscoverer:
@@ -164,16 +154,12 @@ class KeyDiscoverer:
                 path_str = PathUtils.path_str(new_path)
                 if path_str not in discovered_keys[key]:
                     discovered_keys[key].append(path_str)
-                self._discover_keys_recursive(
-                    value, discovered_keys, terminal_paths, new_path
-                )
+                self._discover_keys_recursive(value, discovered_keys, terminal_paths, new_path)
                 terminal_paths[path_str] = self._is_terminal(value)
         elif isinstance(record, list):
             for index, item in enumerate(record):
                 new_path = current_path + [str(index)]
-                self._discover_keys_recursive(
-                    item, discovered_keys, terminal_paths, new_path
-                )
+                self._discover_keys_recursive(item, discovered_keys, terminal_paths, new_path)
 
     def get_all_keys(self) -> Dict[str, List[str]]:
         """Returns all discovered keys and their paths."""
@@ -190,9 +176,7 @@ class KeyDiscoverer:
 
     def get_terminal_paths(self) -> List[str]:
         """Returns paths indicating whether they are terminal (don't contain nested dictionaries)."""
-        return [
-            path for (path, is_terminal) in self._terminal_paths.items() if is_terminal
-        ]
+        return [path for (path, is_terminal) in self._terminal_paths.items() if is_terminal]
 
     def get_keys_with_path(self, key: str) -> List[str]:
         """Returns all paths associated with a specific key."""
@@ -204,9 +188,7 @@ class KeyDiscoverer:
         min_length: Optional[int] = None,
         substring: Optional[str] = None,
     ) -> Dict[str, List[str]]:
-        return KeyFilter.filter_keys(
-            self._discovered_keys, prefix, min_length, substring
-        )
+        return KeyFilter.filter_keys(self._discovered_keys, prefix, min_length, substring)
 
     def __repr__(self) -> str:
         """Helper method for displaying a human-readable representation of the KeyDiscoverer"""
@@ -239,25 +221,17 @@ class RecursiveDictProcessor:
         self.normalizing_delimiter = normalizing_delimiter
         self.object_delimiter = object_delimiter
         self.key_discoverer = (
-            KeyDiscoverer([json_dict] if not isinstance(json_dict, list) else json_dict)
-            if json_dict
-            else None
+            KeyDiscoverer([json_dict] if not isinstance(json_dict, list) else json_dict) if json_dict else None
         )
         self.use_full_path = use_full_path or False
         self.json_extracted: list = []
 
-    def combine_normalized(
-        self, normalized_field_value: Optional[list | str]
-    ) -> list | str | None:
+    def combine_normalized(self, normalized_field_value: Optional[list | str]) -> list | str | None:
         if isinstance(normalized_field_value, str):
             return normalized_field_value
-        if self.normalizing_delimiter is not None and isinstance(
-            normalized_field_value, list
-        ):
+        if self.normalizing_delimiter is not None and isinstance(normalized_field_value, list):
             return (
-                self.normalizing_delimiter.join(
-                    [value for value in normalized_field_value if value is not None]
-                )
+                self.normalizing_delimiter.join([value for value in normalized_field_value if value is not None])
                 or None
             )
         return self.unlist(normalized_field_value)
@@ -288,30 +262,15 @@ class RecursiveDictProcessor:
         self.process_level(self.json_dict)
         return self
 
-    def process_level(
-        self, obj: Any, level_name: Optional[List[Any]] = None
-    ) -> List[Any]:
+    def process_level(self, obj: Any, level_name: Optional[List[Any]] = None) -> List[Any]:
         level_name = level_name if level_name is not None else []
         if isinstance(obj, list):
             if any(isinstance(v_i, (list, dict)) for v_i in obj):
-                return list(
-                    chain.from_iterable(
-                        self.process_level(v_i, level_name + [i])
-                        for i, v_i in enumerate(obj)
-                    )
-                )
-            joined_obj = (
-                self.object_delimiter.join(map(str, obj))
-                if self.object_delimiter is not None
-                else tuple(obj)
-            )
+                return list(chain.from_iterable(self.process_level(v_i, level_name + [i]) for i, v_i in enumerate(obj)))
+            joined_obj = self.object_delimiter.join(map(str, obj)) if self.object_delimiter is not None else tuple(obj)
             return self.process_level(joined_obj, level_name)
         elif isinstance(obj, dict):
-            return list(
-                chain.from_iterable(
-                    self.process_level(v, level_name + [k]) for k, v in obj.items()
-                )
-            )
+            return list(chain.from_iterable(self.process_level(v, level_name + [k]) for k, v in obj.items()))
         else:
             fmt_name = PathUtils.group_path_assignments(level_name)
             obj = list(obj) if isinstance(obj, tuple) else obj
@@ -328,11 +287,7 @@ class RecursiveDictProcessor:
         """
 
         self.json_extracted = (
-            [
-                obj
-                for obj in self.json_extracted
-                if not any(key in set(exclude_keys) for key in obj["path"])
-            ]
+            [obj for obj in self.json_extracted if not any(key in set(exclude_keys) for key in obj["path"])]
             if exclude_keys
             else self.json_extracted
         )
@@ -355,8 +310,7 @@ class RecursiveDictProcessor:
             )
             normalized_json = normalizer.normalize_extracted()
             normalized_json = {
-                data_key: self.combine_normalized(field_value)
-                for data_key, field_value in normalized_json.items()
+                data_key: self.combine_normalized(field_value) for data_key, field_value in normalized_json.items()
             }
             return normalized_json
 
@@ -422,9 +376,7 @@ class JsonNormalizer:
         flattened_json_dict: dict = defaultdict(list)
         unique_mappings_dict: dict = defaultdict(list)
 
-        for current_obj, current_path in zip(
-            self.json_extracted_dicts, self.json_extracted_paths
-        ):
+        for current_obj, current_path in zip(self.json_extracted_dicts, self.json_extracted_paths):
             current_group = PathUtils.remove_path_indices(current_path)
             current_key_str = ".".join(current_group)
 
@@ -432,9 +384,7 @@ class JsonNormalizer:
                 logger.debug(f"Skipping empty group for path: {current_path}")
                 continue
 
-            current_data_key = self.get_unique_key(
-                current_key_str, current_group, unique_mappings_dict
-            )
+            current_data_key = self.get_unique_key(current_key_str, current_group, unique_mappings_dict)
             flattened_json_dict[current_data_key].append(current_obj)
             logger.debug(f"Added data to key {current_data_key}: {str(current_obj)}")
 
@@ -461,11 +411,7 @@ class JsonNormalizer:
         logger.debug(f"Generating unique key for: {current_key_str}")
 
         found_key = next(
-            (
-                data_key
-                for data_key, key_str in unique_mappings_dict.items()
-                if current_key_str in key_str
-            ),
+            (data_key for data_key, key_str in unique_mappings_dict.items() if current_key_str in key_str),
             None,
         )
 
@@ -477,9 +423,7 @@ class JsonNormalizer:
         #           logger.debug(f"Using last key part as unique key: {current_group[-1]}")
         #           return current_group[-1]
 
-        return self.create_unique_key(
-            current_group, current_key_str, unique_mappings_dict
-        )
+        return self.create_unique_key(current_group, current_key_str, unique_mappings_dict)
 
     def create_unique_key(
         self,
@@ -503,9 +447,7 @@ class JsonNormalizer:
             current_data_key_test = ".".join(current_group[-idx:])
             if current_data_key_test not in unique_mappings_dict:
                 unique_mappings_dict[current_data_key_test].append(current_key_str)
-                logger.debug(
-                    f"Created unique key: {current_key_str} => {current_data_key_test}"
-                )
+                logger.debug(f"Created unique key: {current_key_str} => {current_data_key_test}")
                 return current_data_key_test
             idx += 1
 
@@ -517,7 +459,5 @@ class JsonNormalizer:
             current_data_key_test = f"{base_key}.{idx}"
 
         unique_mappings_dict[current_data_key_test].append(current_key_str)
-        logger.debug(
-            f"Created unique key: {current_key_str} => {current_data_key_test}"
-        )
+        logger.debug(f"Created unique key: {current_key_str} => {current_data_key_test}")
         return current_data_key_test

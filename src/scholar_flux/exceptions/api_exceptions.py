@@ -74,9 +74,7 @@ class InvalidResponseException(RequestFailedException):
         self.status_code = response.status_code
         self.error_details = self.extract_error_details(response)
 
-        error_message = (
-            f"HTTP error occurred: {response} - Status code: {self.status_code}"
-        )
+        error_message = f"HTTP error occurred: {response} - Status code: {self.status_code}"
 
         if self.error_details:
             error_message += f" - Details: {self.error_details}"

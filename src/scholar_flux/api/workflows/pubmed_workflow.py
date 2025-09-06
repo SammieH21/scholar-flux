@@ -23,9 +23,7 @@ class PubMedFetchStep(WorkflowStep):
         provider_name = self.provider_name or provider_name
 
         config_parameters = (config_parameters or {}) | (
-            SearchAPIConfig.from_defaults(provider_name).model_dump()
-            if provider_name
-            else {}
+            SearchAPIConfig.from_defaults(provider_name).model_dump() if provider_name else {}
         )
 
         config_parameters["request_delay"] = 0
@@ -35,13 +33,9 @@ class PubMedFetchStep(WorkflowStep):
             config_parameters["id"] = ",".join(ids) or "" if ids else None
 
             if not config_parameters["id"]:
-                raise TypeError(
-                    f"Metadata not in the expected format: {ctx.result.__dict__ if ctx.result else ctx}"
-                )
+                raise TypeError(f"Metadata not in the expected format: {ctx.result.__dict__ if ctx.result else ctx}")
 
-        search_parameters = (ctx.step.search_parameters if ctx else {}) | (
-            search_parameters or {}
-        )
+        search_parameters = (ctx.step.search_parameters if ctx else {}) | (search_parameters or {})
 
         if not search_parameters.get("page"):
             search_parameters["page"] = 1
@@ -49,9 +43,7 @@ class PubMedFetchStep(WorkflowStep):
         model = super().pre_transform(
             ctx,
             search_parameters=search_parameters,
-            config_parameters={
-                k: v for k, v in config_parameters.items() if v is not None
-            },
+            config_parameters={k: v for k, v in config_parameters.items() if v is not None},
         )
 
         pubmed_fetch_step = PubMedFetchStep(**model.model_dump())

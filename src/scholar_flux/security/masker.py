@@ -47,9 +47,7 @@ class SensitiveDataMasker:
         """Get all patterns with a specific name."""
         return {p for p in self.patterns if p.name == name}
 
-    def add_sensitive_key_patterns(
-        self, name: str, fields: List[str] | str, **kwargs
-    ) -> None:
+    def add_sensitive_key_patterns(self, name: str, fields: List[str] | str, **kwargs) -> None:
         """
         Adds patterns that identify potentially sensitive strings with the aim of filtering
         them from logs.
@@ -73,9 +71,7 @@ class SensitiveDataMasker:
             pattern = KeyMaskingPattern(name=name, field=field, **kwargs)
             self.add_pattern(pattern)
 
-    def add_sensitive_string_patterns(
-        self, name: str, patterns: List[str] | str, **kwargs
-    ) -> None:
+    def add_sensitive_string_patterns(self, name: str, patterns: List[str] | str, **kwargs) -> None:
         """
         Adds patterns that identify potentially sensitive strings with the aim of filtering
         them from logs.

@@ -12,27 +12,25 @@ from pathlib import Path
 def redis_test_config():
     """Redis configuration for testing"""
     return {
-        'host':'localhost',
-        'port':6379,
-        'db':0,
-
+        "host": "localhost",
+        "port": 6379,
+        "db": 0,
     }
 
-@pytest.fixture(scope='module')
-def storage_test_namespace():
-    return 'cache_collection'
-     
 
+@pytest.fixture(scope="module")
+def storage_test_namespace():
+    return "cache_collection"
 
 
 @pytest.fixture(scope="module")
 def mongo_test_config():
     """MongoDB configuration for testing"""
     return {
-        'host': 'mongodb://127.0.0.1',
-        'port': 27017,
-        'database': 'sf_data_storage_tests',
-        'collection': 'cache_collection'
+        "host": "mongodb://127.0.0.1",
+        "port": 27017,
+        "database": "sf_data_storage_tests",
+        "collection": "cache_collection",
     }
 
 
@@ -40,64 +38,70 @@ def mongo_test_config():
 def sqlite_test_config():
     """SQL configuration for testing"""
     return {
-        'url' :  'sqlite:///' + str(Path(__file__).resolve().parent.parent / 'mocks/sql_data_storage_test.sqlite'),
-        'echo' : False
+        "url": "sqlite:///" + str(Path(__file__).resolve().parent.parent / "mocks/sql_data_storage_test.sqlite"),
+        "echo": False,
     }
 
 
-
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def redis_test_storage(redis_test_config, storage_test_namespace):
     """Create a Redis Data Storage instance"""
     return RedisStorage(namespace=storage_test_namespace, **redis_test_config)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def mongo_test_storage(mongo_test_config):
     """Create a MongoDB Data Storage instance"""
     return MongoDBStorage(**mongo_test_config)
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def mongo_nm_test_storage(mongo_test_config, storage_test_namespace):
     """Create a MongoDB Data Storage instance"""
-    return MongoDBStorage(namespace = storage_test_namespace, **mongo_test_config)
+    return MongoDBStorage(namespace=storage_test_namespace, **mongo_test_config)
 
 
-
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def sqlite_test_storage(sqlite_test_config):
     """Create a SQL Data Storage instance"""
     return SQLAlchemyStorage(**sqlite_test_config)
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def sqlite_nm_test_storage(sqlite_test_config, storage_test_namespace):
     """Create a SQL Data Storage instance"""
-    return SQLAlchemyStorage(namespace = storage_test_namespace, **sqlite_test_config)
+    return SQLAlchemyStorage(namespace=storage_test_namespace, **sqlite_test_config)
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def in_memory_test_storage():
     """Create a In Memory Data Storage instance"""
     return InMemoryStorage()
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def in_memory_nm_test_storage(storage_test_namespace):
     """Create an in-memory Data Storage instance"""
-    return InMemoryStorage(namespace = storage_test_namespace)
+    return InMemoryStorage(namespace=storage_test_namespace)
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def null_test_storage():
     """Create a Null Data Storage instance"""
     return NullStorage()
 
-__all__ = ["redis_test_config",
-           "storage_test_namespace",
-           "mongo_test_config",
-           "sqlite_test_config",
-           "redis_test_storage",
-           "mongo_test_storage",
-           "mongo_nm_test_storage",
-           "sqlite_test_storage",
-           "sqlite_nm_test_storage",
-           "in_memory_test_storage",
-           "in_memory_nm_test_storage",
-           "null_test_storage"]
+
+__all__ = [
+    "redis_test_config",
+    "storage_test_namespace",
+    "mongo_test_config",
+    "sqlite_test_config",
+    "redis_test_storage",
+    "mongo_test_storage",
+    "mongo_nm_test_storage",
+    "sqlite_test_storage",
+    "sqlite_nm_test_storage",
+    "in_memory_test_storage",
+    "in_memory_nm_test_storage",
+    "null_test_storage",
+]

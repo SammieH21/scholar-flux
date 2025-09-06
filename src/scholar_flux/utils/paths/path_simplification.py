@@ -26,18 +26,14 @@ class PathSimplifier:
         name_mappings (Dict[ProcessingPath, str]): A dictionary for tracking unique names to avoid collisions.
     """
 
-    def __init__(
-        self, delimiter: str = ".", non_informative: Optional[List[str]] = None
-    ):
+    def __init__(self, delimiter: str = ".", non_informative: Optional[List[str]] = None):
         self.delimiter = delimiter
         self.non_informative = non_informative or []
         self.name_mappings: Dict[ProcessingPath, str] = (
             {}
         )  # To track used names and avoid collisions  # To track used names and avoid collisions
 
-    def _generate_base_name(
-        self, path: ProcessingPath, max_components: int
-    ) -> ProcessingPath:
+    def _generate_base_name(self, path: ProcessingPath, max_components: int) -> ProcessingPath:
         """
         Generate a base name from the Processing Path.
 
@@ -60,9 +56,7 @@ class PathSimplifier:
         try:
             return path.get_name(max_components=max_components)
         except Exception as e:
-            raise PathSimplificationError(
-                f"Error generating base name for path {path}: {e}"
-            )
+            raise PathSimplificationError(f"Error generating base name for path {path}: {e}")
 
     def _handle_collision(self, original_name: ProcessingPath) -> ProcessingPath:
         """
@@ -84,9 +78,7 @@ class PathSimplifier:
                 counter += 1
             return original_name / f"_{counter}"
         except Exception as e:
-            raise PathSimplificationError(
-                f"Error handling name collision for {original_name}: {e}"
-            )
+            raise PathSimplificationError(f"Error handling name collision for {original_name}: {e}")
 
     def generate_unique_name(
         self,
@@ -109,14 +101,10 @@ class PathSimplifier:
             PathSimplificationError: If an error occurs during name generation.
         """
         if not isinstance(path, ProcessingPath):
-            raise PathSimplificationError(
-                "The provided path must be a ProcessingPath object."
-            )
+            raise PathSimplificationError("The provided path must be a ProcessingPath object.")
 
         try:
-            path_fmt = (
-                path.remove(self.non_informative) if remove_noninformative else path
-            )
+            path_fmt = path.remove(self.non_informative) if remove_noninformative else path
 
             if path_fmt.depth >= 1 and path_fmt.depth != path.depth:
                 logger.debug(f"Simplifying with formatted path: {path_fmt}")
@@ -143,9 +131,7 @@ class PathSimplifier:
 
             return candidate_name
         except Exception as e:
-            raise PathSimplificationError(
-                f"Error generating unique name for path {path}: {e}"
-            )
+            raise PathSimplificationError(f"Error generating unique name for path {path}: {e}")
 
     def simplify_paths(
         self,
@@ -180,9 +166,7 @@ class PathSimplifier:
                 )
                 path_group = path.group()
                 # unique_name = self.name_mappings.get(path) or (path if max_components is None else self.generate_unique_name(path, max_components, remove_noninformative))
-                unique_group_name = self.name_mappings.get(
-                    path_group
-                ) or self.generate_unique_name(
+                unique_group_name = self.name_mappings.get(path_group) or self.generate_unique_name(
                     path_group, max_components, remove_noninformative
                 )
                 self.name_mappings[path_group] = str(unique_group_name)
@@ -225,20 +209,13 @@ class PathSimplifier:
                 unique_name = self.name_mappings.get(path_group)
 
                 if unique_name is None:
-                    raise PathSimplificationError(
-                        f"Original path: {original_path} has no mapping."
-                    )
+                    raise PathSimplificationError(f"Original path: {original_path} has no mapping.")
 
                 row_dict[unique_name].append(node.value)
 
-            return {
-                k: (collapse.join(map(str, v)) if collapse else unlist_1d(v))
-                for k, v in row_dict.items()
-            }
+            return {k: (collapse.join(map(str, v)) if collapse else unlist_1d(v)) for k, v in row_dict.items()}
         except Exception as e:
-            raise PathSimplificationError(
-                f"Error simplifying terminal nodes {terminal_nodes}: {e}"
-            )
+            raise PathSimplificationError(f"Error simplifying terminal nodes {terminal_nodes}: {e}")
 
     def get_mapped_paths(self) -> Dict[ProcessingPath, str]:
         """

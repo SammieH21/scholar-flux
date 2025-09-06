@@ -47,9 +47,7 @@ class PageListInput(RootModel[Sequence[int]]):
             valid_pages = [page for page in pages if page != 0]
 
             if len(pages) != len(valid_pages):
-                logger.warning(
-                    "Skipping the page number, 0, as it is not a valid page number."
-                )
+                logger.warning("Skipping the page number, 0, as it is not a valid page number.")
 
             return valid_pages
 

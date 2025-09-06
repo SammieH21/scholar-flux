@@ -54,9 +54,7 @@ class BaseDataParser:
             return "unknown"
 
     @classmethod
-    def parse_from_defaults(
-        cls, response: requests.Response
-    ) -> dict | list[dict] | None:
+    def parse_from_defaults(cls, response: requests.Response) -> dict | list[dict] | None:
         """
         Detects the API response format if a format is not already specified and
         uses one of the default structures to parse the data structure into a dictionary
@@ -111,9 +109,7 @@ class BaseDataParser:
         """Uses one of the default parsing methods to extract a dictionary of data from the response content"""
         return self.parse_from_defaults(response)
 
-    def __call__(
-        self, response: requests.Response, *args, **kwargs
-    ) -> dict | list[dict] | None:
+    def __call__(self, response: requests.Response, *args, **kwargs) -> dict | list[dict] | None:
         """
         Helper method for Parsing API response content intto dictionary (json) structure.
 

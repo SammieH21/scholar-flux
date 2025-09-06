@@ -58,8 +58,7 @@ class SQLAlchemyStorage(ABCStorage):
 
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_CONFIG: Dict[str, Any] = {
-        "url": lambda: "sqlite:///"
-        + str(get_default_writable_directory("package_cache") / "data_store.sqlite"),
+        "url": lambda: "sqlite:///" + str(get_default_writable_directory("package_cache") / "data_store.sqlite"),
         "echo": False,
     }
 
@@ -119,15 +118,9 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 namespace_key = self._prefix(key)
-                record = (
-                    session.query(CacheTable)
-                    .filter(CacheTable.key == namespace_key)
-                    .first()
-                )
+                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
                 if record:
-                    return CacheDataEncoder.decode(
-                        self.converter.structure(record.cache, dict)
-                    )
+                    return CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
                 return None
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error retrieving key {key}: {e}")
@@ -146,9 +139,7 @@ class SQLAlchemyStorage(ABCStorage):
             try:
                 records = session.query(CacheTable).all()
                 cache = {
-                    str(record.key): CacheDataEncoder.decode(
-                        self.converter.structure(record.cache, dict)
-                    )
+                    str(record.key): CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
                     for record in records
                     if not self.namespace or str(record.key).startswith(self.namespace)
                 }
@@ -189,14 +180,8 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 namespace_key = self._prefix(key)
-                structured_data = self.converter.unstructure(
-                    CacheDataEncoder.encode(data)
-                )
-                record = (
-                    session.query(CacheTable)
-                    .filter(CacheTable.key == namespace_key)
-                    .first()
-                )
+                structured_data = self.converter.unstructure(CacheDataEncoder.encode(data))
+                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
                 if record:
                     record.cache = structured_data
                 else:
@@ -219,11 +204,7 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 namespace_key = self._prefix(key)
-                record = (
-                    session.query(CacheTable)
-                    .filter(CacheTable.key == namespace_key)
-                    .first()
-                )
+                record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
                 if record:
                     session.delete(record)
                     session.commit()
@@ -238,11 +219,7 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 if self.namespace:
-                    num_deleted = (
-                        session.query(CacheTable)
-                        .filter(CacheTable.key.startswith(self.namespace))
-                        .delete()
-                    )
+                    num_deleted = session.query(CacheTable).filter(CacheTable.key.startswith(self.namespace)).delete()
                     session.commit()
                 else:
                     num_deleted = session.query(CacheTable).delete()
@@ -268,3 +245,31 @@ class SQLAlchemyStorage(ABCStorage):
         if not key:
             raise ValueError(f"Key invalid. Received {key}")
         return self.retrieve(key) is not None
+
+    @classmethod
+    def is_available(cls, url: Optional[str] = None, verbose: bool = True) -> bool:
+        """
+        Helper class method for testing whether the SQL service can be accessed.
+        If so, this function returns True, otherwise False
+
+        Args:
+            host (str): Indicates the location to attempt a connection
+            port (int): Indicates the port where the service can be accessed
+            verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
+        """
+        if not SQLALCHEMY_AVAILABLE:
+            logger.warning("The sqlalchemy module is not available")
+            return False
+
+        db_url: str = url or cls.DEFAULT_CONFIG["url"]()
+        try:
+            engine = create_engine(url=db_url)
+            with engine.connect():
+                pass
+            if verbose:
+                logger.info(f"The SQL Service is available at {db_url}")
+            return True
+
+        except (exc.SQLAlchemyError, TimeoutError, ConnectionError) as e:
+            logger.warning(f"An active SQL service could not be found at {db_url}: {e}")
+            return False

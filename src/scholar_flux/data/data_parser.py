@@ -35,9 +35,7 @@ class DataParser(BaseDataParser):
 
         self.format_parsers = self.get_default_parsers() | (additional_parsers or {})
 
-    def parse(
-        self, response: requests.Response, format: Optional[str] = None
-    ) -> dict | list[dict] | None:
+    def parse(self, response: requests.Response, format: Optional[str] = None) -> dict | list[dict] | None:
         """
         Parses the API response content using to core steps.
         1. Detects the API response format if a format is not already specified
@@ -52,9 +50,7 @@ class DataParser(BaseDataParser):
             dict: response dict containing fields including a list of metadata records as dictionaries.
         """
 
-        use_format = (
-            format.lower() if format is not None else self.detect_format(response)
-        )
+        use_format = format.lower() if format is not None else self.detect_format(response)
 
         parser = self.format_parsers.get(use_format, None) if use_format else None
         if parser is not None:

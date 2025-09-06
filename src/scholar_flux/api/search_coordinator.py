@@ -62,16 +62,12 @@ class SearchCoordinator(BaseCoordinator):
         query: Optional[str] = None,
         retry_handler: Optional[RetryHandler] = None,
         validator: Optional[ResponseValidator] = None,
-        workflow: Optional[
-            SearchWorkflow
-        ] = None,  # updating workflow with a workflow method by default
+        workflow: Optional[SearchWorkflow] = None,  # updating workflow with a workflow method by default
         **kwargs,
     ):
 
         if query is None and not search_api:
-            raise InvalidCoordinatorParameterException(
-                "Either 'query' or 'search_api' must be provided."
-            )
+            raise InvalidCoordinatorParameterException("Either 'query' or 'search_api' must be provided.")
 
         provider_name = kwargs.pop("provider_name", None)
 
@@ -170,9 +166,7 @@ class SearchCoordinator(BaseCoordinator):
                     **api_specific_parameters,
                 )
         except Exception as e:
-            logger.error(
-                f"An unexpected error occurred when processing the response: {e}"
-            )
+            logger.error(f"An unexpected error occurred when processing the response: {e}")
         return None
 
     def search_pages(
@@ -228,24 +222,17 @@ class SearchCoordinator(BaseCoordinator):
                     break
 
         except Exception as e:
-            logger.error(
-                f"An unexpected error occurred when processing the response: {e}"
-            )
+            logger.error(f"An unexpected error occurred when processing the response: {e}")
         return page_results
 
-    def _process_search_page(
-        self, search_result: Optional[ProcessedResponse | ErrorResponse], page: int
-    ) -> bool:
+    def _process_search_page(self, search_result: Optional[ProcessedResponse | ErrorResponse], page: int) -> bool:
         """Helper method for logging the result of each page search and determining whether to continue"""
         halt = True
 
         if isinstance(search_result, ProcessedResponse):
             expected_page_count = self.api.config.records_per_page
 
-            if (
-                expected_page_count
-                and len(search_result.extracted_records or []) < expected_page_count
-            ):
+            if expected_page_count and len(search_result.extracted_records or []) < expected_page_count:
                 logger.warning(
                     f"The response for page, {page} contains less than the expected "
                     f"{expected_page_count} records. Received {repr(search_result)}. "
@@ -257,9 +244,7 @@ class SearchCoordinator(BaseCoordinator):
         elif isinstance(search_result, ErrorResponse):
             status_code = search_result.status_code
             status_description = (
-                f"(Status Code: {status_code}={search_result.status})"
-                if status_code
-                else "(Status Code: Missing)"
+                f"(Status Code: {status_code}={search_result.status})" if status_code else "(Status Code: Missing)"
             )
 
             logger.warning(
@@ -304,9 +289,7 @@ class SearchCoordinator(BaseCoordinator):
                 return response.data
 
         except Exception as e:
-            logger.error(
-                f"An unexpected error occurred when attempting to retrieve the processsed response data: {e}"
-            )
+            logger.error(f"An unexpected error occurred when attempting to retrieve the processsed response data: {e}")
         return None
 
     # Search Execution
@@ -336,15 +319,11 @@ class SearchCoordinator(BaseCoordinator):
             page, from_request_cache=from_request_cache, **api_specific_parameters
         )
         self._log_response_source(response, page, cache_key)
-        processed_response = self._process_response(
-            response, cache_key, from_process_cache
-        )
+        processed_response = self._process_response(response, cache_key, from_process_cache)
         return processed_response
 
     # Request Handling
-    def fetch(
-        self, page: int, from_request_cache: bool = True, **api_specific_parameters
-    ) -> Optional[Response]:
+    def fetch(self, page: int, from_request_cache: bool = True, **api_specific_parameters) -> Optional[Response]:
         """
         Fetches the raw response from the current API.
 
@@ -373,9 +352,7 @@ class SearchCoordinator(BaseCoordinator):
             logger.warning(f"Failed to fetch page {page}: {e}")
         return None
 
-    def robust_request(
-        self, page: int, **api_specific_parameters
-    ) -> Optional[Response]:
+    def robust_request(self, page: int, **api_specific_parameters) -> Optional[Response]:
         """Constructs and sends a request to the current API.
         Fetches a response from the current API.
 
@@ -395,15 +372,11 @@ class SearchCoordinator(BaseCoordinator):
             )
 
         except RequestFailedException as e:
-            logger.error(
-                f"Failed to get a valid response from the {self.api.provider_name} API: {e}"
-            )
+            logger.error(f"Failed to get a valid response from the {self.api.provider_name} API: {e}")
             raise
 
         if getattr(response, "from_cache", False):
-            logger.info(
-                f"Retrieved cached response for query: {self.api.query} and page: {page}"
-            )
+            logger.info(f"Retrieved cached response for query: {self.api.query} and page: {page}")
         return response
 
     def get_cached_request(self, page: int, **kwargs) -> Optional[Response]:
@@ -461,20 +434,14 @@ class SearchCoordinator(BaseCoordinator):
                                             if available and its cache key
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
         """
-        response = self.fetch(
-            page, from_request_cache=from_request_cache, **api_specific_parameters
-        )
+        response = self.fetch(page, from_request_cache=from_request_cache, **api_specific_parameters)
         cache_key = self._create_cache_key(page)
 
         if not response:
-            logger.info(
-                f"Response retrieval for cache key {cache_key} was unsuccessful."
-            )
+            logger.info(f"Response retrieval for cache key {cache_key} was unsuccessful.")
         return response, cache_key
 
-    def _log_response_source(
-        self, response: Optional[Response], page: int, cache_key: Optional[str]
-    ) -> None:
+    def _log_response_source(self, response: Optional[Response], page: int, cache_key: Optional[str]) -> None:
         """
         Logs and indicates whether the response originated from a
         requests-cache session or was retrieved directly from the current API.
@@ -488,9 +455,7 @@ class SearchCoordinator(BaseCoordinator):
         """
 
         if not response:
-            logger.warning(
-                f"Response retrieval and processing for page {page} was unsuccessful."
-            )
+            logger.warning(f"Response retrieval and processing for page {page} was unsuccessful.")
             return
 
         if getattr(response, "from_cache", False):
@@ -573,9 +538,7 @@ class SearchCoordinator(BaseCoordinator):
                 return request_key
         except (APIParameterException, AttributeError, ValueError) as e:
             logger.error("Error retrieving requests-cache key")
-            raise RequestCacheException(
-                f"Error retrieving requests-cache key from session: {self.api.session}: {e}"
-            )
+            raise RequestCacheException(f"Error retrieving requests-cache key from session: {self.api.session}: {e}")
         return None
 
     def _delete_cached_request(self, page: int, **kwargs) -> None:
@@ -592,9 +555,7 @@ class SearchCoordinator(BaseCoordinator):
                     raise KeyError("Request key is None or empty")
 
                 if not self.api.cache.contains(request_key):
-                    raise KeyError(
-                        f"Key {request_key} not found in the API session request cache"
-                    )
+                    raise KeyError(f"Key {request_key} not found in the API session request cache")
 
                 self.api.cache.delete(request_key)
 

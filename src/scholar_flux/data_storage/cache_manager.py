@@ -39,9 +39,7 @@ class DataCacheManager:
     """
 
     def __init__(self, cache_storage: Optional[ABCStorage] = None) -> None:
-        self.cache_storage: ABCStorage = (
-            cache_storage if cache_storage is not None else InMemoryStorage()
-        )
+        self.cache_storage: ABCStorage = cache_storage if cache_storage is not None else InMemoryStorage()
 
     def verify_cache(self, cache_key: Optional[str]) -> bool:
         """
@@ -65,9 +63,7 @@ class DataCacheManager:
         return False
 
     @staticmethod
-    def _verify_cached_response(
-        cache_key: str, cached_response: Dict[str, Any]
-    ) -> bool:
+    def _verify_cached_response(cache_key: str, cached_response: Dict[str, Any]) -> bool:
         """Verifies whether the cache key matches the key from cached_response (if available)
             Note that this method expects that a cache key is provided
         Args:
@@ -131,9 +127,7 @@ class DataCacheManager:
             return False
 
         if current_cached_response.get("processed_response") is None:
-            logger.info(
-                f"Previously processed response is missing for recorded cache key: {cache_key}"
-            )
+            logger.info(f"Previously processed response is missing for recorded cache key: {cache_key}")
             return False
 
         logger.info(f"Cached data is valid for key: {cache_key}")
@@ -196,9 +190,7 @@ class DataCacheManager:
                 logger.warning(f"Record for key {cache_key} not found...")
             return result
         except Exception as e:
-            logger.error(
-                f"Error encountered during attempted retrieval from cache: {e}"
-            )
+            logger.error(f"Error encountered during attempted retrieval from cache: {e}")
             raise StorageCacheException
 
     def retrieve_from_response(self, response: Response) -> Optional[Dict[str, Any]]:
@@ -229,9 +221,7 @@ class DataCacheManager:
             self.cache_storage.delete(cache_key)
             logger.debug("Cache key deleted successfuly")
         except KeyError:
-            logger.warning(
-                f"A record for the cache key: '{cache_key}', did not exist..."
-            )
+            logger.warning(f"A record for the cache key: '{cache_key}', did not exist...")
 
     @staticmethod
     def generate_fallback_cache_key(response: Response) -> str:
@@ -247,9 +237,7 @@ class DataCacheManager:
         parsed_url = urlparse(response.url)
         simplified_url = f"{parsed_url.netloc}{parsed_url.path}"
         status_code = response.status_code
-        cache_key = hashlib.sha256(
-            f"{simplified_url}_{status_code}".encode()
-        ).hexdigest()
+        cache_key = hashlib.sha256(f"{simplified_url}_{status_code}".encode()).hexdigest()
         logger.debug(f"Generated fallback cache key: {cache_key}")
         return cache_key
 
@@ -282,11 +270,7 @@ class DataCacheManager:
     @classmethod
     def with_storage(
         cls,
-        storage: Optional[
-            Literal[
-                "redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "null"
-            ]
-        ] = None,
+        storage: Optional[Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "null"]] = None,
         *args,
         **kwargs,
     ) -> DataCacheManager:

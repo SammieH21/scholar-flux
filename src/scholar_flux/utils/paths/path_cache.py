@@ -27,9 +27,7 @@ class ProcessingCache:
         Initializes the ProcessingCache instance
         """
 
-        self._cache: defaultdict[str, WeakSet[ProcessingPath]] = defaultdict(
-            WeakSet
-        )  # Initialize the cache
+        self._cache: defaultdict[str, WeakSet[ProcessingPath]] = defaultdict(WeakSet)  # Initialize the cache
         self.updates: dict[ProcessingPath, str] = {}
 
     def lazy_add(self, path: ProcessingPath) -> None:
@@ -52,9 +50,7 @@ class ProcessingCache:
         """
 
         if not isinstance(path, ProcessingPath):
-            raise PathCacheError(
-                f"path must be a ProcessingPath instance. Received: {path} - type={type(path)}"
-            )
+            raise PathCacheError(f"path must be a ProcessingPath instance. Received: {path} - type={type(path)}")
         self.updates[path] = "remove"
 
     def _add_to_cache(self, path: ProcessingPath) -> None:
@@ -64,9 +60,7 @@ class ProcessingCache:
             path (ProcessingPath): The path to add to the cache.
         """
         if not isinstance(path, ProcessingPath):
-            raise PathCacheError(
-                f"path must be a ProcessingPath instance. Received: {path} - type={type(path)}"
-            )
+            raise PathCacheError(f"path must be a ProcessingPath instance. Received: {path} - type={type(path)}")
         path_prefixes = path.get_ancestors() + [path]
 
         for path_prefix in path_prefixes:
@@ -82,9 +76,7 @@ class ProcessingCache:
             path (ProcessingPath): The path to remove from the cache.
         """
         if not isinstance(path, ProcessingPath):
-            raise PathCacheError(
-                f"Path Cache takes a ProcessingPath as input - received {type(path)}"
-            )
+            raise PathCacheError(f"Path Cache takes a ProcessingPath as input - received {type(path)}")
 
         path_prefixes = path.get_ancestors() + [path]
         for path_prefix in path_prefixes:
@@ -126,13 +118,9 @@ class ProcessingCache:
         self.cache_update()
 
         if not isinstance(prefix, (str, ProcessingPath)):
-            raise InvalidProcessingPathError(
-                f"Key must be a Processing Path. Received: {prefix} - type={type(prefix)}"
-            )
+            raise InvalidProcessingPathError(f"Key must be a Processing Path. Received: {prefix} - type={type(prefix)}")
 
-        if (min_depth is not None and min_depth < 0) or (
-            max_depth is not None and max_depth < 1
-        ):
+        if (min_depth is not None and min_depth < 0) or (max_depth is not None and max_depth < 1):
             raise ValueError(
                 f"Minimum and Maximum depth must be None or greater than 0 or 1, respectively. Received: min={min_depth}, max={max_depth}"
             )

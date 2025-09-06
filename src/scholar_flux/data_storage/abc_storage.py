@@ -58,6 +58,12 @@ class ABCStorage(ABC):
         """Core method for verifying the cache based on the key"""
         raise NotImplementedError
 
+    @classmethod
+    @abstractmethod
+    def is_available(cls, *args, **kwargs) -> bool:
+        """Core method for verifying whether a storage/service is available"""
+        raise NotImplementedError
+
     def _prefix(self, key: str) -> str:
         """
         prefixes a namespace to the given `key`:
@@ -72,11 +78,7 @@ class ABCStorage(ABC):
             raise KeyError(f"No valid value provided for key {key}")
         if not self.namespace:
             return key
-        return (
-            f"{self.namespace}:{key}"
-            if not key.startswith(f"{self.namespace}:")
-            else key
-        )
+        return f"{self.namespace}:{key}" if not key.startswith(f"{self.namespace}:") else key
 
     def __repr__(self) -> str:
         """

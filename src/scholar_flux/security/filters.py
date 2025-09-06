@@ -14,10 +14,7 @@ class MaskingFilter(logging.Filter):
 
     def filter(self, record) -> bool:
         if record.args:
-            record.args = tuple(
-                self.masker.mask_text(arg) if isinstance(arg, str) else arg
-                for arg in record.args
-            )
+            record.args = tuple(self.masker.mask_text(arg) if isinstance(arg, str) else arg for arg in record.args)
         if isinstance(record.msg, str):
             record.msg = self.masker.mask_text(record.msg)
         return True

@@ -20,36 +20,24 @@ class ConfigLoader:
 
     # Values already present within the environment before loading
     DEFAULT_ENV: Dict[str, Any] = {
-        "SPRINGER_NATURE_API_KEY": SensitiveDataMasker.mask_secret(
-            os.getenv("SPRINGER_NATURE_API_KEY")
-        ),
-        "CROSSREF_API_KEY": SensitiveDataMasker.mask_secret(
-            os.getenv("CROSSREF_API_KEY")
-        ),
+        "SPRINGER_NATURE_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("SPRINGER_NATURE_API_KEY")),
+        "CROSSREF_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("CROSSREF_API_KEY")),
         "CORE_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("CORE_API_KEY")),
         "PUBMED_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("PUBMED_API_KEY")),
-        "SCHOLAR_FLUX_CACHE_SECRET_KEY": SensitiveDataMasker.mask_secret(
-            os.getenv("SCHOLAR_FLUX_CACHE_SECRET_KEY")
-        ),
-        "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY")
-        or None,
+        "SCHOLAR_FLUX_CACHE_SECRET_KEY": SensitiveDataMasker.mask_secret(os.getenv("SCHOLAR_FLUX_CACHE_SECRET_KEY")),
+        "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY") or None,
         "SCHOLAR_FLUX_LOG_DIRECTORY": os.getenv("SCHOLAR_FLUX_LOG_DIRECTORY") or None,
         "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL") or "DEBUG",
-        "DEFAULT_SCHOLAR_FLUX_PROVIDER": os.getenv("DEFAULT_SCHOLAR_FLUX_PROVIDER")
-        or "plos",
+        "DEFAULT_SCHOLAR_FLUX_PROVIDER": os.getenv("DEFAULT_SCHOLAR_FLUX_PROVIDER") or "plos",
     }
 
     def __init__(self, env_path: Optional[Path | str] = None):
         """Utility class for loading environment variables from the operating system and .env files"""
 
         self.env_path: Path = self._process_env_path(env_path)
-        self.config: Dict[str, Any] = (
-            self.DEFAULT_ENV.copy()
-        )  # Use a copy to avoid modifying the class attribute
+        self.config: Dict[str, Any] = self.DEFAULT_ENV.copy()  # Use a copy to avoid modifying the class attribute
 
-    def try_loadenv(
-        self, env_path: Optional[Path | str] = None, verbose: bool = False
-    ) -> Optional[Dict[str, Any]]:
+    def try_loadenv(self, env_path: Optional[Path | str] = None, verbose: bool = False) -> Optional[Dict[str, Any]]:
         """
         Try to load environment variables from a specified .env file into the environment and return as a dict.
         """
@@ -58,9 +46,7 @@ class ConfigLoader:
             return dotenv_values(env_path)
         else:
             if verbose:
-                config_logger.debug(
-                    f"No environment file located at {env_path}. Loading defaults."
-                )
+                config_logger.debug(f"No environment file located at {env_path}. Loading defaults.")
             return {}
 
     def load_dotenv(
@@ -82,17 +68,13 @@ class ConfigLoader:
         env_path = self._process_env_path(env_path or self.env_path)
 
         if verbose:
-            config_logger.debug(
-                f"Attempting to load environment file located at {env_path}."
-            )
+            config_logger.debug(f"Attempting to load environment file located at {env_path}.")
 
         env_config = self.try_loadenv(env_path, verbose=False)
 
         if env_config:
             config_env_variables = {
-                k: self._guard_secret(v, k)
-                for k, v in env_config.items()
-                if replace_all or v is not None
+                k: self._guard_secret(v, k) for k, v in env_config.items() if replace_all or v is not None
             }
             return config_env_variables
 
@@ -138,9 +120,7 @@ class ConfigLoader:
             dict: A dictionary of key-value pairs corresponding to environment variables
         """
         if verbose:
-            config_logger.debug(
-                "Attempting to load updated settings from the system environment."
-            )
+            config_logger.debug("Attempting to load updated settings from the system environment.")
 
         updated_env_variables = {
             k: self._guard_secret(os.environ.get(k), k)
@@ -162,9 +142,7 @@ class ConfigLoader:
         """
 
         os_config = self.load_os_env(verbose=verbose) if reload_os_env else {}
-        dotenv_config = (
-            self.load_dotenv(env_path, verbose=verbose) if reload_env else {}
-        )
+        dotenv_config = self.load_dotenv(env_path, verbose=verbose) if reload_env else {}
 
         config_env_variables = os_config | dotenv_config
 
@@ -176,9 +154,7 @@ class ConfigLoader:
         with the provided dictionary of environment variable key-value pairs
         """
         if verbose and env_dict:
-            config_logger.debug(
-                "Updating the following variables into the config settings:", env_dict
-            )
+            config_logger.debug("Updating the following variables into the config settings:", env_dict)
         self.config.update(env_dict)
 
     def save_config(self, env_path: Optional[Path | str] = None) -> None:

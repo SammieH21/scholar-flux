@@ -36,5 +36,10 @@ class NullStorage(ABCStorage):
     def verify_cache(self, *args, **kwargs) -> bool:
         return False
 
+    @classmethod
+    def is_available(cls, *args, **kwargs) -> bool:
+        """Helper method that returns False, indicating that this class does not cache data"""
+        return False
+
     def __bool__(self, *args, **kwargs) -> bool:
         return False

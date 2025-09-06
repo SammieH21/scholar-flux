@@ -69,10 +69,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         if not record_dict:
             return {}
 
-        return (
-            self.recursive_processor.process_and_flatten(obj=record_dict, **kwargs)
-            or {}
-        )
+        return self.recursive_processor.process_and_flatten(obj=record_dict, **kwargs) or {}
 
     def process_page(
         self,
@@ -94,9 +91,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
             raise ValueError("JSON Data has not been loaded successfully")
 
         if not self.json_data:
-            raise ValueError(
-                f"JSON Data has not been loaded successfully: {self.json_data}"
-            )
+            raise ValueError(f"JSON Data has not been loaded successfully: {self.json_data}")
 
         keep_keys = keep_keys or self.keep_keys
         ignore_keys = ignore_keys or self.ignore_keys
@@ -109,9 +104,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
             and not self.record_filter(record_dict, ignore_keys, regex)
         )
 
-        processed_data = [
-            record_dict for record_dict in processed_json if record_dict is not None
-        ]
+        processed_data = [record_dict for record_dict in processed_json if record_dict is not None]
 
         logging.info(f"Total included records - {len(processed_data)}")
 
@@ -129,13 +122,8 @@ class RecursiveDataProcessor(ABCDataProcessor):
         """
         use_regex = regex if regex is not None else False
         if record_keys:
-            logger.debug(
-                f"Finding field key matches within processing data: {record_keys}"
-            )
-            matches = [
-                nested_key_exists(record_dict, key, regex=use_regex)
-                for key in record_keys
-            ] or []
+            logger.debug(f"Finding field key matches within processing data: {record_keys}")
+            matches = [nested_key_exists(record_dict, key, regex=use_regex) for key in record_keys] or []
             return len([match for match in matches if match]) > 0
         return False
 

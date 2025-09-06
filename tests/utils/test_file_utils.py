@@ -11,11 +11,9 @@ def test_get_filepath(cleanup, tmp_path):
     expected = os.path.expanduser("~") + "/test.txt"
     assert result == expected
 
-
     # test using the FileUtils home directory:
-    result = FileUtils.get_home_directory() + 'test.txt'
+    result = FileUtils.get_home_directory() + "test.txt"
     assert result == expected
-
 
     # Test without extension
     filepath = "test"
@@ -24,11 +22,13 @@ def test_get_filepath(cleanup, tmp_path):
     result = FileUtils.get_filepath(filepath, ext)
     assert result == expected
 
+
 def test_save_as(cleanup, tmp_path):
     obj = {"key": "value"}
     filepath = Path(tmp_path) / "test.json"
     FileUtils.save_as(obj, filepath)
     assert os.path.exists(filepath)
+
 
 def test_load_data(cleanup, tmp_path):
     # Test with valid JSON
@@ -41,10 +41,11 @@ def test_load_data(cleanup, tmp_path):
     # Test non-JSON content
     content = "non json content"
     filepath = Path(tmp_path) / "test.txt"
-    with open(filepath, 'w') as f:
+    with open(filepath, "w") as f:
         f.write(content)
     loaded = FileUtils.load_data(filepath)
     assert loaded == content
+
 
 def test_file_exists(cleanup, tmp_path):
     # Test existing file
@@ -56,6 +57,7 @@ def test_file_exists(cleanup, tmp_path):
     non_existing = os.path.join(tmp_path, "non_exist.txt")
     assert not FileUtils.file_exists(non_existing)
 
+
 def test_delete_file(cleanup, tmp_path):
     # Create a file to delete
     filepath = os.path.join(tmp_path, "test.json")
@@ -65,8 +67,9 @@ def test_delete_file(cleanup, tmp_path):
     FileUtils.delete_file(filepath)
     assert not os.path.exists(filepath)
 
+
 def test_show_dir(cleanup, tmp_path):
-    files = [f'file{i}.json' for i in range(1,6)]
+    files = [f"file{i}.json" for i in range(1, 6)]
     obj = {"key": "value"}
     for file_name in files:
         filepath = Path(tmp_path) / file_name
@@ -74,6 +77,7 @@ def test_show_dir(cleanup, tmp_path):
 
     file_list = FileUtils.list_files(tmp_path)
     assert all(file in file_list for file in files)
+
 
 def test_get_file_size(cleanup, tmp_path):
     # Create a file with known content
@@ -88,4 +92,3 @@ def test_get_file_size(cleanup, tmp_path):
 
 
 # Additional tests for other methods can be written similarly.
-

@@ -45,9 +45,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         super().__init__()
         logger.debug("Initializing PathNodeMap instance")  # Log initialization
         self.cache: bool = cache or False  # Store the cache flag
-        self.allow_terminal = (
-            allow_terminal or False,
-        )  # Store the allow_terminal flag
+        self.allow_terminal = (allow_terminal or False,)  # Store the allow_terminal flag
         self.overwrite: bool = overwrite or False  # Store the overwrite flag
         self._cache: ProcessingCache = ProcessingCache()
 
@@ -156,9 +154,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             return terminal_nodes
 
         except Exception as e:
-            raise PathNodeMapError(
-                f"Error filtering paths with prefix {prefix}:"
-            ) from e
+            raise PathNodeMapError(f"Error filtering paths with prefix {prefix}:") from e
 
     def _filter(
         self,
@@ -180,9 +176,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             PathNodeMapError: If an error occurs while filtering the PathNodeMap.
         """
         try:
-            if (min_depth is not None and min_depth < 0) or (
-                max_depth is not None and max_depth < 1
-            ):
+            if (min_depth is not None and min_depth < 0) or (max_depth is not None and max_depth < 1):
                 raise ValueError(
                     f"Minimum and Maximum depth must be None or greater than 0 or 1, respectively. Received: min={min_depth}, max={max_depth}"
                 )
@@ -204,9 +198,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             return terminal_node_list
 
         except Exception as e:
-            raise PathNodeMapError(
-                f"Error filtering paths with prefix {prefix} at max_depth {max_depth}"
-            ) from e
+            raise PathNodeMapError(f"Error filtering paths with prefix {prefix} at max_depth {max_depth}") from e
 
     def _remove_nonterminal_nodes(self, path: ProcessingPath) -> None:
         """
@@ -225,16 +217,11 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             if removed_nodes := [
                 ancestor_path
                 for ancestor_path in path_ancestors
-                if ancestor_path is not None
-                and self.data.pop(ancestor_path, None) is not None
+                if ancestor_path is not None and self.data.pop(ancestor_path, None) is not None
             ]:
-                logger.debug(
-                    f"Removed {len(removed_nodes)} nodes that are no longer terminal: {removed_nodes}"
-                )
+                logger.debug(f"Removed {len(removed_nodes)} nodes that are no longer terminal: {removed_nodes}")
         except Exception as e:
-            raise PathNodeMapError(
-                f"Error searching for and removing ancestor paths for the path: {path}"
-            ) from e
+            raise PathNodeMapError(f"Error searching for and removing ancestor paths for the path: {path}") from e
 
     def _cache_filter(
         self,
@@ -257,23 +244,15 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
         try:
             if not self.cache:
-                raise PathNodeMapError(
-                    "Cannot filter without cache. Please enable cache during initialization."
-                )
+                raise PathNodeMapError("Cannot filter without cache. Please enable cache during initialization.")
 
-            terminal_node_list = self._cache.filter(
-                prefix, min_depth=min_depth, max_depth=max_depth
-            )
+            terminal_node_list = self._cache.filter(prefix, min_depth=min_depth, max_depth=max_depth)
             terminal_nodes = {path: self.data[path] for path in terminal_node_list}
             return terminal_nodes
         except Exception as e:
-            raise PathNodeMapError(
-                f"Error filtering paths with prefix {prefix} at max_depth {max_depth}"
-            ) from e
+            raise PathNodeMapError(f"Error filtering paths with prefix {prefix} at max_depth {max_depth}") from e
 
-    def _validate_key_value_pair(
-        self, processing_path: ProcessingPath, node: "PathNode"
-    ) -> None:
+    def _validate_key_value_pair(self, processing_path: ProcessingPath, node: "PathNode") -> None:
         """
         Validate the current key-value pair of the node and path being used as a key within the PathNodeMap.
         Validates in terms of data integrity: name of key if provided matches name of node.path
@@ -287,9 +266,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             PathNodeMapError: If the equal name/complete path constraint is violated.
         """
         if not isinstance(processing_path, ProcessingPath):
-            raise PathNodeMapError(
-                f"Invalid path path: {processing_path}. Must be a ProcessingPath instance."
-            )
+            raise PathNodeMapError(f"Invalid path path: {processing_path}. Must be a ProcessingPath instance.")
 
         if processing_path.depth == 1:
             if processing_path.get_name() != node.path.get_name():
@@ -321,15 +298,11 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
         return self.data.get(node) is not None
 
-    def _validate_new_node_path(
-        self, node: Union["PathNode", ProcessingPath], overwrite: Optional[bool] = None
-    ):
+    def _validate_new_node_path(self, node: Union["PathNode", ProcessingPath], overwrite: Optional[bool] = None):
         overwrite = overwrite if overwrite is not None else self.overwrite
         if self.node_exists(node):
             if not overwrite:
-                raise PathNodeMapError(
-                    f"A path and node at '{node}' already exists in the Map"
-                )
+                raise PathNodeMapError(f"A path and node at '{node}' already exists in the Map")
             else:
                 logger.debug(f"The node at '{node}' will be ovewritten")
 
@@ -352,9 +325,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             logger.debug(f"Validated node: {node}")
 
         except Exception as e:
-            raise PathNodeMapError(
-                f"Error validating constraints on node insertion: {e}"
-            ) from e
+            raise PathNodeMapError(f"Error validating constraints on node insertion: {e}") from e
 
     @classmethod
     def _keep_terminal_paths(
@@ -389,15 +360,11 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
                 continue
             # Check if path is already a known prefix
             if path in all_prefixes:
-                logger.warning(
-                    f"The path '{path}' is non-terminal in the list of node to add. Removing..."
-                )
+                logger.warning(f"The path '{path}' is non-terminal in the list of node to add. Removing...")
                 continue
 
             if path in filtered_path_list:
-                logger.warning(
-                    f"The path '{path}' is duplicated. Removing and retaining the last inputted entry..."
-                )
+                logger.warning(f"The path '{path}' is duplicated. Removing and retaining the last inputted entry...")
                 continue
 
             # If not, add it to the filtered_path_list
@@ -409,9 +376,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return filtered_path_list
 
     @classmethod
-    def format_terminal_nodes(
-        cls, node_obj: Union[dict, PathNodeMap, PathNode]
-    ) -> dict[ProcessingPath, "PathNode"]:
+    def format_terminal_nodes(cls, node_obj: Union[dict, PathNodeMap, PathNode]) -> dict[ProcessingPath, "PathNode"]:
         """
         Recursively iterate over terminal nodes from Path Node Maps and retrieve only terminal_nodes
         Args:
@@ -438,9 +403,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         )
 
     @staticmethod
-    def _transform_key(
-        key: Union[str, ProcessingPath], delimiter: str
-    ) -> ProcessingPath:
+    def _transform_key(key: Union[str, ProcessingPath], delimiter: str) -> ProcessingPath:
         """For coercing string type keys into ProcessingPaths if not already path types
         Args:
             path (Union[str, list[str]]): The initial path, either as a string or a list of strings.
@@ -449,9 +412,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             ProcessingPath: the path leading to the node that this object corresponds to
         """
         if not isinstance(key, ProcessingPath):
-            transformed_key = ProcessingPath.to_processing_path(
-                key, component_types=None, delimiter=delimiter
-            )
+            transformed_key = ProcessingPath.to_processing_path(key, component_types=None, delimiter=delimiter)
             if key is not transformed_key:
                 logger.debug(f"converted {key} --> {transformed_key}")
             return transformed_key
@@ -481,15 +442,11 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             self._validate_key_value_pair(transformed_path, node)
             return transformed_path
         except Exception as e:
-            raise PathNodeMapError(
-                f"Error validating path ({path}) and node ({node}): {e}"
-            ) from e
+            raise PathNodeMapError(f"Error validating path ({path}) and node ({node}): {e}") from e
 
     def format_mapping(
         self,
-        key_value_pairs: Union[
-            "PathNodeMap", dict[ProcessingPath, "PathNode"], dict[str, "PathNode"]
-        ],
+        key_value_pairs: Union["PathNodeMap", dict[ProcessingPath, "PathNode"], dict[str, "PathNode"]],
     ) -> dict[ProcessingPath, "PathNode"]:
         """
         Takes a dictionary or a PathNodeMap Transforms the string keys in a dictionary into Processing paths and returns the mapping
@@ -505,18 +462,10 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             terminal_nodes = self.format_terminal_nodes(key_value_pairs)
             if len(terminal_nodes) == 0:
                 return terminal_nodes
-            terminal_paths = self._keep_terminal_paths(
-                {node.path for node in terminal_nodes.values()}
-            )
-            filtered_dict = {
-                path: node
-                for path, node in terminal_nodes.items()
-                if path in terminal_paths
-            }
+            terminal_paths = self._keep_terminal_paths({node.path for node in terminal_nodes.values()})
+            filtered_dict = {path: node for path, node in terminal_nodes.items() if path in terminal_paths}
         except Exception as e:
-            raise PathNodeMapError(
-                f":The validation process for the input pairs failed: {e}"
-            )
+            raise PathNodeMapError(f":The validation process for the input pairs failed: {e}")
 
         return filtered_dict
 
@@ -551,35 +500,21 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             return node_dict
 
         formatted_nodes: tuple | dict | list | set | Generator = (
-            nodes[0]
-            if (
-                isinstance(nodes, tuple)
-                and len(nodes) == 1
-                and not isinstance(nodes[0], PathNode)
-            )
-            else nodes
+            nodes[0] if (isinstance(nodes, tuple) and len(nodes) == 1 and not isinstance(nodes[0], PathNode)) else nodes
         )
 
         if isinstance(formatted_nodes, (tuple, list, set, GeneratorType)):
-            processed_nodes = {
-                node.path: node
-                for node in formatted_nodes
-                if PathNode.is_valid_node(node)
-            }
+            processed_nodes = {node.path: node for node in formatted_nodes if PathNode.is_valid_node(node)}
             type_verified = True
         else:
-            processed_nodes = (
-                formatted_nodes if isinstance(formatted_nodes, dict) else {}
-            )
+            processed_nodes = formatted_nodes if isinstance(formatted_nodes, dict) else {}
 
         if isinstance(processed_nodes, (dict, PathNodeMap)):
             if processed_nodes:
                 if (
                     not type_verified
                     and not isinstance(processed_nodes, PathNodeMap)
-                    and not all(
-                        isinstance(node, PathNode) for node in processed_nodes.values()
-                    )
+                    and not all(isinstance(node, PathNode) for node in processed_nodes.values())
                 ):
                     raise InvalidPathNodeError(
                         f"Invalid node type: {type(nodes)}. Must be a PathNode or an iterable of PathNodes."
@@ -689,9 +624,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             )
         return key
 
-    def add(
-        self, node: "PathNode", overwrite: Optional[bool] = None, inplace: bool = True
-    ) -> Optional["PathNodeMap"]:
+    def add(self, node: "PathNode", overwrite: Optional[bool] = None, inplace: bool = True) -> Optional["PathNodeMap"]:
         """
         Add a node to the PathNodeMap instance.
 
@@ -722,9 +655,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             self.overwrite = default_overwrite
         return None
 
-    def remove(
-        self, node: Union[ProcessingPath, "PathNode", str], inplace: bool = True
-    ) -> Optional["PathNodeMap"]:
+    def remove(self, node: Union[ProcessingPath, "PathNode", str], inplace: bool = True) -> Optional["PathNodeMap"]:
         """
         Remove the specified path or node from the PathNodeMap instance.
         Args:
@@ -744,15 +675,9 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
                 return path_node_map
 
             if not isinstance(node, (str, ProcessingPath, PathNode)):
-                raise PathNodeMapError(
-                    f"Invalid type for node: {type(node)}. Must be a ProcessingPath or a PathNode."
-                )
+                raise PathNodeMapError(f"Invalid type for node: {type(node)}. Must be a ProcessingPath or a PathNode.")
 
-            path = (
-                node.path
-                if isinstance(node, PathNode)
-                else ProcessingPath.to_processing_path(node)
-            )
+            path = node.path if isinstance(node, PathNode) else ProcessingPath.to_processing_path(node)
 
             logger.debug(f"Removing node: '{node}'")
             del self.data[path]

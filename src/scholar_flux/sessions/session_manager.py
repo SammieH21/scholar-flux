@@ -35,9 +35,7 @@ class SessionManager(session_models.BaseSessionManager):
     """
 
     def __init__(self, user_agent: Optional[str] = None) -> None:
-        if user_agent is not None and not (
-            isinstance(user_agent, str) and len(user_agent) > 0
-        ):
+        if user_agent is not None and not (isinstance(user_agent, str) and len(user_agent) > 0):
             raise SessionCreationError(
                 "Error creating the session manager: The provided user_agent parameter is not a string"
             )
@@ -76,17 +74,11 @@ class CachedSessionManager(SessionManager):
         user_agent: Optional[str] = None,
         cache_name: str = "search_requests_cache",
         cache_directory: Optional[Path | str] = None,
-        backend: Literal[
-            "dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"
-        ] = "sqlite",
+        backend: Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"] = "sqlite",
         serializer: Optional[
-            str
-            | requests_cache.serializers.pipeline.SerializerPipeline
-            | requests_cache.serializers.pipeline.Stage
+            str | requests_cache.serializers.pipeline.SerializerPipeline | requests_cache.serializers.pipeline.Stage
         ] = None,
-        expire_after: Optional[
-            int | float | str | datetime.datetime | datetime.timedelta
-        ] = 86400,
+        expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = 86400,
         raise_on_error: bool = False,
     ) -> None:
         """
@@ -161,9 +153,7 @@ class CachedSessionManager(SessionManager):
     def serializer(
         self,
     ) -> Optional[
-        str
-        | requests_cache.serializers.pipeline.SerializerPipeline
-        | requests_cache.serializers.pipeline.Stage
+        str | requests_cache.serializers.pipeline.SerializerPipeline | requests_cache.serializers.pipeline.Stage
     ]:
         """Makes the serializer from the config accessible from the CachedSessionManager"""
         return self.config.serializer
@@ -197,12 +187,9 @@ class CachedSessionManager(SessionManager):
         Returns:
             Optional[Path]: The resolved cache directory as a `Path` or `None` if not applicable
         """
-        if not cache_directory and (
-            backend is None or backend in ("filesystem", "sqlite")
-        ):
+        if not cache_directory and (backend is None or backend in ("filesystem", "sqlite")):
             cache_directory = (
-                config_settings.config.get("SCHOLAR_FLUX_CACHE_DIRECTORY")
-                or cls._default_cache_directory()
+                config_settings.config.get("SCHOLAR_FLUX_CACHE_DIRECTORY") or cls._default_cache_directory()
             )
 
         if isinstance(cache_directory, str):
@@ -210,9 +197,7 @@ class CachedSessionManager(SessionManager):
         return cache_directory
 
     @classmethod
-    def _default_cache_directory(
-        cls, subdirectory: Path | str = Path("data") / "package_cache"
-    ) -> Path:
+    def _default_cache_directory(cls, subdirectory: Path | str = Path("data") / "package_cache") -> Path:
         """
         Get the full path to a cache directory within the package.
         If the directory isn't writeable, create a cache directory in the users home folder
@@ -227,9 +212,7 @@ class CachedSessionManager(SessionManager):
 
         try:
             # Attempt to create the cache directory within the package
-            cache_directory = (
-                Path(session_models.__file__).parent.parent.parent / subdirectory
-            )
+            cache_directory = Path(session_models.__file__).parent.parent.parent / subdirectory
 
             # ensure that the scholar_flux package exists prior to attempting to create the
             # cache directory
@@ -250,9 +233,7 @@ class CachedSessionManager(SessionManager):
             except (PermissionError, NameError, FileNotFoundError) as e:
                 logger.error("Failed to create cache directory in home: %s", e)
                 # Handle further or raise an exception to inform the user
-                raise SessionCacheDirectoryError(
-                    f"Could not create cache directory due to an exception: {e}"
-                )
+                raise SessionCacheDirectoryError(f"Could not create cache directory due to an exception: {e}")
 
     def configure_session(self) -> requests.Session | requests_cache.CachedSession:
         """
@@ -287,9 +268,7 @@ class CachedSessionManager(SessionManager):
             logger.error("Couldn't create cached session due to an error: %s.", e)
 
             if self.raise_on_error:
-                raise SessionInitializationError(
-                    f"An error occurred during the creation of the CachedSession: {e}"
-                )
+                raise SessionInitializationError(f"An error occurred during the creation of the CachedSession: {e}")
 
         logger.warning("Falling back to regular session.")
         return super().configure_session()
@@ -306,9 +285,7 @@ class CachedSessionManager(SessionManager):
 
         indent = " " * (len(nm) + 1)
         sep = f",\n{indent}"
-        config = f"{sep}".join(
-            f"{option}={value}" for option, value in self.config.model_dump().items()
-        )
+        config = f"{sep}".join(f"{option}={value}" for option, value in self.config.model_dump().items())
 
         string_reprentation = f"{nm}(config={config})"
         return string_reprentation

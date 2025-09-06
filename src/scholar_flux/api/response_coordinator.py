@@ -70,8 +70,7 @@ class ResponseCoordinator:
         """Allows the direct modification of the DataExtractor from the ResponseCoordinator"""
         if not isinstance(data_extractor, BaseDataExtractor):
             raise InvalidCoordinatorParameterException(
-                f"Expected a DataExtractor object. "
-                f"Instead received type ({type(data_extractor)})"
+                f"Expected a DataExtractor object. " f"Instead received type ({type(data_extractor)})"
             )
         self._data_extractor = data_extractor
 
@@ -155,9 +154,7 @@ class ResponseCoordinator:
         # if caching is not being being used, or the cache is not available or valid anymore, process:
         return cached_response or self._handle_response(response, cache_key)
 
-    def _from_cache(
-        self, response: Response, cache_key: Optional[str] = None
-    ) -> Optional[ProcessedResponse]:
+    def _from_cache(self, response: Response, cache_key: Optional[str] = None) -> Optional[ProcessedResponse]:
         """
         Retrieves Previously Cached Response data that has been
         parsed, extracted, processed, and stored in cache
@@ -173,9 +170,7 @@ class ResponseCoordinator:
             if not self.cache_manager:
                 return None
 
-            cache_key = cache_key or self.cache_manager.generate_fallback_cache_key(
-                response
-            )
+            cache_key = cache_key or self.cache_manager.generate_fallback_cache_key(response)
 
             if not self.cache_manager.cache_is_valid(cache_key, response):
                 return None
@@ -196,9 +191,7 @@ class ResponseCoordinator:
                 extracted_records=cached.get("extracted_records"),
             )
         except StorageCacheException as e:
-            logger.warning(
-                f"An exception occurred while attempting to retrieve '{cache_key}' from cache: {e}"
-            )
+            logger.warning(f"An exception occurred while attempting to retrieve '{cache_key}' from cache: {e}")
             return None
 
     def _handle_response(
@@ -226,9 +219,7 @@ class ResponseCoordinator:
             return self._process_response(response, cache_key)
 
         except RequestException as e:
-            error_response = self._process_error(
-                response, f"Error retrieving response {e}", e, cache_key=cache_key
-            )
+            error_response = self._process_error(response, f"Error retrieving response {e}", e, cache_key=cache_key)
 
         except (
             DataParsingException,
@@ -236,9 +227,7 @@ class ResponseCoordinator:
             DataProcessingException,
             FieldNotFoundException,
         ) as e:
-            error_response = self._process_error(
-                response, f"Error processing response {e}", e, cache_key=cache_key
-            )
+            error_response = self._process_error(response, f"Error processing response {e}", e, cache_key=cache_key)
 
         except Exception as e:
             error_response = self._process_error(
@@ -250,9 +239,7 @@ class ResponseCoordinator:
 
         return error_response
 
-    def _process_response(
-        self, response: Response, cache_key: Optional[str] = None
-    ) -> ProcessedResponse:
+    def _process_response(self, response: Response, cache_key: Optional[str] = None) -> ProcessedResponse:
         """
         Parses, extracts, processes, and optionally caches response data.
 
@@ -276,9 +263,7 @@ class ResponseCoordinator:
 
         extracted_records, metadata = self.data_extractor(parsed_response_data)
 
-        processed_response = (
-            self.processor(extracted_records) if extracted_records else None
-        )
+        processed_response = self.processor(extracted_records) if extracted_records else None
 
         if cache_key and self.cache_manager:
             logger.debug("adding_to_cache")

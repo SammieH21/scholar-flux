@@ -62,9 +62,7 @@ def quote_numeric(value: Any) -> str:
     """
     quoted_value = try_quote_numeric(value)
     if quoted_value is None:
-        raise ValueError(
-            "The value, ({value}) could not be quoted as numeric string or an integer"
-        )
+        raise ValueError("The value, ({value}) could not be quoted as numeric string or an integer")
     return quoted_value
 
 
@@ -78,11 +76,7 @@ def flatten(current_data: Optional[Dict | List]) -> Optional[Dict | List]:
     Returns:
         Optional[Dict|List]: The flattened dictionary if the input meets the flattening condition, otherwise returns the input unchanged.
     """
-    if (
-        isinstance(current_data, list)
-        and len(current_data) == 1
-        and isinstance(current_data[0], dict)
-    ):
+    if isinstance(current_data, list) and len(current_data) == 1 and isinstance(current_data[0], dict):
         return current_data[0]
     return current_data
 
@@ -122,13 +116,9 @@ def pattern_search(json_dict: Dict, key_to_find: str, regex: bool = True) -> Lis
     """
     if regex:
         pattern = re.compile(f"{key_to_find}")
-        filtered_values = [
-            current_key for current_key in json_dict if pattern.fullmatch(current_key)
-        ]
+        filtered_values = [current_key for current_key in json_dict if pattern.fullmatch(current_key)]
     else:
-        filtered_values = [
-            current_key for current_key in json_dict if key_to_find in current_key
-        ]
+        filtered_values = [current_key for current_key in json_dict if key_to_find in current_key]
     return filtered_values
 
 
@@ -178,9 +168,7 @@ def get_nested_dictionary_data(data: Dict[str, Any], path: List[str]) -> Any:
     return data
 
 
-def get_nested_data(
-    json: list | dict | None, path: list
-) -> list | dict | None | str | int:
+def get_nested_data(json: list | dict | None, path: list) -> list | dict | None | str | int:
     """
     Recursively retrieves data from a nested dictionary using a sequence of keys.
 
@@ -214,24 +202,18 @@ def generate_response_hash(response: requests.Response) -> str:
     url = response.url
 
     # Filter for relevant headers directly from the response object
-    relevant_headers = {
-        k: v for k, v in response.headers.items() if k in ["ETag", "Last-Modified"]
-    }
+    relevant_headers = {k: v for k, v in response.headers.items() if k in ["ETag", "Last-Modified"]}
     headers_string = str(sorted(relevant_headers.items()))
 
     # Assume response.content is the way to access the raw byte content
     # Check if response.content is not None or empty before hashing
-    content_hash = (
-        hashlib.sha256(response.content).hexdigest() if response.content else ""
-    )
+    content_hash = hashlib.sha256(response.content).hexdigest() if response.content else ""
 
     # Combine URL, headers, and content hash into a final cache key
     return hashlib.sha256(f"{url}{headers_string}{content_hash}".encode()).hexdigest()
 
 
-def compare_response_hashes(
-    response1: requests.Response, response2: requests.Response
-) -> bool:
+def compare_response_hashes(response1: requests.Response, response2: requests.Response) -> bool:
     """
     Determines whether two responses differ.
     This function uses hashing to generate an identifier unique key_to_find
@@ -361,9 +343,7 @@ def path_search(obj: Union[Dict, List], key_to_find: str):
         A list of keys matching the pattern.
     """
     pattern = re.compile(f"{key_to_find}")
-    filtered_values = [
-        current_key for current_key in obj if pattern.fullmatch(current_key)
-    ]
+    filtered_values = [current_key for current_key in obj if pattern.fullmatch(current_key)]
     return filtered_values
 
 
@@ -402,9 +382,7 @@ def try_call(
 
     try:
         if not received_function:
-            raise TypeError(
-                f"The current value must be a function. Received type({func})"
-            )
+            raise TypeError(f"The current value must be a function. Received type({func})")
 
         kwargs = kwargs or {}
         return func(*args, **kwargs)

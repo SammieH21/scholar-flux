@@ -11,28 +11,21 @@ def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exce
     as intended throughout the coordinator
     """
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
-    success_response = ProcessedResponse(response = mock_successful_response,
-                                         extracted_records = extracted_records
-                                           )
-    rate_limit_response = ErrorResponse(response=mock_rate_limit_exceeded_response,
-                                        message='Rate limit exceeded')
+    success_response = ProcessedResponse(response=mock_successful_response, extracted_records=extracted_records)
+    rate_limit_response = ErrorResponse(response=mock_rate_limit_exceeded_response, message="Rate limit exceeded")
 
-    page_results = [
-        success_response,
-        success_response,
-        rate_limit_response
-    ]
+    page_results = [success_response, success_response, rate_limit_response]
 
     page_list = [1, 2, 3]
 
     mock_search.side_effect = page_results
 
     api = SearchAPI.from_defaults(
-        provider_name='plos',
+        provider_name="plos",
         query="test",
         base_url="https://api.example.com",
         records_per_page=len(extracted_records),
-        request_delay=0
+        request_delay=0,
     )
     coordinator = SearchCoordinator(api)
 

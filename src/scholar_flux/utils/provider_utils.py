@@ -26,11 +26,7 @@ class ProviderUtils:
             cls.load_provider_config(f"{providers_module_name}.{module.name}")
             for module in pkgutil.iter_modules(providers_module_path)
         )
-        provider_configs = {
-            provider.provider_name: provider
-            for provider in config_generator
-            if provider is not None
-        }
+        provider_configs = {provider.provider_name: provider for provider in config_generator if provider is not None}
         return provider_configs
 
     @classmethod

@@ -36,11 +36,7 @@ class RetryHandler:
         self.max_retries = max_retries if max_retries >= 0 else 0
         self.backoff_factor = backoff_factor
         self.max_backoff = max_backoff
-        self.retry_statuses = (
-            retry_statuses
-            if retry_statuses is not None
-            else self.DEFAULT_RETRY_STATUSES
-        )
+        self.retry_statuses = retry_statuses if retry_statuses is not None else self.DEFAULT_RETRY_STATUSES
 
     def execute_with_retry(
         self,
@@ -74,22 +70,14 @@ class RetryHandler:
                 if validator_func(response):
                     break
 
-                if not isinstance(response, requests.Response) or not self.should_retry(
-                    response
-                ):
-                    self.log_retry_warning(
-                        "Received an invalid or non-retryable response."
-                    )
+                if not isinstance(response, requests.Response) or not self.should_retry(response):
+                    self.log_retry_warning("Received an invalid or non-retryable response.")
                     break
 
                 delay = self.calculate_retry_delay(attempts, response)
                 self.log_retry_attempt(
                     delay,
-                    (
-                        response.status_code
-                        if isinstance(response, requests.Response)
-                        else None
-                    ),
+                    (response.status_code if isinstance(response, requests.Response) else None),
                 )
                 time.sleep(delay)
                 attempts += 1
@@ -105,23 +93,15 @@ class RetryHandler:
 
     @classmethod
     def _default_validator_func(cls, response: requests.Response) -> bool:
-        return (
-            isinstance(response, requests.Response)
-            and response.status_code in cls.DEFAULT_VALID_STATUSES
-        )
+        return isinstance(response, requests.Response) and response.status_code in cls.DEFAULT_VALID_STATUSES
 
     def should_retry(self, response: requests.Response) -> bool:
         """Determine whether the request should be retried."""
         return response.status_code in self.retry_statuses
 
-    def calculate_retry_delay(
-        self, attempt_count: int, response: Optional[requests.Response] = None
-    ) -> float:
+    def calculate_retry_delay(self, attempt_count: int, response: Optional[requests.Response] = None) -> float:
         """Calculate delay for the next retry attempt."""
-        if (
-            isinstance(response, requests.Response)
-            and "Retry-After" in response.headers
-        ):
+        if isinstance(response, requests.Response) and "Retry-After" in response.headers:
             return self.parse_retry_after(response.headers["Retry-After"])
         return min(self.backoff_factor * (2**attempt_count), self.max_backoff)
 
@@ -140,14 +120,10 @@ class RetryHandler:
         except ValueError:
             # Header might be a date
             retry_date = parsedate_to_datetime(retry_after)
-            delay = (
-                retry_date - datetime.datetime.now(retry_date.tzinfo)
-            ).total_seconds()
+            delay = (retry_date - datetime.datetime.now(retry_date.tzinfo)).total_seconds()
             return max(0, int(delay))
 
-    def log_retry_attempt(
-        self, delay: float, status_code: Optional[int] = None
-    ) -> None:
+    def log_retry_attempt(self, delay: float, status_code: Optional[int] = None) -> None:
         """Log an attempt to retry a request."""
         message = f"Retrying in {delay} seconds..."
         if status_code:

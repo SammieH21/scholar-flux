@@ -25,9 +25,7 @@ class BaseSessionManager(ABC):
         pass
 
     @abstractmethod
-    def configure_session(
-        self, *args, **kwargs
-    ) -> requests.Session | requests_cache.CachedSession:
+    def configure_session(self, *args, **kwargs) -> requests.Session | requests_cache.CachedSession:
         """
         Configure the session. Should be overridden by subclasses.
         """
@@ -67,18 +65,12 @@ class CachedSessionConfig(BaseModel):
     """
 
     cache_name: str
-    backend: Literal[
-        "dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"
-    ]
+    backend: Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"]
     cache_directory: Optional[Path] = None
     serializer: Optional[
-        str
-        | requests_cache.serializers.pipeline.SerializerPipeline
-        | requests_cache.serializers.pipeline.Stage
+        str | requests_cache.serializers.pipeline.SerializerPipeline | requests_cache.serializers.pipeline.Stage
     ] = None
-    expire_after: Optional[
-        int | float | str | datetime.datetime | datetime.timedelta
-    ] = None
+    expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None
     user_agent: Optional[str] = None
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
@@ -94,9 +86,7 @@ class CachedSessionConfig(BaseModel):
 
         if isinstance(v, str):
             if len(v) == 0:
-                raise ValueError(
-                    f"The value provided to the cache_directory parameter ({v}) must be a non-empty Path."
-                )
+                raise ValueError(f"The value provided to the cache_directory parameter ({v}) must be a non-empty Path.")
             return Path(v)
 
         raise ValueError(
@@ -110,14 +100,10 @@ class CachedSessionConfig(BaseModel):
         the value is an empty string.
         """
         if len(v) == 0:
-            raise ValueError(
-                f"The value provided to the cache_name parameter ({v}) must be a non-empty string."
-            )
+            raise ValueError(f"The value provided to the cache_name parameter ({v}) must be a non-empty string.")
 
         if Path(v).parent != Path("."):
-            raise ValueError(
-                f"The cache_name parameter is invalid: ({v}) should not contain directory components."
-            )
+            raise ValueError(f"The cache_name parameter is invalid: ({v}) should not contain directory components.")
 
         return v.replace("./", "", 1) if v.startswith(".") else v
 
@@ -142,18 +128,14 @@ class CachedSessionConfig(BaseModel):
         """
 
         if not isinstance(v, str) or not v:
-            raise ValueError(
-                "The backend to a requests_cache.CachedSession object must be a non-empty string."
-            )
+            raise ValueError("The backend to a requests_cache.CachedSession object must be a non-empty string.")
 
         backend = v.lower()
         deps = BACKEND_DEPENDENCIES.get(backend)
 
         if deps is None:
             supported_backends = list(BACKEND_DEPENDENCIES.keys())
-            logger.error(
-                f"The specified backend is not supported by Requests-Cache: {backend}"
-            )
+            logger.error(f"The specified backend is not supported by Requests-Cache: {backend}")
             raise ValueError(
                 f"Requests-Cache does not support a backend by the name of {backend}.\n"
                 f"Supported backends: {supported_backends}\n"
@@ -162,9 +144,7 @@ class CachedSessionConfig(BaseModel):
         missing = [dep for dep in deps if importlib.util.find_spec(dep) is None]
         if missing:
             missing_str = ", ".join(missing)
-            logger.error(
-                f"The specified backend requires missing dependencies: {backend}"
-            )
+            logger.error(f"The specified backend requires missing dependencies: {backend}")
             raise ValueError(
                 f"Backend '{v}' requires missing dependencies: {missing_str}"
                 "Please install them or choose a different backend."
@@ -188,9 +168,7 @@ class CachedSessionConfig(BaseModel):
             )
 
         if backend not in ("filesystem", "sqlite") and cache_directory is not None:
-            logger.warning(
-                f"Note that the cache_directory will not be used when using the {backend} backend"
-            )
+            logger.warning(f"Note that the cache_directory will not be used when using the {backend} backend")
             values.cache_directory = None
         else:
             logger.debug(
@@ -210,8 +188,4 @@ class CachedSessionConfig(BaseModel):
         Helper method for retrieving the path that the cache will be written to or named, depending on the backend.:
             Assumes that a cache_name is already provided
         """
-        return (
-            str(self.cache_directory / self.cache_name)
-            if self.cache_directory
-            else self.cache_name
-        )
+        return str(self.cache_directory / self.cache_name) if self.cache_directory else self.cache_name

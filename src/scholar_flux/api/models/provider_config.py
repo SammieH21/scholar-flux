@@ -53,18 +53,14 @@ class ProviderConfig(BaseModel):
             (dict): A dictionary containing the URL, name, records_per_page, and request_delay
                     for the current provider.
         """
-        return self.model_dump(
-            include={"provider_name", "base_url", "records_per_page", "request_delay"}
-        )
+        return self.model_dump(include={"provider_name", "base_url", "records_per_page", "request_delay"})
 
     @field_validator("base_url")
     def validate_base_url(cls, v: str) -> str:
         """Validates the current url and raises a APIParameterException if invalid"""
         if not isinstance(v, str) or not validate_url(v):
             logger.error(f"The URL provided to the ProviderConfig is invalid: {v}")
-            raise APIParameterException(
-                f"The URL provided to the ProviderConfig is invalid: {v}"
-            )
+            raise APIParameterException(f"The URL provided to the ProviderConfig is invalid: {v}")
         return cls._normalize_url(v, normalize_https=False)
 
     @field_validator("docs_url")
@@ -72,9 +68,7 @@ class ProviderConfig(BaseModel):
         """Validates the documentation url and raises a APIParameterException if invalid"""
         if v is not None and not validate_url(v):
             logger.error(f"The URL provided to the ProviderConfig is invalid: {v}")
-            raise APIParameterException(
-                f"The URL provided to the ProviderConfig is invalid: {v}"
-            )
+            raise APIParameterException(f"The URL provided to the ProviderConfig is invalid: {v}")
         return cls._normalize_url(v, normalize_https=False) if v is not None else None
 
     @staticmethod

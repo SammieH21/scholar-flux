@@ -6,6 +6,7 @@ from scholar_flux.exceptions import (
 )
 
 
+from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.data_storage.cache_manager import DataCacheManager
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
@@ -19,6 +20,7 @@ __all__ = [
     "MongoDBImportError",
     "SQLAlchemyImportError",
     "DataCacheManager",
+    "ABCStorage",
     "SQLAlchemyStorage",
     "InMemoryStorage",
     "RedisStorage",

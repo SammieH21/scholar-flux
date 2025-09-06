@@ -36,9 +36,7 @@ class PathNodeIndex:
 
     def __post_init__(self):
         object.__setattr__(self, "index", self._validate_index(self.index))
-        object.__setattr__(
-            self, "simplifier", self._validate_simplifier(self.simplifier)
-        )
+        object.__setattr__(self, "simplifier", self._validate_simplifier(self.simplifier))
 
     @classmethod
     def _validate_simplifier(cls, simplifier: PathSimplifier) -> PathSimplifier:
@@ -57,9 +55,7 @@ class PathNodeIndex:
         return simplifier
 
     @classmethod
-    def _validate_index(
-        cls, index: Union[PathNodeMap, dict[ProcessingPath, PathNode]]
-    ) -> PathNodeMap:
+    def _validate_index(cls, index: Union[PathNodeMap, dict[ProcessingPath, PathNode]]) -> PathNodeMap:
         """
         Determine whether the current path is an index of paths and nodes.
         Args:
@@ -70,15 +66,11 @@ class PathNodeIndex:
         if isinstance(index, dict):
             return PathNodeMap(index)
         if not isinstance(index, PathNodeMap):
-            raise PathNodeIndexError(
-                f"The argument, index, expected a PathNodeMap. Recieved {type(index)}"
-            )
+            raise PathNodeIndexError(f"The argument, index, expected a PathNodeMap. Recieved {type(index)}")
         return index
 
     @classmethod
-    def from_path_mappings(
-        cls, path_mappings: dict[ProcessingPath, Any]
-    ) -> PathNodeIndex:
+    def from_path_mappings(cls, path_mappings: dict[ProcessingPath, Any]) -> PathNodeIndex:
         """
         Takes a dictionary of path:value mappings and transforms the dictionary into
         a list of PathNodes: useful for later path manipulations such as grouping and
@@ -88,11 +80,7 @@ class PathNodeIndex:
             list[PathNode]: list of pathnodes created from a dictionary
         """
 
-        return cls(
-            PathNodeMap(
-                {path: PathNode(path, value) for path, value in path_mappings.items()}
-            )
-        )
+        return cls(PathNodeMap({path: PathNode(path, value) for path, value in path_mappings.items()}))
 
     def __repr__(self) -> str:
         return f"PathNodeIndex(index(len={len(self.index)}))"
@@ -133,17 +121,10 @@ class PathNodeIndex:
 
         if not isinstance(pattern, (str, re.Pattern)):
             raise TypeError(
-                "Invalid Value passed to PathIndex: expected "
-                f"string/re.Pattern, received ({type(pattern)})"
+                "Invalid Value passed to PathIndex: expected " f"string/re.Pattern, received ({type(pattern)})"
             )
-        pattern = (
-            re.compile(pattern) if not isinstance(pattern, re.Pattern) else pattern
-        )
-        return [
-            node
-            for node in self.index.values()
-            if pattern.search(node.path.to_string()) is not None
-        ]
+        pattern = re.compile(pattern) if not isinstance(pattern, re.Pattern) else pattern
+        return [node for node in self.index.values() if pattern.search(node.path.to_string()) is not None]
 
     def simplify_to_rows(
         self,
@@ -160,9 +141,7 @@ class PathNodeIndex:
         Returns:
             list[dict[str, Any]]: A list of dictionaries representing the paginated data structure.
         """
-        sorted_nodes = sorted(
-            self.index.values(), key=lambda node: (node.path_keys, node.path)
-        )
+        sorted_nodes = sorted(self.index.values(), key=lambda node: (node.path_keys, node.path))
 
         self.simplifier.simplify_paths(
             [node.path_group for node in sorted_nodes],
@@ -177,16 +156,11 @@ class PathNodeIndex:
 
         if not parallel:
             return [
-                self.simplifier.simplify_to_row(
-                    indexed_nodes[idx], collapse=object_delimiter
-                )
-                for idx in indexed_nodes
+                self.simplifier.simplify_to_row(indexed_nodes[idx], collapse=object_delimiter) for idx in indexed_nodes
             ]
 
         # Prepare data for multiprocessing
-        node_chunks = [
-            (node_chunk, object_delimiter) for node_chunk in indexed_nodes.values()
-        ]
+        node_chunks = [(node_chunk, object_delimiter) for node_chunk in indexed_nodes.values()]
 
         # Use multiprocessing to process nodes in parallel
         with Pool(processes=min(cpu_count(), len(node_chunks))) as pool:
@@ -218,15 +192,12 @@ class PathNodeIndex:
 
             for count_node in count_node_list:
                 if count_node is None or count_node.path in skip_keys:
-                    logger.debug(
-                        f"Skip keys include '{count_node.path}'. Continuing..."
-                    )
+                    logger.debug(f"Skip keys include '{count_node.path}'. Continuing...")
                     continue
                 # try:
                 if not count_node.path.depth > 1:
                     logger.debug(
-                        f"Skipping node '{count_node}' at depth={count_node.path.depth} "
-                        "as it cannot be combined."
+                        f"Skipping node '{count_node}' at depth={count_node.path.depth} " "as it cannot be combined."
                     )
                     continue
 
@@ -308,21 +279,13 @@ class PathNodeIndex:
         """
 
         if not isinstance(json_records, (dict, list)):
-            raise PathNodeIndexError(
-                f"Normalization requires a list or dictionary. Received {type(json_records)}"
-            )
+            raise PathNodeIndexError(f"Normalization requires a list or dictionary. Received {type(json_records)}")
 
         record_list = json_records if isinstance(json_records, list) else [json_records]
-        path_mappings = (
-            PathDiscoverer(record_list).discover_path_elements()
-            if isinstance(record_list, list)
-            else {}
-        )
+        path_mappings = PathDiscoverer(record_list).discover_path_elements() if isinstance(record_list, list) else {}
 
         if not isinstance(path_mappings, dict) or not path_mappings:
-            logger.warning(
-                "The json structure of type, {type(json_records)} contains no rows. Returning an empty list"
-            )
+            logger.warning("The json structure of type, {type(json_records)} contains no rows. Returning an empty list")
             return []
 
         logger.info(f"Discovered {len(path_mappings)} terminal paths")
@@ -331,8 +294,6 @@ class PathNodeIndex:
         if combine_keys:
             logger.info("Combining keys..")
             path_node_index.combine_keys()
-        normalized_records = path_node_index.simplify_to_rows(
-            object_delimiter=object_delimiter, parallel=parallel
-        )
+        normalized_records = path_node_index.simplify_to_rows(object_delimiter=object_delimiter, parallel=parallel)
         logger.info("Successfully noralized {len(normalized_records)} records")
         return normalized_records

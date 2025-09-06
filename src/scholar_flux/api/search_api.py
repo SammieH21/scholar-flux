@@ -32,9 +32,7 @@ class SearchAPI(BaseAPI):
     def __init__(
         self,
         query: Annotated[str, "keyword:'{your search term}'"],
-        base_url: Annotated[
-            Optional[str], "Valid URL for an Article API"
-        ] = None,  # SearchAPIConfig
+        base_url: Annotated[Optional[str], "Valid URL for an Article API"] = None,  # SearchAPIConfig
         api_key: Annotated[
             Optional[str | SecretStr],
             "An API key for providers requiring identification of users",
@@ -48,20 +46,15 @@ class SearchAPI(BaseAPI):
             Optional[requests.Session | CachedSession],
             "A session/Cached Session object for making requests",
         ] = None,
-        user_agent: Annotated[
-            Optional[str], "An optional User-Agent to associate with each search"
-        ] = None,
+        user_agent: Annotated[Optional[str], "An optional User-Agent to associate with each search"] = None,
         timeout: Annotated[
             Optional[int | float],
             "Number of seconds that must elapse before the request times out",
         ] = None,
         masker: Optional[SensitiveDataMasker] = None,
         records_per_page: Annotated[int, "BETWEEN(1,100)"] = 20,  # SearchAPIConfig
-        request_delay: Annotated[float, "Minimum time between requests: GT(0)"] = 6
-        - 1,  # SearchAPIConfig
-        use_cache: Annotated[
-            Optional[bool], "Indicate whether to use a simple in-memory session cache"
-        ] = None,
+        request_delay: Annotated[float, "Minimum time between requests: GT(0)"] = 6 - 1,  # SearchAPIConfig
+        use_cache: Annotated[Optional[bool], "Indicate whether to use a simple in-memory session cache"] = None,
         **api_specific_parameters,  # SearchAPIConfig
     ):
         """
@@ -87,9 +80,7 @@ class SearchAPI(BaseAPI):
                     db: str (PUBMED: a database to retrieve data from (example: db=pubmed)
         """
 
-        super().__init__(
-            session=session, timeout=timeout, user_agent=user_agent, use_cache=use_cache
-        )
+        super().__init__(session=session, timeout=timeout, user_agent=user_agent, use_cache=use_cache)
 
         # Create SearchAPIConfig internally with defaults and validation
         try:
@@ -146,14 +137,9 @@ class SearchAPI(BaseAPI):
 
         # first attempt to retrieve a non-empty parameter_config. If unsuccessful,
         # then whether the provided namespace or url matches a default provider
-        self.parameter_config = parameter_config or APIParameterConfig.from_defaults(
-            self.provider_name
-        )
+        self.parameter_config = parameter_config or APIParameterConfig.from_defaults(self.provider_name)
 
-        if (
-            self.parameter_config.parameter_map.api_key_required
-            and not self.config.api_key
-        ):
+        if self.parameter_config.parameter_map.api_key_required and not self.config.api_key:
             logger.warning("API key is required but was not provided")
         logger.debug("Initialized a new SearchAPI Session Successfully.")
 
@@ -181,9 +167,7 @@ class SearchAPI(BaseAPI):
             APIParameterException: Indicating that the provided value is not a SearchAPIConfig
         """
         if not isinstance(_config, SearchAPIConfig):
-            raise APIParameterException(
-                f"Expected a SearchAPIConfig, received type: {type(_config)}"
-            )
+            raise APIParameterException(f"Expected a SearchAPIConfig, received type: {type(_config)}")
         self._config = _config
 
     @property
@@ -210,9 +194,7 @@ class SearchAPI(BaseAPI):
             APIParameterException: Indicating that the provided value is not a APIParameterConfig
         """
         if not isinstance(_parameter_config, APIParameterConfig):
-            raise APIParameterException(
-                f"Expected an APIParameterConfig, received type: {type(_parameter_config)}"
-            )
+            raise APIParameterException(f"Expected an APIParameterConfig, received type: {type(_parameter_config)}")
         self._parameter_config = _parameter_config
 
     @property
@@ -239,9 +221,7 @@ class SearchAPI(BaseAPI):
         validation to ensure that the query is a non-empty string
         """
         if not query or not isinstance(query, str):
-            raise QueryValidationException(
-                f"Query must be a non empty string., received empty string: {query}"
-            )
+            raise QueryValidationException(f"Query must be a non empty string., received empty string: {query}")
         self.__query = query
 
     @property
@@ -344,9 +324,7 @@ class SearchAPI(BaseAPI):
         query: str,
         provider_name: Optional[str],
         session: Optional[requests.Session] = None,
-        user_agent: Annotated[
-            Optional[str], "An optional User-Agent to associate with each search"
-        ] = None,
+        user_agent: Annotated[Optional[str], "An optional User-Agent to associate with each search"] = None,
         use_cache: Optional[bool] = None,
         timeout: Optional[int | float] = None,
         masker: Optional[SensitiveDataMasker] = None,
@@ -373,9 +351,7 @@ class SearchAPI(BaseAPI):
             A new SearchAPI instance initialized with the config chosen
         """
         try:
-            default_provider_name = provider_name or config.get(
-                "DEFAULT_SCHOLAR_FLUX_PROVIDER", "PLOS"
-            )
+            default_provider_name = provider_name or config.get("DEFAULT_SCHOLAR_FLUX_PROVIDER", "PLOS")
             search_api_config = SearchAPIConfig.from_defaults(
                 provider_name=default_provider_name, **api_specific_parameters
             )
@@ -408,9 +384,7 @@ class SearchAPI(BaseAPI):
             bool: True if the session is a cached session, False otherwise.
         """
         cached_session = cast("CachedSession", session)
-        return hasattr(cached_session, "cache") and isinstance(
-            cached_session.cache, BaseCache
-        )
+        return hasattr(cached_session, "cache") and isinstance(cached_session.cache, BaseCache)
 
     @property
     def cache(self) -> Optional[BaseCache]:
@@ -487,23 +461,18 @@ class SearchAPI(BaseAPI):
 
         if unknown_param_names:
             logger.warning(
-                f"The following parameters are not assicated with the current API config:"
-                f"{unknown_param_names}"
+                f"The following parameters are not assicated with the current API config:" f"{unknown_param_names}"
             )
 
         unknown_parameters = {
-            parameter: value
-            for parameter, value in additional_parameters.items()
-            if parameter in unknown_param_names
+            parameter: value for parameter, value in additional_parameters.items() if parameter in unknown_param_names
         }
 
         all_parameters = parameters | unknown_parameters
 
         return {k: v for k, v in all_parameters.items() if v is not None}
 
-    def search(
-        self, page: Optional[int] = None, parameters: Optional[Dict[str, Any]] = None
-    ) -> Response:
+    def search(self, page: Optional[int] = None, parameters: Optional[Dict[str, Any]] = None) -> Response:
         """
         Public method to perform a search, by specifying either the page to query using the default parameters and
         additional overrides or by creating a custom request using a full dictionary containing the full set of
@@ -529,13 +498,9 @@ class SearchAPI(BaseAPI):
         elif page is not None:
             return self.make_request(page, parameters)
         else:
-            raise APIParameterException(
-                "One of 'page' or 'parameters' must be provided"
-            )
+            raise APIParameterException("One of 'page' or 'parameters' must be provided")
 
-    def make_request(
-        self, current_page: int, additional_parameters: Optional[dict[str, Any]] = None
-    ) -> Response:
+    def make_request(self, current_page: int, additional_parameters: Optional[dict[str, Any]] = None) -> Response:
         """
         Constructs and sends a request to the chosen api:
             The parameters are built based on the default/chosen config and parameter map
@@ -582,9 +547,7 @@ class SearchAPI(BaseAPI):
 
             # attempt to retrieve the api key and parameter name if existing, else fallbck to api_key
             if api_key and not self._api_key_exists(parameters):
-                api_key_parameter_name = (
-                    self.parameter_config.parameter_map.api_key_parameter or "api_key"
-                )
+                api_key_parameter_name = self.parameter_config.parameter_map.api_key_parameter or "api_key"
                 if api_key_parameter_name:
                     parameters[api_key_parameter_name] = api_key
 
@@ -662,9 +625,7 @@ class SearchAPI(BaseAPI):
 
             # Use explicit configs if provided, else fall back to provider_name
             self.config = config or provider_config or self.config
-            self.parameter_config = (
-                parameter_config or provider_param_config or self.parameter_config
-            )
+            self.parameter_config = parameter_config or provider_param_config or self.parameter_config
 
             yield self
         finally:
@@ -702,11 +663,7 @@ class SearchAPI(BaseAPI):
                     **api_specific_parameters,
                 )
 
-            parameter_config = (
-                APIParameterConfig.get_defaults(provider_name)
-                if provider_name
-                else None
-            )
+            parameter_config = APIParameterConfig.get_defaults(provider_name) if provider_name else None
 
             if parameter_config:
                 self.parameter_config = parameter_config
@@ -730,9 +687,7 @@ class SearchAPI(BaseAPI):
         provider_name = self.provider_name
         provider = provider_registry.get(provider_name)
 
-        parameter_map = (
-            provider.parameter_map if provider else self.parameter_config.parameter_map
-        )
+        parameter_map = provider.parameter_map if provider else self.parameter_config.parameter_map
 
         return {
             "config_fields": config_fields,

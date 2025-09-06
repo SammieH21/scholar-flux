@@ -48,13 +48,9 @@ class BaseAPIParameterMap(BaseModel):
     api_key_parameter: Optional[str] = None
     api_key_required: bool = False
     auto_calculate_page: bool = True
-    api_specific_parameters: Dict[str, APISpecificParameter] = Field(
-        default_factory=dict
-    )
+    api_specific_parameters: Dict[str, APISpecificParameter] = Field(default_factory=dict)
 
-    def update(
-        self, other: BaseAPIParameterMap | Dict[str, Any]
-    ) -> BaseAPIParameterMap:
+    def update(self, other: BaseAPIParameterMap | Dict[str, Any]) -> BaseAPIParameterMap:
         """
         Update the current instance with values from another BaseAPIParameterMap or dictionary.
 

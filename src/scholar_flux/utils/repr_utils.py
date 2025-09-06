@@ -4,9 +4,7 @@ import re
 from scholar_flux.utils.helpers import as_tuple
 
 
-def adjust_repr_padding(
-    obj: Any, pad_length: Optional[int] = 0, flatten: Optional[bool] = None
-) -> str:
+def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Optional[bool] = None) -> str:
     """
     Helper method for adjusting the padding for representations of objects
 
@@ -28,21 +26,14 @@ def adjust_repr_padding(
 
     pad_length = pad_length or 0
 
-    if (
-        len(representation_lines) >= 2
-        and re.search(r"^[a-zA-Z_]+\(", representation) is not None
-    ):
+    if len(representation_lines) >= 2 and re.search(r"^[a-zA-Z_]+\(", representation) is not None:
         minimum_padding_match = re.match("(^ +)", representation_lines[1])
 
         if minimum_padding_match:
             minimum_padding = minimum_padding_match.group(1)
             adjusted_padding = " " * (pad_length + len(minimum_padding))
             representation = "\n".join(
-                (
-                    re.sub(f"^{minimum_padding}", adjusted_padding, line)
-                    if idx >= 1
-                    else line
-                )
+                (re.sub(f"^{minimum_padding}", adjusted_padding, line) if idx >= 1 else line)
                 for idx, line in enumerate(representation_lines)
             )
 
@@ -74,9 +65,7 @@ def format_repr_value(
         else (str(value) if not isinstance(value, BaseModel) else repr(value))
     )
 
-    if show_value_attributes is False and re.search(
-        r"^[a-zA-Z_]+\(.*[^\)]", str(value)
-    ):
+    if show_value_attributes is False and re.search(r"^[a-zA-Z_]+\(.*[^\)]", str(value)):
         value = value.split("(")[0] + "(...)"
     return adjust_repr_padding(value, pad_length=pad_length, flatten=flatten)
 
@@ -149,9 +138,7 @@ def generate_repr(
         attribute_dict = {
             attribute: value
             for attribute, value in obj.__dict__.items()
-            if attribute in attribute_keys
-            and not callable(value)
-            and attribute not in exclude
+            if attribute in attribute_keys and not callable(value) and attribute not in exclude
         }
 
         return generate_repr_from_string(

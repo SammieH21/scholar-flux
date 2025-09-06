@@ -26,6 +26,7 @@ from scholar_flux.utils.helpers import (
     try_call,
 )
 
+
 # --------------------------------------------------------------------------- #
 # Helper objects
 # --------------------------------------------------------------------------- #
@@ -36,6 +37,7 @@ class DummyResponse(Response):
         self.headers = headers
         self._content = content
         self.status_code = 200
+
 
 # --------------------------------------------------------------------------- #
 # Tests for try_quote_numeric / quote_numeric
@@ -184,7 +186,7 @@ def test_try_pop_existing_and_missing():
     s = {1, 2, 3}
     assert try_pop(s, 2) == 2
     assert 2 not in s
-    assert try_pop(s, 5, default="missing") == "missing" # type:ignore
+    assert try_pop(s, 5, default="missing") == "missing"  # type:ignore
     assert try_pop(s, 5) is None
 
 
@@ -194,9 +196,9 @@ def test_try_pop_existing_and_missing():
 def test_try_dict_cases():
     assert try_dict({"a": 1}) == {"a": 1}
     assert try_dict([{"a": 1}, {"b": 2}]) == {0: {"a": 1}, 1: {"b": 2}}
-    assert try_dict("invalid") is None #type:ignore
+    assert try_dict("invalid") is None  # type:ignore
 
-    assert try_dict([1, 2, 3]) == {0: 1, 1: 2, 2: 3} # type:ignore
+    assert try_dict([1, 2, 3]) == {0: 1, 1: 2, 2: 3}  # type:ignore
 
 
 # --------------------------------------------------------------------------- #
@@ -217,7 +219,7 @@ def test_unlist_1d():
     assert unlist_1d((42,)) == 42
     assert unlist_1d([1, 2]) == [1, 2]
     assert unlist_1d((1, 2)) == (1, 2)
-    assert unlist_1d(42) == 42 # type: ignore
+    assert unlist_1d(42) == 42  # type: ignore
 
 
 # --------------------------------------------------------------------------- #
@@ -258,4 +260,4 @@ def test_try_call_with_suppress():
 
 def test_try_call_non_callable():
     with pytest.raises(TypeError):
-        _ = try_call(123, default="not callable") #type:ignore
+        _ = try_call(123, default="not callable")  # type:ignore

@@ -109,18 +109,12 @@ def setup_logging(
     try:
         # Attempt to create the log directory within the package
         current_log_directory = (
-            Path(log_directory)
-            if log_directory is not None
-            else get_default_writable_directory("logs")
+            Path(log_directory) if log_directory is not None else get_default_writable_directory("logs")
         )
-        logger.info(
-            "Using the current directory for logging: %s", current_log_directory
-        )
+        logger.info("Using the current directory for logging: %s", current_log_directory)
     except RuntimeError as e:
         logger.error("Failed to identify a directory for logging: %s", e)
-        raise LogDirectoryError(
-            f"Could not identify or create a log directory due to an error: {e}."
-        )
+        raise LogDirectoryError(f"Could not identify or create a log directory due to an error: {e}.")
 
     log_file_path = current_log_directory / log_file
 
@@ -128,18 +122,14 @@ def setup_logging(
     logger.handlers = []
 
     # Define a formatter for both console and file logging
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(pathname)s"
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(pathname)s")
 
     # create a handler for console logging
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
 
     # create a handler for file logs
-    file_handler = RotatingFileHandler(
-        str(log_file_path), maxBytes=max_bytes, backupCount=backup_count
-    )
+    file_handler = RotatingFileHandler(str(log_file_path), maxBytes=max_bytes, backupCount=backup_count)
     file_handler.setFormatter(formatter)
 
     if logging_filter:

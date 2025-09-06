@@ -145,9 +145,7 @@ class StringMaskingPattern(MaskingPattern):
 
     def _identity_key(self) -> str:
         """Identifies the current pattern based on name, field, pattern, and class"""
-        return str(
-            (type(self).__name__, self.name, SecretUtils.unmask_secret(self.pattern))
-        )
+        return str((type(self).__name__, self.name, SecretUtils.unmask_secret(self.pattern)))
 
 
 class MaskingPatternSet(set[MaskingPattern]):
@@ -166,7 +164,5 @@ class MaskingPatternSet(set[MaskingPattern]):
             else:
                 for element in patterns:
                     if not isinstance(element, MaskingPattern):
-                        raise TypeError(
-                            f"Expected a masking pattern, received type {type(others)}"
-                        )
+                        raise TypeError(f"Expected a masking pattern, received type {type(others)}")
                 super().update(patterns)

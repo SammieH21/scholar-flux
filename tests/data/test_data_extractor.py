@@ -46,7 +46,7 @@ def test_extract_with_manual_paths(mock_academic_json):
     # Metadata should contain the keys we specified in overrides.
     assert metadata and isinstance(metadata, dict)
     assert metadata["total"] == try_int(mock_academic_json["total"])
-    assert metadata["start"] == try_int(mock_academic_json["start"]) 
+    assert metadata["start"] == try_int(mock_academic_json["start"])
     assert metadata["pageLength"] == try_int(mock_academic_json["pageLength"])
     assert metadata["recordsDisplayed"] == try_int(mock_academic_json["recordsDisplayed"])
     # No other keys should appear because we didn't override ``apiMessage`` or ``query``.
@@ -85,7 +85,6 @@ def test_extract_records_returns_none_on_invalid_type(mock_academic_json):
     extractor = DataExtractor(record_path=["data"])
     records = extractor.extract_records(mock_academic_json)
     assert records is None
-
 
 
 @pytest.fixture
@@ -152,7 +151,7 @@ def test_extract_records_wrong_path_type():
     """
     with pytest.raises(DataExtractionException) as exc:
         # error – must be a list
-        DataExtractor(record_path="data") # type: ignore 
+        DataExtractor(record_path="data")  # type: ignore
     assert "list" in str(exc.value)
 
 
@@ -189,7 +188,7 @@ def test_dynamic_identification_basic(mock_academic_json):
     (query, total, etc.) and records (the items in ``data``) when no
     explicit paths are provided.
     """
-    extractor = DataExtractor()          # no paths
+    extractor = DataExtractor()  # no paths
     metadata, records = extractor.dynamic_identification(mock_academic_json)
 
     # All top‑level meta keys should be in the metadata dict
@@ -255,7 +254,7 @@ def test_invalid_metadata_path_type(bad_path: Any, mock_academic_json: List):
     """
     Passing a non‑list/dict for metadata_path should raise an exception.
     """
-    
+
     with pytest.raises(DataExtractionException):
         # the extractor shouldn't accept a list of containing integers
         _ = DataExtractor(record_path=["data"], metadata_path=bad_path)  # type: ignore[arg-type]

@@ -29,9 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class EncryptionPipelineFactory:
-    def __init__(
-        self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ""
-    ):
+    def __init__(self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ""):
         """
         Helper class used to create a factory for encrypting and decrypting pipelines
         using a secret key.
@@ -74,15 +72,10 @@ class EncryptionPipelineFactory:
 
         if not key and cache_secret_key:
             logger.debug(
-                "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build cache‑session"
-                " encryption pipeline"
+                "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build cache‑session" " encryption pipeline"
             )
 
-            key = (
-                cache_secret_key.get_secret_value()
-                if isinstance(cache_secret_key, SecretStr)
-                else cache_secret_key
-            )
+            key = cache_secret_key.get_secret_value() if isinstance(cache_secret_key, SecretStr) else cache_secret_key
 
         if key is None:
             return None
@@ -97,15 +90,11 @@ class EncryptionPipelineFactory:
     def _validate_key(key: bytes) -> None:
         """Ensures that the length of the received bytes is 44 characters"""
         if len(key) != 44:  # 32 bytes encoded in base64 => 44 characters
-            raise SecretKeyError(
-                "Fernet key must be 32 url-safe base64-encoded bytes (length 44)"
-            )
+            raise SecretKeyError("Fernet key must be 32 url-safe base64-encoded bytes (length 44)")
         try:
             Fernet(key)
         except Exception as e:
-            raise SecretKeyError(
-                "Provided secret_key is not a valid Fernet key."
-            ) from e
+            raise SecretKeyError("Provided secret_key is not a valid Fernet key.") from e
 
     @staticmethod
     def generate_secret_key() -> bytes:

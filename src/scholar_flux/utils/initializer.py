@@ -59,9 +59,7 @@ def initialize_package(
         config_settings.load_config(**config_params_dict, verbose=verbose)
         config = config_settings.config
     except Exception as e:
-        raise ValueError(
-            f"Failed to load the configuration settings for the scholar_flux package: {e}"
-        )
+        raise ValueError(f"Failed to load the configuration settings for the scholar_flux package: {e}")
 
     # declares the default parameters from scholar_flux after loading configuration environment variables
     logging_params_dict: dict = {
@@ -82,9 +80,7 @@ def initialize_package(
             # ensure the logger does not output if logging is turned off
             logger.addHandler(logging.NullHandler())
     except Exception as e:
-        raise ValueError(
-            f"Failed to initialize the logging for the scholar_flux package: {e}"
-        )
+        raise ValueError(f"Failed to initialize the logging for the scholar_flux package: {e}")
 
     logging.debug(
         "Loaded Scholar Flux with the following parameters:\n"

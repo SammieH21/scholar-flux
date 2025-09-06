@@ -19,12 +19,8 @@ logger = logging.getLogger(__name__)
 class WorkflowStep(BaseWorkflowStep):
     """Indicates the processing metadata and execution instructions for each step in a workflow"""
 
-    provider_name: Optional[str] = Field(
-        default=None, description="The provider to use for this step."
-    )
-    search_parameters: Dict[str, Any] = Field(
-        default_factory=dict, description="API search parameters for this step."
-    )
+    provider_name: Optional[str] = Field(default=None, description="The provider to use for this step.")
+    search_parameters: Dict[str, Any] = Field(default_factory=dict, description="API search parameters for this step.")
     config_parameters: Dict[str, Any] = Field(
         default_factory=dict, description="Optional config parameters for this step."
     )
@@ -41,19 +37,12 @@ class WorkflowStep(BaseWorkflowStep):
         if ctx is not None:
             if not isinstance(ctx, StepContext):
                 raise TypeError(
-                    "Expected the ctx (context) to be a StepContext or None, "
-                    "Received: {type(ctx).__name__}"
+                    "Expected the ctx (context) to be a StepContext or None, " "Received: {type(ctx).__name__}"
                 )
 
-            provider_name = (
-                provider_name if provider_name is not None else ctx.step.provider_name
-            )
-            search_parameters = (ctx.step.search_parameters if ctx else {}) | (
-                search_parameters or {}
-            )
-            config_parameters = (ctx.step.config_parameters if ctx else {}) | (
-                config_parameters or {}
-            )
+            provider_name = provider_name if provider_name is not None else ctx.step.provider_name
+            search_parameters = (ctx.step.search_parameters if ctx else {}) | (search_parameters or {})
+            config_parameters = (ctx.step.config_parameters if ctx else {}) | (config_parameters or {})
 
         return self.model_copy(
             update=dict(
@@ -120,38 +109,22 @@ class SearchWorkflow(BaseWorkflow):
                     config_parameters=step.config_parameters,
                 )
 
-                with search_coordinator.api.with_config_parameters(
-                    **step.config_parameters
-                ):
-                    step_search_parameters = (
-                        step.search_parameters
-                        | keyword_parameters
-                        | step.additional_kwargs
-                    )
+                with search_coordinator.api.with_config_parameters(**step.config_parameters):
+                    step_search_parameters = step.search_parameters | keyword_parameters | step.additional_kwargs
                     if verbose:
-                        logger.debug(
-                            f"step {i}: Config Parameters =  {search_coordinator.api.config}"
-                        )
-                        logger.debug(
-                            f"step {i}: Search Parameters = {step_search_parameters}"
-                        )
+                        logger.debug(f"step {i}: Config Parameters =  {search_coordinator.api.config}")
+                        logger.debug(f"step {i}: Search Parameters = {step_search_parameters}")
 
                     # step_search_parameters |= dict(use_workflow=None)
                     search_result = search_coordinator._search(**step_search_parameters)
 
-                    ctx = step.post_transform(
-                        StepContext(
-                            step_number=i, step=step.model_copy(), result=search_result
-                        )
-                    )
+                    ctx = step.post_transform(StepContext(step_number=i, step=step.model_copy(), result=search_result))
 
                     self._history.append(ctx)
                     result = ctx.result
 
         except Exception as e:
-            raise RuntimeError(
-                f"An unexpected error occurred during processing step {i}"
-            ) from e
+            raise RuntimeError(f"An unexpected error occurred during processing step {i}") from e
 
         return WorkflowResult(history=self._history, result=result)
 
