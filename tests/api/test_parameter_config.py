@@ -1,14 +1,7 @@
 import pytest
-from unittest.mock import MagicMock, patch
-from scholar_flux.api import APIParameterMap, APIParameterConfig
-from scholar_flux.api.providers import provider_registry
+from scholar_flux.api import APIParameterMap
 from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
-import logging
-
-
-import pytest
-from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
 
 def test_api_specific_parameter_properties():
     param = APISpecificParameter(
@@ -158,7 +151,7 @@ def test_validate_api_specific_parameter_mappings_invalid_type():
             api_key_parameter=None,
             api_key_required=False,
             auto_calculate_page=True,
-            api_specific_parameters=["not", "a", "dict"]
+            api_specific_parameters=["not", "a", "dict"] # type:ignore
         )
 
 def test_validate_api_specific_parameter_mappings_invalid_value_type():
@@ -170,7 +163,7 @@ def test_validate_api_specific_parameter_mappings_invalid_value_type():
             api_key_parameter=None,
             api_key_required=False,
             auto_calculate_page=True,
-            api_specific_parameters={"foo": "not_a_param"}
+            api_specific_parameters={"foo": "not_a_param"} # type:ignore
         )
 
 def test_get_defaults_known_provider():

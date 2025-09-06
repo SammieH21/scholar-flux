@@ -3,7 +3,7 @@ from scholar_flux.data import DataProcessor
 from scholar_flux.exceptions import DataProcessingException
 
 def test_process_page_with_list_of_paths(mock_api_parsed_json_records):
-    record_keys = [
+    record_keys: list = [
         ["authors", "principle_investigator"],
         ["authors", "assistant"],
         ["doi"],
@@ -21,7 +21,7 @@ def test_process_page_with_list_of_paths(mock_api_parsed_json_records):
     assert results[1]["abstract"] == "Another abstract."
 
 def test_process_page_with_dict_keys(mock_api_parsed_json_records):
-    record_keys = {
+    record_keys: dict = {
         "pi": ["authors", "principle_investigator"],
         "assistant": ["authors", "assistant"],
         "doi": ["doi"],
@@ -38,7 +38,7 @@ def test_process_page_with_dict_keys(mock_api_parsed_json_records):
     assert results[1]["abstract"] == "Another abstract."
 
 def test_value_delimiter_joins_lists(mock_api_parsed_json_records):
-    record_keys = [["abstract"]]
+    record_keys: list[list] = [["abstract"]]
     processor = DataProcessor(record_keys=record_keys, value_delimiter=" | ")
     results = processor.process_page(mock_api_parsed_json_records)
     assert results[0]["abstract"] == "This is a sample abstract. | keywords: 'sample', 'abstract'"
@@ -63,39 +63,39 @@ def test_missing_path_returns_none():
     assert results[0]["not.present"] is None
 
 def test_integer_index_in_path():
-    data = [{"a": [{"b": "val1"}, {"b": "val2"}]}]
+    data: list = [{"a": [{"b": "val1"}, {"b": "val2"}]}]
     processor = DataProcessor(record_keys=[["a", 1, "b"]])
     results = processor.process_page(data)
     assert results[0]["a.1.b"] == "val2"
 
 def test_non_string_values_are_handled():
-    data = [{"num": 123, "lst": [1, 2, 3]}]
+    data: list = [{"num": 123, "lst": [1, 2, 3]}]
     processor = DataProcessor(record_keys=[["num"], ["lst"]], value_delimiter="|")
     results = processor.process_page(data)
     assert results[0]["num"] == 123
     assert results[0]["lst"] == "1|2|3"
 
 def test_none_values_are_handled():
-    data = [{"foo": None}]
+    data: list = [{"foo": None}]
     processor = DataProcessor(record_keys=[["foo"]])
     results = processor.process_page(data)
     assert results[0]["foo"] is None
 
 def test_empty_dict_in_record():
-    data = [{}]
+    data: list[dict] = [{}]
     processor = DataProcessor(record_keys=[["foo"]])
     results = processor.process_page(data)
     assert results[0]["foo"] is None
 
 def test_path_with_only_integers():
-    data = [[{"bar": "baz"}], [{"bar": "qux"}]]
+    data: list = [[{"bar": "baz"}], [{"bar": "qux"}]]
     processor = DataProcessor(record_keys=[[0, "bar"]])
     results = processor.process_page(data)
     assert results[0]["0.bar"] == "baz"
     assert results[1]["0.bar"] == "qux"
 
 def test_record_filter_with_regex():
-    data = [{"foo": "bar"}, {"baz": "qux"}]
+    data: list = [{"foo": "bar"}, {"baz": "qux"}]
     processor = DataProcessor(record_keys=[["foo"]])
     # Should filter out the first record if ignore_keys is ["foo"]
     results = processor.process_page(data, ignore_keys=["foo"])
@@ -104,34 +104,34 @@ def test_record_filter_with_regex():
 
 def test_invalid_record_keys_type_raises():
     with pytest.raises(DataProcessingException):
-        DataProcessor(record_keys="not a list or dict")
+        DataProcessor(record_keys="not a list or dict") #type:ignore
 def test_extract_key_returns_none_for_missing_key():
-    record = {"foo": "bar"}
+    record: dict = {"foo": "bar"}
     assert DataProcessor.extract_key(record, "missing") is None
 
 def test_extract_key_with_path():
-    record = {"a": {"b": {"c": [1, 2, 3]}}}
+    record: dict = {"a": {"b": {"c": [1, 2, 3]}}}
     assert DataProcessor.extract_key(record, "c", ["a", "b"]) == [1, 2, 3]
 
 def test_prepare_record_keys_with_invalid_type():
     with pytest.raises(DataProcessingException):
-        DataProcessor._prepare_record_keys("not a list or dict")
+        DataProcessor._prepare_record_keys("not a list or dict") #type:ignore
 
 def test_validate_inputs_with_invalid_types():
     with pytest.raises(DataProcessingException):
-        DataProcessor._validate_inputs("not a list or dict", "not a list or dict either", None, ";")
+        DataProcessor._validate_inputs("not a list or dict", "not a list or dict either", None, ";") #type:ignore
     with pytest.raises(DataProcessingException):
-        DataProcessor._validate_inputs([["a"]], "not a list", "not a list either", ";")
+        DataProcessor._validate_inputs([["a"]], "not a list", "not a list either", ";") #type:ignore
     with pytest.raises(DataProcessingException):
-        DataProcessor._validate_inputs([["a"]], None, None, 123)
+        DataProcessor._validate_inputs([["a"]], None, None, 123) #type:ignore
 
 def test_collapse_fields_behavior():
     processor = DataProcessor(record_keys=[["foo"]], value_delimiter=";")
     data = {"foo": ["a", "b"]}
-    collapsed = processor.collapse_fields({"foo": ["a", "b"]})
+    collapsed = processor.collapse_fields(data)
     assert collapsed["foo"] == "a;b"
     processor.value_delimiter = None
-    collapsed = processor.collapse_fields({"foo": ["a", "b"]})
+    collapsed = processor.collapse_fields(data)
     assert collapsed["foo"] == ["a", "b"]
 
 def test_record_filter_regex(mock_api_parsed_json_records):

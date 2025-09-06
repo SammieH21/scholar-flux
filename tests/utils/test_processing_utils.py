@@ -1,5 +1,6 @@
 import pytest
-from scholar_flux.utils.data_processing_utils import *
+from scholar_flux.utils.data_processing_utils import (RecursiveDictProcessor, KeyDiscoverer,
+                                                      KeyFilter, PathUtils, JsonNormalizer)
 
 # --- PathUtils Tests ---
 
@@ -168,7 +169,7 @@ def test_filter_extracted():
     processor.process_dictionary()
     processor.filter_extracted(exclude_keys=["age"])
     flattened = processor.flatten()
-    assert "age" not in flattened
+    assert flattened and "age" not in flattened
 
 def test_process_and_flatten():
     sample_json = {
@@ -178,7 +179,7 @@ def test_process_and_flatten():
     }
     processor = RecursiveDictProcessor()
     result = processor.process_and_flatten(sample_json, exclude_keys=["age"])
-    assert "age" not in result
+    assert result and "age" not in result
 
 def test_unlist():
     assert RecursiveDictProcessor.unlist([{"a": 1}]) == {"a": 1}

@@ -1,17 +1,9 @@
 import pytest
-
-
-import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from requests import Response
-import hashlib
 from scholar_flux.data_storage.null_storage import NullStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
-from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
-from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
-from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage import DataCacheManager
-from scholar_flux.exceptions import OptionalDependencyImportError
 
 
 

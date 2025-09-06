@@ -6,6 +6,7 @@ version = "0.1.0"
 readme = "README.md"
 license = "Apache-2.0"
 packages = [{include = "scholar_flux", from="src"}]
+include = ["src/scholar_flux/py.typed"]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
@@ -25,8 +26,10 @@ pytest-cov = "*"
 requests-mock = "*"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.12.10"
+ruff = "^0.3.0"
 flake8 = "^7.3.0"
+
+    
 
 [build-system]
 requires = ["poetry-core"]
@@ -34,6 +37,22 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 lint.extend-select = ["C4", "NPY", "PD", "SIM", "TCH"]
-lint.ignore = ["C408", "E402", "TC001",  "TC002"]
+lint.ignore = ["C408", "E402", "TCH001", "TCH002"]
 show-fixes = true
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ANN",    # don’t require type annotations
+    "ARG",     # Allow Unused function args 
+    "S101",   # allow plain `assert` (pytest’s way)
+    # "F401",   # Allow unused imports 
+    "SIM117", # allow nested `with` statements for readability purposes
+    "E731",   # Allow assignment of a lambda
+    "B018",   # allow useless expressions (fine in asserts)
+    "FBT",    # ignore boolean positional arguments
+    "PT004",  # fixture without value
+    "ARG001", # unused function args (pytest fixtures often look unused)
+    # "N818",
+    # "T20"
+]

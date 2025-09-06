@@ -1,4 +1,3 @@
-import pytest
 from scholar_flux.utils.repr_utils import adjust_repr_padding
 
 

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import requests
 
 from scholar_flux.api import BaseAPI
@@ -12,7 +12,8 @@ def test_configure_session_creates_new_session():
 
 def test_configure_session_error():
     with pytest.raises(SessionCreationError):
-        api = BaseAPI(user_agent='')
+        # The API needs a user agent for user identification
+        _ = BaseAPI(user_agent='')
 
 
 def test_user_agent_property_setter_and_getter():
@@ -39,7 +40,6 @@ def test_send_request_success(monkeypatch):
     api = BaseAPI()
     mock_response = MagicMock(spec=requests.Response)
     monkeypatch.setattr(api.session, "send", lambda req, timeout=10: mock_response)
-    req = api.prepare_request("https://api.example.com", "endpoint")
     response = api.send_request("https://api.example.com", "endpoint")
     assert response is mock_response
 
@@ -48,5 +48,6 @@ def test_send_request_exception(monkeypatch):
     monkeypatch.setattr(api.session, "send", lambda req, timeout=10: (_ for _ in ()).throw(requests.RequestException("fail")))
     api.prepare_request("https://api.example.com", "endpoint")
     with pytest.raises(requests.RequestException):
+        # this should throw an error based on the patched exception
         api.send_request("https://api.example.com", "endpoint")
 

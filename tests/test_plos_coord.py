@@ -1,7 +1,7 @@
-import pytest
 from scholar_flux.api.models import ProcessedResponse
 from scholar_flux.api import  SearchCoordinator, SearchAPI
 import requests
+
 def test_plos_api(plos_search_api):
     assert isinstance(plos_search_api, SearchAPI)
     response = plos_search_api.search(page=1)

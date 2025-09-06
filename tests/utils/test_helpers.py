@@ -1,13 +1,8 @@
 # tests/test_utils.py
-import hashlib
 import logging
-import re
-from collections.abc import Iterable
-from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from requests import Response
 
 import pytest
-import requests
 
 # Import the functions under test – adjust the module name as needed.
 from scholar_flux.utils.helpers import (
@@ -34,16 +29,13 @@ from scholar_flux.utils.helpers import (
 # --------------------------------------------------------------------------- #
 # Helper objects
 # --------------------------------------------------------------------------- #
-@dataclass
-class DummyResponse:
-    url: str
-    headers: Dict[str, str]
-    content: bytes
+class DummyResponse(Response):
 
-    def __init__(self, url: str, headers: Dict[str, str], content: bytes):
+    def __init__(self, url: str, headers, content: bytes, status_code: int = 200):
         self.url = url
         self.headers = headers
-        self.content = content
+        self._content = content
+        self.status_code = 200
 
 # --------------------------------------------------------------------------- #
 # Tests for try_quote_numeric / quote_numeric
@@ -225,7 +217,7 @@ def test_unlist_1d():
     assert unlist_1d((42,)) == 42
     assert unlist_1d([1, 2]) == [1, 2]
     assert unlist_1d((1, 2)) == (1, 2)
-    assert unlist_1d(42) == 42
+    assert unlist_1d(42) == 42 # type: ignore
 
 
 # --------------------------------------------------------------------------- #
@@ -266,4 +258,4 @@ def test_try_call_with_suppress():
 
 def test_try_call_non_callable():
     with pytest.raises(TypeError):
-        result = try_call(123, default="not callable") #type:ignore
+        _ = try_call(123, default="not callable") #type:ignore

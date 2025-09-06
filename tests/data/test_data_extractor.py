@@ -1,12 +1,13 @@
 import pytest
-from typing import Dict, Any
+from typing import Any
 from scholar_flux.data.base_extractor import BaseDataExtractor
 from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.exceptions import DataExtractionException
-from typing import Any, Dict, List
+from scholar_flux.utils import try_int
+from typing import List
 
 
-def test_extract_with_manual_paths(mock_academic_json: Dict[str, Any]):
+def test_extract_with_manual_paths(mock_academic_json):
     """
     Verify that DataExtractor correctly splits the payload when explicit
     paths are provided.  The JSON payload contains a top‑level ``data`` key
@@ -15,7 +16,7 @@ def test_extract_with_manual_paths(mock_academic_json: Dict[str, Any]):
     """
     record_path = ["data"]
     # Use the real metadata keys that exist in the payload
-    metadata = [
+    metadata_path = [
         ["total"],
         ["start"],
         ["pageLength"],
@@ -24,12 +25,12 @@ def test_extract_with_manual_paths(mock_academic_json: Dict[str, Any]):
 
     extractor = DataExtractor(
         record_path=record_path,
-        metadata_path=metadata,
+        metadata_path=metadata_path,
     )
 
     base_extractor = BaseDataExtractor(
         record_path=record_path,
-        metadata_path=metadata,
+        metadata_path=metadata_path,
     )
 
     records, metadata = extractor(mock_academic_json)
@@ -43,16 +44,16 @@ def test_extract_with_manual_paths(mock_academic_json: Dict[str, Any]):
     assert records == mock_academic_json["data"]
 
     # Metadata should contain the keys we specified in overrides.
-    assert metadata
-    assert metadata["total"] == int(mock_academic_json["total"])
-    assert metadata["start"] == int(mock_academic_json["start"])
-    assert metadata["pageLength"] == int(mock_academic_json["pageLength"])
-    assert metadata["recordsDisplayed"] == int(mock_academic_json["recordsDisplayed"])
+    assert metadata and isinstance(metadata, dict)
+    assert metadata["total"] == try_int(mock_academic_json["total"])
+    assert metadata["start"] == try_int(mock_academic_json["start"]) 
+    assert metadata["pageLength"] == try_int(mock_academic_json["pageLength"])
+    assert metadata["recordsDisplayed"] == try_int(mock_academic_json["recordsDisplayed"])
     # No other keys should appear because we didn't override ``apiMessage`` or ``query``.
-    assert set(metadata.keys()) == {"total", "start", "pageLength", "recordsDisplayed"}
+    assert isinstance(metadata, dict) and set(metadata.keys()) == {"total", "start", "pageLength", "recordsDisplayed"}
 
 
-def test_dynamic_identification_heuristics(mock_academic_json: Dict[str, Any]):
+def test_dynamic_identification_heuristics(mock_academic_json):
     """
     When no explicit paths are supplied, the extractor should
     automatically split the payload: everything that is not a list
@@ -76,7 +77,7 @@ def test_dynamic_identification_heuristics(mock_academic_json: Dict[str, Any]):
     assert metadata and set(metadata.keys()) == expected_metadata_keys
 
 
-def test_extract_records_returns_none_on_invalid_type(mock_academic_json: Dict[str, Any]):
+def test_extract_records_returns_none_on_invalid_type(mock_academic_json):
     """
     When the data at ``record_path`` is not a list, ``extract_records`` should return None.
     """
@@ -107,7 +108,7 @@ def extractor_manual_paths() -> DataExtractor:
     )
 
 
-def test_extract_manual_paths(extractor_manual_paths: DataExtractor, mock_academic_json: Dict[str, Any]):
+def test_extract_manual_paths(extractor_manual_paths: DataExtractor, mock_academic_json):
     """
     Verify that both metadata and records are returned when explicit
     paths are supplied.
@@ -133,7 +134,7 @@ def test_extract_manual_paths(extractor_manual_paths: DataExtractor, mock_academ
         assert r["doi"].startswith("10.")
 
 
-def test_extract_metadata_without_paths(mock_academic_json: Dict[str, Any]):
+def test_extract_metadata_without_paths(mock_academic_json):
     """
     When no metadata path is supplied, extract_metadata should
     return an empty dict and log the information.
@@ -150,11 +151,12 @@ def test_extract_records_wrong_path_type():
     during extractor initialisation.
     """
     with pytest.raises(DataExtractionException) as exc:
-        DataExtractor(record_path="data")  # type error – must be a list
+        # error – must be a list
+        DataExtractor(record_path="data") # type: ignore 
     assert "list" in str(exc.value)
 
 
-def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, mock_academic_json: Dict[str, Any]):
+def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, mock_academic_json):
     """
     When record_path points to a non‑list, extract_records must return None.
     """
@@ -164,7 +166,7 @@ def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, moc
     assert records is None
 
 
-def test_extract_records_success(extractor_manual_paths: DataExtractor, mock_academic_json: Dict[str, Any]):
+def test_extract_records_success(extractor_manual_paths: DataExtractor, mock_academic_json):
     """
     With a correct record_path the extractor should return the full list of records.
     """
@@ -181,7 +183,7 @@ def test_extract_records_success(extractor_manual_paths: DataExtractor, mock_aca
     assert ids == expected_ids
 
 
-def test_dynamic_identification_basic(mock_academic_json: Dict[str, Any]):
+def test_dynamic_identification_basic(mock_academic_json):
     """
     Verify that the extractor can split the payload into metadata
     (query, total, etc.) and records (the items in ``data``) when no
@@ -197,7 +199,7 @@ def test_dynamic_identification_basic(mock_academic_json: Dict[str, Any]):
     assert all("doi" in r for r in records)
 
 
-def test_extract_from_dict_and_list(mock_academic_json: Dict[str, Any]):
+def test_extract_from_dict_and_list(mock_academic_json):
     """
     ``extract`` must work with a plain dict and with a list of dicts.
     """
@@ -209,14 +211,14 @@ def test_extract_from_dict_and_list(mock_academic_json: Dict[str, Any]):
     # dict input
     records, metadata = extractor.extract(mock_academic_json)
     assert isinstance(records, list) and len(records) == 3
-    assert metadata["query"] == "Computationaly Aided Analysis"
+    assert metadata and metadata["query"] == "Computationaly Aided Analysis"
 
     # list input (should be converted via try_dict)
     # create a minimal wrapper list: [[dict]] – the extractor expects a single dict
     wrapper = [mock_academic_json]
     records, metadata = extractor.extract(wrapper)
     assert isinstance(records, list) and len(records) == 3
-    assert metadata["total"] == 3
+    assert metadata and metadata["total"] == 3
 
 
 def test_identify_by_key_logic():
@@ -255,4 +257,5 @@ def test_invalid_metadata_path_type(bad_path: Any, mock_academic_json: List):
     """
     
     with pytest.raises(DataExtractionException):
-        extractor = DataExtractor(record_path=["data"], metadata_path=bad_path)  # type: ignore[arg-type]
+        # the extractor shouldn't accept a list of containing integers
+        _ = DataExtractor(record_path=["data"], metadata_path=bad_path)  # type: ignore[arg-type]

@@ -1,25 +1,12 @@
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
-from typing import Optional
-import requests
-import requests_mock
-from urllib.parse import urlparse
+from unittest.mock import patch
 import logging
-import re
 
-from math import ceil
-from time import time, sleep
 
-from scholar_flux.api import SearchAPI, SearchAPIConfig, APIParameterConfig, APIParameterMap, provider_registry
+from scholar_flux.api import SearchAPIConfig,provider_registry
 from scholar_flux.security import SensitiveDataMasker
-from pydantic import SecretStr
-from scholar_flux import config
-from scholar_flux.security import SecretUtils
-from scholar_flux import logger
 import scholar_flux
-import os
-
-from scholar_flux.exceptions import QueryValidationException, APIParameterException
+import scholar_flux.api.models.search
 
 @pytest.mark.parametrize(['provider', 'basename'],
                          [('plos', 'plos'), ('pubmed_efetch', 'nih'),
@@ -56,9 +43,11 @@ def test_api_key_modification():
     plos_provider_info = provider_registry.get('PLOS')
     pubmed_provider_info = provider_registry.get('PUBMED')
 
+    assert plos_provider_info and pubmed_provider_info
+
     with patch.dict(scholar_flux.api.models.search.config, {pubmed_provider_info.api_key_env_var: another_api_key}):
 
-        plos_config = SearchAPIConfig()
+        plos_config = SearchAPIConfig() # type: ignore
         assert plos_config.api_key is None
 
         pubmed_config = SearchAPIConfig.update(plos_config, provider_name = 'pubmed', api_key=api_key)
@@ -69,7 +58,7 @@ def test_api_key_modification():
         assert pubmed_config_two.api_key == another_api_key
 
         plos_config_two = SearchAPIConfig.update(pubmed_config_two, provider_name = 'plos')
-        assert plos_config_two.provider_name == 'plos' and plos_config_two.api_key == None
+        assert plos_config_two.provider_name == 'plos' and plos_config_two.api_key is None
 
 
 def test_search_api_config_dynamic_provider_override(caplog):
@@ -80,7 +69,7 @@ def test_search_api_config_dynamic_provider_override(caplog):
         caplog: Will indicate logged messages sent by the API
     """
     
-    plos_api_config = SearchAPIConfig()
+    plos_api_config = SearchAPIConfig() # type: ignore
     assert plos_api_config.provider_name == 'plos'
 
     provider_info = provider_registry.get('pubmed')

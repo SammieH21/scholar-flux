@@ -1,4 +1,3 @@
-import pytest
 from scholar_flux.data import RecursiveDataProcessor
 
 

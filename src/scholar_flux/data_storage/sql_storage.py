@@ -39,10 +39,10 @@ else:
 # Define ORM classes if SQLAlchemy is available or for type checking
 if TYPE_CHECKING or SQLALCHEMY_AVAILABLE:
 
-    class Base(DeclarativeBase):  # type: ignore
+    class Base(DeclarativeBase):
         pass
 
-    class CacheTable(Base):  # type: ignore
+    class CacheTable(Base):
         __tablename__ = "cache"
         id = Column(Integer, primary_key=True, autoincrement=True)
         key = Column(String, unique=True, nullable=False)

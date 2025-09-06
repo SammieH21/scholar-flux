@@ -1,13 +1,6 @@
 from scholar_flux.utils import FileUtils
 from pathlib import Path
-
-
-import pytest
 import os
-import json
-from unittest.mock import patch, MagicMock
-import pytest
-from scholar_flux.utils.file_utils import FileUtils
 
 
 def test_get_filepath(cleanup, tmp_path):
@@ -33,7 +26,7 @@ def test_get_filepath(cleanup, tmp_path):
 
 def test_save_as(cleanup, tmp_path):
     obj = {"key": "value"}
-    filepath = os.path.join(tmp_path, "test.json")
+    filepath = Path(tmp_path) / "test.json"
     FileUtils.save_as(obj, filepath)
     assert os.path.exists(filepath)
 
@@ -47,7 +40,7 @@ def test_load_data(cleanup, tmp_path):
 
     # Test non-JSON content
     content = "non json content"
-    filepath = os.path.join(tmp_path, "test.txt")
+    filepath = Path(tmp_path) / "test.txt"
     with open(filepath, 'w') as f:
         f.write(content)
     loaded = FileUtils.load_data(filepath)

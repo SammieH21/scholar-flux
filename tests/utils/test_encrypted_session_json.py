@@ -1,22 +1,14 @@
 import pytest
-import requests
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from requests_cache import CachedSession
-from pathlib import Path
 import requests_mock
 from scholar_flux.api import SearchAPI
-from scholar_flux.utils import try_call
 from scholar_flux.exceptions import ItsDangerousImportError, CryptographyImportError,SecretKeyError
 
-from unittest.mock import Mock, patch
 import logging
 logger = logging.getLogger(__name__)
 
-import scholar_flux.sessions.session_manager as sm
-from scholar_flux.utils import config_settings
-from scholar_flux.exceptions.util_exceptions import SessionCreationError
 from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
-from time import sleep
 from base64 import b64encode, b64decode
 
 def test_encryption_factory_secret_initialization(session_encryption_dependency):
@@ -56,11 +48,11 @@ def test_missing_encryption(session_encryption_dependency):
     with patch('scholar_flux.sessions.encryption.Signer', None):
         with pytest.raises(ItsDangerousImportError):
             from scholar_flux.sessions.encryption import EncryptionPipelineFactory
-            factory=EncryptionPipelineFactory()
+            _ = EncryptionPipelineFactory()
     with patch('scholar_flux.sessions.encryption.Fernet', None):
         with pytest.raises(CryptographyImportError):
             from scholar_flux.sessions.encryption import EncryptionPipelineFactory
-            factory_two=EncryptionPipelineFactory()
+            _ = EncryptionPipelineFactory()
 
 
 def test_encrypted_cached_session_initialization(default_encryption_cache_session_manager,

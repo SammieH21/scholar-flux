@@ -1,8 +1,7 @@
 from scholar_flux.utils.paths import ProcessingPath
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError, InvalidPathDelimiterError,
-    InvalidComponentTypeError, PathIndexingError,
-    InvalidPathNodeError
+    InvalidComponentTypeError
 )
 import pytest
 
@@ -15,7 +14,7 @@ def test_initialization():
     assert ProcessingPath(('',)).depth == 0
     assert ProcessingPath(['',]).depth == 0
     assert ProcessingPath('').depth == 0
-    assert ProcessingPath(None).depth == 0
+    assert ProcessingPath(None).depth == 0 # type: ignore
 
     basic_path = ProcessingPath(components = ["1","2","3"], component_types = None)
     assert basic_path
@@ -27,7 +26,8 @@ def test_initialization():
 
 
     with pytest.raises(InvalidProcessingPathError):
-        test_infer_path = ProcessingPath.to_processing_path(basic_path.to_list(), infer_delimiter=True)
+        # Shouldn't be able to infer a path for a list, we just initialize a path regularly: ProcessingPath(...)
+        _ = ProcessingPath.to_processing_path(basic_path.to_list(), infer_delimiter=True)
 
     assert basic_path.delimiter == ProcessingPath.DEFAULT_DELIMITER
 
@@ -44,10 +44,10 @@ def test_initialization():
         basic_path = ProcessingPath(components = [1,2,3], component_types = ['odd', 'even', 'odd']) # type:ignore
 
     with pytest.raises(InvalidProcessingPathError) :
-        basic_path = ProcessingPath(components = ['No','','Yes'], component_types = ['false', '0', 'even']) # type:ignore
+        basic_path = ProcessingPath(components = ['No','','Yes'], component_types = ['false', '0', 'even'])
 
     with pytest.raises(InvalidPathDelimiterError) :
-        basic_path = ProcessingPath(components = ['No','Yes'], component_types = ['false', 'even'], delimiter = '^') # type:ignore
+        basic_path = ProcessingPath(components = ['No','Yes'], component_types = ['false', 'even'], delimiter = '^')
     
 
 def test_components():
@@ -84,7 +84,7 @@ def test_equality():
     assert path_two < path_one
 
     assert path_one == path_one
-    assert not path_one != path_one
+    assert not path_one != path_one # noqa: SIM202 (Ensure __ne__ works as intended)
 
 def test_indices():
     original_keys = ('key1', '1', 'key2', '2', 'key3')
@@ -125,7 +125,7 @@ def test_root():
 
     assert root_path.depth == 0
     assert root_path.components == ('',)
-    assert root_path.is_root == True
+    assert root_path.is_root is True
     assert not root_path
 
     assert root_path.is_ancestor_of(basic_path)
@@ -154,7 +154,8 @@ def test_replace_path():
     assert initial_path.replace(initial_path[-1].to_string(), 'i') == initial_path[:-1] / 'i'
 
     with pytest.raises(InvalidProcessingPathError):
-        implausable_substitution = initial_path.replace(6, 'i') # type:ignore
+        # implausable substitution
+        _ = initial_path.replace(6, 'i') # type:ignore
 
 def test_hash():
     path_one = ProcessingPath(['1', '2'], delimiter= '.')
@@ -234,8 +235,8 @@ def test_append():
 
     path_two = ProcessingPath(['1','2','3'], ['one','two','three'])
     path_two = path_two.append('4','four')
-    assert path_two.components == tuple(['1','2', '3', '4'])
-    assert path_two.component_types == tuple(['one','two','three','four'])
+    assert path_two.components == ('1','2', '3', '4')
+    assert path_two.component_types == ('one','two','three','four')
 
 
 def test_pipe():
@@ -273,5 +274,5 @@ def test_keep_descendants():
              ProcessingPath(('d',), delimiter='<>'),
              ProcessingPath(('e',), delimiter='<>'))
 
-    assert all([path in descendants for path in paths])
+    assert all(path in descendants for path in paths)
 

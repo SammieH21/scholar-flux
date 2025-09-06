@@ -1,16 +1,5 @@
 import pytest
-
-
-import pytest
-from unittest.mock import Mock, patch
-from requests import Response
-from scholar_flux.data_storage.null_storage import NullStorage
-from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
-from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
-from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
-from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage import DataCacheManager
-from scholar_flux.exceptions import OptionalDependencyImportError
 
 
 @pytest.mark.parametrize("storage_type", [
@@ -91,7 +80,7 @@ def test_null_storage_behavior(mock_response, null_test_storage):
     
     # All operations should return False/None without error
     assert null_test_storage.verify_cache(cache_key) is False
-    assert null_test_storage.retrieve(cache_key) == None
+    assert null_test_storage.retrieve(cache_key) is None
     
     # Update should not raise errors
     null_test_storage.update(
@@ -102,7 +91,7 @@ def test_null_storage_behavior(mock_response, null_test_storage):
     )
     
     # Retrieve should still return None
-    assert null_test_storage.retrieve(cache_key) == None
+    assert null_test_storage.retrieve(cache_key) is None
 
 @pytest.mark.parametrize("storage_type", [
     'redis_test_storage', 

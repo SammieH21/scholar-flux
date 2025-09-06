@@ -1,28 +1,23 @@
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
-from typing import Optional
+from unittest.mock import MagicMock, patch
 import requests
 import requests_mock
-from urllib.parse import urlparse
 import logging
+import contextlib
 import re
 
 from math import ceil
 from time import time, sleep
 
-from scholar_flux.api import SearchAPI, SearchAPIConfig, APIParameterConfig, APIParameterMap
-from pydantic import SecretStr
-from scholar_flux import config
+from scholar_flux.api import SearchAPI, SearchAPIConfig, APIParameterConfig
 from scholar_flux.security import SecretUtils
-from scholar_flux import logger
-import os
 
 from scholar_flux.exceptions import QueryValidationException, APIParameterException
 
 def test_missing_query():
     with pytest.raises(QueryValidationException):
-        api = SearchAPI.from_defaults(provider_name='plos',
-                                      query='')
+        # an empty query should error
+        _ = SearchAPI.from_defaults(provider_name='plos', query='')
 
 def test_describe_api():
     api = SearchAPI.from_defaults(query='light', provider_name='CROSSREF')
@@ -48,7 +43,8 @@ def test_incorrect_config(param_overrides):
               'api_key':'thisisacompletelyfakekey'} | param_overrides
 
     with pytest.raises(APIParameterException):
-        api = SearchAPI.from_defaults(**kwargs)
+        # at each step, the API session creation should throw an error
+        _ = SearchAPI.from_defaults(**kwargs)
 
 def test_incorrect_config_type():
     api = SearchAPI.from_defaults(query='no-query',provider_name='plos')
@@ -86,7 +82,7 @@ def test_default_params():
     assert api.api_specific_parameters.get('mailto') is None
     assert api.records_per_page is not None and api.records_per_page == api.config.DEFAULT_RECORDS_PER_PAGE
     assert api.request_delay is not None and api.request_delay == api.config.DEFAULT_REQUEST_DELAY
-    assert api.timeout is not None and api.DEFAULT_TIMEOUT == api.timeout
+    assert api.timeout is not None and api.timeout == api.DEFAULT_TIMEOUT
 
 
 def test_search_api_initialization(default_api_parameter_config):
@@ -113,10 +109,9 @@ def test_search_api_initialization(default_api_parameter_config):
 
     api.query = "tested"
 
-    try:
+    with pytest.raises(QueryValidationException): 
+        # setting a query as blank should throw an exception
         api.query = ''
-    except QueryValidationException:
-        pass
 
     assert api.query == "tested" # Confirms the value is retained after exception
 
@@ -165,11 +160,15 @@ def test_search_api_parameter_ranges(page: int, records_per_page: int, default_a
     start_key = parameter_mappings.get('start', 'nokey')
     records_per_page_key = parameter_mappings.get('records_per_page')
 
+    assert start_key and records_per_page_key
+
     # Test parameter calculation
     start = params.get(start_key)
+    records_per_page_param = params.get(records_per_page_key)
     assert start is not None
     start_page = ceil(start / records_per_page)
     assert start_page == page
+    assert records_per_page_param == records_per_page
 
 
 # @patch('scholar_flux.api.BaseAPI.send_request', return_value=MagicMock(status_code=200,json={"page": 1, "results": ["record1"]}))
@@ -271,24 +270,21 @@ def test_core_api_filtering(core_api_key, monkeypatch, caplog, scholar_flux_logg
     req = api.prepare_request(api.base_url, parameters=api.build_parameters(page=1))
     monkeypatch.setattr(api.session,'send', lambda *args, **kwargs: (_ for _ in ()).throw(requests.RequestException(f'Full url={req.url}')))
     with caplog.at_level(logging.ERROR):
-        try:
+        with contextlib.suppress(Exception):
             api.search(page=1)
-        except:
-            pass
 
         key_list =  list(api.masker.get_patterns_by_name('api_key'))
         assert key_list and len(key_list) == 1
-        unmasked_key = SecretUtils.unmask_secret(key_list[0].pattern)
+        unmasked_key = SecretUtils.unmask_secret(key_list[0].pattern) #type: ignore
 
-
-        assert  f"api_key" in caplog.text
-        assert not f"{unmasked_key}" in caplog.text
+        assert  "api_key" in caplog.text
+        assert f"{unmasked_key}" not in caplog.text
         assert re.search(r'api_key.*\*\*\*', caplog.text) is not None
 
 
     scholar_flux_logger.info(f"Test: The received value is: {unmasked_key}")
-    assert not f"{unmasked_key}" in caplog.text
-    assert f"Test: The received value is: ***" in caplog.text
+    assert f"{unmasked_key}" not in caplog.text
+    assert "Test: The received value is: ***" in caplog.text
 
 
 def test_api_key_exists_true_and_false():

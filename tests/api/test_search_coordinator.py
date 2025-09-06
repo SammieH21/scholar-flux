@@ -1,20 +1,11 @@
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
-import requests
 import requests_mock
-from urllib.parse import urlparse
-import logging
-import re
 
-from math import ceil
-from time import time, sleep
 
-from scholar_flux.api import SearchAPI, SearchCoordinator, APIParameterConfig, APIParameterMap
-from scholar_flux.security import SecretUtils
-from scholar_flux import logger
+from scholar_flux.api import SearchAPI, SearchCoordinator
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 
-from scholar_flux.exceptions import InvalidCoordinatorParameterException, APIParameterException, RequestFailedException
+from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
 
 
 @pytest.mark.parametrize("param_overrides", [{'query':None},

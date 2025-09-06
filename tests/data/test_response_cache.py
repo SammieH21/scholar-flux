@@ -5,7 +5,6 @@ from scholar_flux.sessions import CachedSessionManager
 from scholar_flux.data_storage import DataCacheManager
 from pydantic import SecretStr
 from requests_mock import Mocker
-from requests import Session
 from requests_cache import CachedSession
 import pytest
 

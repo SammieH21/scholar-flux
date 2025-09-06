@@ -3,6 +3,7 @@ from scholar_flux.sessions import EncryptionPipelineFactory
 import pytest
 from pathlib import Path
 import os
+import importlib.util
 
 @pytest.fixture(scope='session')
 def default_cache_directory():
@@ -20,22 +21,14 @@ def default_seconds_cache_expiration():
 
 @pytest.fixture(scope='session')
 def default_backend():
-    try:
-        import sqlite3
-    except ImportError:
-        pytest.skip()
-    else:
-        return 'sqlite'
+    return 'sqlite'
 
 @pytest.fixture(scope='session')
 def default_cache_session_manager(default_cache_filename,
                                   default_cache_directory,
                                   default_seconds_cache_expiration,
                                   default_backend):
-    try:
-        import sqlite3
-    except ImportError:
-        pytest.skip()
+
     return sm.CachedSessionManager(user_agent="test_session",
                                    cache_name=default_cache_filename,
                                    cache_directory=default_cache_directory,
@@ -56,21 +49,18 @@ def default_encryption_cache_filename():
 
 @pytest.fixture(scope='session')
 def default_encryption_serializer_pipeline():
-    try:
-        import cryptography
-        import itsdangerous
-    except ImportError:
+    if not all(importlib.util.find_spec(pkg) for pkg in ('cryptography', 'itsdangerous')):
         pytest.skip()
-    else:
-        return EncryptionPipelineFactory
+    return EncryptionPipelineFactory
 
 @pytest.fixture(scope='session')
 def default_secret_key():
-    try:
-        from cryptography.fernet import Fernet
-        return Fernet.generate_key()
-    except:
+    """Default secret key to use for both encrypting and caching responses from API providers"""
+    if not importlib.util.find_spec('cryptography'):
         pytest.skip()
+
+    from cryptography.fernet import Fernet
+    return Fernet.generate_key()
 
 @pytest.fixture(scope='session')
 def default_secret_salt():
@@ -78,15 +68,24 @@ def default_secret_salt():
 
 @pytest.fixture(scope='session')
 def incorrect_secret_key():
-    try:
-        from cryptography.fernet import Fernet
-        return Fernet.generate_key()
-    except:
+    """
+    Key to be used for attempting to access a previously created cache that was created
+    with the default_secret_key. This should fail since it will be the wrong key
+    """
+    if not importlib.util.find_spec('cryptography'):
         pytest.skip()
+
+    from cryptography.fernet import Fernet
+    return Fernet.generate_key()
 
 
 @pytest.fixture(scope='session')
-def incorrect_secret_salt(default_secret_salt):
+def incorrect_secret_salt():
+    """
+    Salt to be used in conjunction with the incorrect key to be
+    used for attempting to access a previously created cache that was created
+    with the default_secret_key. This should also fail.
+    """
     secret_salt = os.urandom(18)
     return secret_salt
 
@@ -140,10 +139,9 @@ def default_encryption_cache_session(default_encryption_cache_session_manager):
     cached_sesssion = default_encryption_cache_session_manager.configure_session()
     yield cached_sesssion
     cached_sesssion.cache.clear()
-
-    if path := default_encryption_cache_session_manager.cache_path:
-        if path.endswith('json'):
-            os.remove(path)
+    path = default_encryption_cache_session_manager.cache_path
+    if path and path.endswith('json'):
+        os.remove(path)
 
 @pytest.fixture(scope='session')
 def sqlite_db_url():

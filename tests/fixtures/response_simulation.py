@@ -1,10 +1,6 @@
 import pytest
-import requests
 import hashlib
-from unittest.mock import patch, MagicMock
 from unittest.mock import Mock
-from requests_cache import CachedSession
-from typing import cast
 from requests.models import Response
 import json
 import re
@@ -67,12 +63,12 @@ def mock_academic_json_path()-> Path:
 
 @pytest.fixture
 def mock_pubmed_search_endpoint()-> re.Pattern:
-    mock_pubmed_search_endpoint = re.compile(f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi.*")
+    mock_pubmed_search_endpoint = re.compile("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi.*")
     return mock_pubmed_search_endpoint
 
 @pytest.fixture
 def mock_pubmed_fetch_endpoint()-> re.Pattern:
-    mock_pubmed_fetch_endpoint = re.compile(f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi.*")
+    mock_pubmed_fetch_endpoint = re.compile("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi.*")
     return mock_pubmed_fetch_endpoint
 
 @pytest.fixture
@@ -86,7 +82,7 @@ def mock_pubmed_fetch_json_path()-> Path:
     return mock_pubmed_fetch_json_path
 
 @pytest.fixture
-def mock_academic_json(mock_academic_json_path) -> dict[str, Any]:
+def mock_academic_json(mock_academic_json_path) -> dict:
     mock_academic_json = json.loads(
         mock_academic_json_path.read_text(encoding='utf-8')
     )
@@ -118,7 +114,7 @@ def mock_pubmed_search_response(mock_pubmed_search_data) -> Response:
     mock_response.headers.update({'Content-Type': "text/xml"})
     mock_response.encoding = "UTF-8"
 
-    return cast(Response, mock_response)
+    return mock_response
 
 
 @pytest.fixture
@@ -133,7 +129,7 @@ def mock_pubmed_fetch_response(mock_pubmed_fetch_data) -> Response:
     mock_response.headers.update({'Content-Type': "text/xml"})
     mock_response.encoding = "UTF-8"
 
-    return cast(Response, mock_response)
+    return mock_response
 
 
 @pytest.fixture
@@ -150,7 +146,7 @@ def academic_json_response(mock_academic_json) -> Response:
     mock_response.headers.update({"Content-Type": "application/json"})
     mock_response.encoding = "utf-8"
 
-    return cast(Response, mock_response)
+    return mock_response
 
 @pytest.fixture
 def mock_academic_json_response(mock_academic_json) -> Response:
@@ -167,7 +163,7 @@ def mock_academic_json_response(mock_academic_json) -> Response:
     mock_response.headers = {"Content-Type": "application/json"}
     mock_response.raise_for_status = lambda: 200
 
-    return cast(Response, mock_response)
+    return mock_response
 
 __all__ = ['mock_response', 'mock_cache_storage_data', 'mock_academic_json_path',
            'mock_pubmed_search_json_path', 'mock_pubmed_fetch_json_path',

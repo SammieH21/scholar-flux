@@ -1,9 +1,6 @@
-import pytest
 from scholar_flux.api.workflows import PubMedSearchStep, PubMedFetchStep, SearchWorkflow, WorkflowResult, StepContext
-from scholar_flux.api import SearchAPI, SearchCoordinator, SearchAPIConfig, ProcessedResponse
-from scholar_flux.api.models import ResponseResult, ProcessedResponse
+from scholar_flux.api import SearchAPI, SearchCoordinator, ProcessedResponse
 import requests_mock
-import requests
 
 
 def test_direct_pubmed_workflow(

@@ -1,7 +1,8 @@
 import pytest
 from scholar_flux.api import RateLimiter
+import time
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from scholar_flux.exceptions import APIParameterException
 
 def test_default_initialization():
@@ -23,9 +24,6 @@ def test_validate_invalid_type():
 def test_validate_negative():
     with pytest.raises(APIParameterException):
         RateLimiter._validate(-1)
-
-import time
-from unittest.mock import patch
 
 def test_wait_sleeps_when_needed_real_time():
     limiter = RateLimiter(0.05)

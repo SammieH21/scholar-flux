@@ -1,13 +1,7 @@
-import pytest
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
-import requests
-import requests_mock
-from urllib.parse import urlparse
-import logging
-import re
+from unittest.mock import patch
 
 from scholar_flux.api import SearchAPI, SearchCoordinator
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse, APIResponse
+from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")

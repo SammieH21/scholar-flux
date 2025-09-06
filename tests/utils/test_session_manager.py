@@ -1,6 +1,5 @@
 import pytest
 import requests
-from unittest.mock import patch, MagicMock
 from requests_cache import CachedSession
 from pathlib import Path
 
@@ -67,7 +66,7 @@ def test_session_manager_raise(caplog):
     assert f"Warning: The parent directory, {cache_path.parent}, does not exist and need to be created before use." in caplog.text
 
     with pytest.raises(SessionCreationError):
-        session = mgr()
+        _ = mgr()
 
     mgr = sm.CachedSessionManager(user_agent="ua", cache_name="c", cache_directory=Path("/tmps"), backend='sqlite', raise_on_error = False)
     session = mgr()
@@ -84,7 +83,7 @@ def test_cache_missing_dep(caplog):
     backend='sql light'
     
     with pytest.raises(SessionCreationError):
-        mgr = sm.CachedSessionManager(user_agent="ua", cache_name="c", cache_directory='/tmp', backend=backend) # type:ignore
+        _ = sm.CachedSessionManager(user_agent="ua", cache_name="c", cache_directory='/tmp', backend=backend) # type:ignore
 
     assert "The specified backend is not supported by Requests-Cache:" in caplog.text
 

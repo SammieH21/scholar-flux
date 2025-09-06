@@ -49,21 +49,23 @@ def test_ranged_page_list(caplog):
 
 def test_mixed_types(caplog):
     pages = ['00', 1, 2, 3, '10']
-    page_list_input = PageListInput(pages)
-    assert list(page_list_input.page_numbers) == sorted(int(page) for page in pages)[1:]
+    page_list_input = PageListInput(pages) # type:ignore
+    assert list(page_list_input.page_numbers) == sorted(int(page) for page in pages)[1:] # type:ignore
     assert "Skipping the page number, 0, as it is not a valid page number." in caplog.text
-
 
 
 def test_invalid_inputs(caplog):
     with pytest.raises(ValidationError):
-        page_list_input = PageListInput([1.2, 3.4, 5.6]) # type:ignore
+        # floats in are invalid and PageListInput errors as a result
+        _ = PageListInput([1.2, 3.4, 5.6]) # type:ignore
     #assert "Expected a provided page value to be a number. Received: '1.2'" in caplog.text
 
     v = map
     with pytest.raises(ValidationError):
-        page_list_input = PageListInput(v) # type:ignore
+        # the PageListInput model shouldn't accept functions as input
+        _ = PageListInput(v) # type:ignore
     assert f"Expected a list, set, or generator containing page numbers. Received: '{type(v)}'" in caplog.text
 
     with pytest.raises(ValidationError):
-        page_list_input = PageListInput('this is also invalid') # type:ignore
+        # should initialize due to a wrong type
+        _ = PageListInput('this is also invalid') # type:ignore
