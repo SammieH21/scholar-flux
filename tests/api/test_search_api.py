@@ -25,6 +25,11 @@ def test_describe_api():
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     assert isinstance(api.describe(), dict)
 
+def test_session_mod():
+    api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF", use_cache = True)
+    api.session = None # type: ignore
+     # at the moment, removing a session isn't ever encouraged but possible for mocking/testing
+    assert api.cache is None
 
 @pytest.mark.parametrize(
     "param_overrides",
@@ -55,6 +60,23 @@ def test_incorrect_config(param_overrides):
     with pytest.raises(APIParameterException):
         # at each step, the API session creation should throw an error
         _ = SearchAPI.from_defaults(**kwargs)
+
+def test_incorrect_property_settings():
+    api = SearchAPI(query = 'another valid query', use_cache = False)
+    value = 'not a parameter config'
+    with pytest.raises(APIParameterException) as excinfo:
+        api.parameter_config = value # type: ignore
+    assert f"Expected an APIParameterConfig, received type: {type(value)}"
+
+def test_cache_storage_off():
+    api = SearchAPI(query = 'another valid query', use_cache = False)
+    assert not api.cache
+    
+
+def test_incorrect_init():
+    with pytest.raises(APIParameterException) as excinfo:
+        _ = SearchAPI('valid query', base_url = 'invalid_base_url')
+    assert "Invalid SearchAPIConfig: " in str(excinfo.value)
 
 
 def test_incorrect_config_type():

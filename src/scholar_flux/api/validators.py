@@ -55,9 +55,12 @@ def validate_url(url: str) -> bool:
     """
     try:
         result = urlparse(url)
-        if not bool(result.scheme and result.netloc):
-            raise ValueError
-
+        if result.scheme not in ('http', 'https'):
+            raise ValueError(f"Only http/https protocols are allowed. Received scheme: '{result.scheme}'")
+        
+        if not result.netloc:
+            raise ValueError("Expected a domain in the URL after the http/https protocol. "
+                             f"Only the scheme was received: {url}")
         return True
 
     except (ValueError, AttributeError) as e:
@@ -67,7 +70,8 @@ def validate_url(url: str) -> bool:
 
 def normalize_url(url: str, normalize_https: bool = True) -> str:
     """
-    Helper class to aid in comparisons of string urls
+    Helper class to aid in comparisons of string urls. Normalizes a URL for consistent
+    comparisons by converting to https:// and stripping right-most forward slashes ('/').
 
     Args:
         url (str): The url to normalize into a consistent structure for later comparison

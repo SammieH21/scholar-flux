@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Union, Any, Set, ClassVar
+from typing import Optional, Union, Any, Set, ClassVar, MutableSequence, MutableMapping
 from dataclasses import dataclass, field
 from scholar_flux.exceptions.path_exceptions import PathDiscoveryError
 
@@ -96,7 +96,7 @@ class PathDiscoverer:
         max_depth: Optional[int] = None,
     ):
         """
-        Helper funtion for recursively traversing a dictionary and adding terminal path - value pairs where they exist.
+        Helper function for recursively traversing a dictionary and adding terminal path - value pairs where they exist.
         In the event that a max depth parameter is specified, the code will attempt to retrieve terminal paths only up
         to the depth specified by max_depth.
 
@@ -108,9 +108,9 @@ class PathDiscoverer:
                                        Leaving this at None will traverse all possible nested lists/dictionaries.
         """
         try:
-            # continue recursively recording path nodes if we have not exceeded a nonmissing max_depth
+            # continue recursively recording path nodes if we have not exceeded a non-missing max_depth
             recursive = max_depth is None or current_path.depth <= max_depth
-            if isinstance(record, dict):
+            if isinstance(record, MutableMapping):
                 for key, value in record.items():
 
                     # records the current key and the type of its value pair into a path
@@ -134,7 +134,7 @@ class PathDiscoverer:
                         self.path_mappings[new_path] = value
                         self._log_recorded_paths(new_path, value)
 
-            elif isinstance(record, list):
+            elif isinstance(record, MutableSequence):
                 # process lists with indices serving as keys
                 for index, item in enumerate(record):
                     path_node = ProcessingPath(str(index), ("list",), delimiter=self.DEFAULT_DELIMITER)

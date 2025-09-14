@@ -13,6 +13,22 @@ class RecursiveDataProcessor(ABCDataProcessor):
     Processes a list of raw page record dict data from the API response based on discovered record keys and
     flattens them into a list of dictionaries consisting of key value pairs that simplify the interpretation
     of the final flattened json structure.
+
+    Example:
+        >>> from scholar_flux.data import RecursiveDataProcessor
+        >>> data = [{'id':1, 'a':{'b':'c'}}, {'id':2, 'b':{'f':'e'}}, {'id':2, 'c':{'h':'g'}}]
+        # creating a basic processor
+        >>> recursive_data_processor = RecursiveDataProcessor() # instantiating the class
+        ### The process_page method can then be referenced using the processor as a callable:
+        >>> result = recursive_data_processor(data) # recursively flattens and processes by default
+        >>> print(result)
+        # OUTPUT: [{'id': '1', 'b': 'c'}, {'id': '2', 'f': 'e'}, {'id': '2', 'h': 'g'}]
+            # To identify the full nested location of record:
+        >>> recursive_data_processor = RecursiveDataProcessor(use_full_path=True) # instantiating the class
+        >>> result = recursive_data_processor(data) # recursively flattens and processes by default
+        >>> print(result)
+        # OUTPUT: [{'id': '1', 'a.b': 'c'}, {'id': '2', 'b.f': 'e'}, {'id': '2', 'c.h': 'g'}]
+
     """
 
     def __init__(
@@ -28,13 +44,23 @@ class RecursiveDataProcessor(ABCDataProcessor):
         Initializes the data processor with JSON data and optional parameters for processing.
 
         Args:
-            json_data: The json data set to process and flatten - a list of dictionaries is expected
+            json_data (list[dict]): The json data set to process and flatten - a list of dictionaries is expected
+            value_delimiter (Optional[str]): Indicates whether or not to join values found at terminal paths
+            ignore_keys (Optional[list[str]]): Determines records that should be omitted based on whether each
+                                               record contains a key orsubstring. (off by default)
+            keep_keys (Optional[list[str]]): Indicates whether or not to keep a record if the key is present.
+                                             (off by default)
+            regex (Optional[bool]): Determines whether to use regex filtering for filtering records based on the
+                                    presence or absence of specific keywords
+            use_full_path (Optional[bool]): Determines whether or not to keep the full path for the json record key.
+                                            If False, the path is shortened, keeping the last key or set of keys
+                                            while preventing name collisions.
         """
 
         super().__init__()
         self.value_delimiter = value_delimiter
-        self.ignore_keys = ignore_keys or None
-        self.keep_keys = keep_keys or None
+        self.ignore_keys = ignore_keys
+        self.keep_keys = keep_keys
         self.regex = regex
         self.use_full_path = use_full_path
 

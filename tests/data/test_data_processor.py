@@ -22,6 +22,27 @@ def test_process_page_with_list_of_paths(mock_api_parsed_json_records):
     assert results[1]["abstract"] == "Another abstract."
 
 
+def test_filter_keys(mock_api_parsed_json_records):
+
+    processor = DataProcessor(keep_keys=["principle_investigator"], regex=False)
+    results = processor.process_page(mock_api_parsed_json_records)
+    assert len(results) == 2
+
+    processor = DataProcessor(keep_keys=["princip_invest"])
+    results = processor.process_page(mock_api_parsed_json_records)
+    assert isinstance(results, list)
+    assert len(results) == 0
+
+    processor = DataProcessor(ignore_keys=["non-existent-key"])
+    results = processor.process_page(mock_api_parsed_json_records)
+    assert len(results) == 2
+
+    processor = DataProcessor(ignore_keys=["principle.*"])
+    results = processor.process_page(mock_api_parsed_json_records)
+    assert isinstance(results, list)
+    assert len(results) == 0
+
+
 def test_process_page_with_dict_keys(mock_api_parsed_json_records):
     record_keys: dict = {
         "pi": ["authors", "principle_investigator"],
@@ -106,13 +127,21 @@ def test_path_with_only_integers():
     assert results[1]["0.bar"] == "qux"
 
 
-def test_record_filter_with_regex():
+def test_process_page_with_regex():
     data: list = [{"foo": "bar"}, {"baz": "qux"}]
     processor = DataProcessor(record_keys=[["foo"]])
     # Should filter out the first record if ignore_keys is ["foo"]
     results = processor.process_page(data, ignore_keys=["foo"])
     assert len(results) == 1
     assert "baz" not in results[0]
+
+
+def test_record_filter_regex(mock_api_parsed_json_records):
+    processor = DataProcessor(record_keys=[["title"]])
+    # Should not filter out any records if ignore_keys is empty
+    assert all(not processor.record_filter(rec) for rec in mock_api_parsed_json_records)
+    # Should filter out records with "title" key
+    assert all(processor.record_filter(rec, record_keys=["title"]) for rec in mock_api_parsed_json_records)
 
 
 def test_invalid_record_keys_type_raises():
@@ -152,11 +181,3 @@ def test_collapse_fields_behavior():
     processor.value_delimiter = None
     collapsed = processor.collapse_fields(data)
     assert collapsed["foo"] == ["a", "b"]
-
-
-def test_record_filter_regex(mock_api_parsed_json_records):
-    processor = DataProcessor(record_keys=[["title"]])
-    # Should not filter out any records if ignore_keys is empty
-    assert all(not processor.record_filter(rec) for rec in mock_api_parsed_json_records)
-    # Should filter out records with "title" key
-    assert all(processor.record_filter(rec, record_keys=["title"]) for rec in mock_api_parsed_json_records)

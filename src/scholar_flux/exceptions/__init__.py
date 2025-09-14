@@ -1,5 +1,8 @@
 from scholar_flux.exceptions.api_exceptions import (
     APIException,
+    MissingAPIKeyException,
+    MissingAPISpecificParameterException,
+    MissingProviderException,
     PermissionException,
     InvalidResponseException,
     NotFoundException,
@@ -71,6 +74,9 @@ from scholar_flux.exceptions.path_exceptions import (
 
 __all__ = [
     "APIException",
+    "MissingAPIKeyException",
+    "MissingAPISpecificParameterException",
+    "MissingProviderException",
     "PermissionException",
     "InvalidResponseException",
     "NotFoundException",

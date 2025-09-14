@@ -1,4 +1,5 @@
-from pydantic import model_validator
+from __future__ import annotations
+from pydantic import model_validator, ValidationError
 from typing import Optional, Dict, Any
 from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
@@ -74,7 +75,7 @@ class APIParameterMap(BaseAPIParameterMap):
         return values
 
     @classmethod
-    def from_defaults(cls, provider_name: str, **additional_parameters) -> "APIParameterMap":
+    def from_defaults(cls, provider_name: str, **additional_parameters) -> APIParameterMap:
         """
         Factory method that uses the `APIParameterMap.get_defaults` classmethod
         to retrieve the provider config. Raises an error if the provider does not exist
@@ -99,7 +100,7 @@ class APIParameterMap(BaseAPIParameterMap):
         return parameter_map
 
     @classmethod
-    def get_defaults(cls, provider_name: str, **additional_parameters) -> Optional["APIParameterMap"]:
+    def get_defaults(cls, provider_name: str, **additional_parameters) -> Optional[APIParameterMap]:
         """
         Factory method to create APIParameterMap instances with sensible defaults for
         known APIs. Returns `None` in the event that an APIParameterMap cannot be found.
@@ -129,7 +130,6 @@ class APIParameterMap(BaseAPIParameterMap):
             class_vars = class_vars | additional_parameters
 
         return cls(**class_vars)
-
 
 class APIParameterConfig:
     """
@@ -271,6 +271,15 @@ class APIParameterConfig:
 
         return parameters
 
+    def show_parameters(self) -> list:
+        """
+        Helper method to show the complete list of all parameters that can be found in the current_mappings
+
+        Returns:
+            List: The complete list of all universal and api specific parameters corresponding to the current API
+        """
+        return self.parameter_map.show_parameters()
+
     def _get_api_key(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
         """
         Helper method for extracting the api key from a dictionary of parameters, if
@@ -313,7 +322,7 @@ class APIParameterConfig:
         return parameters
 
     @classmethod
-    def get_defaults(cls, provider_name: str, **additional_parameters) -> Optional["APIParameterConfig"]:
+    def get_defaults(cls, provider_name: str, **additional_parameters) -> Optional[APIParameterConfig]:
         """
         Factory method to create APIParameterConfig instances with sensible defaults for
         known APIs. Avoids throwing an error if the provider name does not already exist
@@ -331,7 +340,48 @@ class APIParameterConfig:
         return cls(parameter_map) if parameter_map else None
 
     @classmethod
-    def from_defaults(cls, provider_name: str, **additional_parameters) -> "APIParameterConfig":
+    def as_config(cls,
+                  parameter_map: dict | BaseAPIParameterMap |
+                  APIParameterMap | APIParameterConfig) -> APIParameterConfig:
+        """
+        Factory method for creating a new APIParameterConfig by for resolving its basic building blocks of the 
+        class with its required structure.
+        
+        Args:
+            parameter_map: dict | BaseAPIParameterMap | APIParameterMap | APIParameterConfig:
+                A parameter mapping/config to use in the instantiation of an APIParameterConfig.
+
+        Returns:
+            APIParameterConfig: A new structure from the inputs
+
+        Raises:
+            APIParameterException: If there is an error in the creation/resolution of the required parameters
+                                            
+        """
+        if isinstance(parameter_map, APIParameterConfig):
+            return parameter_map
+
+        if not isinstance(parameter_map, (dict, APIParameterMap, BaseAPIParameterMap)):
+            raise APIParameterException("Expected a base API Parameter map, config, or dictionary."
+                                        f" Received type ({type(parameter_map).__name__})")
+
+        logger.info(f"Attempting to instantiate an APIParameterConfig with parameters of type ({type(parameter_map).__name__})..")
+
+        if isinstance(parameter_map, APIParameterMap):
+            return cls(parameter_map)
+
+        parameter_dict = parameter_map.model_dump() if isinstance(parameter_map, BaseAPIParameterMap) else parameter_map
+        try:
+
+            updated_parameter_mapping = APIParameterMap(**parameter_dict)
+            return cls(updated_parameter_mapping)
+        except ValidationError as e:
+            raise APIParameterException("Encountered an error instantiating an APIParameterConfig from the provided "
+                                        f"parameters, `{parameter_dict}`: {e}")
+        
+
+    @classmethod
+    def from_defaults(cls, provider_name: str, **additional_parameters) -> APIParameterConfig:
         """
         Factory method to create APIParameterConfig instances with sensible defaults for
         known APIs. If the provider_name does not exist, the code will raise an exception

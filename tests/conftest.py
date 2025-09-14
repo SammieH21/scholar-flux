@@ -1,4 +1,13 @@
-from tests.fixtures.plos_api import plos_search_api, plos_coordinator
+from tests.fixtures.plos_api import (
+    plos_search_api,
+    plos_coordinator,
+    plos_page_1_url,
+    plos_page_1_data,
+    plos_page_2_url,
+    plos_page_2_data,
+    plos_headers,
+)
+
 from tests.fixtures.api_parameter_config import default_api_parameter_map, default_api_parameter_config
 
 from tests.fixtures.config import (
@@ -39,6 +48,8 @@ from tests.fixtures.package_dependencies import (
     mongodb_dependency,
     sqlalchemy_dependency,
     db_dependency_unavailable,
+    xml_parsing_dependency,
+    yaml_parsing_dependency,
     session_encryption_dependency,
 )
 
@@ -84,6 +95,11 @@ from tests.fixtures.data_storage_classes import (
 __all__ = [
     "plos_search_api",
     "plos_coordinator",
+    "plos_page_1_url",
+    "plos_page_1_data",
+    "plos_page_2_url",
+    "plos_page_2_data",
+    "plos_headers",
     "scholar_flux_logger",
     "original_config_test_api_key",
     "new_config_test_api_key",
@@ -119,6 +135,8 @@ __all__ = [
     "redis_dependency",
     "mongodb_dependency",
     "sqlalchemy_dependency",
+    "xml_parsing_dependency",
+    "yaml_parsing_dependency",
     "session_encryption_dependency",
     "db_dependency_unavailable",
     "default_cache_session_manager",

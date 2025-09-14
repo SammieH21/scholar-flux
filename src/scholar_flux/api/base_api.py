@@ -10,6 +10,7 @@ from scholar_flux.exceptions import (
 
 from requests_cache import CachedSession
 from scholar_flux.sessions import SessionManager, CachedSessionManager
+from scholar_flux.utils.repr_utils import generate_repr
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +55,8 @@ class BaseAPI:
             this method retrieves the user agent from the session directly
         """
         user_agent = self.session.headers.get("User-Agent")
-        if isinstance(user_agent, bytes):
-            return user_agent.decode("utf-8")
-        return user_agent
+
+        return user_agent.decode("utf-8") if isinstance(user_agent, bytes) else user_agent
 
     @user_agent.setter
     def user_agent(self, user_agent: Optional[str]) -> None:
@@ -67,7 +67,9 @@ class BaseAPI:
         in addition.
         """
         if user_agent:
-            self.session.headers.update({"User-Agent": user_agent})
+            self.session.headers.update({"User-Agent": user_agent
+                                         if not isinstance(user_agent, bytes)
+                                         else user_agent.decode('utf-8')})
 
     def configure_session(
         self,
@@ -90,6 +92,11 @@ class BaseAPI:
         """
         try:
 
+            if session is not None and not isinstance(session, requests.Session):
+                raise APIParameterException(
+                    f"Expected a requests.Session, a session subclass, or CachedSession, received {type(session)}"
+                )
+
             headers = session.headers if isinstance(session, requests.Session) else {}
 
             if user_agent:
@@ -104,7 +111,7 @@ class BaseAPI:
                     not isinstance(session, CachedSession),
                 ]
             ):
-                logger.debug("Creating a cached session for the BaseAPI.")
+                logger.debug("Creating a cached session for the BaseAPI...")
                 session = CachedSessionManager(user_agent=user_agent, backend="memory").configure_session()
 
             # create a regular non-cached session and override only if `use_cache` is explicitly set to False
@@ -114,7 +121,7 @@ class BaseAPI:
 
             # initialize a default session if session is not already created
             if not session:
-                logger.debug("Creating a regular session for the BaseAPI.")
+                logger.debug("Creating a regular session for the BaseAPI...")
                 session = SessionManager(user_agent=user_agent).configure_session()
 
             if headers:
@@ -217,5 +224,4 @@ class BaseAPI:
 
     def __repr__(self) -> str:
         """Helper method for identifying the configuration for the BaseAPI"""
-        class_name = self.__class__.__name__
-        return f"{class_name}(session={self.session.__class__}, timeout={self.timeout})"
+        return generate_repr(self, flatten = True, show_value_attributes = False)

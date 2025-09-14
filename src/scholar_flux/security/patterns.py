@@ -1,21 +1,21 @@
 from __future__ import annotations
-from abc import abstractmethod
-from dataclasses import dataclass
-from typing import Iterable, Protocol, runtime_checkable
+from abc import ABC, abstractmethod
+from pydantic import Field
+from pydantic.dataclasses import dataclass
+from typing import Iterable
 from pydantic import SecretStr
 import re
 from scholar_flux.security.utils import SecretUtils
 
 
 @dataclass(frozen=True)
-@runtime_checkable
-class MaskingPattern(Protocol):
+class MaskingPattern(ABC):
     """
     The base class for creating MaskingPattern objects
     that can be used to mask fields based on defined rules
     """
-
     name: str
+    pattern: str | SecretStr
 
     @abstractmethod
     def apply_masking(self, text: str) -> str:
@@ -66,16 +66,28 @@ class KeyMaskingPattern(MaskingPattern):
         field (str): The field to look for when determining whether to mask a specific parameter
         pattern (str): The pattern to use to remove sensitive fields, contingent on a parameter being defined.
                        By default, the pattern is set to allow for the removal dashes and alphanumeric fields
-                       but can be overriden based on API specific specifications
+                       but can be overridden based on API specific specifications
         replacement (str): Indicates the replacement string for the value in the key-value pair if matched ('***' by default)
-        ignore_case (bool): whether we should consider case when determining whether or not to filter a field. (True by default)
+        use_regex (bool): Indicates whether the current function should use regular expressions
+        ignore_case (bool): whether we should consider case when determining whether or not to filter a string. (True by default)
+        mask_pattern (bool): indicates whether we should, by default, mask pattern strings that are registered
+                             in the MaskingPattern. This is True by default.
     """
 
     name: str
-    field: str
-    pattern: str = r"[A-Za-z0-9\-_]+"
+    field: str = Field(default = ..., min_length=1)
+    pattern: str | SecretStr = r"[A-Za-z0-9\-_]+"
     replacement: str = "***"
+    use_regex: bool = True
     ignore_case: bool = True
+    mask_pattern: bool = True
+
+    def __post_init__(self):
+        """Uses the mask_pattern field to determine whether or not to mask a particular string"""
+        if self.mask_pattern and not isinstance(self.pattern, SecretStr):
+            object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))
+
+
 
     def apply_masking(self, text: str) -> str:
         """
@@ -87,13 +99,16 @@ class KeyMaskingPattern(MaskingPattern):
             text (str): The text to clean of sensitive fields
         """
         flags = re.IGNORECASE if self.ignore_case else 0
-        pattern = rf"{re.escape(self.field)}\s*[:\=]\s*'?{self.pattern}'?"
-        replacement = f"{self.field}={self.replacement}"
+        value_pattern = SecretUtils.unmask_secret(self.pattern)
+        if not self.use_regex:
+            value_pattern = re.escape(value_pattern)
+        pattern = rf"""(?P<field>["']?{re.escape(self.field)}["']?\s*[:\=]\s*["']?){value_pattern}(?P<endpattern>["']?)"""
+        replacement = rf"\g<field>{self.replacement}\g<endpattern>"
         return re.sub(pattern, replacement, text, flags=flags)
 
     def _identity_key(self) -> str:
         """Identifies the current pattern based on name, field, pattern, and class"""
-        return str((type(self).__name__, self.name, self.field, self.pattern))
+        return str((type(self).__name__, self.name, self.field, SecretUtils.unmask_secret(self.pattern)))
 
 
 @dataclass(frozen=True)
@@ -106,10 +121,12 @@ class StringMaskingPattern(MaskingPattern):
                     a particular category.
         pattern (str): The pattern to use to remove sensitive fields, contingent on a parameter being defined.
                        By default, the pattern is set to allow for the removal dashes and alphanumeric fields
-                       but can be overriden based on API specific specifications
+                       but can be overridden based on API specific specifications
         replacement (str): Indicates the replacement string for the value in the string if matched ('***' by default)
         use_regex (bool): Indicates whether the current function should use regular expressions
         ignore_case (bool): whether we should consider case when determining whether or not to filter a string. (True by default)
+        mask_pattern (bool): indicates whether we should, by default, mask pattern strings that are registered
+                             in the MaskingPattern. This is True by default.
     """
 
     name: str

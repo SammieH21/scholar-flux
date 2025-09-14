@@ -5,7 +5,7 @@ from textwrap import dedent
 from unittest.mock import patch
 from requests import Response
 from scholar_flux.api.retry_handler import RetryHandler
-from scholar_flux.exceptions import RequestFailedException
+from scholar_flux.exceptions import RequestFailedException, InvalidResponseException
 
 
 def response_factory(
@@ -53,17 +53,64 @@ def test_execute_with_retry_max_retries_exceeded():
         result = handler.execute_with_retry(request_func)
     assert isinstance(result, Response) and result.status_code == 503
 
+def test_execute_with_retry_max_retries_and_raise(caplog):
+    handler = RetryHandler(max_retries=3, raise_on_error = True)
+    status_code = 503
+    response = response_factory(status_code)
+    request_func = lambda: response
+    with pytest.raises(InvalidResponseException), patch("time.sleep"):
+        _ = handler.execute_with_retry(request_func)
+    assert f"HTTP error occurred: {response} - Status code: {status_code}." in caplog.text
 
 def test_execute_with_retry_non_retryable_status(caplog):
-    handler = RetryHandler()
-    response = response_factory(400)
+    handler = RetryHandler(raise_on_error = True)
+    message = 'Cannot process the current request with your credentials'
+    status_code = 400
+    response = response_factory(status_code, json_data = {'error': {'message': message}})
     request_func = lambda: response
-    result = handler.execute_with_retry(request_func)
-    assert isinstance(result, Response) and result.status_code == 400
-    assert f"Request is a {type(response_factory())}, status_code=400" in caplog.text
+    with pytest.raises(InvalidResponseException):
+        _ = handler.execute_with_retry(request_func)
+
+    assert f"HTTP error occurred: {response} - Status code: {status_code}. Details: {message}" in caplog.text
 
 
-def test_nonresponse(caplog):
+    handler = RetryHandler(raise_on_error = False)
+    response = handler.execute_with_retry(request_func)
+    assert isinstance(response, Response)
+    assert f"Returning a request of type {type(response)}, status_code={status_code}" in caplog.text
+
+def test_invalid_response_exception_non_json(caplog):
+    from scholar_flux.exceptions import InvalidResponseException
+    response = response_factory(400, text="Not JSON")
+    exc = InvalidResponseException(response)
+    assert exc.error_details == ""
+
+    response = response_factory(400, json_data=["Even moreso not a json"])
+    exc = InvalidResponseException(response)
+    assert exc.error_details == ""
+
+    response = response_factory(400, json_data={'error': [1,2,3]})
+    exc = InvalidResponseException(response)
+    assert exc.error_details == ""
+
+    with pytest.raises(InvalidResponseException):
+        raise InvalidResponseException(None) # type: ignore
+    assert f"An error occurred when making the request - Received a nonresponse: {type(None)}" in caplog.text
+
+def test_calculate_retry_delay_with_invalid_retry_after(caplog):
+    handler = RetryHandler(backoff_factor=2, max_backoff=10)
+    retry_after = "not-a-date"
+    response = response_factory(503, headers={"Retry-After": retry_after})
+    delay = handler.calculate_retry_delay(1, response)
+    # Should fallback to exponential backoff
+    assert delay == 4  # 2 * 2^1
+    assert f"'Retry-After' is not a valid number: {retry_after}. Attempting to parse as a date.." in caplog.text
+    assert "Couldn't parse 'Retry-After' as a date." in caplog.text
+    assert "Defaulting to using 'max_backoff'..." in caplog.text
+
+
+
+def test_nonresponse():
     handler = RetryHandler()
     value = "a nonresponse"
     with pytest.raises(RequestFailedException):
@@ -76,7 +123,8 @@ def test_repr():
         f"RetryHandler(max_retries={handler.max_retries},\n"
         f"             backoff_factor={handler.backoff_factor},\n"
         f"             max_backoff={handler.max_backoff},\n"
-        f"             retry_statuses={handler.retry_statuses})"
+        f"             retry_statuses={handler.retry_statuses},\n"
+        f"             raise_on_error={handler.raise_on_error})"
     )
 
 

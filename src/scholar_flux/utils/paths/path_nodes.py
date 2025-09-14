@@ -2,11 +2,13 @@
 from __future__ import annotations
 from typing import Union
 import logging
+import copy
 from typing import Any, ClassVar
 from dataclasses import dataclass
 from scholar_flux.utils.paths.processing_paths import ProcessingPath
 from scholar_flux.exceptions.path_exceptions import (
     PathIndexingError,
+    InvalidProcessingPathError,
     InvalidPathNodeError,
 )
 
@@ -34,6 +36,36 @@ class PathNode:
             raise InvalidPathNodeError(
                 f"Error creating PathNode: expected a ProcessingPath for path, received {type(self.path)}"
             )
+
+    @classmethod
+    def to_path_node(
+        cls,
+        path:Union[ProcessingPath, str, list[str]],
+        value: Any,
+        **path_kwargs
+    ) -> PathNode:
+        """
+        Helper method for creating a path node from the components used to create paths
+        in addition to value to assign the path node.
+
+        Args:
+            path (Union[ProcessingPath, str, list[str]]) : The path to be assigned to the node. If this is not a path
+                                                           already, then a path will be created from what is provided
+            value (Any): The value to associate with the new node
+            **path_kwargs: Additional keyword arguments to be used in the creation of a path.
+                           This is passed to ProcessingPath.to_processing_path when creating a path
+        Returns:
+            PathNode: The newly constructed path
+        Raises:
+            InvalidPathNodeError: If the values provided cannot be used to create a new node
+        """
+
+        try:
+            path = ProcessingPath.to_processing_path(path, **path_kwargs)
+        except (ValueError, InvalidProcessingPathError) as e:
+            raise InvalidPathNodeError('Could not construct a path from the inputs') from e
+        return cls(path, value)
+
 
     def update(self, **attributes: Union[ProcessingPath, Any]) -> PathNode:
         """
@@ -177,3 +209,15 @@ class PathNode:
             bool: True if the objects are equal, False otherwise.
         """
         return isinstance(other, PathNode) and self.path == other.path and self.value == other.value
+
+    def copy(self) -> PathNode:
+        """Helper method for copying and returning an identical path node"""
+        return self.__copy__()
+
+    def __copy__(self) -> PathNode:
+        """Helper method for deepcopying the current node"""
+        return PathNode(path=self.path, value = copy.copy(self.value))
+
+    def __deepcopy__(self) -> PathNode:
+        """Helper method for deepcopying the current node"""
+        return PathNode(path=self.path, value = copy.deepcopy(self.value))

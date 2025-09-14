@@ -1,6 +1,6 @@
 # /utils/models/session.py
 import datetime
-import importlib
+import importlib.util
 import requests
 import requests_cache
 from typing import Optional, ClassVar, Literal
@@ -65,7 +65,9 @@ class CachedSessionConfig(BaseModel):
     """
 
     cache_name: str
-    backend: Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"]
+    backend: (
+        Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"] | requests_cache.BaseCache
+    )
     cache_directory: Optional[Path] = None
     serializer: Optional[
         str | requests_cache.serializers.pipeline.SerializerPipeline | requests_cache.serializers.pipeline.Stage
@@ -126,6 +128,9 @@ class CachedSessionConfig(BaseModel):
         Validates the choice of backend to and raises an error if its dependency is missing.
         If the backend has unmet dependencies, this validator will trigger a ValidationError
         """
+
+        if isinstance(v, requests_cache.BaseCache):
+            return v
 
         if not isinstance(v, str) or not v:
             raise ValueError("The backend to a requests_cache.CachedSession object must be a non-empty string.")

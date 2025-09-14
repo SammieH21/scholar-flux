@@ -12,8 +12,8 @@ class ABCStorage(ABC):
     The ABCStorage class provides the basic structure required to implement
     the data storage cache with customized backend.
 
-    This subclasss provides methods to check the cache, delete from the cache,
-            update the cache with new data, and retrieve data from the cache storage.
+    This subclass provides methods to check the cache, delete from the cache,
+    update the cache with new data, and retrieve data from the cache storage.
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -82,7 +82,7 @@ class ABCStorage(ABC):
 
     def __repr__(self) -> str:
         """
-        Method for indentifying the current implementation and subclasses of the BaseStoarge.
+        Method for identifying the current implementation and subclasses of the BaseStorage.
         Useful for showing the options being used to store and retrieve data stored as cache.
         """
         return generate_repr(self)

@@ -1,6 +1,7 @@
 import base64
 import binascii
 from typing import Any, Union, Optional
+from typing import MutableMapping, MutableSequence
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,12 +13,34 @@ class CacheDataEncoder:
 
     This class supports encoding binary data (bytes) and recursively handles nested structures
     such as dictionaries and lists by encoding their elements, preserving the original structure upon decoding.
+
+    This class is used to serialize json structures when the structure isn't known and contains unpredictable
+    elements such as 1) None, 2) bytes, 3) nested lists, 4) Other unpredictable structures typically found in JSON
+
+    Example:
+        >>> from scholar_flux.utils import CacheDataEncoder
+        >>> import json
+        >>> data = {'note': 'hello', 'another_note': b'a non-serializable string', 'list': ['a', True, 'series' 'of', None]}
+        >>> try:
+        >>>     json.dumps(data)
+        >>> except TypeError:
+        >>>     print('The `data` is non-serializable as expected ')
+        >>>
+        >>> encoded_data = CacheDataEncoder.encode(data)
+        >>> serialized_data = json.dumps(encoded_data)
+        >>> assert data == CacheDataEncoder.decode(json.loads(serialized_data))
     """
 
     @staticmethod
     def is_base64(s: Union[str, bytes], hash_prefix: Optional[str] = "<hashbytes>") -> bool:
         """
-        Check if a given string is a valid base64 encoded string.
+        Check if a given string is a valid base64 encoded string. Encoded strings can optionally
+        be identified with a hash_prefix to streamline checks to determine whether or not to
+        later decode a base64 encoded string.
+
+        As a general heuristic when encoding and decoding base 64 objects, a string should be equal
+        to its original value after encoding and decoding the string. In this implementation,
+        we strip equals signs as minor differences in padding aren't relevant.
 
         Args:
             s (Union[str, bytes]): The string to check.
@@ -95,14 +118,20 @@ class CacheDataEncoder:
                 logger.error(f"Error encoding bytes to base64: {e}")
                 raise ValueError("Failed to encode bytes to base64.") from e
 
-        elif isinstance(data, dict):
+        elif isinstance(data, MutableMapping):
+            # exact type comparison, ignores format
+            if type(data) is not dict:  # noqa: E721
+                logger.warning("Non-dictionary mutable mappings are coerced into dictionaries when encoded")
             try:
                 return {key: CacheDataEncoder.encode(value) for key, value in data.items()}
             except Exception as e:
                 logger.error(f"Error encoding a dictionary element to base64: {e}")
                 raise ValueError("Failed to encode dictionary element to base64.") from e
 
-        elif isinstance(data, list):
+        elif isinstance(data, MutableSequence) and not isinstance(data, tuple):
+            # exact type comparison, ignores format
+            if type(data) is not list:  # noqa: E721
+                logger.warning("Non-list/tuple mutable sequences are coerced into lists when encoded")
             try:
                 return [CacheDataEncoder.encode(item) for item in data]
             except Exception as e:
@@ -177,23 +206,23 @@ class CacheDataEncoder:
         return data  # Return unmodified non-decodable types
 
 
-if __name__ == "__main__":
-    # Example usage of CacheDataEncoder class
-    try:
-        original_data = b"example data"
-        encoded_data = CacheDataEncoder.encode(original_data)
-        print(f"Encoded: {encoded_data}")
-
-        decoded_data = CacheDataEncoder.decode(encoded_data)
-        print(f"Decoded: {decoded_data}")
-
-        # Test with a non-byte string
-        original_string = "1728"
-        encoded_string = CacheDataEncoder.encode(original_string)
-        print(f"Encoded string: {encoded_string}")
-
-        decoded_string = CacheDataEncoder.decode(encoded_string)
-        print(f"Decoded string: {decoded_string}")
-
-    except ValueError as e:
-        logger.error(f"An error occurred: {e}")
+# if __name__ == "__main__":
+#     # Example usage of CacheDataEncoder class
+#     try:
+#         original_data = b"example data"
+#         encoded_data = CacheDataEncoder.encode(original_data)
+#         print(f"Encoded: {encoded_data}")
+#
+#         decoded_data = CacheDataEncoder.decode(encoded_data)
+#         print(f"Decoded: {decoded_data}")
+#
+#         # Test with a non-byte string
+#         original_string = "1728"
+#         encoded_string = CacheDataEncoder.encode(original_string)
+#         print(f"Encoded string: {encoded_string}")
+#
+#         decoded_string = CacheDataEncoder.decode(encoded_string)
+#         print(f"Decoded string: {decoded_string}")
+#
+#     except ValueError as e:
+#         logger.error(f"An error occurred: {e}")

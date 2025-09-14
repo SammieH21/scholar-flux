@@ -16,7 +16,7 @@ class ConnectionFailed(StorageCacheException):
     pass
 
 
-class KeyNotFound(Exception):
+class KeyNotFound(KeyError):
     """Exception resulting from a missing or empty key being provided"""
 
     pass

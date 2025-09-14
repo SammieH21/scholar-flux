@@ -26,6 +26,13 @@ class BaseWorkflowStep(BaseModel):
     def post_transform(self, ctx: Any, *args, **kwargs) -> Any:
         return ctx
 
+    def _verify_context(self, ctx: Any):
+        if not isinstance(ctx, BaseStepContext):
+            msg = (f"Expected the `ctx` of the current workflow to be a StepContext. "
+                   f"Received: {type(ctx).__name__}")
+            logger.error(msg)
+            raise TypeError(msg)
+
 
 class BaseWorkflowResult(BaseModel):
     """Base class for returning the results from a Workflow"""

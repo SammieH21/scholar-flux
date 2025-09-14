@@ -35,7 +35,7 @@ requests-mock = "*"
 ruff = "^0.3.0"
 flake8 = "^7.3.0"
 
-    
+
 
 [build-system]
 requires = ["poetry-core"]
@@ -43,14 +43,14 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 lint.extend-select = ["C4", "NPY", "PD", "SIM", "TCH"]
-lint.ignore = ["C408", "E402", "TCH001", "TCH002"]
+lint.ignore = ["C408", "E402", "TCH001", "TCH002", "PD003"]
 show-fixes = true
 line-length = 120
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
     "ANN",    # don’t require type annotations
-    "ARG",     # Allow Unused function args 
+    "ARG",    # Allow Unused function args
     "S101",   # allow plain `assert` (pytest’s way)
     "SIM117", # allow nested `with` statements for readability purposes
     "E731",   # Allow assignment of a lambda

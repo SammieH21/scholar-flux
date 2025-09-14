@@ -21,7 +21,7 @@ def initialize_package(
 
     Also allows for dynamic re-initialization of configuration parameters and logging.
     config_parameters correspond to the scholar_flux.utils.ConfigSettings.load_config method.
-    logging_parameters correspond to the scholar_flux.utils.setup_logging method for logging settings and handlars.
+    logging_parameters correspond to the scholar_flux.utils.setup_logging method for logging settings and handlers.
 
     Args:
         config_params (Optional[dict]): A dictionary allowing for the specification of

@@ -2,14 +2,16 @@ from __future__ import annotations
 from typing import Optional
 from scholar_flux.api.models import SearchAPIConfig
 from scholar_flux.api.workflows.search_workflow import StepContext, WorkflowStep
+import logging 
+logger = logging.getLogger(__name__)
 
 
 class PubMedSearchStep(WorkflowStep):
-    provider_name: Optional[str] = "PUBMED"
+    provider_name: Optional[str] = "pubmed"
 
 
 class PubMedFetchStep(WorkflowStep):
-    provider_name: Optional[str] = "PUBMED_EFETCH"
+    provider_name: Optional[str] = "pubmedefetch"
 
     def pre_transform(
         self,
@@ -29,11 +31,16 @@ class PubMedFetchStep(WorkflowStep):
         config_parameters["request_delay"] = 0
 
         if ctx:
+            self._verify_context(ctx)
             ids = getattr(ctx.result, "metadata", {}).get("IdList", {}).get("Id")
             config_parameters["id"] = ",".join(ids) or "" if ids else None
 
             if not config_parameters["id"]:
-                raise TypeError(f"Metadata not in the expected format: {ctx.result.__dict__ if ctx.result else ctx}")
+                msg =(f"The metadata from the pubmed search is not in the expected format: "
+                      f"{ctx.result.__dict__ if ctx.result else ctx}")
+
+                logger.error(msg)
+                raise TypeError(msg)
 
         search_parameters = (ctx.step.search_parameters if ctx else {}) | (search_parameters or {})
 

@@ -9,6 +9,45 @@ logger = logging.getLogger(__name__)
 
 
 class DataExtractor(BaseDataExtractor):
+    """
+    The DataExtractor allows for the streamlined extraction of records and metadata from
+    responses retrieved from APIs. This proceeds as the second stage of the response processing
+    step where metadata and records are extracted from parsed responses.
+
+    The data extractor provides two ways to identify metadata paths and record paths:
+
+        1) manual identification: If record path or metadata_path are specified,
+           then the data extractor will attempt to retrieve the metadata and records at the
+           provided paths. Note that, as metadata_paths can be associated with multiple keys,
+           starting from the outside dictionary, we may have to specify a dictionary containing
+           keys denoting metadata variables and their paths as a list of values indicating how to
+           retrieve the value. The path can also be given by a list of lists describing how to
+           retrieve the last element.
+        2) Dynamic identification: Uses heuristics to determine records from metadata. records
+           will nearly always be defined by a list containing only dictionaries as its elements
+           while the metadata will generally contain a variety of elements, some nested and others
+           as integers, strings, etc. In some cases where its harder to determine, we can use
+           dynamic_record_identifiers to determine whether a list containing a single nested dictionary
+           is a record or metadata. For scientific purposes, its keys may contain 'abstract', 'title', 'doi',
+           etc. This can be defined manually by the usersif the defaults are not reliable for a given API.
+
+    Upon initializing the class, the class can be used as a callable that returns the records and metadata
+    in that order.
+
+    Example:
+        >>> from scholar_flux.data import DataExtractor
+        >>> data = dict(query='specification driven development', options={'record_count':5,'response_time':'50ms'})
+        >>> data['records'] = [dict(id=1, record='protocol vs.code'), dict(id=2, record='Impact of Agile')]
+        >>> extractor = DataExtractor()
+        >>> records, metadata = extractor(data)
+        >>> print(metadata)
+        # OUTPUT: {'query': 'specification driven development', 'record_count': 5, 'response_time': '50ms'}
+        >>> print(records)
+        # OUTPUT: [{'id': 1, 'record': 'protocol vs.code'}, {'id': 2, 'record': 'Impact of Agile'}]
+
+
+    """
+
     DEFAULT_DYNAMIC_RECORD_IDENTIFIERS = ("title", "doi", "abstract")
     DEFAULT_DYNAMIC_METADATA_IDENTIFIERS = ("metadata", "facets", "IdList")
 
@@ -21,22 +60,6 @@ class DataExtractor(BaseDataExtractor):
     ):
         """
         Initialize the DataExtractor with optional path overrides for metadata and records.
-        The data extractor provides two ways to identify metadata paths and record paths:
-
-            1) manual identification: If record path or metadata_path are specified,
-               then the data extractor will attempt to retrieve the metadata and records at the
-               provided paths. Note that, as metadata_paths can be associated with multiple keys,
-               starting from the outside dictionary, we may have to specify a dictionary containing
-               keys denoting metadata variables and their paths as a list of values indicating how to
-               retrieve the value. The path can also be given by a list of lists describing how to
-               retrieve the last element.
-            2) Dynamic identification: Uses heuristics to determine records from metadata. records
-               will nearly always be defined by a list containing only dictionaries as its elements
-               while the metadata will generally contain a variety of elements, some nested and others
-               as integers, strings, etc. In some cases where its harder to determine, we can use
-               dynamic_record_identifiers to determine whether a list containing a single nested dictionary
-               is a record or metadata. For scientific purposes, its keys may contain 'abstract', 'title', 'doi',
-               etc. This can be defined manually by the usersif the defaults are not reliable for a given API.
 
         Args:
             record_path (Optional[List[str]]): Custom path to find records in the parsed data. Contains a list of strings and

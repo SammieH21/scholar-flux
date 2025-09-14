@@ -1,4 +1,5 @@
 from typing import Optional
+from typing_extensions import Self
 import logging
 
 from scholar_flux.api import SearchAPI, ResponseCoordinator
@@ -15,20 +16,83 @@ logger = logging.getLogger(__name__)
 
 class BaseCoordinator:
     """
-    Base coordinator providing the bare minimum functionality
-    for requesting and retrieving records and metadata from APIs.
+    Base coordinator providing the bare minimum functionality for requesting and retrieving
+    records and metadata from APIs.
 
     This class uses dependency injection to orchestrate the process of constructing requests,
     validating response, and processing scientific works and articles. This class is designed
     to provide the absolute minimum necessary functionality to both retrieve and process data
     from APIs and can make use of caching functionality for caching requests and responses.
+
+    After initialization, the BaseCoordinator uses two main components for the sequential orchestration
+    of both response retrieval, processing, and caching.
+
+    Components:
+        SearchAPI (api/search_api):
+            Handles the creation and orchestration of search requests in addition to the caching
+            of successful requests via dependency injection.
+        ResponseCoordinator (responses/response_coordinator): Handles the full range of response
+            processing steps after retrieving a response from an API. These parsing, extraction,
+            and processing steps occur sequentially when a new response is received. If a response
+            was previously handled, the coordinator will attempt to retrieve these responses from
+            the processing cache.
+
+    Example:
+        >>> from scholar_flux.api import SearchAPI, ResponseCoordinator, BaseCoordinator
+        # Note, the SearchAPI, if a provider name isn't provider_name uses PLOS by default
+        # Unless the `DEFAULT_SCHOLAR_FLUX_PROVIDER` env variable is set to another provider.
+        >>> base_search_coordinator = BaseCoordinator(search_api = SearchAPI(query = 'Math'),
+        >>>                                           response_coordinator = ResponseCoordinator.build())
+        >>> response = base_search_coordinator.search(page = 1)
+        >>> response
+        # OUTPUT <ProcessedResponse(len=20, cache_key=None, metadata="{'numFound': 14618, 'start': 1, ...})>
+        # All processed records for a particular response can be found under response.data (a list of dictionaries)
+        >>> list(response.data[0].keys())
+        # OUTPUT ['article_type', 'eissn', 'id', 'journal', 'publication_date', 'score', 'title_display',
+        #         'abstract', 'author_display']
     """
 
     def __init__(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator):
+        """
+        Initializes the base coordinator by delegating assignemnt of attributes to the _initialize method.
+        Future coordinators can follow a similar pattern of using an _initialize for initial parameter assignment
 
-        self._api: SearchAPI = search_api
-        self._response_coordinator: ResponseCoordinator = response_coordinator
+        Args:
+            search_api (Optioanl[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
+                                                                 core handling of all responses from APIs
+        """
+        self._initialize(search_api, response_coordinator)
+
+    def _initialize(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator):
+        """initializes the base coordinator with a searchapi and the constructed responsecoordinator"""
+        self.search_api = search_api
+        self.response_coordinator = response_coordinator
         self.last_response: Optional[ResponseResult] = None
+
+    @property
+    def api(self) -> SearchAPI:
+        """Alias for the underlying API used for searching."""
+        return self.search_api
+
+    @api.setter
+    def api(self, search_api: SearchAPI) -> None:
+        """Allows direct modification of the search API via the search_api alias."""
+        self.search_api = search_api
+
+    @property
+    def search_api(self) -> SearchAPI:
+        """Allows the search_api to be used as a property while also allowing for verification"""
+        return self._search_api
+
+    @search_api.setter
+    def search_api(self, search_api: SearchAPI) -> None:
+        """Allows the direct modification of the SearchAPI while ensuring type-safety"""
+        if not isinstance(search_api, SearchAPI):
+            raise InvalidCoordinatorParameterException(
+                "Expected a SearchAPI object. " "Instead received type ({type(search_api)})"
+            )
+        self._search_api = search_api
 
     @property
     def parser(self) -> BaseDataParser:
@@ -61,22 +125,26 @@ class BaseCoordinator:
         self.response_coordinator.processor = processor
 
     @property
-    def api(self) -> SearchAPI:
-        """Allows the search_api to be used as a property while also allowing for verification"""
-        return self._api
+    def responses(self) -> ResponseCoordinator:
+        """
+        An alias for the response_coordinator property that is used for orchestrating the processing
+        of retrieved API responses. Handles response orchestration, including response content parsing,
+        the extraction of records/metadata, record processing, and cache operations.
+        """
+        return self.response_coordinator
 
-    @api.setter
-    def api(self, search_api: SearchAPI) -> None:
-        """Allows the direct modification of the SearchAPI while ensuring type-safety"""
-        if not isinstance(search_api, SearchAPI):
-            raise InvalidCoordinatorParameterException(
-                "Expected a SearchAPI object. " "Instead received type ({type(search_api)})"
-            )
-        self._api = search_api
+    @responses.setter
+    def responses(self, response_coordinator: ResponseCoordinator) -> None:
+        """An alias for the response_coordinator property that allows direct modification of the ResponseCoordinator."""
+        self.response_coordinator = response_coordinator
 
     @property
     def response_coordinator(self) -> ResponseCoordinator:
-        """Allows the response_coordinator to be used as a property while also allowing for verification"""
+        """
+        Allows the ResponseCoordinator to be used as a property. The response_coordinator
+        handles and coordinates the processing of API responses from parsing,
+        record/metadata extraction, processing, and cache management.
+        """
         return self._response_coordinator
 
     @response_coordinator.setter
@@ -107,11 +175,12 @@ class BaseCoordinator:
             the basic processing of the data within theresponse
         """
         try:
-            response = self.api.search(**kwargs)
+            cache_key = kwargs.pop('cache_key', None)
+            response = self.search_api.search(**kwargs)
             if response is not None:
-                return self.response_coordinator.handle_response(response, kwargs.get("cache_key"))
+                return self.response_coordinator.handle_response(response, cache_key = cache_key)
         except RequestFailedException as e:
-            logger.error(f"Failed to get a valid response from the {self.api.provider_name} API: {e}")
+            logger.error(f"Failed to get a valid response from the {self.search_api.provider_name} API: {e}")
         return None
 
     def __repr__(self) -> str:
@@ -120,5 +189,24 @@ class BaseCoordinator:
         Useful for showing the options being used to coordinate requests.
         """
         class_name = self.__class__.__name__
-        attribute_dict = dict(api=repr(self.api), response_coordinator=self.response_coordinator)
+        attribute_dict = dict(api=repr(self.search_api), response_coordinator=self.response_coordinator)
         return generate_repr_from_string(class_name, attribute_dict)
+
+    @classmethod
+    def as_coordinator(cls, search_api: SearchAPI, response_coordinator: ResponseCoordinator, *args, **kwargs) -> Self:
+        """
+        Helper factory method for building a SearchCoordinator that allows users to build from the
+        final building blocks of a SearchCoordinator
+
+        Args:
+            searchAPI (Optioanl[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
+                                                                 core handling of all responses from APIs
+
+        Returns:
+            BaseCoordinator: A newly created coordinator subclassed from a BaseCoordinator that also orchestrates
+                             record retrieval and processing
+        """
+        search_coordinator = cls.__new__(cls)
+        search_coordinator._initialize(search_api, response_coordinator, *args, **kwargs)
+        return search_coordinator

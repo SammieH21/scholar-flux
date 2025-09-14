@@ -312,6 +312,10 @@ class DataCacheManager:
         """
         return bool(self.cache_storage)
 
+    def isnull(self) -> bool:
+        """Helper method for determining whether the current cache manager uses a null storage"""
+        return not self
+
     @staticmethod
     def cache_fingerprint(obj, package_version=__version__):
         """

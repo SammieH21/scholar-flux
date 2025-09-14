@@ -15,6 +15,18 @@ def session_encryption_dependency() -> bool:
 
 
 @pytest.fixture(scope="session")
+def xml_parsing_dependency() -> bool:
+    """For determining whether xml can be implemented to parse xml responses into a json dictionary structure"""
+    return all(importlib.util.find_spec(pkg) for pkg in ["xmltodict"])
+
+
+@pytest.fixture(scope="session")
+def yaml_parsing_dependency() -> bool:
+    """For determining whether yaml can be implemented to parse yaml responses into a json dictionary structure"""
+    return all(importlib.util.find_spec(pkg) for pkg in ["yaml"])
+
+
+@pytest.fixture(scope="session")
 def redis_dependency() -> bool:
     """Indicates whether the redis module is available"""
     return bool(importlib.util.find_spec("redis"))
@@ -87,4 +99,7 @@ __all__ = [
     "mongodb_available",
     "sqlalchemy_available",
     "db_dependency_unavailable",
+    "xml_parsing_dependency",
+    "yaml_parsing_dependency",
+    "session_encryption_dependency",
 ]

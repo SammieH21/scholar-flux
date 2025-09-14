@@ -8,52 +8,6 @@ from logging.handlers import RotatingFileHandler
 from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions import LogDirectoryError
 
-# def mask_field(arg: str) -> str:
-#     """
-#     Used to mask sensitive fields in strings before they show in logs
-#     The following fields are masked when identified:
-#         1. api keys
-#         2. emails
-#         3. authentication bearer tokens
-#
-#     Args:
-#         arg (str): A string that may or may not contain fields that we wish
-#                    to mask
-#     Returns:
-#         (str): The same string that masks any identified sensitive fields that
-#                 we would like to exclude from logs
-#     """
-#     # Assuming 'api_key' is the query parameter for the API key
-#     api_key_fields = ['api_key', 'apikey','API_KEY','APIKEY']
-#
-#     # ensure that various forms of the API key parameter are masked
-#     api_key_regex = r"([A-Za-z0-9\-_]+)"
-#     for key in api_key_fields:
-#         arg = re.sub(fr"{key} ?(\:|\=) ?'?{api_key_regex}'?", f'{key}=***', arg)
-#
-#     email_fields = ['mail', 'mailto']
-#
-#     # ensure that various forms of the API key parameter are masked
-#     email_regex = fr'[a-zA-Z0-9._%+-]+(%40|@)[a-zA-Z0-9.-]+\.[a-zA-Z]+(\.[a-zA-Z]+)?'
-#     for key in email_fields:
-#         arg = re.sub(fr"{key} ?(\:|\=) ?'?{email_regex}'?", f'{key}=***', arg)
-#
-#     bearer_regex = r"[Aa]uthorization [Bb]earer\:? *"
-#     arg = re.sub(fr"({bearer_regex}){api_key_regex}", "\\1***", arg)
-#     return arg
-#
-# ## create a class that applies the filter:class MaskAPIKeyFilter(logging.Filter):
-# # Define a custom logging filter to mask API keys in log messages
-# class MaskAPIKeyFilter(logging.Filter):
-#     """This class is a utility API mask to prevent API keys from showing in logs"""
-#     def filter(self, record: Any):
-#         if record.args:
-#             record.args = tuple(mask_field(arg) if isinstance(arg, str) else arg for arg in record.args)
-#
-#         if isinstance(record.msg, str):
-#             record.msg = mask_field(record.msg)
-#         return True
-
 
 def setup_logging(
     logger: Optional[logging.Logger] = None,

@@ -40,6 +40,22 @@ def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Option
     return str(representation)
 
 
+def normalize_repr(value: Any) -> str:
+    """
+    Helper function for removing byte locations and surrounding signs from classes.
+
+    Args:
+        value (Any): a value whose representation to be normalized
+
+    Returns:
+        str: A normalized string representation of the current value
+    """
+    value_string = value.__class__.__name__ if not isinstance(value, str) else value
+    value_string = re.sub(r"\<(.*?) object at 0x[a-z0-9]+\>", r"\1", value_string)
+    value_string = value_string.strip('<').strip('>')
+    return value_string
+
+
 def format_repr_value(
     value: Any,
     pad_length: Optional[int] = None,
@@ -65,9 +81,16 @@ def format_repr_value(
         else (str(value) if not isinstance(value, BaseModel) else repr(value))
     )
 
+    value = normalize_repr(value)
+
+    # determine whether to show all nested parameters for the current attribute
     if show_value_attributes is False and re.search(r"^[a-zA-Z_]+\(.*[^\)]", str(value)):
         value = value.split("(")[0] + "(...)"
-    return adjust_repr_padding(value, pad_length=pad_length, flatten=flatten)
+
+    # pad automatically for readability
+    value = adjust_repr_padding(value, pad_length=pad_length, flatten=flatten)
+# remove object memory location wrapper from the string
+    return value
 
 
 def generate_repr_from_string(

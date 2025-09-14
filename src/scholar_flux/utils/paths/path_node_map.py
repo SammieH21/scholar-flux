@@ -695,7 +695,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             and values as the current map.
         """
         try:
-            path_node_map = self.__class__()
+            path_node_map = self.__class__.__new__(self.__class__)
             path_node_map.__dict__ = self.__dict__.copy()
             return path_node_map
 

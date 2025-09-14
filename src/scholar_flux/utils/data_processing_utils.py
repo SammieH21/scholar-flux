@@ -231,7 +231,7 @@ class RecursiveDictProcessor:
             return normalized_field_value
         if self.normalizing_delimiter is not None and isinstance(normalized_field_value, list):
             return (
-                self.normalizing_delimiter.join([value for value in normalized_field_value if value is not None])
+                self.normalizing_delimiter.join([f"{value}" for value in normalized_field_value if value is not None])
                 or None
             )
         return self.unlist(normalized_field_value)

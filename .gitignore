@@ -123,6 +123,7 @@ notes/
 archived/
 /profiling
 **/logs/*
+**/cspell.json
 src/scholar_flux/logs/*
 src/scholar_flux/logs/*
 src/scholar_flux/logs/

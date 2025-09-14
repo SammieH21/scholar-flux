@@ -1,3 +1,5 @@
+import pytest
+from scholar_flux.exceptions import InvalidPathNodeError
 from scholar_flux.utils.paths import (
     ProcessingPath,
     PathNode,
@@ -9,14 +11,31 @@ from scholar_flux.utils.paths import (
 
 
 def test_pathnode_creation_and_properties():
-    path = ProcessingPath(["0", "data", "0", "title"])
-    node = PathNode(path, "Correction: Mitochondrial flux impacts tumor cell survival under hypoxic conditions")
+    path_components = ["0", "data", "0", "title"]
+    node_value = "Correction: Mitochondrial flux impacts tumor cell survival under hypoxic conditions"
+    path = ProcessingPath(path_components)
+    node = PathNode(path, node_value)
     assert node.path == path
     assert node.value.startswith("Correction")
     assert node.path_keys == ProcessingPath(["data", "title"])
     assert node.path_group.components[-1] == "i" or node.path_group.components[-1] == "title"
     assert node.record_index == 0
 
+    node2 = PathNode.to_path_node(path_components, node_value)
+    assert node == node2 and node.value == node.value
+
+def test_invalid_node_creation():
+    with pytest.raises(InvalidPathNodeError):
+        _ = PathNode(None, value = 1) # type:ignore
+
+    with pytest.raises(InvalidPathNodeError):
+        _ = PathNode([1,2,3], value = 1) # type:ignore
+
+    with pytest.raises(InvalidPathNodeError):
+        _ = PathNode.to_path_node(None, value = 1) # type:ignore
+
+    with pytest.raises(InvalidPathNodeError):
+        _ = PathNode.to_path_node(1, value = 1) # type:ignore
 
 def test_pathnode_update_and_equality():
     path = ProcessingPath(["0", "data", "0", "title"])

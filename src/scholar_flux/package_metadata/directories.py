@@ -15,7 +15,7 @@ def get_default_writable_directory(
     """
     This is a helper function that, in case a default directory is not specified
     for caching and logging in package-specific functionality, it can serve as a
-    fallbaack, identifying writeable package directories where required.
+    fallback, identifying writeable package directories where required.
 
     Args:
         directory_type (Literal['package_cache','logs'])

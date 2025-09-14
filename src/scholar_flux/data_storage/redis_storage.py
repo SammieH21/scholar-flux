@@ -24,6 +24,36 @@ else:
 
 
 class RedisStorage(ABCStorage):
+    """
+    Implements the storage methods necessary to interact with Redis with a similar interface as other storage methods.
+    This implementation is designed to use a key-value store as a cache by which data can be stored and retrieved
+    in a relatively straightforward manner similar to the In-Memory Storage.
+
+    Example:
+        ### Import the package and initialize the storage in a dedicated package directory :
+        >>> from scholar_flux.data_storage import RedisStorage
+        ### defaults to connecting to locally (localhost) on the default port for Redis (27017)
+        >>> redis_storage = RedisStorage(namespace='testing_functionality')
+        >>> print(redis_storage)
+        # OUTPUT: RedisStorage(...)
+        ### Adding records to the storage
+        >>> redis_storage.update('record_page_1', {'id':52, 'article': 'A name to remember'})
+        >>> redis_storage.update('record_page_2', {'id':55, 'article': 'A name can have many meanings'})
+        ### Revising and overwriting a record
+        >>> redis_storage.update('record_page_2', {'id':53, 'article': 'A name has many meanings'})
+        >>> redis_storage.retrieve_keys() # retrieves all current keys stored in the cache under the namespace
+        # OUTPUT: ['testing_functionality:record_page_1', 'testing_functionality:record_page_2']
+        >>> redis_storage.retrieve_all() # Will also be empty
+        # OUTPUT: {'testing_functionality:record_page_1': {'id': 52,
+        #           'article': 'A name to remember'},
+        #          'testing_functionality:record_page_2': {'id': 53,
+        #           'article': 'A name has many meanings'}}
+        >>> redis_storage.retrieve('record_page_1') # retrieves the record for page 1
+        # OUTPUT: {'id': 52, 'article': 'A name to remember'}
+        >>> redis_storage.delete_all() # deletes all records from the namespace
+        >>> redis_storage.retrieve_keys() # Will now be empty
+        >>> redis_storage.retrieve_all() # Will also be empty
+    """
 
     DEFAULT_NAMESPACE: str = "SFAPI"
     DEFAULT_REDIS_CONFIG = {"host": "localhost", "port": 6379, "db": 0}
@@ -101,6 +131,8 @@ class RedisStorage(ABCStorage):
         Returns:
             dict: Dictionary of key-value pairs. Keys are original keys,
                 values are JSON deserialized objects.
+        Raises:
+            RedisError: If there is an error during the retrieval of records under the namespace
         """
         try:
             matched_keys = self.retrieve_keys()
@@ -117,6 +149,9 @@ class RedisStorage(ABCStorage):
 
         Returns:
             list: A list of all keys saved under the current namespace.
+
+        Raises:
+            RedisError: If there is an error retrieving the record key
         """
         keys = []
         try:
@@ -137,6 +172,9 @@ class RedisStorage(ABCStorage):
             data (Any): A Python object that will be serialized into JSON format and stored.
                 This includes standard data types like strings, numbers, lists, dictionaries,
                 etc.
+
+        Raises:
+            Redis: If an error occur when attempting to insert or update a record
         """
         try:
             namespace_key = self._prefix(key)
@@ -155,6 +193,8 @@ class RedisStorage(ABCStorage):
         Args:
             key (str): The key used associated with the stored data from cache.
 
+        Raises:
+            RedisError: If there is an error deleting the record
         """
         try:
             namespace_key = self._prefix(key)
@@ -169,6 +209,9 @@ class RedisStorage(ABCStorage):
     def delete_all(self) -> None:
         """
         Delete all records from cache that match the current namespace prefix.
+
+        Raises:
+            RedisError: If there an error occurred when deleting records from the collection
         """
 
         # this function requires a namespace for safety purposes in
@@ -195,8 +238,11 @@ class RedisStorage(ABCStorage):
 
         Returns:
             bool: True if the key is found otherwise False.
+
         Raises:
             ValueError: If provided key is empty or None.
+
+            RedisError: If an error occurs when looking up a key
         """
         try:
             if not key:
@@ -223,6 +269,10 @@ class RedisStorage(ABCStorage):
             host (str): Indicates the location to attempt a connection
             port (int): Indicates the port where the service can be accessed
             verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
+
+        Raises:
+            TimeoutError: If a timeout error occurs when attempting to ping Redis
+            ConnectionError: If a connection cannot be established
         """
         if not redis:
             logger.warning("The redis module is not available")

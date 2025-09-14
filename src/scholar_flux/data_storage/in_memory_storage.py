@@ -17,6 +17,30 @@ class InMemoryStorage(ABCStorage):
         ttl (Optional[int]): Ignored. Included for interface compatibility; not implemented.
         **kwargs (Dict): Ignored. Included for interface compatibility; not implemented.
 
+    Examples:
+        >>> from scholar_flux.data_storage import InMemoryStorage
+        ### defaults to a basic dictionary:
+        >>> memory_storage = InMemoryStorage(namespace='testing_functionality')
+        >>> print(memory_storage)
+        # OUTPUT: InMemoryStorage(...)
+        ### Adding records to the storage
+        >>> memory_storage.update('record_page_1', {'id':52, 'article': 'A name to remember'})
+        >>> memory_storage.update('record_page_2', {'id':55, 'article': 'A name can have many meanings'})
+        ### Revising and overwriting a record
+        >>> memory_storage.update('record_page_2', {'id':53, 'article': 'A name has many meanings'})
+        >>> memory_storage.retrieve_keys() # retrieves all current keys stored in the cache under the namespace
+        # OUTPUT: ['testing_functionality:record_page_1', 'testing_functionality:record_page_2']
+        >>> memory_storage.retrieve_all() # Will also be empty
+        # OUTPUT: {'testing_functionality:record_page_1': {'id': 52,
+        #           'article': 'A name to remember'},
+        #          'testing_functionality:record_page_2': {'id': 53,
+        #           'article': 'A name has many meanings'}}
+        >>> memory_storage.retrieve('record_page_1') # retrieves the record for page 1
+        # OUTPUT: {'id': 52, 'article': 'A name to remember'}
+        >>> memory_storage.delete_all() # deletes all records from the namespace
+        >>> memory_storage.retrieve_keys() # Will now be empty
+        >>> memory_storage.retrieve_all() # Will also be empty
+
     """
 
     def __init__(
@@ -46,28 +70,59 @@ class InMemoryStorage(ABCStorage):
         self.memory_cache: dict = {} | kwargs
 
     def retrieve(self, key: str) -> Optional[Any]:
-        """Attempts to retrieve a response containing the specified cache key within the current namespace"""
+        """
+        Attempts to retrieve a response containing the specified cache key within the current namespace
+
+        Args:
+            key (str): The key used to fetch the stored data from cache.
+
+        Returns:
+            Any: The value returned is deserialized JSON object if successful. Returns None if the key does not exist.
+        """
         namespace_key = self._prefix(key)
         return self.memory_cache.get(namespace_key)
 
     def retrieve_all(self) -> Optional[Dict[str, Any]]:
-        """Retrieves the full dictionary of all cache key-response mappings found within the current namespace"""
+        """
+        Retrieves all cache key-response mappings found within the current namespace
+
+        Returns:
+            A dictionary containing each key-value mapping for all cached data within the same namespace
+        """
         return {k: v for k, v in self.memory_cache.items() if not self.namespace or k.startswith(self.namespace)}
 
     def retrieve_keys(self) -> Optional[List[str]]:
-        """Retrieves the full list of all cache keys found within the current namespace"""
+        """
+        Retrieves the full list of all cache keys found within the current namespace
+
+        Returns:
+            List[str]: The full list of all keys that are currently mapped within the storage
+        """
         return [key for key in self.memory_cache if not self.namespace or key.startswith(self.namespace)] or []
 
     def update(self, key: str, data: Any) -> None:
-        """Attempts to update the data associated with a specific cache key in the namespace"""
+        """
+        Attempts to update the data associated with a specific cache key in the namespace
+
+        Args:
+            key (str): The key of the key-value pair
+            data (Any): The data to be associated with the key
+        """
         namespace_key = self._prefix(key)
         self.memory_cache[namespace_key] = data
 
     def delete(self, key: str) -> None:
-        """Attempts to delete the selected cache key if found within the current namespace"""
+        """
+        Attempts to delete the selected cache key if found within the current namespace
+
+        Args:
+            key (str): The key used associated with the stored data from the dictionary cache.
+        """
         namespace_key = self._prefix(key)
-        del self.memory_cache[namespace_key]
-        logger.debug(f"Key: {key} deleted successfuly")
+        if self.memory_cache.pop(namespace_key, None) is not None:
+            logger.debug(f"Key: {key} deleted successfully")
+        else:
+            logger.info(f"Key: {key}  (namespace = '{self.namespace}') does not exist in cache.")
 
     def delete_all(self) -> None:
         """Attempts to delete all cache keys found within the current namespace"""
@@ -86,10 +141,18 @@ class InMemoryStorage(ABCStorage):
             logger.debug(f"Deleted {n} records.")
 
         except Exception as e:
-            logger.warning(f"An error occured deleting e: {e}")
+            logger.warning(f"An error occurred deleting e: {e}")
 
     def verify_cache(self, key: str) -> bool:
-        """Verifies whether a cache key can be found under the current namespace"""
+        """
+        Verifies whether a cache key exists the current namespace in the in-memory cache
+
+        Args:
+            key (str): The key to lookup in the cache
+
+        Returns:
+            bool: True if the key is found otherwise False.
+        """
         namespace_key = self._prefix(key)
         if not namespace_key:
             raise ValueError(f"Key invalid. Received {key}")
@@ -97,13 +160,18 @@ class InMemoryStorage(ABCStorage):
 
     @classmethod
     def is_available(cls, *args, **kwargs) -> bool:
-        """Helper method that returns True, indicating that dictionary-based storage will always be available"""
+        """
+        Helper method that returns True, indicating that dictionary-based storage will always be available
+
+        Returns:
+            (bool): True to indicate that the dictionary-base cache storage will always be available
+        """
         return True
 
     def __repr__(self) -> str:
         """
-        Helper method for creating an in-memory cache without overloading the repr with the spcifics of
-        what is being cached
+        Helper method for creating an in-memory cache without overloading the repr with the specifics of
+        what is being cached.
         """
         class_name = self.__class__.__name__
         str_memory_cache = f"dict(n={len(self.memory_cache)})"

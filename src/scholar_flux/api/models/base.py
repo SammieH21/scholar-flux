@@ -87,6 +87,19 @@ class BaseAPIParameterMap(BaseModel):
         """
         return self.model_dump()
 
+ 
+    def show_parameters(self) -> list:
+        """
+        Helper method to show the complete list of all parameters that can be found in the current ParameterMap
+
+        Returns:
+            List: The complete list of all universal and api specific parameters corresponding to the current API
+        """
+        parameters = [parameter for parameter in self.model_dump()
+                      if parameter not in ('api_key_required', 'auto_calculate_page', 'api_specific_parameters')]
+        parameters += list(self.api_specific_parameters.keys())
+        return parameters
+
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner"""
         return generate_repr(self)

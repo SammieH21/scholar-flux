@@ -16,9 +16,23 @@ class DataProcessor(ABCDataProcessor):
     Args:
         record_keys: Keys to extract, as a dict of output_key to path, or a list of paths.
         ignore_keys: List of keys to ignore during processing.
-        ignore_keys: List of keys that records should contain during processing.
+        keep_keys: List of keys that records should be retained during processing.
         value_delimiter: Delimiter for joining multiple values.
         regex: Whether to use regex for ignore filtering.
+
+    Examples
+        >>> from scholar_flux.data import DataProcessor
+        >>> data = [{'id':1, 'school':{'department':'NYU Department of Mathematics'}},
+        >>>         {'id':2, 'school':{'department':'GSU Department of History'}},
+        >>>         {'id':3, 'school':{'organization':'Pharmaceutical Research Team'}}]
+        # creating a basic processor
+        >>> data_processor = DataProcessor(record_keys = [['id'], ['school', 'department'], ['school', 'organization']]) # instantiating the class
+        ### The process_page method can then be referenced using the processor as a callable:
+        >>> result = data_processor(data) # recursively flattens and processes by default
+        >>> print(result)
+        # OUTPUT: [{'id': 1, 'school.department': 'NYU Department of Mathematics', 'school.organization': None},
+        #          {'id': 2, 'school.department': 'GSU Department of History', 'school.organization': None},
+        #          {'id': 3, 'school.department': None, 'school.organization': 'Pharmaceutical Research Team'}]
     """
 
     def __init__(
@@ -193,8 +207,8 @@ class DataProcessor(ABCDataProcessor):
         processed_record_dict_list = [
             self.process_record(record_dict)
             for record_dict in parsed_records
-            if (not keep_keys or self.record_filter(record_dict, keep_keys, regex))
-            and not self.record_filter(record_dict, ignore_keys, regex)
+            if self.record_filter(record_dict, keep_keys, regex) is not False
+            and self.record_filter(record_dict, ignore_keys, regex) is not True
         ]
 
         logging.info(f"total included records - {len(processed_record_dict_list)}")
@@ -203,18 +217,22 @@ class DataProcessor(ABCDataProcessor):
         return processed_record_dict_list
 
     def record_filter(
-        self,
-        record_dict: dict[str | int, Any],
-        record_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
-    ) -> bool:
-        """filter records, using regex pattern matching, checking if any of the keys provided in the function call exist"""
+        self, record_dict: dict[str | int, Any], record_keys: Optional[list[str]] = None, regex: Optional[bool] = None
+    ) -> Optional[bool]:
+        """
+        Helper method that filters records using regex pattern matching,
+        checking if any of the keys provided in the function call exist
+        """
+
+        # return true by default if no filters are provided
+        if not record_keys:
+            return None
+
         use_regex = regex if regex is not None else False
-        if record_keys:
-            logger.debug(f"Finding field key matches within processing data: {record_keys}")
-            matches = [nested_key_exists(record_dict, key, regex=use_regex) for key in record_keys] or []
-            return len([match for match in matches if match]) > 0
-        return False
+
+        # search for the presence or absence of a specific key segment in the code
+        logger.debug(f"Finding field key matches within processing data: {record_keys}")
+        return any(key for key in record_keys if key and nested_key_exists(record_dict, key, regex=use_regex))
 
 
 # if __name__ == '__main__':

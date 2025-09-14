@@ -21,7 +21,6 @@ from scholar_flux.utils import try_quote_numeric, try_call
 import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
 
 
 @dataclass
@@ -50,7 +49,7 @@ class PathNodeIndex:
         """
         if not isinstance(simplifier, PathSimplifier):
             raise PathNodeIndexError(
-                f"The argument, simplifier, expected a PathSimplifier. Recieved {type(simplifier)}"
+                f"The argument, simplifier, expected a PathSimplifier. Received {type(simplifier)}"
             )
         return simplifier
 
@@ -77,7 +76,7 @@ class PathNodeIndex:
         consolidating paths into a flattened dictionary.
 
         Returns:
-            list[PathNode]: list of pathnodes created from a dictionary
+            list[PathNode]: list of PathNodes created from a dictionary
         """
 
         return cls(PathNodeMap({path: PathNode(path, value) for path, value in path_mappings.items()}))
@@ -106,7 +105,7 @@ class PathNodeIndex:
             Note that the provided path must match a prefix/ancestor path of an indexed path
             exactly to be considered a match
         Returns:
-            dict[PrcoessingPath, PathNode]: All paths equal to or containing sub-paths
+            dict[ProcessingPath, PathNode]: All paths equal to or containing sub-paths
                                             exactly matching the specified path
         """
         return list(self.index.filter(path).values())
@@ -116,7 +115,7 @@ class PathNodeIndex:
         Args:
             pattern (Union[str, re.Pattern]) pattern to search for
         Returns:
-            dict[PrcoessingPath, PathNode]: all paths and nodes that match the specified pattern
+            dict[ProcessingPath, PathNode]: all paths and nodes that match the specified pattern
         """
 
         if not isinstance(pattern, (str, re.Pattern)):
@@ -268,7 +267,7 @@ class PathNodeIndex:
         Args:
             json_records (dict[str,Any] | list[dict[str,Any]]): The JSON structure to normalize. If this structure
                          is a dictionary, it will first be nested in a list as a single element before processing.
-            combine_keys: bool: This function determines whetehr or not to combine keys that are likely to
+            combine_keys: bool: This function determines whether or not to combine keys that are likely to
                                 denote names and corresponding values/counts. Default is True
             object_delimiter: This delimiter determines whether to join terminal paths in lists under the same key
                               and how to collapse the list into a singular string. If empty, terminal lists
@@ -290,10 +289,10 @@ class PathNodeIndex:
 
         logger.info(f"Discovered {len(path_mappings)} terminal paths")
         path_node_index = cls.from_path_mappings(path_mappings)
-        logger.info("Created path index succesfully from the provided path mappings")
+        logger.info("Created path index successfully from the provided path mappings")
         if combine_keys:
             logger.info("Combining keys..")
             path_node_index.combine_keys()
         normalized_records = path_node_index.simplify_to_rows(object_delimiter=object_delimiter, parallel=parallel)
-        logger.info("Successfully noralized {len(normalized_records)} records")
+        logger.info(f"Successfully normalized {len(normalized_records)} records")
         return normalized_records

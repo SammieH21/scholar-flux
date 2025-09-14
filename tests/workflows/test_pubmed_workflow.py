@@ -1,11 +1,38 @@
 from scholar_flux.api.workflows import PubMedSearchStep, PubMedFetchStep, SearchWorkflow, WorkflowResult, StepContext
 from scholar_flux.api import SearchAPI, SearchCoordinator, ProcessedResponse
+from requests import Response
+from unittest.mock import MagicMock
 import requests_mock
+import pytest
 
+
+def test_pubmed_workflow_context(caplog):
+    response = Response()
+    response.status_code = 200
+
+    metadata = MagicMock()
+    metadata.result = {}
+
+    search_step=PubMedSearchStep()
+    fetch_step=PubMedFetchStep()
+    ctx = StepContext(step_number = 1,
+                      step = search_step,
+                      result = ProcessedResponse(response = response, metadata=metadata))
+
+    with pytest.raises(TypeError):
+        _ = fetch_step.pre_transform(ctx)
+
+    assert f"The metadata from the pubmed search is not in the expected format" in caplog.text
 
 def test_direct_pubmed_workflow(
-    mock_pubmed_search_endpoint, mock_pubmed_fetch_endpoint, mock_pubmed_search_data, mock_pubmed_fetch_data
+    mock_pubmed_search_endpoint,
+    mock_pubmed_fetch_endpoint,
+    mock_pubmed_search_data,
+    mock_pubmed_fetch_data,
+    xml_parsing_dependency,
 ):
+    if not xml_parsing_dependency:
+        pytest.skip("Cannot test the direct pubmed workflow without the xmltodict library. Skipping...")
 
     pubmed_api_key = "this_is_a_mocked_api_key"
     with requests_mock.Mocker() as m:
@@ -40,8 +67,14 @@ def test_direct_pubmed_workflow(
 
 
 def test_workflow_default(
-    mock_pubmed_search_endpoint, mock_pubmed_fetch_endpoint, mock_pubmed_search_data, mock_pubmed_fetch_data
+    mock_pubmed_search_endpoint,
+    mock_pubmed_fetch_endpoint,
+    mock_pubmed_search_data,
+    mock_pubmed_fetch_data,
+    xml_parsing_dependency,
 ):
+    if not xml_parsing_dependency:
+        pytest.skip("Cannot test the direct pubmed workflow without the xmltodict library. Skipping...")
 
     pubmed_api_key = "this_is_a_mocked_api_key"
     with requests_mock.Mocker() as m:

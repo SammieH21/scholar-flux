@@ -29,15 +29,41 @@ logger = logging.getLogger(__name__)
 
 
 class EncryptionPipelineFactory:
+    """
+    Helper class used to create a factory for encrypting and decrypting session cache and pipelines using a secret key.
+
+    Note that pickle in common uses carries the potential for vulnerabilities when reading untrusted serialized
+    data and can otherwise perform arbitrary code execution. This implementation makes use of a safe serializer
+    that uses a fernet generated secret_key to validate the serialized data before reading and decryption.
+    This prevents errors and halts reading the cached data in case of modification via a malicious source.
+
+    The EncryptionPipelineFactory can be used for generalized use cases requiring encryption outside scholar_flux
+    and implemented as follows:
+
+        >>> from scholar_flux.sessions import EncryptionPipelineFactory
+        >>> from requests_cache import CachedSession, CachedResponse
+        >>> encryption_pipeline_factory = EncryptionPipelineFactory()
+        >>> encryption_serializer = encryption_pipeline_factory()
+        >>> cached_session = CachedSession('filesystem', serializer = encryption_serializer)
+        >>> endpoint = "https://docs.python.org/3/library/typing.html"
+        >>> response = cached_session.get(endpoint)
+        >>> cached_response = cached_session.get(endpoint)
+        >>> assert isinstance(cached_response, CachedResponse)
+    """
+
     def __init__(self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ""):
         """
-        Helper class used to create a factory for encrypting and decrypting pipelines
-        using a secret key.
+
+
+        Initializes the EncryptionPipelineFactory class that generates an encryption pipeline
+        for use with CachedSession objects.
 
         If no secret_key is provided, the code attempts to retrieve a secret key from the
         SCHOLAR_FLUX_CACHE_SECRET_KEY environment variable from the config.
 
         Otherwise a random Fernet key is generated and used to encrypt the session.
+
+
 
         Args:
             secret_key Optional[str | bytes]: The key to use for encrypting and decrypting
@@ -139,15 +165,3 @@ class EncryptionPipelineFactory:
     def __call__(self) -> SerializerPipeline:
         """Helper method for being able to create the serializer pipeline by calling the factory object"""
         return self.create_pipeline()
-
-
-# # Example usage
-# if __name__ == "__main__":
-#     from requests_cache import CachedSession
-#
-#     factory = EncryptionPipelineFactory()
-#     serializer = factory.create_pipeline()
-#     session = CachedSession(backend='filesystem',serializer=serializer)
-#     response = session.get("https://docs.python.org/3/library/typing.html")
-#     cached_response = session.get("https://docs.python.org/3/library/typing.html")
-#

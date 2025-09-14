@@ -40,9 +40,13 @@ else:
 if TYPE_CHECKING or SQLALCHEMY_AVAILABLE:
 
     class Base(DeclarativeBase):
+        """Helper class from which future SQL tables can be defined from"""
+
         pass
 
     class CacheTable(Base):
+        """Table that implements caching in a manner similar to a dictionary with key-cache data pairs"""
+
         __tablename__ = "cache"
         id = Column(Integer, primary_key=True, autoincrement=True)
         key = Column(String, unique=True, nullable=False)
@@ -55,6 +59,42 @@ else:
 
 
 class SQLAlchemyStorage(ABCStorage):
+    """
+    Implements the storage methods necessary to interact with SQLite3 in addition to other SQL flavors via sqlalchemy.
+    This implementation is designed to use a relational database as a cache by which data can be stored and retrieved
+    in a relatively straightforward manner that associates records in key-value pairs similar to the In-Memory Storage.
+
+    Note: this table uses the structure previously defined in the CacheTable to store records in a structured manner:
+        id: Automatically generated - identifies the unique record in the table
+        key: Is used to associate a specific cached record with a short human-readable (or hashed) string
+        cache: The JSON data associated with the record. To store the data, any nested, non-serializable data is first
+               encoded before being unstructured and stored. On retrieving the data, the JSON string is decoded
+               and restructured in order to return the original object.
+
+    The SQLAlchemyStorage can be initialized as follows:
+
+        ### Import the package and initialize the storage in a dedicated package directory :
+        >>> from scholar_flux.data_storage import SQLAlchemyStorage
+        >>> sql_storage = SQLAlchemyStorage(namespace='testing_functionality')
+        >>> print(sql_storage)
+        # OUTPUT: SQLAlchemyStorage(...)
+        ### Adding records to the storage
+        >>> sql_storage.update('record_page_1', {'id':52, 'article': 'A name to remember'})
+        >>> sql_storage.update('record_page_2', {'id':55, 'article': 'A name can have many meanings'})
+        ### Revising and overwriting a record
+        >>> sql_storage.update('record_page_2', {'id':53, 'article': 'A name has many meanings'})
+        >>> sql_storage.retrieve_keys() # retrieves all current keys stored in the cache under the namespace
+        >>> sql_storage.retrieve_all()
+        # OUTPUT: {'testing_functionality:record_page_1': {'id': 52,
+        #           'article': 'A name to remember'},
+        #          'testing_functionality:record_page_2': {'id': 53,
+        #           'article': 'A name has many meanings'}}
+        # OUTPUT: ['testing_functionality:record_page_1', 'testing_functionality:record_page_2']
+        >>> sql_storage.retrieve('record_page_1') # retrieves the record for page 1
+        # OUTPUT: {'id': 52, 'article': 'A name to remember'}
+        >>> sql_storage.delete_all() # deletes all records from the namespace
+        >>> sql_storage.retrieve_keys() # Will now be empty
+    """
 
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_CONFIG: Dict[str, Any] = {
@@ -119,8 +159,9 @@ class SQLAlchemyStorage(ABCStorage):
             try:
                 namespace_key = self._prefix(key)
                 record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
+                structured_data = self._deserialize_data(record.cache) if record else None
                 if record:
-                    return CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
+                    return structured_data
                 return None
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error retrieving key {key}: {e}")
@@ -139,7 +180,7 @@ class SQLAlchemyStorage(ABCStorage):
             try:
                 records = session.query(CacheTable).all()
                 cache = {
-                    str(record.key): CacheDataEncoder.decode(self.converter.structure(record.cache, dict))
+                    str(record.key): self._deserialize_data(record.cache) if record else None
                     for record in records
                     if not self.namespace or str(record.key).startswith(self.namespace)
                 }
@@ -180,12 +221,12 @@ class SQLAlchemyStorage(ABCStorage):
         with self.Session() as session:
             try:
                 namespace_key = self._prefix(key)
-                structured_data = self.converter.unstructure(CacheDataEncoder.encode(data))
+                unstructured_data = self._serialize_data(data)
                 record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
                 if record:
-                    record.cache = structured_data
+                    record.cache = unstructured_data
                 else:
-                    record = CacheTable(key=namespace_key, cache=structured_data)
+                    record = CacheTable(key=namespace_key, cache=unstructured_data)
                     session.add(record)
                 session.commit()
 
@@ -228,6 +269,42 @@ class SQLAlchemyStorage(ABCStorage):
             except exc.SQLAlchemyError as e:
                 logger.error(f"Error deleting all records: {e}")
                 session.rollback()
+
+    def _serialize_data(self, record_data: Any) -> Any:
+        """
+        Helper method for serializing and encoding cached data.
+        The data is first encoded, identifying nested structures that need
+        to be encoded recursively. If a value is already in a serializable format,
+        then the record is left as is. The data is finally unstructured and returned.
+
+        Returns:
+            The serialized version of the input data
+        """
+        encoded_record_data = CacheDataEncoder.encode(record_data)
+        serialized_data = self.converter.unstructure(encoded_record_data)
+        return serialized_data
+
+    def _deserialize_data(self, record_data: Any) -> Any:
+        """
+        Handles the serialization and deserialization of the SQLCacheStorage. This
+        implementation only attempts to structure the data in the case where it is a
+        dictionary or list, as the CacheTable's cache column implements the JSON column schema.
+        All other types are decoded and returned as is.
+        """
+        if not record_data:
+            return record_data
+
+        if isinstance(record_data, list):
+            record_type: Optional[type] = list
+        elif isinstance(record_data, dict):
+            record_type = dict
+        else:
+            record_type = None
+
+        structured_record_data = self.converter.structure(record_data, record_type) if record_type else record_data
+
+        deserialized_data = CacheDataEncoder.decode(structured_record_data)
+        return deserialized_data
 
     def verify_cache(self, key: str) -> bool:
         """

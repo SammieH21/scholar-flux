@@ -13,8 +13,17 @@ logger = logging.getLogger(__name__)
 
 class PathDataProcessor(ABCDataProcessor):
     """
-    Uses custom path processing to process a list of raw page record dict data from
-    the API response based on discovered record keys.
+    Uses a custom implementation of a sparse trie base structure that uses terminal paths and indexed_nodes
+    to processing to process a list of raw page record dict data from the API response based on discovered record keys.
+
+    Example:
+        >>> from scholar_flux.data import PathDataProcessor
+        >>> path_data_processor = PathDataProcessor() # instantiating the class
+        >>> data = [{'id':1, 'a':{'b':'c'}}, {'id':2, 'b':{'f':'e'}}, {'id':2, 'c':{'h':'g'}}]
+        ### The process_page method can then be referenced using the processor as a callable:
+        >>> result = path_data_processor(data) # recursively flattens and processes by default
+        >>> print(result)
+        # OUTPUT: [{'id': '1', 'a.b': 'c'}, {'id': '2', 'b.f': 'e'}, {'id': '2', 'c.h': 'g'}]
     """
 
     def __init__(

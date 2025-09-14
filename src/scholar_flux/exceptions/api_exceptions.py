@@ -1,9 +1,30 @@
 # api_exceptions.py
 import requests
+from json import JSONDecodeError
+from typing import Optional
+import logging
+logger = logging.getLogger(__name__)
 
 
 class APIException(Exception):
     """Base exception for API-related errors."""
+
+    pass
+
+
+class MissingAPIKeyException(ValueError):
+    """Exception raised when a blank string is provided yet invalid"""
+
+    pass
+
+
+class MissingAPISpecificParameterException(ValueError):
+    """Exception raised when an API specific parameter is required but not provided in the config"""
+
+    pass
+
+class MissingProviderException(ValueError):
+    """Exception raised when an API specific parameter is required but not provided in the config"""
 
     pass
 
@@ -69,16 +90,20 @@ class RequestCacheException(APIException):
 class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""
 
-    def __init__(self, response: requests.Response, *args, **kwargs):
-        self.response = response
-        self.status_code = response.status_code
-        self.error_details = self.extract_error_details(response)
+    def __init__(self, response: Optional[requests.Response] = None, *args, **kwargs):
 
-        error_message = f"HTTP error occurred: {response} - Status code: {self.status_code}"
+        self.response: Optional[requests.Response] = response if isinstance(response, requests.Response) else None
+        self.error_details: str = self.extract_error_details(self.response) if self.response is not None else ''
 
-        if self.error_details:
-            error_message += f" - Details: {self.error_details}"
+        if self.response is not None:
+            error_message = f"HTTP error occurred: {response} - Status code: {self.response.status_code}."
 
+            if self.error_details:
+                error_message += f" Details: {self.error_details}"
+        else:
+            error_message = f"An error occurred when making the request - Received a nonresponse: {type(response)}"
+
+        logger.error(error_message)
         super().__init__(error_message, *args, **kwargs)
 
     @staticmethod
@@ -86,7 +111,7 @@ class InvalidResponseException(RequestFailedException):
         """Extracts detailed error message from response body."""
         try:
             return response.json().get("error", {}).get("message", "")
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, AttributeError, JSONDecodeError):
             return ""
 
 

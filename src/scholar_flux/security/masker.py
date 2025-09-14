@@ -1,4 +1,4 @@
-from typing import List, Optional, Set, Any
+from typing import List, Optional, Set, Any, MutableSequence
 from pydantic import SecretStr
 from scholar_flux.security.patterns import (
     MaskingPattern,
@@ -7,10 +7,45 @@ from scholar_flux.security.patterns import (
     StringMaskingPattern,
 )
 from scholar_flux.security.utils import SecretUtils
+from scholar_flux.utils.repr_utils import generate_repr
 
 
 class SensitiveDataMasker:
-    """Container for masking patterns, each with a name."""
+    """
+    The main interface used by the scholar_flux API for masking all text identified as sensitive.
+    This class is used by scholar_flux to ensure that all sensitive text sent to the scholar_flux.logger
+    is masked.
+
+    The SensitiveDataMasker operates through the registration of patterns that identify the text to mask.
+
+    Components:
+        - KeyMaskingPattern: identifies specific keys and regex patterns that will signal text to filter
+        - StringMaskingPattern: identifies strings to filter either by fixed or pattern matching
+        - MaskingPatternSet: A customized set accepting only subclasses of MaskingPatterns that specify
+                             the rules for filtering text of sensitive fields.
+
+    By default, this structure implements masking for email addresses, API keys, bearer tokens, etc.
+    that are identified as sensitive parameters/secrets.
+
+    Args:
+        register_defaults (bool): Determines whether or not to add the patterns that filter API keys
+                                  email parameters and auth bearers.
+
+    Examples:
+        >>> from scholar_flux.security import SensitiveDataMasker # imports the class
+        >>> masker = SensitiveDataMasker(register_defaults = True) # initializes a masker with defaults
+        >>> masked = masker.mask_text("'API_KEY' = 'Thisshouldbemasked', email='asecretemail@address.com'")
+        >>> print(masked)
+        # Output: "'API_KEY' = '***', email='***'"
+
+        >>> new_secret = "This string should be filtered"
+        ### specifies a new secret to filter - uses regex by default
+        >>> masker.add_sensitive_string_patterns(name='custom', patterns=new_secret, use_regex = False)
+        # applying the filter
+        >>> masked = masker.mask_text(f"The following string should be masked: {new_secret}")
+        >>> print(masked)
+        # Output: "The following string should be masked: ***"
+    """
 
     def __init__(self, register_defaults: bool = True):
         """
@@ -24,18 +59,23 @@ class SensitiveDataMasker:
             self.patterns (Set[MaskingPattern]): Indicates the full list of patterns that will be applied
                                                  when scrubbing text of sensitive fields using masking patterns
         """
-        self.patterns: Set[MaskingPattern] = MaskingPatternSet()
-        self._register_api_defaults()
+        self.patterns: set[MaskingPattern] = MaskingPatternSet()
+
+        if register_defaults:
+            self._register_api_defaults()
 
     def add_pattern(self, pattern: MaskingPattern) -> None:
         """adds a pattern to the self.patterns attribute"""
         self.patterns.add(pattern)
 
-    def update(self, pattern: MaskingPattern | set[MaskingPattern]) -> None:
+    def update(self,
+               pattern: MaskingPattern |
+               Set[MaskingPattern] | Set[KeyMaskingPattern] | Set[StringMaskingPattern] |
+               MutableSequence[MaskingPattern | KeyMaskingPattern | StringMaskingPattern]) -> None:
         """adds a pattern to the self.patterns attribute"""
-        if not isinstance(pattern, set):
-            pattern = {pattern}
-        self.patterns.update(pattern)
+        
+        pattern_set = {pattern} if not isinstance(pattern, (MutableSequence, set)) else pattern
+        self.patterns.update(pattern_set)
 
     def remove_pattern_by_name(self, name: str) -> int:
         """Remove patterns by name, return count of removed patterns."""
@@ -178,7 +218,7 @@ class SensitiveDataMasker:
         """
         if not isinstance(text, str):
             return text
-        result = text
+        result = SecretUtils.unmask_secret(text)
         for pattern in self.patterns:
             result = pattern.apply_masking(result)
         return result
@@ -194,7 +234,7 @@ class SensitiveDataMasker:
         Args:
             obj (Any): An object to attempt to unmask if it is a secret string
         Returns:
-            obj (SecretStr): A SecretStr representation of the oiginal object
+            obj (SecretStr): A SecretStr representation of the original object
         """
         return SecretUtils.mask_secret(obj)
 
@@ -212,3 +252,7 @@ class SensitiveDataMasker:
 
         """
         return SecretUtils.unmask_secret(obj)
+
+    def __repr__(self) -> str:
+        """Helper method for creating a string representation of the SensitiveDataMasker in an easy to read manner."""
+        return generate_repr(self, show_value_attributes=False)

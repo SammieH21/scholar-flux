@@ -3,16 +3,17 @@
 from enum import Enum
 from typing import Optional
 from scholar_flux.api.workflows.search_workflow import SearchWorkflow
+from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.workflows.pubmed_workflow import PubMedSearchStep, PubMedFetchStep
 
 
 class WORKFLOW_DEFAULTS(Enum):
     """Enumerated class specifying default workflows for different providers"""
 
-    PUBMED = SearchWorkflow(
+    pubmed = SearchWorkflow(
         steps=[
-            PubMedSearchStep(provider_name="PUBMED"),
-            PubMedFetchStep(provider_name="PUBMED_EFETCH"),
+            PubMedSearchStep(provider_name="pubmed"),
+            PubMedFetchStep(provider_name="pubmedefetch"),
         ]
     )
 
@@ -29,12 +30,8 @@ class WORKFLOW_DEFAULTS(Enum):
             SearchWorkflow: instance configuration for the workflow if it exists
         """
 
-        if workflow_info := getattr(cls, workflow_name.upper().replace("_", ""), None):
+        if workflow_info := getattr(cls, ProviderConfig._normalize_name(workflow_name), None):
             return workflow_info.value
-
-        if workflow_info := getattr(cls, workflow_name.upper(), None):
-            return workflow_info.value
-
         return None
 
 

@@ -24,7 +24,7 @@ T = TypeVar("T", bound=Hashable)
 
 def quote_if_string(value: Any) -> Any:
     """
-    Attemptt to quote string values to distinguish them from object text in class reprs.
+    Attempt to quote string values to distinguish them from object text in class representations.
     Args:
         value (Any): a value that is quoted only if it is a string
     Returns:
@@ -51,7 +51,7 @@ def try_quote_numeric(value: Any) -> Optional[str]:
 def quote_numeric(value: Any) -> str:
     """
     Attempts to quote as a numeric value and returns the original value if successful
-    Otherwise returns the orignal element
+    Otherwise returns the original element
     Args:
         value (Any): a value that is quoted only if it is a numeric string or an integer
     Returns:
@@ -144,10 +144,10 @@ def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
             match = [key_to_find]
 
         if match:
-            keytype = "pattern" if regex is True else "key"
-            logger.debug(f"Found match for {keytype}: {key_to_find}; Fields: {match}")
+            key_type = "pattern" if regex is True else "key"
+            logger.debug(f"Found match for {key_type}: {key_to_find}; Fields: {match}")
             return True
-        for key, value in obj.items():
+        for value in obj.values():
             if nested_key_exists(value, key_to_find, regex):
                 return True
     elif isinstance(obj, list):
@@ -305,7 +305,7 @@ def unlist_1d(current_data: Tuple | List) -> Any:
 
 
     Args:
-        current_data (Tuple | List): An object potentiially unlist if it contains a single element.
+        current_data (Tuple | List): An object potentially unlist if it contains a single element.
 
     Returns:
         Optional[Any]: The unlisted object if it comes from a single element list/tuple,
@@ -391,6 +391,6 @@ def try_call(
         if logger:
             logger.log(
                 log_level or logging.WARNING,
-                f"An error occured in the call to the function argument, '{function_name}', args={args}, kwargs={kwargs}: {e}",
+                f"An error occurred in the call to the function argument, '{function_name}', args={args}, kwargs={kwargs}: {e}",
             )
     return default

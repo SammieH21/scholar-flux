@@ -1,3 +1,84 @@
+# /utils/paths
+"""
+
+The scholar_flux.utils.paths module contains a series of related classes that serve the purpose of providing a unified
+interface for processing json paths in a manner that simplifies the implementation of nested values into paths
+leading to terminal values (keys) and the terminal elements (values).
+
+Modules:
+    - processing_paths.py: Implements the ProcessingPath class which provides the basic building block for defining the
+                           nested path location where terminal values are stored in structured json data consisting of
+                           dictionaries, lists, and other nested elements.
+    - path_nodes.py:       Implements a PathNode class where processing_paths are paired with a `value` at its `path`
+    - path_discoverer.py:  Defines the PathDiscoverer that recursively finds terminal paths up to a specific max depth.
+                           This implementation is designed to create a dictionary by processing a json data structure to
+                           create a new flattened dictionary consisting of terminal ProcessingPaths (keys) and their
+                           associated data at these terminal paths (values).
+    - path_node_map:       Defines validated PathNodeMap data structure built off a user dict to efficiently store
+                           nodes found at terminal paths. This mapping also uses a generated a cache that uses `weakref`
+                           to keep a running mapping of all terminal nodes.
+    - path_index:          Implements a PathNodeIndex data structure used to orchestrate the processing path-based
+                           sparse trie data structures that take a JSON  and extract, flatten, and simplify the original
+                           data structure to create an easy to process flattened dictionary.
+    - path_simplifier      Implements the PathSimplifier utility class that takes a PathNodeIndex as input, identifies
+                           unique paths (ignoring index) and simplifying the path into a flattened list that outputs
+                           joined paths collapsed into string or flattened into a list.
+
+Examples:
+    >>> from scholar_flux.utils import PathNodeIndex
+    >>> record_test_json: list[dict] = [
+    >>>         {
+    >>>             "authors": {
+    >>>                 "principle_investigator": "Dr. Smith",
+    >>>                 "assistant": "Jane Doe"
+    >>>             },
+    >>>             "doi": "10.1234/example.doi",
+    >>>             "title": "Sample Study",
+    >>>             "abstract": ["This is a sample abstract.", "keywords: 'sample', 'abstract'"],
+    >>>             "genre": {
+    >>>                 "subspecialty": "Neuroscience"
+    >>>             },
+    >>>             "journal": {
+    >>>                 "topic": "Sleep Research"
+    >>>             }
+    >>>         },
+    >>>         {
+    >>>             "authors": {
+    >>>                 "principle_investigator": "Dr. Lee",
+    >>>                 "assistant": "John Roe"
+    >>>             },
+    >>>             "doi": "10.5678/example2.doi",
+    >>>             "title": "Another Study",
+    >>>             "abstract": "Another abstract.",
+    >>>             "genre": {
+    >>>                 "subspecialty": "Psychiatry"
+    >>>             },
+    >>>             "journal": {
+    >>>                 "topic": "Dreams"
+    >>>             }
+    >>>         }
+    >>>     ]
+    ### Create a new index to process the current json
+    >>> path_node_index = PathNodeIndex()
+    # orchestrate the pipeline of identifying terminal paths and nodes, followed by frmatting and flattening
+    # the paths used to arrive at each value at the end of the terminal path.
+    >>> normalized_records = path_node_index.normalize_records(record_test_json, object_delimiter = None)
+    >>> print(normalized_records)
+    # OUTPUT: [{'abstract': 'Another abstract.',
+                'doi': '10.5678/example2.doi',
+                'title': 'Another Study',
+                'authors.assistant': 'John Roe',
+                'authors.principle_investigator': 'Dr. Lee',
+                'genre.subspecialty': 'Psychiatry',
+                'journal.topic': 'Dreams'},
+               {'doi': '10.1234/example.doi',
+                'title': 'Sample Study',
+                'abstract': ['This is a sample abstract.', "keywords: 'sample', 'abstract'"],
+                'authors.assistant': 'Jane Doe',
+                'authors.principle_investigator': 'Dr. Smith',
+                'genre.subspecialty': 'Neuroscience',
+                'journal.topic': 'Sleep Research'}]
+"""
 from scholar_flux.utils.paths.processing_paths import ProcessingPath
 from scholar_flux.utils.paths.path_nodes import PathNode
 from scholar_flux.utils.paths.path_simplification import PathSimplifier

@@ -1,5 +1,6 @@
 from __future__ import annotations
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, field_validator
+from scholar_flux.api.models import ProviderConfig
 from typing import Dict, Any, Optional, List
 from typing_extensions import Self
 import logging
@@ -26,20 +27,22 @@ class WorkflowStep(BaseWorkflowStep):
     )
     description: Optional[str] = None
 
+    @field_validator('provider_name', mode = 'after')
+    def format_provider_name(cls, v) -> str:
+        if isinstance(v, str):
+            v = ProviderConfig._normalize_name(v)
+        return v
+
     def pre_transform(
         self,
         ctx: Optional[StepContext] = None,
         provider_name: Optional[str] = None,
         search_parameters: Optional[dict] = None,
         config_parameters: Optional[dict] = None,
-    ) -> Self:
+    ) -> Self: 
 
         if ctx is not None:
-            if not isinstance(ctx, StepContext):
-                raise TypeError(
-                    "Expected the ctx (context) to be a StepContext or None, " "Received: {type(ctx).__name__}"
-                )
-
+            self._verify_context(ctx)
             provider_name = provider_name if provider_name is not None else ctx.step.provider_name
             search_parameters = (ctx.step.search_parameters if ctx else {}) | (search_parameters or {})
             config_parameters = (ctx.step.config_parameters if ctx else {}) | (config_parameters or {})
@@ -53,6 +56,7 @@ class WorkflowStep(BaseWorkflowStep):
         )
 
     def post_transform(self, ctx: StepContext, *args, **kwargs) -> StepContext:
+        self._verify_context(ctx)
         return ctx  # Identity: returns context unchanged
 
 

@@ -5,6 +5,7 @@ import requests_cache
 from typing import Optional, Type, Literal, TYPE_CHECKING
 from pathlib import Path
 import logging
+from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions.util_exceptions import (
     SessionCreationError,
     SessionConfigurationError,
@@ -30,8 +31,19 @@ class SessionManager(session_models.BaseSessionManager):
     Args:
         user_agent: The User-Agent to be passed as a parameter in the creation of the session object
 
-    Attributes:
-        user_agent: The User-Agent to be used when sending requests when creating the session
+    Example:
+        >>> from scholar_flux.sessions import SessionManager
+        >>> from scholar_flux.api import SearchAPI
+        >>> from requests import Session
+        >>> session_manager = SessionManager(user_agent='scholar_flux_user_agent')
+        ### Creating the session object
+        >>> session = session_manager.configure_session()
+        ### Which is also equivalent to:
+        >>> session = session_manager()
+        ### This implementation returns a requests.session object which is compatible with the SearchAPI:
+        >>> assert isinstance(session, Session)
+        >>> SearchAPI(query='history of software design', session = session)
+        # OUTPUT: True
     """
 
     def __init__(self, user_agent: Optional[str] = None) -> None:
@@ -46,7 +58,7 @@ class SessionManager(session_models.BaseSessionManager):
         Configures a basic requests session with the provided user_agent attribute
 
         Returns:
-            requests.Session: a regular requests.seession object with the default settings and an optional user header.
+            requests.Session: a regular requests.session object with the default settings and an optional user header.
         """
         session = requests.Session()
         if self.user_agent:
@@ -63,18 +75,43 @@ class SessionManager(session_models.BaseSessionManager):
             (str): a string representation of the class
         """
         nm = __class__.__name__
-        string_reprentation = f"{nm}(user_agent='{self.user_agent}')"
-        return string_reprentation
+        string_representation = f"{nm}(user_agent='{self.user_agent}')"
+        return string_representation
 
 
 class CachedSessionManager(SessionManager):
+    """
+    This session manager is a wrapper around requests-cache and enables the creation of a requests-cache session
+    with defaults that abstract away the complexity of cached session management.
+
+    The purpose of this class is to abstract away the complexity in cached sessions by providing reasonable defaults
+    that are well integrated with the scholar_flux package The requests_cache package is built off of the base requests
+    library and similarly be injected into the scholar_flux SearchAPI for making cached queries.
+
+    Examples:
+        >>> from scholar_flux.sessions import CachedSessionManager
+        >>> from scholar_flux.api import SearchAPI
+        >>> from requests_cache import CachedSession
+        ### creates a sqlite cached session in a package-writable directory
+        >>> session_manager = CachedSessionManager(user_agent='scholar_flux_user_agent')
+        >>> cached_session = session_manager() # defaults to a sqlite session in the package directory
+        ### Which is equivalent to:
+        >>> cached_session = session_manager.configure_session() # defaults to a sqlite session in the package directory
+        >>> assert isinstance(cached_session, CachedSession)
+        ### Similarly to the basic requests.session, this can be dependency injected in the SearchAPI:
+        >>> SearchAPI(query = 'history of software design', session = cached_session)
+
+    """
 
     def __init__(
         self,
         user_agent: Optional[str] = None,
         cache_name: str = "search_requests_cache",
         cache_directory: Optional[Path | str] = None,
-        backend: Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"] = "sqlite",
+        backend: (
+            Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"]
+            | requests_cache.BaseCache
+        ) = "sqlite",
         serializer: Optional[
             str | requests_cache.serializers.pipeline.SerializerPipeline | requests_cache.serializers.pipeline.Stage
         ] = None,
@@ -82,9 +119,7 @@ class CachedSessionManager(SessionManager):
         raise_on_error: bool = False,
     ) -> None:
         """
-        This session manager is a wrapper around requests-cache and enables the
-        creation of a requests-cache session with defautls that abstract away
-        the complexity of session management. The initialization of the
+        The initialization of the
         CachedSessionManager defines the options that are later passed to
         the configure_session method which returns a session object.
 
@@ -97,9 +132,11 @@ class CachedSessionManager(SessionManager):
                                            package_cache folder. If a PermissionError occurs, the
                                            package attempts to write to a .scholarly_flux package in the
                                            home directory
-            backend (str): Defines the backend to use when creating a requests-cache session. the default is sqlite.
-                           Other backends include `memory`, `filesystem`, `mongodb`, `redis`, `gridfs`, and `dynamodb`.
-                           for more information, visit https://requests-cache.readthedocs.io/en/stable/user_guide/backends.html#choosing-a-backend
+            backend (str | requests.BaseCache): Defines the backend to use when creating a requests-cache session. the default is sqlite.
+                                                  Other backends include `memory`, `filesystem`, `mongodb`, `redis`, `gridfs`, and `dynamodb`.
+                                                  Users can enter in direct cache storage implementations from requests_cache, including
+                                                  RedisCache, MongoCache, SQLiteCache, etc. For more information, visit:
+                                                          https://requests-cache.readthedocs.io/en/stable/user_guide/backends.html#choosing-a-backend
             serializer (Optional[str | requests_cache.serializers.pipeline.SerializerPipeline| requests_cache.serializers.pipeline.Stage]):
                                           Defines the method used
             expire_after (Optional[int|float|str|datetime.datetime|datetime.timedelta]): Sets the expiration time after which cached requests expire
@@ -145,7 +182,7 @@ class CachedSessionManager(SessionManager):
         return self.config.cache_path
 
     @property
-    def backend(self) -> str:
+    def backend(self) -> str | requests_cache.BaseCache:
         """Makes the config's backend storage device for requests-cache accessible from the CachedSessionManager"""
         return self.config.backend
 
@@ -167,22 +204,24 @@ class CachedSessionManager(SessionManager):
 
     @classmethod
     def get_cache_directory(
-        cls, cache_directory: Optional[Path | str] = None, backend: Optional[str] = None
+        cls, cache_directory: Optional[Path | str] = None, backend: Optional[str | requests_cache.BaseCache] = None
     ) -> Optional[Path]:
         """
         Determines what directory will be used for session cache storage, favoring an explicitly assigned cache_directory if provided.
+        Note that this method will only attempt to find a cache directory if one is needed, such as when choosing to use
+        a "filesystem" or "sqlite" database using a string.
 
         Resolution order (highest to lowest priority):
             1. Explicit `cache_directory` argument
             2. `config_settings.config['CACHE_DIRECTORY']` (can be set via environment variable)
-            3. Package or home directory defaults (depending on writability)
+            3. Package or home directory defaults (depending on writeability)
 
         If the resolved `cache_directory` is a string, it is coerced into a `Path` before being returned.
         Returns `None` if the backend does not require a cache directory (e.g., dynamodb, mongodb, etc.).
 
         Args:
             cache_directory (Optional[Path | str]): Explicit directory to use, if provided.
-            backend (Optional[str]): Backend type, used to determine if a directory is needed.
+            backend (Optional[str | requests.BaseCache]): Backend type, used to determine if a directory is needed.
 
         Returns:
             Optional[Path]: The resolved cache directory as a `Path` or `None` if not applicable
@@ -197,10 +236,10 @@ class CachedSessionManager(SessionManager):
         return cache_directory
 
     @classmethod
-    def _default_cache_directory(cls, subdirectory: Path | str = Path("data") / "package_cache") -> Path:
+    def _default_cache_directory(cls) -> Path:
         """
         Get the full path to a cache directory within the package.
-        If the directory isn't writeable, create a cache directory in the users home folder
+        If the directory isn't writeable, create a cache directory in the users home/.scholar_flux folder
 
         Parameters:
         - subdirectory (str): The name of the cache directory within the package.
@@ -211,39 +250,27 @@ class CachedSessionManager(SessionManager):
         """
 
         try:
-            # Attempt to create the cache directory within the package
-            cache_directory = Path(session_models.__file__).parent.parent.parent / subdirectory
+            # Attempts to create and use the default writeable package_cache directory if writeable
+            package_cache_directory = get_default_writable_directory("package_cache")
+            logger.info("Using the following directory for cache: %s", package_cache_directory)
+            return package_cache_directory
 
-            # ensure that the scholar_flux package exists prior to attempting to create the
-            # cache directory
-            if not cache_directory.parent.exists():
-                raise FileNotFoundError
-
-            # cache_directory = Path(__file__).resolve().parent.parent / subdirectory
-            cache_directory.mkdir(parents=True, exist_ok=True)
-            return cache_directory
-
-        except (PermissionError, NameError, FileNotFoundError):
+        except (PermissionError, NameError, FileNotFoundError, RuntimeError) as e:
             # Fallback to a directory in the user's home folder
-            home_cache_directory = Path.home() / ".scholar_flux" / subdirectory
-            try:
-                home_cache_directory.mkdir(parents=True, exist_ok=True)
-                logger.info("Using home directory for cache: %s", home_cache_directory)
-                return home_cache_directory
-            except (PermissionError, NameError, FileNotFoundError) as e:
-                logger.error("Failed to create cache directory in home: %s", e)
-                # Handle further or raise an exception to inform the user
-                raise SessionCacheDirectoryError(f"Could not create cache directory due to an exception: {e}")
+            raise SessionCacheDirectoryError(f"Could not create cache directory due to an exception: {e}")
 
     def configure_session(self) -> requests.Session | requests_cache.CachedSession:
         """
-        Configures and returns a cached session object with the options provided to the config
-        when creating the CachedSessionManager. In the event of an error, this definition will
-        fall back to using a regular session object.
+        Configures and returns a cached session object with the options provided to the config when creating the
+        CachedSessionManager.
+
+        Note: If the cached session can not be configured due to permission errors, or connection errors, the
+              the session_manager will fallback to creating a requests.Session
+              if the self.raise_on_error attribute is set to False.
 
         Returns:
             requests.Session | requests_cache.CachedSession: a cached session object if successful
-                                                             otherwise returns a regular requests object
+                                                             otherwise returns a requests.Session object
                                                              in the event of an error.
         """
         try:
@@ -287,8 +314,8 @@ class CachedSessionManager(SessionManager):
         sep = f",\n{indent}"
         config = f"{sep}".join(f"{option}={value}" for option, value in self.config.model_dump().items())
 
-        string_reprentation = f"{nm}(config={config})"
-        return string_reprentation
+        string_representation = f"{nm}(config={config})"
+        return string_representation
 
 
 # Use: CachedSessionManager(cache_name='cache',cache_directory=str(Path('.')), backend='redis')
