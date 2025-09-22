@@ -7,9 +7,11 @@ from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models.base import APISpecificParameter
 from scholar_flux.utils.repr_utils import generate_repr
-from scholar_flux.exceptions import (MissingAPIKeyException,
-                                     MissingAPISpecificParameterException,
-                                     MissingProviderException)
+from scholar_flux.exceptions import (
+    MissingAPIKeyException,
+    MissingAPISpecificParameterException,
+    MissingProviderException,
+)
 from scholar_flux import config
 import os
 import re
@@ -198,15 +200,15 @@ class SearchAPIConfig(BaseModel):
             api_specific_parameter_values = {
                 parameter: cls._validate_api_specific_parameter(
                     api_specific_parameter_values.get(parameter, parameter_metadata.default), parameter_metadata
-                ) 
+                )
                 for parameter, parameter_metadata in api_specific_parameter_mappings.items()
             }
         return api_specific_parameter_values
 
     @classmethod
-    def _prepare_provider_info(cls, base_url: str,
-                               provider_name: str,
-                               fallback_to_default: bool = True) -> tuple[str, str, Optional[ProviderConfig]]:
+    def _prepare_provider_info(
+        cls, base_url: str, provider_name: str, fallback_to_default: bool = True
+    ) -> tuple[str, str, Optional[ProviderConfig]]:
         """
         Helper method to identify the base_url or provider_name in addition to provider info when one is missing.
         The provider information is also returned if available to assist with later validation steps.
@@ -217,13 +219,13 @@ class SearchAPIConfig(BaseModel):
         if not base_url and not provider_name:
 
             if not fallback_to_default:
-                raise MissingProviderException("Either a base url or a valid provider name must be specified.") 
+                raise MissingProviderException("Either a base url or a valid provider name must be specified.")
 
             logger.info(
                 f"Neither a base url nor a provider name was provided - falling back to default: {cls.DEFAULT_PROVIDER}"
             )
 
-            if provider_info:= provider_registry.get(cls.DEFAULT_PROVIDER):
+            if provider_info := provider_registry.get(cls.DEFAULT_PROVIDER):
                 base_url = provider_info.base_url
                 provider_name = provider_info.provider_name
             else:
@@ -426,17 +428,18 @@ class SearchAPIConfig(BaseModel):
 
         # resolve provider inconsistencies: highest priority = base_url, second = provider_name
         # retrieve provider from base url if couldn't retrieve it from the provider name
-        provider_name = overrides.get("provider_name", '')
-        base_url = overrides.get("base_url", '')
+        provider_name = overrides.get("provider_name", "")
+        base_url = overrides.get("base_url", "")
         provider_info = None
 
         try:
-            base_url, provider_name, provider_info = cls._prepare_provider_info(base_url = base_url,
-                                                                                provider_name = provider_name,
-                                                                                fallback_to_default = False
-                                                                               )
+            base_url, provider_name, provider_info = cls._prepare_provider_info(
+                base_url=base_url, provider_name=provider_name, fallback_to_default=False
+            )
         except MissingProviderException:
-            logger.debug('Neither a provider or base url were provided: using configuration from the original config...')
+            logger.debug(
+                "Neither a provider or base url were provided: using configuration from the original config..."
+            )
 
         previous_config_url = cls._extract_url_basename(config_dict.get("base_url", ""))
         current_config_url = cls._extract_url_basename(base_url or "")
@@ -470,8 +473,8 @@ class SearchAPIConfig(BaseModel):
         api_specific_parameters |= overrides.pop("api_specific_parameters", None) or {}
 
         # Merge in explicit overrides (these take highest precedence)
-        config_dict |= {k: v for k, v in api_specific_parameters.items() if v is not None} 
-        config_dict |= {k: v for k, v in overrides.items() if v is not None} 
+        config_dict |= {k: v for k, v in api_specific_parameters.items() if v is not None}
+        config_dict |= {k: v for k, v in overrides.items() if v is not None}
 
         # make the additional parameters a harmonized field in the dictionary
         config_dict = cls._extract_api_specific_parameter(config_dict)

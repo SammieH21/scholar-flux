@@ -87,14 +87,13 @@ We welcome contributions from the community! If you have suggestions for improve
 
 Apache License 2.0
 
-See the LICENSE file for the full terms.
 
-This project is licensed under the Apache License 2.0 and to link to the `LICENSE` file in your repository. This informs users and contributors about the legal terms under which your software is provided.
-
-### LICENSE File
-
+This project is licensed under the Apache License 2.0 and to link to the `LICENSE` file in your repository. This informs users and contributors about the legal terms under which your software is provided here:
 
 [Apache License 2.0 Official Text](http://www.apache.org/licenses/LICENSE-2.0)
+
+
+See the LICENSE file for the full terms.
 
 ### NOTICE
 
@@ -103,7 +102,7 @@ The Apache License 2.0 applies only to the code only and gives no rights to the 
 
 ### Acknowledgments
 
-    Thanks to Springer Nature, Crossref, PLOS, and other Providers for providing access to their academic databases through the respective APIs.
+    Thanks to Springer Nature, Crossref, PLOS, PubMed and other Providers for providing access to their academic databases through the respective APIs.
     This project uses Poetry for dependency management and requires python 3.10 or higher.
 
 ### Contact

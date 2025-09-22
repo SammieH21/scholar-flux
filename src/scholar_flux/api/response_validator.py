@@ -58,12 +58,12 @@ class ResponseValidator:
         if expected_format in content_type:
             return True
 
-        logger.warning(f"Content type validation failed: received '{content_type}', expected '{expected_format}'")
+        logger.warning(f"Content type validation failed: received '{content_type}', and expected '{expected_format}'")
 
         if raise_on_error:
             raise InvalidResponseException(
                 response,
-                f"Invalid Response format: received {content_type} and expected {expected_format}",
+                f"Invalid Response format: received '{content_type}', and expected '{expected_format}'",
             )
 
         return False

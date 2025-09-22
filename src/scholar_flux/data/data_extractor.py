@@ -29,7 +29,7 @@ class DataExtractor(BaseDataExtractor):
            as integers, strings, etc. In some cases where its harder to determine, we can use
            dynamic_record_identifiers to determine whether a list containing a single nested dictionary
            is a record or metadata. For scientific purposes, its keys may contain 'abstract', 'title', 'doi',
-           etc. This can be defined manually by the usersif the defaults are not reliable for a given API.
+           etc. This can be defined manually by the users if the defaults are not reliable for a given API.
 
     Upon initializing the class, the class can be used as a callable that returns the records and metadata
     in that order.
@@ -77,7 +77,6 @@ class DataExtractor(BaseDataExtractor):
 
 
         """
-        super().__init__(record_path, metadata_path)
 
         self.dynamic_record_identifiers = (
             dynamic_record_identifiers
@@ -89,10 +88,12 @@ class DataExtractor(BaseDataExtractor):
             if dynamic_metadata_identifiers is not None
             else self.DEFAULT_DYNAMIC_METADATA_IDENTIFIERS
         )
-        self._validate_dynamic_identifiers(dynamic_record_identifiers, dynamic_metadata_identifiers)
 
+        super().__init__(record_path, metadata_path)
+
+    @classmethod
     def _validate_dynamic_identifiers(
-        self,
+        cls,
         dynamic_record_identifiers: Optional[list | tuple] = None,
         dynamic_metadata_identifiers: Optional[list | tuple] = None,
     ):
@@ -134,17 +135,16 @@ class DataExtractor(BaseDataExtractor):
             ) from e
         return None
 
-    def _validate_inputs(
-        self,
-        record_path: Optional[list] = None,
-        metadata_path: Optional[list[list] | dict[str, list]] = None,
-        dynamic_record_identifiers: Optional[list | tuple] = None,
-        dynamic_metadata_identifiers: Optional[list | tuple] = None,
-    ):
+    def _validate_inputs(self) -> None:
         """
-        Method used to validate the inputs provided to the DataExtractor prior to its later use
-        In extracting metadata and records
-        Args:
+        Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting metadata
+        and records. This method operates by verifying the attributes associated with the current data extractor once
+        the attributes are set.
+
+        Note that this method is overriden so that all additional fields are validated once super().__init__(...) is
+        called.
+
+        Validated Attributes:
             record_path (Optional[List[str | None]]): The path where a list of records are located
             metadata_path (Optional[List[str | None]]): The list or dictionary of paths where metadata records are located
             dynamic_record_identifiers (Optional[List[str | None]]): Keyword identifier indicating when singular records in a dictionary
@@ -154,11 +154,11 @@ class DataExtractor(BaseDataExtractor):
         Raises:
             DataExtractionException: Indicates an error in the DataExtractor and identifies where the inputs take on an invalid value
         """
-        self._validate_paths(record_path, metadata_path)
-        self._validate_dynamic_identifiers(dynamic_record_identifiers, dynamic_metadata_identifiers)
+        self._validate_paths(self.record_path, self.metadata_path)
+        self._validate_dynamic_identifiers(self.dynamic_record_identifiers, self.dynamic_metadata_identifiers)
         return None
 
-    def dynamic_identification(self, parsed_page_dict: dict) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    def dynamic_identification(self, parsed_page_dict: dict) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """
         Dynamically identify and separate metadata from records. This function recursively traverses the
         dictionary and uses a heuristic to determine whether a specific record corresponds to metadata
@@ -183,7 +183,7 @@ class DataExtractor(BaseDataExtractor):
                 metadata[key] = value
 
             elif isinstance(value, dict):
-                sub_metadata, sub_records = self.dynamic_identification(value)
+                sub_records, sub_metadata = self.dynamic_identification(value)
                 metadata.update(sub_metadata)
                 records.extend(sub_records)
 
@@ -200,13 +200,13 @@ class DataExtractor(BaseDataExtractor):
                             records.extend(value)
                             continue
 
-                        sub_metadata, sub_records = self.dynamic_identification(value[0])
+                        sub_records, sub_metadata = self.dynamic_identification(value[0])
                         metadata.update(sub_metadata)
                         records.extend(sub_records)
             else:
                 metadata[key] = value
 
-        return metadata, records
+        return records, metadata
 
     @staticmethod
     def _identify_by_key(record: Any, key_identifiers: list | tuple) -> bool:
@@ -245,7 +245,7 @@ class DataExtractor(BaseDataExtractor):
             records = self.extract_records(parsed_page_dict)
             metadata = self.extract_metadata(parsed_page_dict)
         else:
-            metadata, records = self.dynamic_identification(parsed_page_dict)
+            records, metadata = self.dynamic_identification(parsed_page_dict)
 
         return records, metadata
 

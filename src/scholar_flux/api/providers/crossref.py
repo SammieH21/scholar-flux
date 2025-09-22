@@ -13,7 +13,7 @@ provider = ProviderConfig(
         api_specific_parameters=dict(
             mailto=APISpecificParameter(
                 name="mailto",
-                description="An optional contact email for API usagefeedback (must be a valid email address",
+                description="An optional contact email for API usage feedback (must be a valid email address",
                 validator=validate_and_process_email,
                 required=False,
             ),

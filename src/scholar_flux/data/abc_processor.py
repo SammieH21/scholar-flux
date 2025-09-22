@@ -107,4 +107,4 @@ class ABCDataProcessor(ABC):
         Useful for showing the options being used to process the records that originate
         from the parsed api response.
         """
-        return generate_repr(self, exclude=("json_data",))
+        return generate_repr(self, exclude=["json_data"])

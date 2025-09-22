@@ -1,5 +1,7 @@
 from typing import Callable, TYPE_CHECKING
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
+from scholar_flux.exceptions import DataParsingException
+from scholar_flux.utils.response_protocol import ResponseProtocol
 import json
 import requests
 
@@ -40,8 +42,11 @@ class BaseDataParser:
         pass
 
     @classmethod
-    def detect_format(cls, response: requests.Response) -> str | None:
+    def detect_format(cls, response: requests.Response | ResponseProtocol) -> str | None:
         """Helper method for determining the format corresponding to a response object"""
+        if not isinstance(response, requests.Response) and not isinstance(response, ResponseProtocol):
+            raise DataParsingException(f"Expected a response or response-like object, received type {type(response)}")
+
         content_type = response.headers.get("Content-Type", "")
         if "xml" in content_type:
             return "xml"
@@ -54,14 +59,14 @@ class BaseDataParser:
             return "unknown"
 
     @classmethod
-    def parse_from_defaults(cls, response: requests.Response) -> dict | list[dict] | None:
+    def parse_from_defaults(cls, response: requests.Response | ResponseProtocol) -> dict | list[dict] | None:
         """
         Detects the API response format if a format is not already specified and
         uses one of the default structures to parse the data structure into a dictionary
         depending on the content type stored in the API response header.
 
         Args:
-            response (response type): The response object from the API request.
+            response (response type): The response (or response-like) object from the API request.
 
         Returns:
             dict: response dict containing fields including a list of metadata records as dictionaries.
@@ -105,11 +110,14 @@ class BaseDataParser:
         }
         return format_parsers
 
-    def parse(self, response: requests.Response) -> dict | list[dict] | None:
+    def parse(self, response: requests.Response | ResponseProtocol) -> dict | list[dict] | None:
         """Uses one of the default parsing methods to extract a dictionary of data from the response content"""
-        return self.parse_from_defaults(response)
+        try:
+            return self.parse_from_defaults(response)
+        except Exception as e:
+            raise DataParsingException(f"An error occurred during response content parsing: {e}")
 
-    def __call__(self, response: requests.Response, *args, **kwargs) -> dict | list[dict] | None:
+    def __call__(self, response: requests.Response | ResponseProtocol, *args, **kwargs) -> dict | list[dict] | None:
         """
         Helper method for Parsing API response content intto dictionary (json) structure.
 

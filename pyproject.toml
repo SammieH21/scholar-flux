@@ -43,7 +43,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 lint.extend-select = ["C4", "NPY", "PD", "SIM", "TCH"]
-lint.ignore = ["C408", "E402", "TCH001", "TCH002", "PD003"]
+lint.ignore = ["C408", "E402", "TCH001", "TCH002", "PD003", "SIM101"]
 show-fixes = true
 line-length = 120
 

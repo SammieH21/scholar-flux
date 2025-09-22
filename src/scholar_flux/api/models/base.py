@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any, Callable
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
-from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.repr_utils import generate_repr, generate_repr_from_string
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,11 +18,26 @@ class APISpecificParameter:
 
     @property
     def validator_name(self):
-        return self.validator.__name__ if self.validator else "None"
+        """Helper method for generating a human readable string from the validator function, if used"""
+        if self.validator is None:
+            return "None"
+        name = getattr(self.validator, "__name__", "unnamed")
+        validator_type = type(self.validator).__name__
+        return f"{name} ({validator_type})"
 
     def __repr__(self) -> str:
         """Helper method for displaying parameter information in a user-friendly manner"""
-        return generate_repr(self)
+        class_name = self.__class__.__name__
+        # the representation will include all attributes in the current dataclass
+        attribute_dict = dict(
+            name=self.name,
+            description=self.description,
+            # validator manually added. otherwise, functions don't show in dataclass representations
+            validator=self.validator_name,
+            default=self.default,
+            required=self.required,
+        )
+        return generate_repr_from_string(class_name, attribute_dict)
 
 
 class BaseAPIParameterMap(BaseModel):
@@ -87,7 +102,6 @@ class BaseAPIParameterMap(BaseModel):
         """
         return self.model_dump()
 
- 
     def show_parameters(self) -> list:
         """
         Helper method to show the complete list of all parameters that can be found in the current ParameterMap
@@ -95,8 +109,11 @@ class BaseAPIParameterMap(BaseModel):
         Returns:
             List: The complete list of all universal and api specific parameters corresponding to the current API
         """
-        parameters = [parameter for parameter in self.model_dump()
-                      if parameter not in ('api_key_required', 'auto_calculate_page', 'api_specific_parameters')]
+        parameters = [
+            parameter
+            for parameter in self.model_dump()
+            if parameter not in ("api_key_required", "auto_calculate_page", "api_specific_parameters")
+        ]
         parameters += list(self.api_specific_parameters.keys())
         return parameters
 

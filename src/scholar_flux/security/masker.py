@@ -68,12 +68,18 @@ class SensitiveDataMasker:
         """adds a pattern to the self.patterns attribute"""
         self.patterns.add(pattern)
 
-    def update(self,
-               pattern: MaskingPattern |
-               Set[MaskingPattern] | Set[KeyMaskingPattern] | Set[StringMaskingPattern] |
-               MutableSequence[MaskingPattern | KeyMaskingPattern | StringMaskingPattern]) -> None:
+    def update(
+        self,
+        pattern: (
+            MaskingPattern
+            | Set[MaskingPattern]
+            | Set[KeyMaskingPattern]
+            | Set[StringMaskingPattern]
+            | MutableSequence[MaskingPattern | KeyMaskingPattern | StringMaskingPattern]
+        ),
+    ) -> None:
         """adds a pattern to the self.patterns attribute"""
-        
+
         pattern_set = {pattern} if not isinstance(pattern, (MutableSequence, set)) else pattern
         self.patterns.update(pattern_set)
 

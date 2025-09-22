@@ -14,6 +14,7 @@ class MaskingPattern(ABC):
     The base class for creating MaskingPattern objects
     that can be used to mask fields based on defined rules
     """
+
     name: str
     pattern: str | SecretStr
 
@@ -75,7 +76,7 @@ class KeyMaskingPattern(MaskingPattern):
     """
 
     name: str
-    field: str = Field(default = ..., min_length=1)
+    field: str = Field(default=..., min_length=1)
     pattern: str | SecretStr = r"[A-Za-z0-9\-_]+"
     replacement: str = "***"
     use_regex: bool = True
@@ -86,8 +87,6 @@ class KeyMaskingPattern(MaskingPattern):
         """Uses the mask_pattern field to determine whether or not to mask a particular string"""
         if self.mask_pattern and not isinstance(self.pattern, SecretStr):
             object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))
-
-
 
     def apply_masking(self, text: str) -> str:
         """
@@ -102,7 +101,9 @@ class KeyMaskingPattern(MaskingPattern):
         value_pattern = SecretUtils.unmask_secret(self.pattern)
         if not self.use_regex:
             value_pattern = re.escape(value_pattern)
-        pattern = rf"""(?P<field>["']?{re.escape(self.field)}["']?\s*[:\=]\s*["']?){value_pattern}(?P<endpattern>["']?)"""
+        pattern = (
+            rf"""(?P<field>["']?{re.escape(self.field)}["']?\s*[:\=]\s*["']?){value_pattern}(?P<endpattern>["']?)"""
+        )
         replacement = rf"\g<field>{self.replacement}\g<endpattern>"
         return re.sub(pattern, replacement, text, flags=flags)
 

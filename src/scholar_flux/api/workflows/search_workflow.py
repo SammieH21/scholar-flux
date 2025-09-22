@@ -27,7 +27,7 @@ class WorkflowStep(BaseWorkflowStep):
     )
     description: Optional[str] = None
 
-    @field_validator('provider_name', mode = 'after')
+    @field_validator("provider_name", mode="after")
     def format_provider_name(cls, v) -> str:
         if isinstance(v, str):
             v = ProviderConfig._normalize_name(v)
@@ -39,7 +39,7 @@ class WorkflowStep(BaseWorkflowStep):
         provider_name: Optional[str] = None,
         search_parameters: Optional[dict] = None,
         config_parameters: Optional[dict] = None,
-    ) -> Self: 
+    ) -> Self:
 
         if ctx is not None:
             self._verify_context(ctx)

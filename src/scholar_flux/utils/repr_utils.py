@@ -52,7 +52,7 @@ def normalize_repr(value: Any) -> str:
     """
     value_string = value.__class__.__name__ if not isinstance(value, str) else value
     value_string = re.sub(r"\<(.*?) object at 0x[a-z0-9]+\>", r"\1", value_string)
-    value_string = value_string.strip('<').strip('>')
+    value_string = value_string.strip("<").strip(">")
     return value_string
 
 
@@ -89,7 +89,7 @@ def format_repr_value(
 
     # pad automatically for readability
     value = adjust_repr_padding(value, pad_length=pad_length, flatten=flatten)
-# remove object memory location wrapper from the string
+    # remove object memory location wrapper from the string
     return value
 
 

@@ -36,10 +36,30 @@ class BaseDataExtractor:
         """
         self.metadata_path = metadata_path or {}
         self.record_path = record_path
-        self._validate_paths(record_path, metadata_path)
+        self._validate_inputs()
 
+    def _validate_inputs(self) -> None:
+        """
+        Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting metadata
+        and records. This method operates by verifying the attributes associated with the current data extractor once
+        the attributes are set.
+
+        Validated Attributes:
+            record_path (Optional[List[str | None]]): The path where a list of records are located
+            metadata_path (Optional[List[str | None]]): The list or dictionary of paths where metadata records are located
+            dynamic_record_identifiers (Optional[List[str | None]]): Keyword identifier indicating when singular records in a dictionary
+                                                                       can be identified as such in contrast to metadata
+            dynamic_metadata_identifiers (Optional[List[str | None]]): Keyword identifier indicating when record metadata keys in a dictionary
+                                                                        can be identified as such in contrast to metadata
+        Raises:
+            DataExtractionException: Indicates an error in the DataExtractor and identifies where the inputs take on an invalid value
+        """
+        self._validate_paths(self.record_path, self.metadata_path)
+        return None
+
+    @classmethod
     def _validate_paths(
-        self,
+        cls,
         record_path: Optional[list] = None,
         metadata_path: Optional[list[list] | dict[str, list]] = None,
     ):
@@ -64,7 +84,7 @@ class BaseDataExtractor:
             if metadata_path is not None:
                 if not isinstance(metadata_path, (list, dict)):
                     raise KeyError(
-                        f"the provided metadata_path override is not a list or dictionary: {type(metadata_path)}"
+                        f"The provided metadata path override is not a list or dictionary: {type(metadata_path)}"
                     )
                 if not all(isinstance(path, (str, int, list)) for path in metadata_path):
                     raise KeyError(
@@ -101,7 +121,7 @@ class BaseDataExtractor:
                 ## ensures that all paths are lists and nests the path in a list otherwise
                 metadata_path = {as_list_1d(key)[-1]: as_list_1d(path) for key, path in self.metadata_path.items()}
 
-            # attempts to retrieve the path from the
+            # attempts to retrieve the path from the dictionary of metadata paths
             metadata = {key: try_int(get_nested_data(parsed_page_dict, path)) for key, path in metadata_path.items()}
 
             missing_keys = [str(k) for k, v in metadata.items() if v is None]
@@ -112,10 +132,9 @@ class BaseDataExtractor:
             logger.error(f"Error extracting metadata due to missing key: {e}")
 
         except Exception as e:
-            logger.error(f"An unexpected error occurred during metadata extraction due to the following exception: {e}")
-            raise DataExtractionException(
-                f"An unexpected error occurred during metadata extraction due to the following exception: {e}"
-            )
+            msg = f"An unexpected error occurred during metadata extraction due to the following exception: {e}"
+            logger.error(msg)
+            raise DataExtractionException(msg)
 
         return metadata
 
@@ -129,17 +148,22 @@ class BaseDataExtractor:
         Returns:
             Optional[List[Dict]]: A list of records as dictionaries, or None if extraction fails.
         """
-        nested_data = get_nested_data(parsed_page_dict, self.record_path) if self.record_path else None
+        try:
+            nested_data = get_nested_data(parsed_page_dict, self.record_path) if self.record_path else None
 
-        if isinstance(nested_data, list):
-            return nested_data
+            if isinstance(nested_data, list):
+                return nested_data
 
-        if not nested_data:
-            logger.debug(f"No records extracted from path {self.record_path}")
+            if not nested_data:
+                logger.debug(f"No records extracted from path {self.record_path}")
+                return None
+
+            logger.debug(f"Expected a list at path {self.record_path}. Instead received {type(nested_data)}")
             return None
-
-        logger.debug(f"Expected a list at path {self.record_path}. Instead received {type(nested_data)}")
-        return None
+        except Exception as e:
+            msg = f"An unexpected error occurred during record extraction due to the following exception: {e}"
+            logger.error(msg)
+            raise DataExtractionException(msg)
 
     @classmethod
     def _prepare_page(cls, parsed_page: Union[list[dict], dict]) -> dict:
@@ -163,8 +187,9 @@ class BaseDataExtractor:
 
             if parsed_page_dict is None:
                 raise DataExtractionException(
-                    f"Error converting parsed_page_dict of type {parsed_page_dict} to a dictionary"
+                    f"Error converting parsed_page_dict of type {parsed_page} to a dictionary"
                 )
+            parsed_page_dict = {str(k): v for k, v in parsed_page_dict.items()}
             parsed_page = parsed_page_dict
         return parsed_page
 

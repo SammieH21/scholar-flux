@@ -2,7 +2,8 @@ from __future__ import annotations
 from typing import Optional
 from scholar_flux.api.models import SearchAPIConfig
 from scholar_flux.api.workflows.search_workflow import StepContext, WorkflowStep
-import logging 
+import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,8 +37,10 @@ class PubMedFetchStep(WorkflowStep):
             config_parameters["id"] = ",".join(ids) or "" if ids else None
 
             if not config_parameters["id"]:
-                msg =(f"The metadata from the pubmed search is not in the expected format: "
-                      f"{ctx.result.__dict__ if ctx.result else ctx}")
+                msg = (
+                    f"The metadata from the pubmed search is not in the expected format: "
+                    f"{ctx.result.__dict__ if ctx.result else ctx}"
+                )
 
                 logger.error(msg)
                 raise TypeError(msg)

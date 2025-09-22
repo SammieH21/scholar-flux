@@ -67,9 +67,9 @@ class BaseAPI:
         in addition.
         """
         if user_agent:
-            self.session.headers.update({"User-Agent": user_agent
-                                         if not isinstance(user_agent, bytes)
-                                         else user_agent.decode('utf-8')})
+            self.session.headers.update(
+                {"User-Agent": user_agent if not isinstance(user_agent, bytes) else user_agent.decode("utf-8")}
+            )
 
     def configure_session(
         self,
@@ -224,4 +224,4 @@ class BaseAPI:
 
     def __repr__(self) -> str:
         """Helper method for identifying the configuration for the BaseAPI"""
-        return generate_repr(self, flatten = True, show_value_attributes = False)
+        return generate_repr(self, flatten=True, show_value_attributes=False)

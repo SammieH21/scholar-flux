@@ -54,5 +54,5 @@ class ProviderUtils:
             config = getattr(module, provider_config_variable, None)
             return config if isinstance(config, ProviderConfig) else None
 
-        except (ModuleNotFoundError, AttributeError):
+        except (ModuleNotFoundError, NameError, ValueError, AttributeError):
             return None

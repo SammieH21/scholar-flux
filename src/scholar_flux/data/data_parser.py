@@ -1,5 +1,7 @@
 from typing import Optional, Callable
 from scholar_flux.data.base_parser import BaseDataParser
+from scholar_flux.exceptions import DataParsingException
+from scholar_flux.utils.response_protocol import ResponseProtocol
 import requests
 
 import logging
@@ -35,7 +37,9 @@ class DataParser(BaseDataParser):
 
         self.format_parsers = self.get_default_parsers() | (additional_parsers or {})
 
-    def parse(self, response: requests.Response, format: Optional[str] = None) -> dict | list[dict] | None:
+    def parse(
+        self, response: requests.Response | ResponseProtocol, format: Optional[str] = None
+    ) -> dict | list[dict] | None:
         """
         Parses the API response content using to core steps.
         1. Detects the API response format if a format is not already specified
@@ -43,21 +47,24 @@ class DataParser(BaseDataParser):
            and return a parsed dictionary (json) structure.
 
         Args:
-            response (response type): The response object from the API request.
+            response (response type): The response or response-like object from the API request.
             format (str): The parser needed to format the response as a list of dicts
 
         Returns:
             dict: response dict containing fields including a list of metadata records as dictionaries.
         """
 
-        use_format = format.lower() if format is not None else self.detect_format(response)
+        try:
+            use_format = format.lower() if format is not None else self.detect_format(response)
 
-        parser = self.format_parsers.get(use_format, None) if use_format else None
-        if parser is not None:
-            return parser(response.content)
-        else:
-            logger.error("Unsupported format: %s", format)
-            return None
+            parser = self.format_parsers.get(use_format, None) if use_format else None
+            if parser is not None:
+                return parser(response.content)
+            else:
+                logger.error("Unsupported format: %s", format)
+                return None
+        except Exception as e:
+            raise DataParsingException(f"An error occurred during response content parsing: {e}")
 
     def __repr__(self):
         """

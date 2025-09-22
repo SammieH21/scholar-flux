@@ -24,18 +24,20 @@ def test_pathnode_creation_and_properties():
     node2 = PathNode.to_path_node(path_components, node_value)
     assert node == node2 and node.value == node.value
 
+
 def test_invalid_node_creation():
     with pytest.raises(InvalidPathNodeError):
-        _ = PathNode(None, value = 1) # type:ignore
+        _ = PathNode(None, value=1)  # type:ignore
 
     with pytest.raises(InvalidPathNodeError):
-        _ = PathNode([1,2,3], value = 1) # type:ignore
+        _ = PathNode([1, 2, 3], value=1)  # type:ignore
 
     with pytest.raises(InvalidPathNodeError):
-        _ = PathNode.to_path_node(None, value = 1) # type:ignore
+        _ = PathNode.to_path_node(None, value=1)  # type:ignore
 
     with pytest.raises(InvalidPathNodeError):
-        _ = PathNode.to_path_node(1, value = 1) # type:ignore
+        _ = PathNode.to_path_node(1, value=1)  # type:ignore
+
 
 def test_pathnode_update_and_equality():
     path = ProcessingPath(["0", "data", "0", "title"])

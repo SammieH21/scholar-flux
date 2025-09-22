@@ -14,9 +14,9 @@ Modules:
     models: Contains the core components needed to build a workflow. This includes:
         1) BaseWorkflow - the overarching runnable that orchestrates each step of a workflow integrating context
         2) BaseWorkflowStep - the core component that corresponds to a single search or action
-        3) BaseStepContext - Passed to future steps to allow integration of the results of previous steps into 
+        3) BaseStepContext - Passed to future steps to allow integration of the results of previous steps into
                              the workflow logic at the current step in a workflow
-        4) BaseWorkflowResult - The result that is returned at the completion of a workflow. This step 
+        4) BaseWorkflowResult - The result that is returned at the completion of a workflow. This step
                                 contains the results from all steps (`history`) as well as the result from the
                                 final step (`result`)
     search_workflow: Contains the default classes from which workflows are further subclassed and instantiated.
@@ -35,20 +35,20 @@ Modules:
 
                      To account for this, the PubMedSearchStep and PubmedFetchStep are each created two encompass
                      these two steps in a reusable format and is later defined in a pre-created workflow for later use
-    WORKFLOW_DEFAULTS: Currently contains the pubmed worfklow for retrieving data from articles from PubMed. 
+    WORKFLOW_DEFAULTS: Currently contains the pubmed worfklow for retrieving data from articles from PubMed.
                        This implementation will also contain future workflows that allow searches via
                        SearchCoordinator.search to be further customized.
-        
+
     Example use:
-        
+
        >>> from scholar_flux.api import SearchCoordinator, SearchAPI
        >>> from scholar_flux.sessions import CachedSessionManager
        >>> from scholar_flux.api.workflows import WORKFLOW_DEFAULTS, SearchWorkflow
        # PubMed requires an API key - Is read automatically from the user's environment variable list if available
        >>> api = SearchAPI.from_defaults(query = 'Cardiovascular Health', provider_name='pubmed', session = CachedSessionManager(user_agent='sam_research', backend='redis').configure_session())
         # THE WORKFLOW is read automatically from the WORKFLOW defaults
-       >>> pubmed_search = SearchCoordinator(api) 
-       >>> isinstance(pubmed_search, SearchWorkflow) 
+       >>> pubmed_search = SearchCoordinator(api)
+       >>> isinstance(pubmed_search, SearchWorkflow)
        # OUTPUT: True
        >>> pubmed_workflow = WORKFLOW_DEFAULTS.get('pubmed')
        >>> pubmed_search_with_workflow = SearchCoordinator(api, workflow = pubmed_workflow)
@@ -57,7 +57,7 @@ Modules:
        >>> #if pubmed_search.api.api_key:
        >>> #    response = pubmed_search.search(page = 1, use_workflow = False) # The workflow is used automatically
        >>> response = pubmed_search.search(page = 1, use_workflow = True) # The workflow is used automatically
-    
+
 
 """
 from scholar_flux.api.workflows.models import (

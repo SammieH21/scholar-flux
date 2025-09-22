@@ -11,10 +11,9 @@ from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
 from scholar_flux.utils.repr_utils import generate_repr
-
+from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.exceptions import StorageCacheException
 from scholar_flux.package_metadata import __version__
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,7 @@ class DataCacheManager:
     def cache_is_valid(
         self,
         cache_key: str,
-        response: Response,
+        response: Response | ResponseProtocol,
         cached_response: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
@@ -103,7 +102,7 @@ class DataCacheManager:
 
         Args:
             cache_key (str): The unique identifier for cached data.
-            response: The API response used to validate the cache.
+            response: The API response or response-like object used to validate the cache.
             cached_response: Optional[Dict[str, Any]]: The cached data associated with the key
 
         Returns:
@@ -136,7 +135,7 @@ class DataCacheManager:
     def update_cache(
         self,
         cache_key: str,
-        response: Response,
+        response: Response | ResponseProtocol,
         store_raw: bool = False,
         parsed_response: Optional[Any] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -149,11 +148,11 @@ class DataCacheManager:
 
         Args:
             cache_key: A unique identifier for the cached data.
-            response: The API response object.
-            store_raw: Optional; A boolean indicating whether to store the raw response. Defaults to False.
-            metadata: Optional; Additional metadata associated with the cached data. Defaults to None.
-            parsed_response: Optional; The response data parsed into a structured format. Defaults to None.
-            processed_response: Optional; The response data processed for specific use. Defaults to None.
+            response: (requests.Response | ResponseProtocol) The API response or response-like object.
+            store_raw: (Optional) A boolean indicating whether to store the raw response. Defaults to False.
+            metadata: (Optional) Additional metadata associated with the cached data. Defaults to None.
+            parsed_response: (Optional) The response data parsed into a structured format. Defaults to None.
+            processed_response: (Optional) The response data processed for specific use. Defaults to None.
             kwargs: Optional additional hashable dictionary fields that can be stored using sql cattrs encodings or in-memory cache.
         """
         self.cache_storage.update(
@@ -193,7 +192,7 @@ class DataCacheManager:
             logger.error(f"Error encountered during attempted retrieval from cache: {e}")
             raise StorageCacheException
 
-    def retrieve_from_response(self, response: Response) -> Optional[Dict[str, Any]]:
+    def retrieve_from_response(self, response: Response | ResponseProtocol) -> Optional[Dict[str, Any]]:
         """
         Retrieves data from the cache storage based on the response if within cache.
 
@@ -224,7 +223,7 @@ class DataCacheManager:
             logger.warning(f"A record for the cache key: '{cache_key}', did not exist...")
 
     @staticmethod
-    def generate_fallback_cache_key(response: Response) -> str:
+    def generate_fallback_cache_key(response: Response | ResponseProtocol) -> str:
         """
         Generates a unique fallback cache key based on the response URL and status code.
 
@@ -242,7 +241,7 @@ class DataCacheManager:
         return cache_key
 
     @staticmethod
-    def generate_response_hash(response: Response) -> str:
+    def generate_response_hash(response: Response | ResponseProtocol) -> str:
         """
         Generates a hash of the response content.
 
@@ -317,33 +316,32 @@ class DataCacheManager:
         return not self
 
     @staticmethod
-    def cache_fingerprint(obj, package_version=__version__):
+    def cache_fingerprint(obj: Optional[str | Any] = None, package_version: Optional[str] = __version__) -> str:
         """
         This method helps identify changes in class/configuration for later
         cache retrieval. It generates a unique string based on the object
         and the package version.
 
-        Generates a finger print from package version and the object's __repr__
-        if it is custom, and otherwise falls back to using a combination of the
-        package version, class name, and the object's __dict__ (state).
+        Generates a finger print from package version and object representation, if provided.
+        If otherwise not provided, a new human-readable object representation is generated
+        using the `scholar_flux.utils.generate_repr` helper function that represents the object
+        name and its current state. A package version is also prepended to the current finger-print
+        if enabled (not None), and can be customized if needed for object-specific versioning.
 
         Args:
-            obj: The object to fingerprint.
-            package_version: The current package version string.
+            obj (Optional[str]): A finger-printed object, or an object to generate a representation of
+            package_version (Optional[str]): The current package version string or manually provided version
+                                             for a component).
 
         Returns:
-            A human-readable string including the version, object identity
+            str: A human-readable string including the version, object identity
         """
 
-        obj_repr = repr(obj)
-        class_name = obj.__class__.__name__
-        is_default_repr = obj_repr.startswith(f"<{class_name}") and " at 0x" in obj_repr
-        if is_default_repr:
-            state = json.dumps(obj.__dict__, sort_keys=True, default=str)
-            combined = f"{package_version}:{class_name}:{state}"
-        else:
-            combined = f"{package_version}:{obj_repr}"
-        return combined  # Human-readable, not hashed
+        # coerce provided objects to a string representation if not already. Otherwise generate a new representation
+        obj_repr = f"{obj}" if obj and isinstance(obj, str) else generate_repr(obj)
+
+        # Prepend human-readable object representation with the package version or manual versioning, if provided
+        return f"{package_version}:{obj_repr}" if package_version is not None else obj_repr
 
     def __repr__(self) -> str:
         """

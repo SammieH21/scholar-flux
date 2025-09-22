@@ -4,6 +4,7 @@ import requests
 import datetime
 import logging
 from scholar_flux.exceptions import RequestFailedException, InvalidResponseException
+from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.utils.repr_utils import generate_repr
 from typing import Optional, Callable
 
@@ -47,7 +48,7 @@ class RetryHandler:
         validator_func: Optional[Callable] = None,
         *args,
         **kwargs,
-    ) -> Optional[requests.Response]:
+    ) -> Optional[requests.Response | ResponseProtocol]:
         """
         Sends a request and retries on failure based on predefined criteria and validation function.
 
@@ -77,7 +78,9 @@ class RetryHandler:
                 if validator_func(response):
                     break
 
-                if not isinstance(response, requests.Response) or not self.should_retry(response):
+                if not (
+                    isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)
+                ) or not self.should_retry(response):
                     self.log_retry_warning("Received an invalid or non-retryable response.")
                     if self.raise_on_error:
                         raise InvalidResponseException(response)
@@ -86,7 +89,11 @@ class RetryHandler:
                 delay = self.calculate_retry_delay(attempts, response)
                 self.log_retry_attempt(
                     delay,
-                    (response.status_code if isinstance(response, requests.Response) else None),
+                    (
+                        response.status_code
+                        if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol))
+                        else None
+                    ),
                 )
                 time.sleep(delay)
                 attempts += 1
@@ -107,17 +114,26 @@ class RetryHandler:
             raise RequestFailedException from e
 
     @classmethod
-    def _default_validator_func(cls, response: requests.Response) -> bool:
-        return isinstance(response, requests.Response) and response.status_code in cls.DEFAULT_VALID_STATUSES
+    def _default_validator_func(cls, response: requests.Response | ResponseProtocol) -> bool:
+        return (
+            isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)
+        ) and response.status_code in cls.DEFAULT_VALID_STATUSES
 
-    def should_retry(self, response: requests.Response) -> bool:
+    def should_retry(self, response: requests.Response | ResponseProtocol) -> bool:
         """Determine whether the request should be retried."""
         return response.status_code in self.retry_statuses
 
-    def calculate_retry_delay(self, attempt_count: int, response: Optional[requests.Response] = None) -> float:
+    def calculate_retry_delay(
+        self, attempt_count: int, response: Optional[requests.Response | ResponseProtocol] = None
+    ) -> float:
         """Calculate delay for the next retry attempt."""
-        if isinstance(response, requests.Response) and "Retry-After" in response.headers:
-            retry_after = self.parse_retry_after(response.headers["Retry-After"])
+        if (
+            response is not None
+            and (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol))
+            and ("Retry-After" in (response.headers or {}) or "retry-after" in (response.headers or {}))
+        ):
+            value = response.headers.get("Retry-After") or response.headers.get("retry-after")
+            retry_after = self.parse_retry_after(value) if value else None
             if isinstance(retry_after, (int, float)) and not retry_after < 0:
                 return retry_after
 

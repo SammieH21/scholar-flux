@@ -8,7 +8,11 @@ from scholar_flux.exceptions import (
     RequestFailedException,
     InvalidCoordinatorParameterException,
 )
-from scholar_flux.data import BaseDataParser, BaseDataExtractor, ABCDataProcessor
+
+from scholar_flux.data.base_parser import BaseDataParser
+from scholar_flux.data.base_extractor import BaseDataExtractor
+from scholar_flux.data.abc_processor import ABCDataProcessor
+
 from scholar_flux.utils.repr_utils import generate_repr_from_string
 
 logger = logging.getLogger(__name__)
@@ -175,10 +179,10 @@ class BaseCoordinator:
             the basic processing of the data within theresponse
         """
         try:
-            cache_key = kwargs.pop('cache_key', None)
+            cache_key = kwargs.pop("cache_key", None)
             response = self.search_api.search(**kwargs)
             if response is not None:
-                return self.response_coordinator.handle_response(response, cache_key = cache_key)
+                return self.response_coordinator.handle_response(response, cache_key=cache_key)
         except RequestFailedException as e:
             logger.error(f"Failed to get a valid response from the {self.search_api.provider_name} API: {e}")
         return None

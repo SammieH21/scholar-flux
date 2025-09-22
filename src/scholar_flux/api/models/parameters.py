@@ -129,7 +129,8 @@ class APIParameterMap(BaseAPIParameterMap):
         if additional_parameters:
             class_vars = class_vars | additional_parameters
 
-        return cls(**class_vars)
+        return cls.model_validate(class_vars)
+
 
 class APIParameterConfig:
     """
@@ -151,6 +152,18 @@ class APIParameterConfig:
             parameter_map (APIParameterMap): The parameter mapping configuration.
         """
         self.parameter_map = parameter_map
+
+    @property
+    def map(self) -> APIParameterMap:
+        """
+        Helper property that is an alias for the APIParameterMap that is tasked with mapping all universal parameters to
+        their parameter names specific to the API provider.
+
+        Returns:
+            APIParameterMap: The mapping that the current APIParameterConfig will use to build
+                             a dictionary of parameter requests specific to the current API.
+        """
+        return self.parameter_map
 
     def build_parameters(
         self,
@@ -257,13 +270,17 @@ class APIParameterConfig:
         api_parameter_mappings = self.parameter_map.model_dump()
         api_specific_parameter_names = api_parameter_mappings.pop("api_specific_parameters")
 
-        if duplicated_keys := api_specific_parameters.keys() & parameters.keys():
+        filtered_api_specific_parameters = {
+            parameter: value for parameter, value in api_specific_parameters.items() if value is not None
+        }
+
+        if duplicated_keys := filtered_api_specific_parameters.keys() & parameters.keys():
             logger.warning(f"Overwriting the following keys that have been specified twice: {list(duplicated_keys)}")
 
         # Include additional parameters provided via api_specific_parameters by mapping universal keys to API-specific names
         extra_parameters = {
             api_parameter_name: api_specific_parameters.get(api_parameter_name)
-            for api_parameter_name in api_specific_parameter_names
+            for api_parameter_name in duplicated_keys.union(api_specific_parameter_names)
             if api_specific_parameters.get(api_parameter_name) is not None
         }
 
@@ -316,8 +333,8 @@ class APIParameterConfig:
 
             # raise an error if an api key is required, but does not exist
             elif self.parameter_map.api_key_required:
-                logger.error("API key required but not provided")
-                raise APIParameterException("API key is required but not provided")
+                logger.error("An API key is required but not provided")
+                raise APIParameterException("An API key is required but not provided")
         # returns a new dictionary with the api key
         return parameters
 
@@ -340,13 +357,13 @@ class APIParameterConfig:
         return cls(parameter_map) if parameter_map else None
 
     @classmethod
-    def as_config(cls,
-                  parameter_map: dict | BaseAPIParameterMap |
-                  APIParameterMap | APIParameterConfig) -> APIParameterConfig:
+    def as_config(
+        cls, parameter_map: dict | BaseAPIParameterMap | APIParameterMap | APIParameterConfig
+    ) -> APIParameterConfig:
         """
-        Factory method for creating a new APIParameterConfig by for resolving its basic building blocks of the 
+        Factory method for creating a new APIParameterConfig by for resolving its basic building blocks of the
         class with its required structure.
-        
+
         Args:
             parameter_map: dict | BaseAPIParameterMap | APIParameterMap | APIParameterConfig:
                 A parameter mapping/config to use in the instantiation of an APIParameterConfig.
@@ -356,16 +373,20 @@ class APIParameterConfig:
 
         Raises:
             APIParameterException: If there is an error in the creation/resolution of the required parameters
-                                            
+
         """
         if isinstance(parameter_map, APIParameterConfig):
             return parameter_map
 
         if not isinstance(parameter_map, (dict, APIParameterMap, BaseAPIParameterMap)):
-            raise APIParameterException("Expected a base API Parameter map, config, or dictionary."
-                                        f" Received type ({type(parameter_map).__name__})")
+            raise APIParameterException(
+                "Expected a base API Parameter map, config, or dictionary."
+                f" Received type ({type(parameter_map).__name__})"
+            )
 
-        logger.info(f"Attempting to instantiate an APIParameterConfig with parameters of type ({type(parameter_map).__name__})..")
+        logger.info(
+            f"Attempting to instantiate an APIParameterConfig with parameters of type ({type(parameter_map).__name__})..."
+        )
 
         if isinstance(parameter_map, APIParameterMap):
             return cls(parameter_map)
@@ -376,9 +397,41 @@ class APIParameterConfig:
             updated_parameter_mapping = APIParameterMap(**parameter_dict)
             return cls(updated_parameter_mapping)
         except ValidationError as e:
-            raise APIParameterException("Encountered an error instantiating an APIParameterConfig from the provided "
-                                        f"parameters, `{parameter_dict}`: {e}")
-        
+            raise APIParameterException(
+                "Encountered an error instantiating an APIParameterConfig from the provided "
+                f"parameter, `{parameter_dict}`: {e}"
+            )
+
+    def _find_duplicated_parameters(self, api_specific_parameters: dict) -> dict[str, Any]:
+        """
+        Used to determine whether any parameters in the `api_specific_parameters` field
+        will result in duplicated values that could cause errors and inconsistencies
+        downstream in the creation of requests.
+
+        The function returns a list of all duplicated_parameters if they exist. Otherwise
+        the dictionary will be empty.
+
+        Args:
+            api_specific_parameters (dict[str, Any]): The dictionary to check for duplicated_parameters
+
+        Returns:
+            dict[str, Any]: A dictionary containing all api specific parameters that have been duplicated
+        """
+
+        core_parameters = {"query", "records_per_page", "api_key"}
+
+        query_parameter_name = self.parameter_map.query
+        records_per_page_parameter_name = self.parameter_map.records_per_page
+        api_key_parameter = self.parameter_map.api_key_parameter
+
+        duplicated_parameters = {
+            parameter: api_specific_parameters.get(parameter)
+            for parameter in core_parameters
+            | {query_parameter_name, records_per_page_parameter_name, api_key_parameter}
+            if parameter is not None and parameter in api_specific_parameters
+        }
+
+        return duplicated_parameters
 
     @classmethod
     def from_defaults(cls, provider_name: str, **additional_parameters) -> APIParameterConfig:

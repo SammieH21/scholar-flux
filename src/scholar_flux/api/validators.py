@@ -55,12 +55,13 @@ def validate_url(url: str) -> bool:
     """
     try:
         result = urlparse(url)
-        if result.scheme not in ('http', 'https'):
+        if result.scheme not in ("http", "https"):
             raise ValueError(f"Only http/https protocols are allowed. Received scheme: '{result.scheme}'")
-        
+
         if not result.netloc:
-            raise ValueError("Expected a domain in the URL after the http/https protocol. "
-                             f"Only the scheme was received: {url}")
+            raise ValueError(
+                "Expected a domain in the URL after the http/https protocol. " f"Only the scheme was received: {url}"
+            )
         return True
 
     except (ValueError, AttributeError) as e:

@@ -53,8 +53,9 @@ def test_execute_with_retry_max_retries_exceeded():
         result = handler.execute_with_retry(request_func)
     assert isinstance(result, Response) and result.status_code == 503
 
+
 def test_execute_with_retry_max_retries_and_raise(caplog):
-    handler = RetryHandler(max_retries=3, raise_on_error = True)
+    handler = RetryHandler(max_retries=3, raise_on_error=True)
     status_code = 503
     response = response_factory(status_code)
     request_func = lambda: response
@@ -62,25 +63,27 @@ def test_execute_with_retry_max_retries_and_raise(caplog):
         _ = handler.execute_with_retry(request_func)
     assert f"HTTP error occurred: {response} - Status code: {status_code}." in caplog.text
 
+
 def test_execute_with_retry_non_retryable_status(caplog):
-    handler = RetryHandler(raise_on_error = True)
-    message = 'Cannot process the current request with your credentials'
+    handler = RetryHandler(raise_on_error=True)
+    message = "Cannot process the current request with your credentials"
     status_code = 400
-    response = response_factory(status_code, json_data = {'error': {'message': message}})
+    response = response_factory(status_code, json_data={"error": {"message": message}})
     request_func = lambda: response
     with pytest.raises(InvalidResponseException):
         _ = handler.execute_with_retry(request_func)
 
     assert f"HTTP error occurred: {response} - Status code: {status_code}. Details: {message}" in caplog.text
 
-
-    handler = RetryHandler(raise_on_error = False)
+    handler = RetryHandler(raise_on_error=False)
     response = handler.execute_with_retry(request_func)
     assert isinstance(response, Response)
     assert f"Returning a request of type {type(response)}, status_code={status_code}" in caplog.text
 
+
 def test_invalid_response_exception_non_json(caplog):
     from scholar_flux.exceptions import InvalidResponseException
+
     response = response_factory(400, text="Not JSON")
     exc = InvalidResponseException(response)
     assert exc.error_details == ""
@@ -89,13 +92,14 @@ def test_invalid_response_exception_non_json(caplog):
     exc = InvalidResponseException(response)
     assert exc.error_details == ""
 
-    response = response_factory(400, json_data={'error': [1,2,3]})
+    response = response_factory(400, json_data={"error": [1, 2, 3]})
     exc = InvalidResponseException(response)
     assert exc.error_details == ""
 
     with pytest.raises(InvalidResponseException):
-        raise InvalidResponseException(None) # type: ignore
+        raise InvalidResponseException(None)  # type: ignore
     assert f"An error occurred when making the request - Received a nonresponse: {type(None)}" in caplog.text
+
 
 def test_calculate_retry_delay_with_invalid_retry_after(caplog):
     handler = RetryHandler(backoff_factor=2, max_backoff=10)
@@ -107,7 +111,6 @@ def test_calculate_retry_delay_with_invalid_retry_after(caplog):
     assert f"'Retry-After' is not a valid number: {retry_after}. Attempting to parse as a date.." in caplog.text
     assert "Couldn't parse 'Retry-After' as a date." in caplog.text
     assert "Defaulting to using 'max_backoff'..." in caplog.text
-
 
 
 def test_nonresponse():
@@ -196,6 +199,7 @@ def test_parse_retry_after_date():
     future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=15)
     date_str = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
     delay = handler.parse_retry_after(date_str)
+    assert delay is not None
     assert 0 <= delay <= 15
 
 

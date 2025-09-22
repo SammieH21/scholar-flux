@@ -15,6 +15,8 @@ from scholar_flux.exceptions.api_exceptions import (
     TimeoutException,
     APIParameterException,
     RequestCacheException,
+    InvalidResponseStructureException,
+    InvalidResponseReconstructionException,
     QueryValidationException,
 )
 
@@ -89,6 +91,8 @@ __all__ = [
     "TimeoutException",
     "APIParameterException",
     "RequestCacheException",
+    "InvalidResponseStructureException",
+    "InvalidResponseReconstructionException",
     "QueryValidationException",
     "CoordinatorException",
     "InvalidCoordinatorParameterException",

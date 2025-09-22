@@ -4,7 +4,9 @@ from scholar_flux.data.base_extractor import BaseDataExtractor
 from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import try_int
+from unittest.mock import patch
 from typing import List
+import re
 
 
 def test_extract_with_manual_paths(mock_academic_json):
@@ -144,25 +146,114 @@ def test_extract_metadata_without_paths(mock_academic_json):
     assert extractor.extract_metadata(mock_academic_json) == {}
 
 
-def test_extract_records_wrong_path_type():
+def test_extractor_invalid_cofiguration():
     """
     Providing a non‑list record_path should raise a DataExtractionException
     during extractor initialisation.
     """
-    with pytest.raises(DataExtractionException) as exc:
-        # error – must be a list
-        DataExtractor(record_path="data")  # type: ignore
-    assert "list" in str(exc.value)
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(record_path="invalid record identifier")  # type: ignore
+    assert f"A list is required for a record path. Received: {type('')}" in str(excinfo.value)
+
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(metadata_path="invalid metadata identifier")  # type: ignore
+    assert f"The provided metadata path override is not a list or dictionary: {type('')}" in str(excinfo.value)
+
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(dynamic_metadata_identifiers="invalid metadata")  # type: ignore
+    assert f"The dynamic metadata identifiers provided must be a tuple or list. Received: {type('')}" in str(
+        excinfo.value
+    )
+
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(dynamic_record_identifiers="invalid record identifier")  # type: ignore
+    assert f"The dynamic record identifiers provided must be a tuple or list. Received: {type('')}" in str(
+        excinfo.value
+    )
 
 
-def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, mock_academic_json):
+def test_extractor_invalid_nested_cofiguration():
+    """
+    Providing a non‑list record_path should raise a DataExtractionException
+    during extractor initialisation.
+    """
+    list_set = [{True, False}]
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(record_path=list_set)  # type: ignore
+    assert f"At least one path in the provided record path is not an integer or string: {list_set}" in str(
+        excinfo.value
+    )
+
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(metadata_path=list_set)  # type: ignore
+    assert (
+        f"At least one path in the provided metadata path override is not a list, integer, or string: {list_set}"
+        in str(excinfo.value)
+    )
+
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(dynamic_metadata_identifiers=list_set)  # type: ignore
+    assert (
+        f"At least one value in the provided dynamic metadata identifier is not an integer or string: {list_set}"
+        in str(excinfo.value)
+    )
+
+    with pytest.raises(DataExtractionException) as excinfo:
+        DataExtractor(dynamic_record_identifiers=list_set)  # type: ignore
+    assert (
+        f"At least one value in the provided dynamic record identifier is not an integer or string: {list_set}"
+        in str(excinfo.value)
+    )
+
+
+def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, mock_academic_json, caplog):
     """
     When record_path points to a non‑list, extract_records must return None.
     """
     # point to a key that contains a string instead of a list
     extractor_manual_paths.record_path = ["start"]
+    extractor_manual_paths.metadata_path = [["starting"]]
     records = extractor_manual_paths.extract_records(mock_academic_json)
+    metadata = extractor_manual_paths.extract_metadata(mock_academic_json)
     assert records is None
+    assert metadata.get("starting") is None
+    assert f"The following metadata keys are missing or None: {', '.join(['starting'])}" in caplog.text
+    # assert "Error extracting metadata due to missing key: " in caplog.text
+
+
+def test_key_error(mock_academic_json, extractor_manual_paths, caplog):
+    extractor_manual_paths.metadata_path = [["starting"]]
+
+    metadata = extractor_manual_paths.extract_metadata(mock_academic_json)
+    assert metadata == {"starting": None}
+    msg = "The starting key is missing"
+    with patch("scholar_flux.data.base_extractor.get_nested_data", side_effect=KeyError(msg)):
+        extracted_metadata = extractor_manual_paths.extract_metadata(mock_academic_json)
+
+    assert not extracted_metadata
+    assert (f"Error extracting metadata due to missing key: '{msg}'") in caplog.text
+
+
+def test_blank_extraction(extractor_manual_paths, caplog):
+    assert extractor_manual_paths.extract_records(None) is None
+    assert "No records extracted from path" in caplog.text
+
+
+def test_dictionary_transformation():
+    extractor = DataExtractor()
+    data = [[{"a": 1}, {"b": 3}, {"c": 4}, {"d": 5}]]
+    prepped_page = extractor._prepare_page(data)  # type: ignore
+    assert isinstance(prepped_page, dict)
+    assert prepped_page == {"0": {"a": 1}, "1": {"b": 3}, "2": {"c": 4}, "3": {"d": 5}}
+    records, metadata = extractor.extract(prepped_page)
+    assert records == []
+    assert metadata == {"a": 1, "b": 3, "c": 4, "d": 5}
+
+
+def test_blank_prepare_page():
+    extractor = DataExtractor()
+    with pytest.raises(DataExtractionException):
+        _ = extractor._prepare_page(None)  # type: ignore
 
 
 def test_extract_records_success(extractor_manual_paths: DataExtractor, mock_academic_json):
@@ -182,6 +273,39 @@ def test_extract_records_success(extractor_manual_paths: DataExtractor, mock_aca
     assert ids == expected_ids
 
 
+def test_invalid_extract_metadata(extractor_manual_paths: DataExtractor, mock_academic_json, caplog):
+    """
+    With a correct record_path the extractor should return the full list of records.
+    """
+    extractor_manual_paths.metadata_path = True  # type: ignore
+    with pytest.raises(DataExtractionException) as excinfo:
+        _ = extractor_manual_paths.extract_metadata(mock_academic_json)
+
+    msg = (
+        "An unexpected error occurred during metadata extraction due to the following exception: "
+        "'bool' object has no attribute 'items'"
+    )
+    assert msg in str(excinfo.value)
+    assert msg in caplog.text
+
+
+def test_invalid_extract_records(extractor_manual_paths: DataExtractor, mock_academic_json, caplog):
+    """
+    With a correct record_path the extractor should return the full list of records.
+    """
+    extractor_manual_paths.record_path = True  # type: ignore
+    with pytest.raises(DataExtractionException) as excinfo:
+        _ = extractor_manual_paths.extract_records(mock_academic_json)
+
+    msg = (
+        "An unexpected error occurred during record extraction due to the following exception: "
+        "'bool' object is not iterable"
+    )
+
+    assert msg in str(excinfo.value)
+    assert msg in caplog.text
+
+
 def test_dynamic_identification_basic(mock_academic_json):
     """
     Verify that the extractor can split the payload into metadata
@@ -189,7 +313,7 @@ def test_dynamic_identification_basic(mock_academic_json):
     explicit paths are provided.
     """
     extractor = DataExtractor()  # no paths
-    metadata, records = extractor.dynamic_identification(mock_academic_json)
+    records, metadata = extractor.dynamic_identification(mock_academic_json)
 
     # All top‑level meta keys should be in the metadata dict
     assert set(metadata.keys()) == {"apiMessage", "query", "total", "start", "pageLength", "recordsDisplayed"}
@@ -258,3 +382,64 @@ def test_invalid_metadata_path_type(bad_path: Any, mock_academic_json: List):
     with pytest.raises(DataExtractionException):
         # the extractor shouldn't accept a list of containing integers
         _ = DataExtractor(record_path=["data"], metadata_path=bad_path)  # type: ignore[arg-type]
+
+
+def test_key_discovery(caplog):
+    extractor = DataExtractor(dynamic_metadata_identifiers=["a", "b"])
+    # specifying metadata directly
+    json_records = [{"x": 1, "y": 0}, {"x": 3, "y": 2}, {"x": 5, "y": 6}]
+    json_data = {"a": {"red": 1}, "b": {"blue": 2}, "nested": {"data": json_records}}
+
+    extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
+
+    assert extracted_metadata == {k: d for k, d in json_data.items() if k != "nested"}
+    assert extracted_records == json_records
+
+    # no arguments to the extractor, extracts all records by default
+    extractor = DataExtractor()
+    extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
+    assert {"red": 1, "blue": 2} == extracted_metadata
+    assert extracted_records == json_records
+
+    # identifying records from whether it contains the key, 'x'
+    extractor = DataExtractor(dynamic_record_identifiers=["x"])
+    json_records = [{"x": 1, "y": 0}]
+    json_data = {"a": {"red": 1}, "b": {"blue": 2}, "nested": {"data": json_records}}
+    extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
+    assert {"red": 1, "blue": 2} == extracted_metadata
+    assert extracted_records == json_records
+
+    # skippes registerint the single record as a record without a heuristic, thinks it metadata
+    extractor = DataExtractor(dynamic_record_identifiers=[])
+    extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
+    assert {"red": 1, "blue": 2, "x": 1, "y": 0} == extracted_metadata
+    assert extracted_records == []
+
+    json_records = []
+    json_data = {"a": {"red": 1}, "b": {"blue": 2}, "nested": {"data": json_records}}
+    extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
+    assert {"red": 1, "blue": 2} == extracted_metadata
+    assert extracted_records == json_records
+    assert "Element at key: data is empty" in caplog.text
+
+
+def test_base_representation():
+    extraction_path = ["test", "path"]
+    metadata_paths = [["path", "x1"], ["path", "x2"]]
+    extractor = BaseDataExtractor(metadata_path=metadata_paths, record_path=extraction_path)
+    representation = repr(extractor)
+    assert re.search(r"^BaseDataExtractor\(.*\)$", representation, re.DOTALL)
+    assert f"record_path={extraction_path}" in representation
+    assert f"metadata_path={metadata_paths}" in representation
+
+
+def test_representation():
+    extraction_path = ["test", "path"]
+    metadata_paths = [["path", "x1"], ["path", "x2"]]
+    extractor = DataExtractor(metadata_path=metadata_paths, record_path=extraction_path)
+    representation = repr(extractor)
+    assert re.search(r"^DataExtractor\(.*\)$", representation, re.DOTALL)
+    assert f"record_path={extraction_path}" in representation
+    assert f"metadata_path={metadata_paths}" in representation
+    assert f"dynamic_record_identifiers={extractor.dynamic_record_identifiers}" in representation
+    assert f"dynamic_metadata_identifiers={extractor.dynamic_metadata_identifiers}" in representation

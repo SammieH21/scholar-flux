@@ -12,21 +12,23 @@ logger = logging.getLogger(__name__)
 
 class ProviderConfig(BaseModel):
     """
-    Config for creating the basic instructions and settings necessary to interact with
-    with new providers. This config on initialization is created for default providers
-    on package initialization in the scholar_flux.api.providers submodule.
-    A new, custom provider or override can be added to the
-    provider_registry (A custom user dictionary) from scholar_flux.api.providers
+    Config for creating the basic instructions and settings necessary to interact with with new providers.
+    This config on initialization is created for default providers on package initialization in the
+    scholar_flux.api.providers submodule. A new, custom provider or override can be added to the provider_registry
+    (A custom user dictionary) from the scholar_flux.api.providers module.
 
     Args:
-        provider_name (str): The name of the provider to be associated with the config
-        base_url (str): The URL of the provider to send requests with the specified parameters
-        parameter_map (BaseAPIParameterMap): The parameter map indicating the specific semantics of the API
-        records_per_page (int): Generally the upper limit (for some APIs) or reasonable limit for the number of requsets
-                                 specific to the API provider
-        request_delay (float): Indicates exactly how long to wait before sending successive requests (may vary based on API)
-        api_key_env_var (Optional[str]): Indicates the environment variable to look for if the API requires or accepts API keys
-        docs_url: (Optional[str]): An optional URL that indicates where documentation related to the use of the API can be found
+        provider_name (str): The name of the provider to be associated with the config.
+        base_url (str): The URL of the provider to send requests with the specified parameters.
+        parameter_map (BaseAPIParameterMap): The parameter map indicating the specific semantics of the API.
+        records_per_page (int): Generally the upper limit (for some APIs) or reasonable limit for the number
+                                of retrieved records per request (specific to the API provider).
+        request_delay (float): Indicates exactly how many seconds to wait before sending successive requests
+                               Note that the requested interval may vary based on the API provider.
+        api_key_env_var (Optional[str]): Indicates the environment variable to look for if the API requires or
+                                         accepts API keys.
+        docs_url: (Optional[str]): An optional URL that indicates where documentation related to the use of the
+                                   API can be found.
     """
 
     provider_name: str
@@ -59,16 +61,18 @@ class ProviderConfig(BaseModel):
     def validate_base_url(cls, v: str) -> str:
         """Validates the current url and raises a APIParameterException if invalid"""
         if not isinstance(v, str) or not validate_url(v):
-            logger.error(f"The URL provided to the ProviderConfig is invalid: {v}")
-            raise APIParameterException(f"The URL provided to the ProviderConfig is invalid: {v}")
+            msg = f"Error validating the API base URL: The URL provided to the ProviderConfig is invalid: {v}"
+            logger.error(msg)
+            raise APIParameterException(msg)
         return cls._normalize_url(v, normalize_https=False)
 
     @field_validator("docs_url")
     def validate_docs_url(cls, v: Optional[str]) -> Optional[str]:
         """Validates the documentation url and raises a APIParameterException if invalid"""
         if v is not None and not validate_url(v):
-            logger.error(f"The URL provided to the ProviderConfig is invalid: {v}")
-            raise APIParameterException(f"The URL provided to the ProviderConfig is invalid: {v}")
+            msg = f"Error validating the document URL: The URL provided to the ProviderConfig is invalid: {v}"
+            logger.error(msg)
+            raise APIParameterException(msg)
         return cls._normalize_url(v, normalize_https=False) if v is not None else None
 
     @staticmethod

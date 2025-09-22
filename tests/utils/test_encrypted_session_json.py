@@ -13,21 +13,25 @@ logger = logging.getLogger(__name__)
 from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
 from base64 import b64encode, b64decode
 
+
 def test_validate_key_error():
     with pytest.raises(SecretKeyError):
-        key = ' '*44
+        key = " " * 44
         EncryptionPipelineFactory._validate_key(key.encode())
+
 
 def test_generate_secret_key():
     fernet = EncryptionPipelineFactory.generate_secret_key()
     assert isinstance(fernet, bytes)
 
+
 def test_env_key_loader(caplog):
     fernet = EncryptionPipelineFactory.generate_secret_key()
-    with patch.dict(scholar_flux.sessions.encryption.config, {'SCHOLAR_FLUX_CACHE_SECRET_KEY': fernet}):
+    with patch.dict(scholar_flux.sessions.encryption.config, {"SCHOLAR_FLUX_CACHE_SECRET_KEY": fernet}):
         new_fernet = EncryptionPipelineFactory._prepare_key(None)
         assert "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY" in caplog.text
         assert fernet == new_fernet
+
 
 def test_encryption_factory_secret_initialization(session_encryption_dependency):
 

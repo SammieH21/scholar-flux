@@ -1,0 +1,130 @@
+apiMessage: This JSON was provided by scholar_flux testing mocks
+data:
+- abstract: ''
+  contentType: Article
+  creators:
+  - ORCID: 0000-0001-1234-5678
+    creator: Smith, Aimee
+  - creator: Lopez, Rafael
+  - ORCID: 0000-0002-8765-4321
+    creator: Chen, Ling
+  disciplines:
+  - id: '3018'
+    term: Cell Biology
+  - id: '4047'
+    term: Oncology
+  doi: 10.1000/j.jmb.2025.00123
+  eIssn: 1089-8638
+  endingPage: '1202'
+  genre:
+  - Correction
+  identifier: doi:10.1000/j.jmb.2025.00123
+  issn: 0022-2836
+  issueType: Regular
+  journalId: '12345'
+  language: en
+  number: '15'
+  openAccess: 'true'
+  publicationDate: '2025-07-01'
+  publicationName: Journal of Molecular Biology
+  publicationType: Journal
+  publisher: Elsevier
+  publisherName: Elsevier Ltd
+  startingPage: '1201'
+  subjects:
+  - Cell Biology
+  - Oncology
+  title: 'Correction: Mitochondrial flux impacts tumor cell survival under hypoxic
+    conditions'
+  url:
+  - format: ''
+    platform: ''
+    value: http://dx.doi.org/10.1000/j.jmb.2025.00123
+  volume: '432'
+- abstract:
+    h1: Abstract
+    p: This study identifies a novel role for ZTRK1 in regulating immune checkpoint
+      proteins in pancreatic cancer, revealing a potential target for immunotherapy.
+  contentType: Article
+  creators:
+  - creator: Miller, Jordan
+  - ORCID: 0000-0003-1122-3344
+    creator: Ahmed, Saima
+  disciplines:
+  - id: '3025'
+    term: Immunology
+  - id: '4047'
+    term: Oncology
+  doi: 10.1000/j.canc.2025.00999
+  eIssn: 2045-5678
+  endingPage: '312'
+  genre:
+  - OriginalPaper
+  identifier: doi:10.1000/j.canc.2025.00999
+  issn: 2045-1234
+  issueType: Regular
+  journalId: '54321'
+  language: en
+  number: '6'
+  openAccess: 'true'
+  publicationDate: '2025-06-15'
+  publicationName: Cancer Research Letters
+  publicationType: Journal
+  publisher: Springer
+  publisherName: Springer Nature
+  startingPage: '301'
+  subjects:
+  - Immunology
+  - Oncology
+  title: ZTRK1 mutations enable immune evasion in pancreatic adenocarcinoma
+  url:
+  - format: ''
+    platform: ''
+    value: http://dx.doi.org/10.1000/j.canc.2025.00999
+  volume: '58'
+- abstract:
+    h1: Abstract
+    p: This paper proposes a scalable framework for cloud simulation using modular
+      plug-ins and event-driven processing for rapid deployment and testing.
+  contentType: Article
+  creators:
+  - creator: Nguyen, Tien
+  - ORCID: 0000-0002-2020-3030
+    creator: Bose, Arjun
+  disciplines:
+  - id: '5482'
+    term: Software Engineering
+  - id: '6312'
+    term: Cloud Computing
+  doi: 10.1000/j.soft.2025.00456
+  eIssn: 1619-1374
+  endingPage: '119'
+  genre:
+  - OriginalPaper
+  identifier: doi:10.1000/j.soft.2025.00456
+  issn: 1619-1366
+  issueType: Regular
+  journalId: '67890'
+  language: en
+  number: '2'
+  openAccess: 'true'
+  publicationDate: '2025-05-01'
+  publicationName: Software Systems & Modeling
+  publicationType: Journal
+  publisher: Springer
+  publisherName: Springer Berlin Heidelberg
+  startingPage: '105'
+  subjects:
+  - Computer Science
+  - Cloud Computing
+  title: A modular architecture for real-time cloud simulation frameworks
+  url:
+  - format: ''
+    platform: ''
+    value: http://dx.doi.org/10.1000/j.soft.2025.00456
+  volume: '23'
+pageLength: '3'
+query: Computationaly Aided Analysis
+recordsDisplayed: '3'
+start: '1'
+total: '3'

@@ -13,16 +13,15 @@ def test_pubmed_workflow_context(caplog):
     metadata = MagicMock()
     metadata.result = {}
 
-    search_step=PubMedSearchStep()
-    fetch_step=PubMedFetchStep()
-    ctx = StepContext(step_number = 1,
-                      step = search_step,
-                      result = ProcessedResponse(response = response, metadata=metadata))
+    search_step = PubMedSearchStep()
+    fetch_step = PubMedFetchStep()
+    ctx = StepContext(step_number=1, step=search_step, result=ProcessedResponse(response=response, metadata=metadata))
 
     with pytest.raises(TypeError):
         _ = fetch_step.pre_transform(ctx)
 
-    assert f"The metadata from the pubmed search is not in the expected format" in caplog.text
+    assert "The metadata from the pubmed search is not in the expected format" in caplog.text
+
 
 def test_direct_pubmed_workflow(
     mock_pubmed_search_endpoint,
@@ -53,7 +52,9 @@ def test_direct_pubmed_workflow(
         pubmed_workflow = SearchWorkflow(
             steps=[PubMedSearchStep(), PubMedFetchStep(search_parameters=dict(from_process_cache=False))]
         )
-        api = SearchAPI.from_defaults("anxiety", "pubmed", user_agent="SammieH", api_key=pubmed_api_key, use_cache=True)
+        api = SearchAPI.from_defaults(
+            "anxiety", "pubmed", user_agent="scholar_flux", api_key=pubmed_api_key, use_cache=True
+        )
 
         pubmed_coordinator = SearchCoordinator(api)
         result = pubmed_workflow(pubmed_coordinator, page=3)

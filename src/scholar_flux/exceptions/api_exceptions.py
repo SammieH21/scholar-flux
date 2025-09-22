@@ -3,6 +3,8 @@ import requests
 from json import JSONDecodeError
 from typing import Optional
 import logging
+from scholar_flux.utils.response_protocol import ResponseProtocol
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +24,7 @@ class MissingAPISpecificParameterException(ValueError):
     """Exception raised when an API specific parameter is required but not provided in the config"""
 
     pass
+
 
 class MissingProviderException(ValueError):
     """Exception raised when an API specific parameter is required but not provided in the config"""
@@ -87,13 +90,27 @@ class RequestCacheException(APIException):
     pass
 
 
+class InvalidResponseStructureException(APIException):
+    """Exception raised on when encountering an non response/response-like object when a valid response was expected"""
+
+    pass
+
+
+class InvalidResponseReconstructionException(InvalidResponseStructureException):
+    """Exception raised on the attempted creation of a ReconstructedResponse if an exception is encountered"""
+
+    pass
+
+
 class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""
 
-    def __init__(self, response: Optional[requests.Response] = None, *args, **kwargs):
+    def __init__(self, response: Optional[requests.Response | ResponseProtocol] = None, *args, **kwargs):
 
-        self.response: Optional[requests.Response] = response if isinstance(response, requests.Response) else None
-        self.error_details: str = self.extract_error_details(self.response) if self.response is not None else ''
+        self.response: Optional[requests.Response | ResponseProtocol] = (
+            response if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)) else None
+        )
+        self.error_details: str = self.extract_error_details(self.response) if self.response is not None else ""
 
         if self.response is not None:
             error_message = f"HTTP error occurred: {response} - Status code: {self.response.status_code}."
@@ -107,10 +124,10 @@ class InvalidResponseException(RequestFailedException):
         super().__init__(error_message, *args, **kwargs)
 
     @staticmethod
-    def extract_error_details(response: requests.Response) -> str:
+    def extract_error_details(response: requests.Response | ResponseProtocol) -> str:
         """Extracts detailed error message from response body."""
         try:
-            return response.json().get("error", {}).get("message", "")
+            return response.json().get("error", {}).get("message", "")  # type: ignore
         except (ValueError, KeyError, AttributeError, JSONDecodeError):
             return ""
 

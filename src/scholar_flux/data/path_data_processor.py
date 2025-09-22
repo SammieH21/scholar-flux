@@ -1,5 +1,5 @@
 from typing import Any, Optional, Union
-from scholar_flux.utils import PathNodeIndex, ProcessingPath, PathDiscoverer, as_list_1d
+from scholar_flux.utils import PathNodeIndex, ProcessingPath, PathDiscoverer, as_list_1d, generate_repr
 from scholar_flux.data.abc_processor import ABCDataProcessor
 
 # from scholar_flux.data.recursive_data_processor import RecursiveDataProcessor
@@ -173,6 +173,13 @@ class PathDataProcessor(ABCDataProcessor):
         Discovers all keys within the JSON data.
         """
         return self.path_node_index.index.data
+
+    def __repr__(self) -> str:
+        """
+        Method for identifying the current implementation of the PathDataProcessor
+        Useful for showing the options being used to process the api response records
+        """
+        return generate_repr(self, show_value_attributes=False, exclude=["json_data"])
 
 
 if __name__ == "__main__":

@@ -28,8 +28,7 @@ class BaseWorkflowStep(BaseModel):
 
     def _verify_context(self, ctx: Any):
         if not isinstance(ctx, BaseStepContext):
-            msg = (f"Expected the `ctx` of the current workflow to be a StepContext. "
-                   f"Received: {type(ctx).__name__}")
+            msg = f"Expected the `ctx` of the current workflow to be a StepContext. " f"Received: {type(ctx).__name__}"
             logger.error(msg)
             raise TypeError(msg)
 

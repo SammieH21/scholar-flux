@@ -27,14 +27,13 @@ def test_path_data_processor_repr():
     value_delimiter = quote_if_string(processor.value_delimiter)
     ignore_keys = quote_if_string(processor.ignore_keys)
     keep_keys = quote_if_string(processor.keep_keys)
-    path_node_index = quote_if_string(processor.path_node_index)
 
     expected = (
         f"PathDataProcessor(value_delimiter={value_delimiter},\n"
         f"                  regex=True,\n"
         f"                  ignore_keys={ignore_keys},\n"
         f"                  keep_keys={keep_keys},\n"
-        f"                  path_node_index={path_node_index})"
+        f"                  path_node_index=PathNodeIndex(...))"
     )
 
     assert processor.__repr__() == expected

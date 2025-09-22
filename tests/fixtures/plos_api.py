@@ -1,5 +1,6 @@
 from scholar_flux.api import SearchCoordinator, SearchAPI
 from scholar_flux.utils import FileUtils
+import requests_mock
 import pytest
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from pathlib import Path
 @pytest.fixture
 def plos_search_api() -> SearchAPI:
     plos_search_api = SearchAPI.from_defaults(
-        query="social wealth equity", provider_name="plos", records_per_page=100, user_agent="SammieH"
+        query="social wealth equity", provider_name="plos", records_per_page=100, user_agent="scholar_flux"
     )
     return plos_search_api
 
@@ -54,6 +55,36 @@ def plos_headers() -> dict:
     return plos_content_type
 
 
+@pytest.fixture()
+def plos_page_1_response(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers):
+    assert isinstance(plos_search_api, SearchAPI)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            plos_page_1_url,
+            json=plos_page_1_data,
+            headers=plos_headers,
+            status_code=200,
+        )
+        response = plos_search_api.search(page=1)
+    return response
+
+
+@pytest.fixture()
+def plos_page_2_response(plos_search_api, plos_page_2_url, plos_page_2_data, plos_headers):
+    assert isinstance(plos_search_api, SearchAPI)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            plos_page_2_url,
+            json=plos_page_2_data,
+            headers=plos_headers,
+            status_code=200,
+        )
+        response = plos_search_api.search(page=2)
+    return response
+
+
 __all__ = [
     "plos_search_api",
     "plos_coordinator",
@@ -62,4 +93,6 @@ __all__ = [
     "plos_page_2_url",
     "plos_page_2_data",
     "plos_headers",
+    "plos_page_1_response",
+    "plos_page_2_response",
 ]

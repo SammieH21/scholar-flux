@@ -32,6 +32,10 @@ Modules:
               similar to dictionaries. This implementation simplifies the flattening processing, and filtering of
               records when processing articles and record entries from response data.
 
+    - provider_utils: Contains the ProviderUtils class that implements class methods that are used to dynamically read
+                      modules containing provider-specific config models. These config models are then used by
+                      the scholar_flux.api module to populate Search API configurations with API-specific settings.
+
     - repr_utils: Contains a set of helper functions specifically geared toward printing nested objects and
                   compositions of classes into a human readable format to create sensible representations of objects
 
@@ -83,8 +87,29 @@ from scholar_flux.utils.repr_utils import (
     generate_repr,
     generate_repr_from_string,
     format_repr_value,
+    normalize_repr,
     adjust_repr_padding,
 )
+
+from scholar_flux.utils.response_protocol import ResponseProtocol
+
+import importlib
+
+_lazy_imports = {("scholar_flux.utils.provider_utils", "ProviderUtils")}
+
+
+def __getattr__(name):
+    try:
+        module, object_name = next(
+            ((module, object_name) for (module, object_name) in _lazy_imports if object_name == name)
+        )
+        imported_module = importlib.import_module(module)
+        current_object = getattr(imported_module, object_name, None)
+        globals()[name] = current_object
+        return current_object
+    except (ModuleNotFoundError, NameError, ValueError, AttributeError, StopIteration) as e:
+        raise AttributeError(f"'{name}' could not be imported from module, '{__name__}': {e}")
+
 
 __all__ = [
     "setup_logging",
@@ -120,6 +145,12 @@ __all__ = [
     "generate_repr",
     "generate_repr_from_string",
     "format_repr_value",
+    "normalize_repr",
     "adjust_repr_padding",
+    "ResponseProtocol",
     "initialize_package",
 ]
+
+
+def __dir__():
+    return list(globals().keys()) + [object_name for (_, object_name) in _lazy_imports]  # noqa: C417

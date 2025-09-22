@@ -49,16 +49,16 @@ class SearchAPI(BaseAPI):
         """
         Initializes the SearchAPI with a query and optional parameters. The absolute bare minimum for interacting with
         APIs requires a query, base_url, and an APIParameterConfig that associates relevant fields (aka query,
-        records_per_page, etc. with fields that are specific to each API provider. 
+        records_per_page, etc. with fields that are specific to each API provider.
 
         Args:
             query (str): The search keyword or query string.
             provider_name (Optional[str]): The name of the API provider where requests will be sent.
                                            If a provider_name and base_url are both given, the SearchAPIConfig will
                                            prioritize base_urls over the provider_name.
-            parameter_config (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]): 
+            parameter_config (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
                 A config that a parameter map attribute under the hood to build the parameters necessary to interact
-                with an API. For conveniece, an APIParameterMap can be provided in place of an APIParameterConfig,
+                with an API. For convenience, an APIParameterMap can be provided in place of an APIParameterConfig,
                 and the conversion will take place under the hood.
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
             user_agent (Optional[str]): Optional user-agent string for the session.
@@ -92,7 +92,7 @@ class SearchAPI(BaseAPI):
                 records_per_page=records_per_page,
                 api_key=SecretUtils.mask_secret(api_key),
                 request_delay=request_delay,
-                **api_specific_parameters,
+                api_specific_parameters=api_specific_parameters,
             )
 
         except (NotImplementedError, ValidationError, APIParameterException) as e:
@@ -174,7 +174,7 @@ class SearchAPI(BaseAPI):
         This method is called during the initialization of the class.
 
         Args:
-            query (str): The query to send to the current API provider. Note, this must be nonmissing
+            query (str): The query to send to the current API provider. Note, this must be non-missing
             config (SearchAPIConfig): Indicates the configuration settings to be used when sending requests
                                       to APIs
            parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
@@ -196,8 +196,8 @@ class SearchAPI(BaseAPI):
         parameter_config = APIParameterConfig.as_config(parameter_config) if parameter_config else None
         self.parameter_config = parameter_config or APIParameterConfig.from_defaults(self.provider_name)
 
-        if self.parameter_config.parameter_map.api_key_required and not self.config.api_key:
-            logger.warning("API key is required but was not provided")
+        if self.parameter_config.map.api_key_required and not self.config.api_key:
+            logger.warning("An API key is required but was not provided")
         logger.debug("Initialized a new SearchAPI Session Successfully.")
 
     @property
@@ -479,74 +479,102 @@ class SearchAPI(BaseAPI):
         **api_specific_parameters,
     ) -> Dict[str, Any]:
         """
-                Constructs the request parameters for the API call, using the provided APIParameterConfig and its
-                associated APIParmaeterMap. This method maps standard fields (query, page, records_per_page, api_key,
-                etc.) to the provider-specific parameter names
+        Constructs the request parameters for the API call, using the provided APIParameterConfig and its
+        associated APIParameterMap. This method maps standard fields (query, page, records_per_page, api_key,
+        etc.) to the provider-specific parameter names.
 
-                Using `additional_parameters`, an arbitrary set of parameter key-value can be added to request further
-                customize or override parameter settings to the API. additional_parameters is offered as a convenience
-                method in case an API may use additional arguments or a query requires specific advanced functionality.
+        Using `additional_parameters`, an arbitrary set of parameter key-value can be added to request further
+        customize or override parameter settings to the API. additional_parameters is offered as a convenience
+        method in case an API may use additional arguments or a query requires specific advanced functionality.
 
-                Other arguments and mappings can be supplied through **api_specific_parameters to the parameter config,
-                provided that the options or pre-defined mappings exist in the config.
+        Other arguments and mappings can be supplied through **api_specific_parameters to the parameter config,
+        provided that the options or pre-defined mappings exist in the config.
 
-                When **api_specific_parameters and additional_parameters conflict, additional_parameters is considered
-                 the ground truth. If any remaining parameters are `None` in the constructed list of parameters, these
-                 values will be dropped from the final dictionary.
+        When **api_specific_parameters and additional_parameters conflict, additional_parameters is considered
+         the ground truth. If any remaining parameters are `None` in the constructed list of parameters, these
+         values will be dropped from the final dictionary.
 
-                Args:
-                    page (int): The page number to request.
-                    additional_parameters Optional[dict]: A dictionary of additional overrides that may or may not have
-                            `                             been included in the original parameter map of the current
-                                                          API. (Provided for further customization of requests).
-                    **api_specific_parameters: Additional parameters to provide to the parameter config: Note that the
-                                               config will only accept keyword arguments that have been explicitly
-                                               defined in the parameter map. For all others, they must be added using
-                                               the additional_parameters parameter.
+        Args:
+            page (int): The page number to request.
+            additional_parameters Optional[dict]: A dictionary of additional overrides that may or may not have
+                    `                             been included in the original parameter map of the current
+                                                  API. (Provided for further customization of requests).
+            **api_specific_parameters: Additional parameters to provide to the parameter config: Note that the
+                                       config will only accept keyword arguments that have been explicitly
+                                       defined in the parameter map. For all others, they must be added using
+                                       the additional_parameters parameter.
 
-                Returns:
-                    Dict[str, Any]: The constructed request parameters.
+        Returns:
+            Dict[str, Any]: The constructed request parameters.
         """
+
+        # validate the complete list of additional parameter overrides if provided
+        additional_parameters = self._validate_parameters(additional_parameters or {})
+
         # contains the full list of all parameters specific to the current API
         all_parameter_names = set(self.parameter_config.show_parameters())
 
         # Method to build request parameters from the original parameter map
         api_specific_parameters = self.api_specific_parameters | api_specific_parameters
 
-        # validate the complete list of additional parameter overrides if provided
-        additional_parameters = self._validate_parameters(additional_parameters or {})
+        # Identify all parameters found in the list of additional_parameters that are also specific to the current API
+        api_specific_parameters |= {
+            parameter_name: additional_parameters.pop(parameter_name, None)
+            for parameter_name in all_parameter_names
+            if parameter_name in additional_parameters
+        }
+
+        # removing and retrieving the API key from additional_parameters if otherwise not provided.
+        # on conflicts where an api key is provided twice, this will raise an error instead
+        api_key = (
+            self.api_key
+            or api_specific_parameters.pop("api_key", None)
+            or api_specific_parameters.pop(self.parameter_config.map.api_key_parameter or "", None)
+        )
+
+        if api_key is not None and self.api_key is None:
+            logger.warning(
+                "Note that, while dynamic changes to a missing API key is possible in request building, "
+                "is not encouraged. Instead, redefine the `api_key` parameter as an "
+                "attribute in the current SearchAPI."
+            )
+
+        # parameters that are duplicated can result in inconsistencies down the line - raise an error first
+        duplicated_parameters = self.parameter_config._find_duplicated_parameters(api_specific_parameters)
+
+        if duplicated_parameters:
+            raise APIParameterException(
+                "Attempted to override core parameters (query, records_per_page, api_key) via api_specific_parameters. "
+                "This is not allowed. Please set these values via the SearchAPI constructor or attributes or use"
+                "the `with_config` context manager instead."
+            )
+
+        # log when api specific parameter overrides are applied
+        if api_specific_parameters:
+            logger.info(
+                "The following additional parameters will be used to override the current parameter list:"
+                f" {api_specific_parameters}"
+            )
 
         # Builds the final set of parameters-value mappings from the API specific parameter list
         parameters = self.parameter_config.build_parameters(
             query=self.query,
             page=page,
             records_per_page=self.records_per_page,
-            api_key=self.api_key,
+            api_key=api_key,
             **api_specific_parameters,
         )
-
-        # Identify all parameters found in the list of additional_parameters that are also specific to the current API
-        api_specific_parameter_overrides = {parameter_name: additional_parameters.pop(parameter_name, None)
-                                            for parameter_name in all_parameter_names
-                                            if parameter_name in additional_parameters}
-
-        # log when api specific parameter overrides are applied
-        if api_specific_parameter_overrides:
-            logger.info(
-                "The following additional parameters will be used to override the current parameter list:"
-                f" {api_specific_parameter_overrides}"
-            )
 
         # all remaining parameters not found in the list of `all_parameter_names` are then unknown.
         # log a warning before applying these in case this is not the user's intention
         if additional_parameters:
             logger.warning(
-                f"The following additional parameters are not associated with the current API config:" 
+                f"The following additional parameters are not associated with the current API config:"
                 f" {additional_parameters}"
             )
 
-        # adds these remaining unkown parameters to the dictionary of current parameter-value mappings
-        all_parameters = parameters | api_specific_parameter_overrides | additional_parameters
+        # adds these remaining unknown parameters to the dictionary of current parameter-value mappings
+        all_parameters = parameters | additional_parameters
 
         # note that some parameters above can be None. These parameters are removed prior to returning the dictionary
         return {parameter: value for parameter, value in all_parameters.items() if value is not None}
@@ -590,8 +618,8 @@ class SearchAPI(BaseAPI):
         Returns:
             Response: The API's response to the request.
         """
-        
-        parameters = self.build_parameters(current_page, additional_parameters = additional_parameters)
+
+        parameters = self.build_parameters(current_page, additional_parameters=additional_parameters)
 
         with self._rate_limiter.rate(self.config.request_delay):
             response = self.send_request(self.base_url, parameters=parameters)
@@ -600,7 +628,7 @@ class SearchAPI(BaseAPI):
 
     def prepare_request(
         self,
-        base_url: str,
+        base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
         api_key: Optional[str] = None,
@@ -619,15 +647,17 @@ class SearchAPI(BaseAPI):
         Returns:
             prepared_request (PreparedRequest) : The prepared request object.
         """
+        current_base_url = base_url or self.base_url
         try:
             # constructs the url with the endpoint
-            url = urljoin(base_url, endpoint) if endpoint else base_url
 
-            parameters = parameters or {}
+            url = urljoin(current_base_url, endpoint) if endpoint else current_base_url
 
-            # attempt to retrieve the api key and parameter name if existing, else fallbck to api_key
+            parameters = self._validate_parameters(parameters or {})
+
+            # attempt to retrieve the api key and parameter name if existing, else fallback to api_key
             if api_key and not self._api_key_exists(parameters):
-                api_key_parameter_name = self.parameter_config.parameter_map.api_key_parameter or "api_key"
+                api_key_parameter_name = self.parameter_config.map.api_key_parameter or "api_key"
                 if api_key_parameter_name:
                     parameters[api_key_parameter_name] = api_key
 
@@ -643,8 +673,8 @@ class SearchAPI(BaseAPI):
             return prepared_request
         except Exception as e:
             raise RequestCreationException(
-                "An unexpected error occurred:The request could"
-                f"not be prepared for base_url={base_url}, "
+                "An unexpected error occurred: The request could "
+                f"not be prepared for base_url={current_base_url}, "
                 f"endpoint={endpoint}: {e}"
             )
 
@@ -672,6 +702,7 @@ class SearchAPI(BaseAPI):
         config: Optional[SearchAPIConfig] = None,
         parameter_config: Optional[APIParameterConfig] = None,
         provider_name: Optional[str] = None,
+        query: Optional[str] = None,
     ) -> Iterator["SearchAPI"]:
         """
         Temporarily modifies the SearchAPI's SearchAPIConfig and/or APIParameterConfig and namespace.
@@ -687,12 +718,14 @@ class SearchAPI(BaseAPI):
                                                              specific to the current api.
             provider_name (Optional[str]): used to retrieve the associated configuration for a specific provider
                                            in order to edit the parameter map when using a different provider.
+            query (Optional[str]): Allows users to temporarily modify the query used to retrieve records from an API.
 
         Yields:
             SearchAPI: The current api object with a temporarily swapped config during the context manager.
         """
         original_config = self.config
         original_parameter_config = self.parameter_config
+        original_query = self.query
 
         try:
             # Fetch from provider_name if needed
@@ -707,15 +740,17 @@ class SearchAPI(BaseAPI):
             self.config = config or provider_config or self.config
             parameter_config = APIParameterConfig.as_config(parameter_config) if parameter_config else None
             self.parameter_config = parameter_config or provider_param_config or self.parameter_config
+            self.query = query or self.query
 
             yield self
         finally:
             self.config = original_config
             self.parameter_config = original_parameter_config
+            self.query = original_query
 
     @contextmanager
     def with_config_parameters(
-        self, provider_name: Optional[str] = None, **api_specific_parameters
+        self, provider_name: Optional[str] = None, query: Optional[str] = None, **api_specific_parameters
     ) -> Iterator[SearchAPI]:
         """
         Allows for the temporary modification of the search configuration, and parameter mappings,
@@ -724,7 +759,7 @@ class SearchAPI(BaseAPI):
 
         Args:
             provider_name (Optional[str]): If provided, fetches the default parameter config for the provider.
-
+            query (Optional[str]): Allows users to temporarily modify the query used to retrieve records from an API.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override in the current config.
 
         Yields:
@@ -734,6 +769,7 @@ class SearchAPI(BaseAPI):
 
         original_search_config = self.config
         original_parameter_config = self.parameter_config
+        original_query = self.query
 
         try:
             if api_specific_parameters or provider_name:
@@ -749,11 +785,14 @@ class SearchAPI(BaseAPI):
             if parameter_config:
                 self.parameter_config = parameter_config
 
+            self.query = query or self.query
+
             yield self
 
         finally:
             self.config = original_search_config
             self.parameter_config = original_parameter_config
+            self.query = original_query
 
     def describe(self) -> dict:
         """
@@ -768,7 +807,7 @@ class SearchAPI(BaseAPI):
         provider_name = self.provider_name
         provider = provider_registry.get(provider_name)
 
-        parameter_map = provider.parameter_map if provider else self.parameter_config.parameter_map
+        parameter_map = provider.parameter_map if provider else self.parameter_config.map
 
         return {
             "config_fields": config_fields,
@@ -776,6 +815,12 @@ class SearchAPI(BaseAPI):
         }
 
     def __repr__(self) -> str:
+        """
+        Helper method for quickly showing a representation of the overall structure of the SearchAPI.
+        The helper function, generate_repr_from_string helps produce human-readable representations
+        of the core structure of the SearchAPI.
+        """
+
         class_name = self.__class__.__name__
 
         attribute_dict = {

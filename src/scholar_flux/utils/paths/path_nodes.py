@@ -38,12 +38,7 @@ class PathNode:
             )
 
     @classmethod
-    def to_path_node(
-        cls,
-        path:Union[ProcessingPath, str, list[str]],
-        value: Any,
-        **path_kwargs
-    ) -> PathNode:
+    def to_path_node(cls, path: Union[ProcessingPath, str, list[str]], value: Any, **path_kwargs) -> PathNode:
         """
         Helper method for creating a path node from the components used to create paths
         in addition to value to assign the path node.
@@ -63,9 +58,8 @@ class PathNode:
         try:
             path = ProcessingPath.to_processing_path(path, **path_kwargs)
         except (ValueError, InvalidProcessingPathError) as e:
-            raise InvalidPathNodeError('Could not construct a path from the inputs') from e
+            raise InvalidPathNodeError("Could not construct a path from the inputs") from e
         return cls(path, value)
-
 
     def update(self, **attributes: Union[ProcessingPath, Any]) -> PathNode:
         """
@@ -216,8 +210,8 @@ class PathNode:
 
     def __copy__(self) -> PathNode:
         """Helper method for deepcopying the current node"""
-        return PathNode(path=self.path, value = copy.copy(self.value))
+        return PathNode(path=self.path, value=copy.copy(self.value))
 
     def __deepcopy__(self) -> PathNode:
         """Helper method for deepcopying the current node"""
-        return PathNode(path=self.path, value = copy.deepcopy(self.value))
+        return PathNode(path=self.path, value=copy.deepcopy(self.value))

@@ -2,10 +2,9 @@ import pytest
 import hashlib
 from unittest.mock import Mock
 from requests.models import Response
+from http.client import responses
 import json
-import re
 from pathlib import Path
-from typing import Any
 
 
 @pytest.fixture
@@ -15,6 +14,7 @@ def mock_response():
     response.url = "https://api.example.com/test"
     response.status_code = 200
     response.content = b"test content"
+    response.status = responses[200]
     return response
 
 
@@ -23,6 +23,7 @@ def mock_successful_response():
     """Create a response object that simulates a 429 rate limit exceeded error"""
     mock_response = Response()
     mock_response.status_code = 200
+    mock_response.status = responses[200]  # type:ignore
     return mock_response
 
 
@@ -31,6 +32,7 @@ def mock_internal_error_response():
     """Create a response object that simulates a 500 internal error"""
     mock_response = Response()
     mock_response.status_code = 500
+    mock_response.status = responses[500]  # type:ignore
     return mock_response
 
 
@@ -39,6 +41,7 @@ def mock_unauthorized_response():
     """Create a response object that simulates a 401 unauthorized error"""
     mock_response = Response()
     mock_response.status_code = 401
+    mock_response.status = responses[401]  # type:ignore
     return mock_response
 
 
@@ -47,6 +50,7 @@ def mock_rate_limit_exceeded_response():
     """Create a response object that simulates a 429 rate limit exceeded error"""
     mock_response = Response()
     mock_response.status_code = 429
+    mock_response.status = responses[429]  # type:ignore
     return mock_response
 
 
@@ -70,75 +74,9 @@ def mock_academic_json_path() -> Path:
 
 
 @pytest.fixture
-def mock_pubmed_search_endpoint() -> re.Pattern:
-    mock_pubmed_search_endpoint = re.compile("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi.*")
-    return mock_pubmed_search_endpoint
-
-
-@pytest.fixture
-def mock_pubmed_fetch_endpoint() -> re.Pattern:
-    mock_pubmed_fetch_endpoint = re.compile("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi.*")
-    return mock_pubmed_fetch_endpoint
-
-
-@pytest.fixture
-def mock_pubmed_search_json_path() -> Path:
-    mock_pubmed_search_json_path = Path(__file__).resolve().parent.parent / "mocks" / "mock_pubmed_search.json"
-    return mock_pubmed_search_json_path
-
-
-@pytest.fixture
-def mock_pubmed_fetch_json_path() -> Path:
-    mock_pubmed_fetch_json_path = Path(__file__).resolve().parent.parent / "mocks" / "mock_pubmed_fetch.json"
-    return mock_pubmed_fetch_json_path
-
-
-@pytest.fixture
 def mock_academic_json(mock_academic_json_path) -> dict:
     mock_academic_json = json.loads(mock_academic_json_path.read_text(encoding="utf-8"))
     return mock_academic_json
-
-
-@pytest.fixture
-def mock_pubmed_search_data(mock_pubmed_search_json_path) -> dict[str, Any]:
-    mock_pubmed_search_data = json.loads(mock_pubmed_search_json_path.read_text(encoding="utf-8"))
-    return mock_pubmed_search_data
-
-
-@pytest.fixture
-def mock_pubmed_fetch_data(mock_pubmed_fetch_json_path) -> dict[str, Any]:
-    mock_pubmed_fetch_json_data = json.loads(mock_pubmed_fetch_json_path.read_text(encoding="utf-8"))
-    return mock_pubmed_fetch_json_data
-
-
-@pytest.fixture
-def mock_pubmed_search_response(mock_pubmed_search_data) -> Response:
-
-    # Create a mock object that behaves like a Response instance
-    mock_response = Response()
-
-    # Set desired attributes and method return values
-    mock_response.status_code = 200
-    mock_response._content = mock_pubmed_search_data["_content"].encode("utf-8")
-    mock_response.headers.update({"Content-Type": "text/xml"})
-    mock_response.encoding = "UTF-8"
-
-    return mock_response
-
-
-@pytest.fixture
-def mock_pubmed_fetch_response(mock_pubmed_fetch_data) -> Response:
-
-    # Create a mock object that behaves like a Response instance
-    mock_response = Response()
-
-    # Set desired attributes and method return values
-    mock_response.status_code = 200
-    mock_response._content = mock_pubmed_fetch_data["_content"].encode("utf-8")
-    mock_response.headers.update({"Content-Type": "text/xml"})
-    mock_response.encoding = "UTF-8"
-
-    return mock_response
 
 
 @pytest.fixture
@@ -159,40 +97,62 @@ def academic_json_response(mock_academic_json) -> Response:
 
 
 @pytest.fixture
-def mock_academic_json_response(mock_academic_json) -> Response:
+def mock_academic_yaml_path() -> Path:
+    mock_academic_yaml_path = Path(__file__).resolve().parent.parent / "mocks" / "mock_article_response.yaml"
+    return mock_academic_yaml_path
+
+
+@pytest.fixture
+def mock_academic_yaml(mock_academic_yaml_path) -> str:
+    mock_academic_yaml = mock_academic_yaml_path.read_text(encoding="utf-8")
+    return mock_academic_yaml
+
+
+@pytest.fixture
+def academic_yaml_response(mock_academic_yaml) -> Response:
 
     # Create a mock object that behaves like a Response instance
-    mock_response = Mock(spec=Response)
+    mock_response = Response()
 
     # Set desired attributes and method return values
     mock_response.status_code = 200
-    mock_response.text = str(mock_academic_json)
+    # mock_response.text = str(mock_academic_yaml)
     mock_response.raw = mock_response.text
-    mock_response.content = mock_response.text.encode("utf-8")
-    mock_response.json.return_value = mock_academic_json
-    mock_response.headers = {"Content-Type": "application/json"}
-    mock_response.raise_for_status = lambda: 200
+    mock_response._content = mock_academic_yaml
+    mock_response.headers.update({"Content-Type": "application/yaml"})
+    mock_response.encoding = "utf-8"
 
     return mock_response
 
 
+# @pytest.fixture
+# def mock_academic_json_response(mock_academic_json) -> Response:
+#
+#     # Create a mock object that behaves like a Response instance
+#     mock_response = Mock(spec=Response)
+#
+#     # Set desired attributes and method return values
+#     mock_response.status_code = 200
+#     mock_response.text = str(mock_academic_json)
+#     mock_response.raw = mock_response.text
+#     mock_response.content = mock_response.text.encode("utf-8")
+#     mock_response.json.return_value = mock_academic_json
+#     mock_response.headers = {"Content-Type": "application/json"}
+#     mock_response.raise_for_status = lambda: 200
+#
+#     return mock_response
+
 __all__ = [
     "mock_response",
     "mock_cache_storage_data",
-    "mock_academic_json_path",
-    "mock_pubmed_search_json_path",
-    "mock_pubmed_fetch_json_path",
-    "mock_academic_json",
     "mock_successful_response",
     "mock_internal_error_response",
     "mock_unauthorized_response",
     "mock_rate_limit_exceeded_response",
-    "mock_academic_json_response",
+    "mock_academic_json_path",
+    "mock_academic_json",
     "academic_json_response",
-    "mock_pubmed_search_data",
-    "mock_pubmed_fetch_data",
-    "mock_pubmed_search_endpoint",
-    "mock_pubmed_fetch_endpoint",
-    "mock_pubmed_search_response",
-    "mock_pubmed_fetch_response",
+    "mock_academic_yaml_path",
+    "mock_academic_yaml",
+    "academic_yaml_response",
 ]

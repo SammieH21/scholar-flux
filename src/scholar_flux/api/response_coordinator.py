@@ -1,12 +1,16 @@
 from __future__ import annotations
 from scholar_flux.data_storage import DataCacheManager
-from scholar_flux.data import (
-    BaseDataParser,
-    DataParser,
-    BaseDataExtractor,
-    DataExtractor,
-    ABCDataProcessor,
-    PathDataProcessor,
+
+from scholar_flux.data.base_parser import BaseDataParser
+from scholar_flux.data.data_parser import DataParser
+from scholar_flux.data.base_extractor import BaseDataExtractor
+from scholar_flux.data.data_extractor import DataExtractor
+from scholar_flux.data.abc_processor import ABCDataProcessor
+from scholar_flux.data.path_data_processor import PathDataProcessor
+
+from scholar_flux.exceptions.api_exceptions import (
+    InvalidResponseReconstructionException,
+    InvalidResponseStructureException,
 )
 
 from scholar_flux.exceptions.data_exceptions import (
@@ -15,7 +19,10 @@ from scholar_flux.exceptions.data_exceptions import (
     FieldNotFoundException,
     DataProcessingException,
 )
+
+
 from scholar_flux.utils.repr_utils import generate_repr_from_string
+from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.exceptions.coordinator_exceptions import (
     InvalidCoordinatorParameterException,
 )
@@ -28,12 +35,53 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse
+from scholar_flux.api.models.response import ProcessedResponse, ErrorResponse, APIResponse
 
 
 class ResponseCoordinator:
     """
     Coordinates the parsing, extraction, processing, and caching of API responses.
+    The ResponseCoordinator operates on the concept of dependency injection to orchestrate
+    the entire process. Because the structure of the coordinator (parser, extractor, processor)
+
+    Note that the overall composition of the coordinator is a governing factor in how the response is processed.
+    The ResponseCoordinator uses a cache key and schema fingerprint to ensure that it is only
+    returning a processed response from the cache storage if the structure of the coordinator at the time
+    of cache storage has not changed.
+
+    To ensure that we're not pulling from cache on significant changes to the ResponseCoordinator,
+    we validate the schema by default using `DEFAULT_VALIDATE_FINGERPRINT`. When the schema changes,
+    previously cached data is ignored, although this can be explicitly overridden during
+    response handling.
+
+    The coordinator orchestration process operates mainly through the ResponseCoordinator.handle_response
+    method that sequentially calls the parser, data_extractor, processor, and cache_manager.
+
+    Example workflow:
+
+        >>> from scholar_flux.api import SearchAPI, ResponseCoordinator
+        >>> api = SearchAPI(query = 'technological innovation', provider_name = 'crossref', user_agent = 'scholar_flux')
+        >>> response_coordinator = ResponseCoordinator.build() # uses defaults with caching in-memory
+        >>> response = api.search(page = 1)
+        # future calls with the same structure will be cached
+        >>> processed_response = response_coordinator.handle_response(response, cache_key='tech-innovation-cache-key-page-1')
+        # the ProcessedResponse (or ErrorResponse) stores critical fields from the original and processed response
+        >>> processed_response
+        # OUTPUT: <ProcessedResponse(len=20, cache_key='tech-innovation-cache-key-page-1', metadata=...>
+        >>> new_processed_response = response_coordinator.handle_response(processed_response, cache_key='tech-innovation-cache-key-page-1')
+        >>> new_processed_response
+        # OUTPUT: <ProcessedResponse(len=20, cache_key='tech-innovation-cache-key-page-1', metadata=...>
+
+    Note that the entire process can be orchestrated via the SearchCoordinator that uses the SearchAPI and
+    ResponseCoordinator as core dependency injected components:
+
+        >>> from scholar_flux import SearchCoordinator
+        >>> search_coordinator = SearchCoordinator(api, response_coordinator, cache_requests=True)
+        # uses a default cache key constructed from the response internally
+        >>> processed_response = search_coordinator.search(page = 1)
+        # OUTPUT: <ProcessedResponse(len=20, cache_key='crossref_technological innovation_1_20', metadata=...>
+        >>> processed_response.content == new_processed_response.content
+
 
     Args:
         parser (BaseDataParser): Parses raw API responses.
@@ -41,6 +89,8 @@ class ResponseCoordinator:
         processor (ABCDataProcessor): Processes extracted data.
         cache_manager (DataCacheManager): Manages response cache.
     """
+
+    DEFAULT_VALIDATE_FINGERPRINT: bool = True
 
     def __init__(
         self,
@@ -244,9 +294,10 @@ class ResponseCoordinator:
 
     def handle_response(
         self,
-        response: Response,
+        response: Response | ResponseProtocol,
         cache_key: Optional[str] = None,
         from_cache: bool = True,
+        validate_fingerprint: Optional[bool] = None,
     ) -> ErrorResponse | ProcessedResponse:
         """
         Retrieves the data from the processed response from cache as a
@@ -269,18 +320,23 @@ class ResponseCoordinator:
 
         if from_cache:
             # attempt to retrieve from cache first
-            cached_response = self._from_cache(response, cache_key)
+            cached_response = self._from_cache(response, cache_key, validate_fingerprint)
 
         # if caching is not being being used, or the cache is not available or valid anymore, process:
         return cached_response or self._handle_response(response, cache_key)
 
-    def _from_cache(self, response: Response, cache_key: Optional[str] = None) -> Optional[ProcessedResponse]:
+    def _from_cache(
+        self,
+        response: Response | ResponseProtocol,
+        cache_key: Optional[str] = None,
+        validate_fingerprint: Optional[bool] = None,
+    ) -> Optional[ProcessedResponse]:
         """
         Retrieves Previously Cached Response data that has been
         parsed, extracted, processed, and stored in cache
 
         Args:
-            response (Response): Raw API response.
+            response (Response | ResponseProtocol): Raw API response.
             cache_key (Optional[str]): Cache key for storing results.
 
         Returns:
@@ -290,9 +346,10 @@ class ResponseCoordinator:
             if not self.cache_manager:
                 return None
 
-            cache_key = cache_key or self.cache_manager.generate_fallback_cache_key(response)
+            response_obj = self._validate_response(response)
+            cache_key = cache_key or self.cache_manager.generate_fallback_cache_key(response_obj)
 
-            if not self.cache_manager.cache_is_valid(cache_key, response):
+            if not self.cache_manager.cache_is_valid(cache_key, response_obj):
                 return None
 
             cached = self.cache_manager.retrieve(cache_key) or {}
@@ -300,13 +357,29 @@ class ResponseCoordinator:
             if not cached:
                 return None
 
+            cached_schema = cached.get("schema")
+            validate_fingerprint = (
+                validate_fingerprint if validate_fingerprint is not None else self.DEFAULT_VALIDATE_FINGERPRINT
+            )
+
+            if validate_fingerprint and cached_schema:
+                current_schema = self.schema_fingerprint()
+
+                if cached_schema != current_schema:
+                    logger.info(
+                        "The current schema does not match the previous schema that generated the "
+                        f"previously cached response.\n\n Current schema: \n{current_schema}\n"
+                        f"\nCached schema: \n{cached_schema}\n\n Skipping retrieval from cache."
+                    )
+                    return None
+
             logger.info(f"retrieved response '{cache_key}' from cache")
 
             return ProcessedResponse(
                 data=cached.get("processed_response"),
                 metadata=cached.get("metadata"),
                 cache_key=cache_key,
-                response=response,
+                response=response_obj,
                 parsed_response=cached.get("parsed_response"),
                 extracted_records=cached.get("extracted_records"),
             )
@@ -314,8 +387,64 @@ class ResponseCoordinator:
             logger.warning(f"An exception occurred while attempting to retrieve '{cache_key}' from cache: {e}")
             return None
 
+    @classmethod
+    def _resolve_response(
+        cls, response: Response | ResponseProtocol, validate: bool = False
+    ) -> Response | ResponseProtocol:
+        """
+        Helper method for ensuring that the underlying response is actually a response object or valid response-like
+        object. If the value is a valid response-like object, the reconstructed response is returned as is.
+
+        Args:
+            response (Response | APIResponse | ReconstructedResponse | ResponseProtocol): A response or response-like object to resolve
+            validate (bool): Indicates whether to directly throw an error if the response object is not valid
+
+        Returns:
+            Response | ReconstructedResponse: If the value is a valid response or response-like object
+
+        Raises:
+            InvalidRequestReconstructionError: If the expected value is not a response or response like object and
+                                               validation is set to `True`.
+        """
+
+        response_obj = response.response if isinstance(response, APIResponse) else response
+
+        if isinstance(response_obj, Response):
+            return response_obj
+
+        # can retrieve nested responses within APIResponse objects if needed
+        reconstructed_response = APIResponse.as_reconstructed_response(response)
+
+        if not isinstance(reconstructed_response, ResponseProtocol):
+            raise InvalidCoordinatorParameterException(
+                "Expected a valid response or response-like object. "
+                f"The object of type {type(response)} is not a response."
+            )
+
+        if validate:
+            reconstructed_response.validate()
+
+        return reconstructed_response
+
+    @classmethod
+    def _validate_response(cls, response: Response | ResponseProtocol) -> Response | ResponseProtocol:
+        """Helper method for returning the response or response-like object in case of errors. Otherwise
+        returns an error if the response type is not a valid response or response-like object
+
+        Args:
+            response (requests.Response | ResponseProtocol): A response or response like object
+
+        Returns:
+            requests.Response | ResponseProtocol: The validated response or response-like object on success
+
+        Raises:
+            InvalidRequestReconstructionError: If the value entered is not a valid response object
+        """
+        response_obj = cls._resolve_response(response, validate=True)
+        return response_obj
+
     def _handle_response(
-        self, response: Response, cache_key: Optional[str] = None
+        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None
     ) -> ErrorResponse | ProcessedResponse:
         """
         Parses, extracts, processes, and optionally caches response data and orchestrates the process of handling errors
@@ -334,11 +463,13 @@ class ResponseCoordinator:
                                                error.
 
         """
-        try:
-            response.raise_for_status()
-            return self._process_response(response, cache_key)
 
-        except RequestException as e:
+        try:
+            resolved_response = self._resolve_response(response)
+            resolved_response.raise_for_status()
+            return self._process_response(resolved_response, cache_key)
+
+        except (RequestException, InvalidResponseStructureException, InvalidResponseReconstructionException) as e:
             error_response = self._process_error(response, f"Error retrieving response {e}", e, cache_key=cache_key)
 
         except (
@@ -359,7 +490,9 @@ class ResponseCoordinator:
 
         return error_response
 
-    def _process_response(self, response: Response, cache_key: Optional[str] = None) -> ProcessedResponse:
+    def _process_response(
+        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None
+    ) -> ProcessedResponse:
         """
         Parses, extracts, processes, and optionally caches response data.
 
@@ -379,7 +512,7 @@ class ResponseCoordinator:
         parsed_response_data = self.parser(response)
 
         if not parsed_response_data:
-            raise DataParsingException
+            raise DataParsingException("The parsed response contained no parsable content")
 
         extracted_records, metadata = self.data_extractor(parsed_response_data)
 
@@ -395,6 +528,7 @@ class ResponseCoordinator:
                 parsed_response=parsed_response_data,
                 extracted_records=extracted_records,
                 processed_response=processed_response,
+                schema=self.schema_fingerprint(),
             )
         logger.info("Data processed for %s", cache_key)
 
@@ -409,7 +543,7 @@ class ResponseCoordinator:
 
     def _process_error(
         self,
-        response: Response,
+        response: Response | ResponseProtocol,
         error_message: str,
         error_type: Exception,
         cache_key: Optional[str] = None,
@@ -429,10 +563,21 @@ class ResponseCoordinator:
 
         return ErrorResponse(
             cache_key=cache_key,
-            response=response,
+            response=response.response if isinstance(response, APIResponse) else response,
             message=error_message,
             error=type(error_type).__name__,
         )
+
+    def schema_fingerprint(self) -> str:
+        """Helper method for generating a concise view of the current sructure of the response coordinator"""
+        fingerprint = self.cache_manager.cache_fingerprint(
+            generate_repr_from_string(
+                self.__class__.__name__,
+                dict(data_parser=self.parser, data_extractor=self.data_extractor, processor=self.processor),
+            )
+        )
+
+        return fingerprint
 
     def __repr__(self) -> str:
         """Helper class for representing the structure of the Response Coordinator"""

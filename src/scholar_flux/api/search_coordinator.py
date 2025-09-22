@@ -13,11 +13,13 @@ from scholar_flux.api import (
     ErrorResponse,
 )
 from scholar_flux.api.models import ResponseResult, PageListInput
-from scholar_flux.data import (
-    BaseDataParser,
-    BaseDataExtractor,
-    ABCDataProcessor,
-)
+
+from scholar_flux.data.base_parser import BaseDataParser
+from scholar_flux.data.base_extractor import BaseDataExtractor
+from scholar_flux.data.abc_processor import ABCDataProcessor
+
+from scholar_flux.utils.response_protocol import ResponseProtocol
+
 from scholar_flux.exceptions import (
     RequestFailedException,
     RequestCacheException,
@@ -65,89 +67,93 @@ class SearchCoordinator(BaseCoordinator):
     ):
         """
 
-                Flexible initializer that constructs a SearchCoordinator either from its core components or from their
-                basic building blocks when these core components are not directly provided.
+        Flexible initializer that constructs a SearchCoordinator either from its core components or from their
+        basic building blocks when these core components are not directly provided.
 
-                If `search_api` and `response_coordinator` are provided, then this method will use these inputs directly.
+        If `search_api` and `response_coordinator` are provided, then this method will use these inputs directly.
 
-                The additional parameters can still be used to update these two components. For example, a `search_api` can be
-                updated with a new `query`, `session`, and SearchAPIConfig parameters through key word arguments [**kwargs])
+        The additional parameters can still be used to update these two components. For example, a `search_api` can be
+        updated with a new `query`, `session`, and SearchAPIConfig parameters through key word arguments [**kwargs])
 
-                When neither component is provided:
-                    - The creation of the search_api requires, at minimum, a query.
-                    - If the response_coordinator, a parser, extractor, processor, and cache_manager aren't provided, then
-                      then a new ResponseCoordinator will be built from the default settings.
+        When neither component is provided:
+            - The creation of the search_api requires, at minimum, a query.
+            - If the response_coordinator, a parser, extractor, processor, and cache_manager aren't provided, then
+              then a new ResponseCoordinator will be built from the default settings.
 
 
-                Core Components/Attributes:
-                    SearchAPI: handles all requests to an API based on its configuration.
-                        Dependencies: `query`, `**kwargs`
-                    ResponseCoordinator:handles the parsing, record/metadata extraction, processing, and caching of responses
-                        Dependencies: `parser`, `extractor`, `processor`, `cache_manager`
+        Core Components/Attributes:
+            SearchAPI: handles all requests to an API based on its configuration.
+                Dependencies: `query`, `**kwargs`
+            ResponseCoordinator:handles the parsing, record/metadata extraction, processing, and caching of responses
+                Dependencies: `parser`, `extractor`, `processor`, `cache_manager`
 
-                Other Attributes:
-                    RetryHandler: Addresses when to retry failed requests and how failed requests are retried
-                    SearchWorkflow: An optional workflow that defines custom search logic from specific APIs
-                    Validator: handles how requests are validated. The default determines whether a 200 response was received
+        Other Attributes:
+            RetryHandler: Addresses when to retry failed requests and how failed requests are retried
+            SearchWorkflow: An optional workflow that defines custom search logic from specific APIs
+            Validator: handles how requests are validated. The default determines whether a 200 response was received
 
-                Note:
-                    This implementation uses the underlying private method `_initialize` to handle the assignment
-                    of parameters under the hood while the core function of the __init__ creates these components if
-                    they do not already exist.
+        Note:
+            This implementation uses the underlying private method `_initialize` to handle the assignment
+            of parameters under the hood while the core function of the __init__ creates these components if
+            they do not already exist.
 
-                Args:
-                    search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
-                    response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
-                                                                         core handling of all responses from APIs
-                    parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
-                    extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
-                    processor: (Optional[ABCDataProcessor]): Processes API responses into list of dictionaries
-                    cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
-                    cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
-                    cache_results: (Optional[bool]): Determines whether or not to cache processed responses - on by default unless specified otherwise
-                    query: (Optional[str]): Query to be used when sending requests when creating an API - modifies the query if the API already exists
-                    retry_handler (Optional[RetryHandler]): class used to retry failed requests-cache
-                    validator (Optional[ResponseValidator]): class used to verify and validate responses returned from APIs
-                    workflow (Optional[SearchWorkflow]): An optional workflow used to customize how records are retrieved
-                                                         from APis. Uses the default workflow for the current provider when
-                                                         a workflow is not directly specified.
-                    **kwargs: Keyword arguments to be passed to the SearchAPIConfig that creates the SearchAPI if it doesn't already exist
+        Args:
+            search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
+                                                                 core handling of all responses from APIs
+            parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
+            extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
+            processor: (Optional[ABCDataProcessor]): Processes API responses into list of dictionaries
+            cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
+            cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
+            cache_results: (Optional[bool]): Determines whether or not to cache processed responses - on by default unless specified otherwise
+            query: (Optional[str]): Query to be used when sending requests when creating an API - modifies the query if the API already exists
+            retry_handler (Optional[RetryHandler]): class used to retry failed requests-cache
+            validator (Optional[ResponseValidator]): class used to verify and validate responses returned from APIs
+            workflow (Optional[SearchWorkflow]): An optional workflow used to customize how records are retrieved
+                                                 from APis. Uses the default workflow for the current provider when
+                                                 a workflow is not directly specified.
+            **kwargs: Keyword arguments to be passed to the SearchAPIConfig that creates the SearchAPI if it doesn't already exist
 
-                    Examples:
-                        >>> from scholar_flux import SearchCoordinator
-                        >>> search_coordinator = SearchCoordinator(query = "Functional Processing", cache_requests = False, cache_results = True)
-                        >>> response = search_coordinator.search(page = 1)
-                        >>> response
-                        >>> ProcessedResponse
-
-                        # OUTPUT: <ProcessedResponse(len=50, cache_key='plos_Functional Processing_1_50', metadata='...')
-        ': 1, 'maxSco...")>
+            Examples:
+                >>> from scholar_flux import SearchCoordinator
+                >>> from scholar_flux.api import APIResponse, ReconstructedResponse
+                >>> from scholar_flux.sessions import CachedSessionManager
+                >>> from typing import MutableMapping
+                >>> session = CachedSessionManager(user_agent = 'sammih', backend='redis').configure_session()
+                >>> search_coordinator = SearchCoordinator(query = "Intrinsic Motivation", session = session, cache_results = False)
+                >>> response = search_coordinator.search(page = 1)
+                >>> response
+                # OUTPUT: <ProcessedResponse(len=50, cache_key='plos_Functional Processing_1_50', metadata='...') ': 1, 'maxSco...")>
+                >>> new_response = ReconstructedResponse.build(**response.response.__dict__)
+                >>> new_response.validate()
+                >>> new_response = ReconstructedResponse.build(response.response)
+                >>> ReconstructedResponse.build(new_response).validate()
+                >>> new_response.validate()
+                >>> newer_response = APIResponse.as_reconstructed_response(new_response)
+                >>> newer_response.validate()
+                >>> double_processed_response = search_coordinator._process_response(response = newer_response, cache_key = response.cache_key)
         """
 
         if not query and search_api is None:
             raise InvalidCoordinatorParameterException("Either 'query' or 'search_api' must be provided.")
 
         provider_name = kwargs.pop("provider_name", None)
-        kwargs['use_cache'] = cache_requests if cache_requests is not None else kwargs.get('use_cache')
+        kwargs["use_cache"] = cache_requests if cache_requests is not None else kwargs.get("use_cache")
 
-        try: 
+        try:
             api: SearchAPI = (
-                SearchAPI.from_defaults(
-                    cast(str, query), provider_name=provider_name, **kwargs
-                )
+                SearchAPI.from_defaults(cast(str, query), provider_name=provider_name, **kwargs)
                 if not search_api
-                else SearchAPI.update(
-                    search_api,
-                    query=query,
-                    provider_name=provider_name, **kwargs
-                )
+                else SearchAPI.update(search_api, query=query, provider_name=provider_name, **kwargs)
             )
         except APIParameterException as e:
             logger.error("Could not initialize the SearchCoordinator due to an issue creating the SearchAPI.")
-            raise InvalidCoordinatorParameterException("Could not initialize the SearchCoordinator due to an API "
-                                                       f"parameter exception. {e}") 
+            raise InvalidCoordinatorParameterException(
+                "Could not initialize the SearchCoordinator due to an API " f"parameter exception. {e}"
+            )
 
-        try: 
+        try:
             response_coordinator = (
                 ResponseCoordinator.build(parser, extractor, processor, cache_manager, cache_results)
                 if not response_coordinator
@@ -157,9 +163,10 @@ class SearchCoordinator(BaseCoordinator):
             )
         except (APIParameterException, InvalidCoordinatorParameterException) as e:
             logger.error("Could not initialize the SearchCoordinator due to an issue creating the ResponseCoordinator.")
-            raise InvalidCoordinatorParameterException("Could not initialize the SearchCoordinator due to an "
-                                                       f"exception creating the ResponseCoordinator. {e}")
-
+            raise InvalidCoordinatorParameterException(
+                "Could not initialize the SearchCoordinator due to an "
+                f"exception creating the ResponseCoordinator. {e}"
+            )
 
         self._initialize(api, response_coordinator, retry_handler, validator, workflow)
 
@@ -176,7 +183,7 @@ class SearchCoordinator(BaseCoordinator):
         the creation of the SearchAPI and the ResponseCoordinator.
 
         Args:
-            searchAPI (Optioanl[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            searchAPI (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
             response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
                                                                  core handling of all responses from APIs
             retry_handler (Optional[RetryHandler]): class used to retry failed requests-cache
@@ -200,7 +207,7 @@ class SearchCoordinator(BaseCoordinator):
         final building blocks of a SearchCoordinator
 
         Args:
-            searchAPI (Optioanl[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            searchAPI (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
             response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
                                                                  core handling of all responses from APIs
 
@@ -210,6 +217,53 @@ class SearchCoordinator(BaseCoordinator):
         search_coordinator = cls.__new__(cls)
         search_coordinator._initialize(search_api, response_coordinator, *args, **kwargs)
         return search_coordinator
+
+    @classmethod
+    def update(
+        cls,
+        search_coordinator: SearchCoordinator,
+        search_api: Optional[SearchAPI] = None,
+        response_coordinator: Optional[ResponseCoordinator] = None,
+        retry_handler: Optional[RetryHandler] = None,
+        validator: Optional[ResponseValidator] = None,
+        workflow: Optional[SearchWorkflow] = None,
+    ) -> SearchCoordinator:
+        """
+        Helper factory method allowing the creation of a new components based on an existing configuration
+        while allowing the replacement of previous components. Note that this implementation does not directly
+        copy the underlying components if a new component is not selected.
+
+        Args:
+            SearchCoordinator: A previously created coordinator containing the components to use if a default
+                               is not provided
+            searchAPI (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
+                                                                 core handling of all responses from APIs
+            retry_handler (Optional[RetryHandler]): class used to retry failed requests-cache
+            validator (Optional[ResponseValidator]): class used to verify and validate responses returned from APIs
+            workflow (Optional[SearchWorkflow]): An optional workflow used to customize how records are retrieved
+                                                 from APis. Uses the default workflow for the current provider when
+                                                 a workflow is not directly specified and does not directly carry
+                                                 over in cases where a new provider is chosen.
+        Returns:
+            SearchCoordinator: A newly created coordinator that orchestrates record retrieval and processing
+        """
+        search_api = search_api or search_coordinator.search_api
+        if workflow is None:
+            # use the previous workflow only if the providers are the same
+            workflow = (
+                search_coordinator.workflow
+                if search_coordinator.search_api.provider_name == search_api.provider_name
+                else None
+            )
+
+        return cls.as_coordinator(
+            search_api=search_api,
+            response_coordinator=response_coordinator or search_coordinator.response_coordinator,
+            retry_handler=retry_handler or search_coordinator.retry_handler,
+            validator=validator or search_coordinator.validator,
+            workflow=workflow,
+        )
 
     # Search Execution
     def search(
@@ -415,9 +469,11 @@ class SearchCoordinator(BaseCoordinator):
         return processed_response
 
     # Request Handling
-    def fetch(self, page: int, from_request_cache: bool = True, **api_specific_parameters) -> Optional[Response]:
+    def fetch(
+        self, page: int, from_request_cache: bool = True, **api_specific_parameters
+    ) -> Optional[Response | ResponseProtocol]:
         """
-        Fetches the raw response from the current API.
+        Fetches the raw response from the current API or from cache if available.
 
         Args:
             page (int): The page number to retrieve from the cache.
@@ -444,7 +500,7 @@ class SearchCoordinator(BaseCoordinator):
             logger.warning(f"Failed to fetch page {page}: {e}")
         return None
 
-    def robust_request(self, page: int, **api_specific_parameters) -> Optional[Response]:
+    def robust_request(self, page: int, **api_specific_parameters) -> Optional[Response | ResponseProtocol]:
         """Constructs and sends a request to the current API.
         Fetches a response from the current API.
 
@@ -471,7 +527,7 @@ class SearchCoordinator(BaseCoordinator):
             logger.info(f"Retrieved cached response for query: {self.search_api.query} and page: {page}")
         return response
 
-    def get_cached_request(self, page: int, **kwargs) -> Optional[Response]:
+    def get_cached_request(self, page: int, **kwargs) -> Optional[Response | ResponseProtocol]:
         """
         Retrieves the cached request for a given page number if available.
         Args:
@@ -517,7 +573,7 @@ class SearchCoordinator(BaseCoordinator):
 
     def _fetch_and_log(
         self, page: int, from_request_cache: bool = True, **api_specific_parameters
-    ) -> Tuple[Optional[Response], str]:
+    ) -> Tuple[Optional[Response | ResponseProtocol], str]:
         """Helper method for fetching the response and retrieving the cache key.
         Args:
             page (int): The page number to retrieve from the cache.
@@ -533,7 +589,9 @@ class SearchCoordinator(BaseCoordinator):
             logger.info(f"Response retrieval for cache key {cache_key} was unsuccessful.")
         return response, cache_key
 
-    def _log_response_source(self, response: Optional[Response], page: int, cache_key: Optional[str]) -> None:
+    def _log_response_source(
+        self, response: Optional[Response | ResponseProtocol], page: int, cache_key: Optional[str]
+    ) -> None:
         """
         Logs and indicates whether the response originated from a
         requests-cache session or was retrieved directly from the current API.
@@ -560,7 +618,7 @@ class SearchCoordinator(BaseCoordinator):
 
     def _process_response(
         self,
-        response: Optional[Response],
+        response: Optional[Response | ResponseProtocol],
         cache_key: str,
         from_process_cache: bool = True,
     ) -> Optional[ResponseResult]:
@@ -574,7 +632,8 @@ class SearchCoordinator(BaseCoordinator):
             from_process_cache (bool): Indicates whether or not to use pull from cache when available.
                                        This option is only relevant when a caching backend is enabled.
         """
-        if not isinstance(response, Response):
+
+        if not isinstance(response, Response) and not isinstance(response, ResponseProtocol):  # noqa: S101
             return None
 
         processed_response = self.response_coordinator.handle_response(
@@ -597,7 +656,7 @@ class SearchCoordinator(BaseCoordinator):
         """
 
         parameters = self.search_api.build_parameters(page=page, **kwargs)
-        request = self.search_api.prepare_request(self.search_api.base_url, parameters=parameters)
+        request = self.search_api.prepare_request(parameters=parameters)
         return request
 
     # Cache Management
@@ -614,7 +673,9 @@ class SearchCoordinator(BaseCoordinator):
         Returns:
             str: A unique cache key based on the provided parameters.
         """
-        return f"{self.search_api.provider_name}_{self.search_api.query}_{page}_{self.search_api.records_per_page}".lower()
+        return (
+            f"{self.search_api.provider_name}_{self.search_api.query}_{page}_{self.search_api.records_per_page}".lower()
+        )
 
     def _get_request_key(self, page: int, **kwargs) -> Optional[str]:
         """
@@ -633,7 +694,9 @@ class SearchCoordinator(BaseCoordinator):
                 return request_key
         except (APIParameterException, AttributeError, ValueError) as e:
             logger.error("Error retrieving requests-cache key")
-            raise RequestCacheException(f"Error retrieving requests-cache key from session: {self.search_api.session}: {e}")
+            raise RequestCacheException(
+                f"Error retrieving requests-cache key from session: {self.search_api.session}: {e}"
+            )
         return None
 
     def _delete_cached_request(self, page: int, **kwargs) -> None:
@@ -654,8 +717,8 @@ class SearchCoordinator(BaseCoordinator):
 
                 self.search_api.cache.delete(request_key)
 
-            except KeyError:
-                logger.info("A cached response for the current request does not exist.")
+            except KeyError as e:
+                logger.info(f"A cached response for the current request does not exist: {e}")
 
             except Exception as e:
                 logger.error(f"Error deleting cached request: {e}")
