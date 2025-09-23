@@ -50,13 +50,13 @@ Stages:
     The resulting classes can then be used as such:
         >>> from scholar_flux.data import DataParser, DataExtractor, PathDataProcessor
         >>> from scholar_flux.api import SearchCoordinator
-        >>> search_coordinator = SearchCoordinator(query='Pharmaceuticals', parser=DataParser(), data_extractor=DataExtractor(), processor=PathDataProcessor())
+        >>> search_coordinator = SearchCoordinator(query='Pharmaceuticals', parser=DataParser(), extractor=DataExtractor(), processor=PathDataProcessor())
         >>> response = search_coordinator.search(page = 1)
         >>> response
         # OUTPUT: <ProcessedResponse(len=50, cache_key='plos_Pharmaceuticals_1_50', metadata=...")>
         ### Elements from each stage of the process can be accessed:
         >>> response.parsed_response # a JSON formatted response after parsing the response with the search_coordinator.parser
-        >>> response.extracted_records # list of dictionaries containing records extracted using the search_coordinator.data_extractor
+        >>> response.extracted_records # list of dictionaries containing records extracted using the search_coordinator.extractor
         >>> response.data # the list of dictionaries processed from the search_coordinator.processor
 """
 

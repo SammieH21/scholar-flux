@@ -544,8 +544,8 @@ def test_error_response_properties():
     )
 
     # a properties that aren't mutable attributes
-    assert api_response.metadata is None
     assert api_response.parsed_response is None
-    assert api_response.extracted_response is None
+    assert api_response.extracted_records is None
+    assert api_response.metadata is None
     assert api_response.data is None
     assert len(api_response) == 0  # for error responses, this should always be 0 (no data)

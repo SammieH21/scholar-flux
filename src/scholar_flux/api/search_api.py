@@ -27,6 +27,35 @@ logger = logging.getLogger(__name__)
 
 
 class SearchAPI(BaseAPI):
+    """
+    The core interface that handles the retrieval of JSON, XML, and YAML content from the scholarly API sources
+    offered by several providers such as SpringerNature, PLOS, and PubMed. The SearchAPI is structured to allow
+    flexibility without complexity in initialization. API clients can be either constructed piece-by-piece
+    or with sensible defaults for session-based retrieval, API key management, caching, and configuration
+    options.
+
+    This class is integrated into the SearchCoordinator as a core component of a pipeline that further 
+    parses the response, extracts records and metadata, and caches the processed records to facilitate downstream
+    tasks such as research, summarization, and data mining.
+
+    Examples:
+        >>> from scholar_flux.api import SearchAPI
+        # creating a basic API that uses the PLOS as the default while caching data in-memory:
+        >>> api = SearchAPI(query = 'machine learning', provider_name = 'plos', use_cache = True)
+        # retrieve a basic request:
+        >>> response_page_1 = api.search(page = 1)
+        >>> assert response_page_1.ok
+        >>> response_page_1
+        # OUTPUT: <Response [200]>
+        >>> ml_page_1 = response_page_1.json()
+        # future requests automatically wait until te specified request delay passes to send another request:
+        >>> response_page_2 = api.search(page = 2)
+        >>> assert response_page_1.ok
+        >>> response_page_2
+        # OUTPUT: <Response [200]
+        >>> ml_page_2 = response_page_2.json()
+
+    """
     DEFAULT_URL: str = "https://api.plos.org/search"
     DEFAULT_CACHED_SESSION: bool = False
 
@@ -74,7 +103,7 @@ class SearchAPI(BaseAPI):
             **api_specific_parameters: Additional parameter-value pairs to be provided to SearchAPIConfig class.
                 API specific parameters include:
                     mailto (Optional[str | SecretStr]): (CROSSREF: an optional contact for feedback on API usage)
-                    db: str (PUBMED: a database to retrieve data from (example: db=pubmed)
+                    db: str (PubMed: a database to retrieve data from (example: db=pubmed)
         """
 
         super().__init__(session=session, timeout=timeout, user_agent=user_agent, use_cache=use_cache)

@@ -55,7 +55,7 @@ class ResponseCoordinator:
     response handling.
 
     The coordinator orchestration process operates mainly through the ResponseCoordinator.handle_response
-    method that sequentially calls the parser, data_extractor, processor, and cache_manager.
+    method that sequentially calls the parser, extractor, processor, and cache_manager.
 
     Example workflow:
 
@@ -85,7 +85,7 @@ class ResponseCoordinator:
 
     Args:
         parser (BaseDataParser): Parses raw API responses.
-        data_extractor (BaseDataExtractor): Extracts records and metadata.
+        extractor (BaseDataExtractor): Extracts records and metadata.
         processor (ABCDataProcessor): Processes extracted data.
         cache_manager (DataCacheManager): Manages response cache.
     """
@@ -95,7 +95,7 @@ class ResponseCoordinator:
     def __init__(
         self,
         parser: BaseDataParser,
-        data_extractor: BaseDataExtractor,
+        extractor: BaseDataExtractor,
         processor: ABCDataProcessor,
         cache_manager: DataCacheManager,
     ):
@@ -105,7 +105,7 @@ class ResponseCoordinator:
         """
 
         self.parser = parser
-        self.data_extractor = data_extractor
+        self.extractor = extractor
         self.processor = processor
         self.cache_manager = cache_manager
 
@@ -113,7 +113,7 @@ class ResponseCoordinator:
     def build(
         cls,
         parser: Optional[BaseDataParser] = None,
-        data_extractor: Optional[BaseDataExtractor] = None,
+        extractor: Optional[BaseDataExtractor] = None,
         processor: Optional[ABCDataProcessor] = None,
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
@@ -123,7 +123,7 @@ class ResponseCoordinator:
 
         Args:
             parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
-            data_extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
+            extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
             processor: (Optional[ABCDataProcessor]): Processes API responses into list of dictionaries
             cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
             cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
@@ -138,7 +138,7 @@ class ResponseCoordinator:
 
         return cls(
             parser=parser or DataParser(),
-            data_extractor=data_extractor or DataExtractor(),
+            extractor=extractor or DataExtractor(),
             processor=processor or PathDataProcessor(),
             cache_manager=cache_manager,
         )
@@ -148,7 +148,7 @@ class ResponseCoordinator:
         cls,
         response_coordinator: ResponseCoordinator,
         parser: Optional[BaseDataParser] = None,
-        data_extractor: Optional[BaseDataExtractor] = None,
+        extractor: Optional[BaseDataExtractor] = None,
         processor: Optional[ABCDataProcessor] = None,
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
@@ -159,7 +159,7 @@ class ResponseCoordinator:
         Args:
             response_coordinator: Optional([ResponseCoordinator]): ResponseCoordinator containing the defaults to swap
             parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
-            data_extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
+            extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
             processor: (Optional[ABCDataProcessor]): Processes API responses into list of dictionaries
             cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
             cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
@@ -179,7 +179,7 @@ class ResponseCoordinator:
 
         return response_coordinator.build(
             parser=parser or response_coordinator.parser,
-            data_extractor=data_extractor or response_coordinator.data_extractor,
+            extractor=extractor or response_coordinator.extractor,
             processor=processor or response_coordinator.processor,
             cache_manager=cache_manager if cache_manager is not None else response_coordinator.cache_manager,
             cache_results=cache_results,
@@ -231,18 +231,18 @@ class ResponseCoordinator:
         self._parser = parser
 
     @property
-    def data_extractor(self) -> BaseDataExtractor:
+    def extractor(self) -> BaseDataExtractor:
         """Allows direct access to the DataExtractor from the ResponseCoordinator"""
-        return self._data_extractor
+        return self._extractor
 
-    @data_extractor.setter
-    def data_extractor(self, data_extractor: BaseDataExtractor) -> None:
+    @extractor.setter
+    def extractor(self, extractor: BaseDataExtractor) -> None:
         """Allows the direct modification of the DataExtractor from the ResponseCoordinator"""
-        if not isinstance(data_extractor, BaseDataExtractor):
+        if not isinstance(extractor, BaseDataExtractor):
             raise InvalidCoordinatorParameterException(
-                f"Expected a DataExtractor object. " f"Instead received type ({type(data_extractor)})"
+                f"Expected a DataExtractor object. " f"Instead received type ({type(extractor)})"
             )
-        self._data_extractor = data_extractor
+        self._extractor = extractor
 
     @property
     def processor(self) -> ABCDataProcessor:
@@ -258,6 +258,22 @@ class ResponseCoordinator:
                 f"ABCDataProcessor. Instead received type ({type(processor)})"
             )
         self._processor = processor
+
+    @property
+    def cache(self) -> DataCacheManager:
+        """
+        Alias for the reponse data processing cache manager:
+        Also allows direct access to the DataCacheManager from the ResponseCoordinator
+        """
+        return self._cache_manager
+
+    @cache.setter
+    def cache(self, cache_manager: DataCacheManager) -> None:
+        """
+        Alias for the reponse data processing cache manager:
+        Also allows the direct modification of the DataCacheManager from the ResponseCoordinator
+        """
+        self.cache_manager = cache_manager
 
     @property
     def cache_manager(self) -> DataCacheManager:
@@ -514,7 +530,7 @@ class ResponseCoordinator:
         if not parsed_response_data:
             raise DataParsingException("The parsed response contained no parsable content")
 
-        extracted_records, metadata = self.data_extractor(parsed_response_data)
+        extracted_records, metadata = self.extractor(parsed_response_data)
 
         processed_response = self.processor(extracted_records) if extracted_records else None
 
@@ -573,7 +589,7 @@ class ResponseCoordinator:
         fingerprint = self.cache_manager.cache_fingerprint(
             generate_repr_from_string(
                 self.__class__.__name__,
-                dict(data_parser=self.parser, data_extractor=self.data_extractor, processor=self.processor),
+                dict(data_parser=self.parser, extractor=self.extractor, processor=self.processor),
             )
         )
 
@@ -585,7 +601,7 @@ class ResponseCoordinator:
 
         components = dict(
             parser=self.parser,
-            data_extractor=self.data_extractor,
+            extractor=self.extractor,
             processor=self.processor,
             cache_manager=self.cache_manager,
         )

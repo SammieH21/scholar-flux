@@ -10,22 +10,39 @@ logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
-    DEFAULT_MIN_INTERVAL: Optional[float | int] = 6.1
-
     """
-    Ensures that calls to `wait()` (or any decorated function) are spaced
+    A basic rate limiter used to ensure that future API requests don't exceed the provider-specific
+    limits on the total number of requests that can be made within a defined time interval. 
+
+    This class ensures that calls to `RateLimiter.wait()` (or any decorated function) are spaced
     by at least `min_interval` seconds.
 
-    Args:
-        min_interval (float | int): Total number of seconds to wait until the next request is sent
+    # Examples
+    
+    >>> import requests
+    >>> from scholar_flux.api import RateLimiter
+    >>> rate_limiter = RateLimiter(min_interval = 5)
+    # the first call won't sleep, because a prior call using the rate limiter doesn't yet exist
+    >>> with rate_limiter:
+    >>>     response = requests.get("http://httpbin.org/get")
+    # will sleep if 5 seconds since the last call hasn't elapsed.
+    >>> with rate_limiter:
+    >>>     response = requests.get("http://httpbin.org/get")
+    # or simply call the `wait` method directly:
+    >>> rate_limiter.wait()
+    >>> response = requests.get("http://httpbin.org/get")
     """
+    DEFAULT_MIN_INTERVAL: Optional[float | int] = 6.1
+
+
 
     def __init__(self, min_interval: Optional[float | int] = None):
         """
-        Initializes the rate limiter
+        Initializes the rate limiter with the `min_interval` argument.
 
         Args:
-            min_interval: Minimum seconds between successive calls.
+            min_interval (Optional[float | int]): Minimum number of seconds to wait before the next action
+                                                  is taken or request sent.
         """
 
         self.min_interval = self._validate(min_interval if min_interval is not None else self.DEFAULT_MIN_INTERVAL)

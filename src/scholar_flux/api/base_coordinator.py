@@ -109,14 +109,14 @@ class BaseCoordinator:
         self.response_coordinator.parser = parser
 
     @property
-    def data_extractor(self) -> BaseDataExtractor:
+    def extractor(self) -> BaseDataExtractor:
         """Allows direct access to the DataExtractor from the ResponseCoordinator"""
-        return self.response_coordinator.data_extractor
+        return self.response_coordinator.extractor
 
-    @data_extractor.setter
-    def data_extractor(self, data_extractor: BaseDataExtractor) -> None:
+    @extractor.setter
+    def extractor(self, extractor: BaseDataExtractor) -> None:
         """Allows the direct modification of the DataExtractor from the ResponseCoordinator"""
-        self.response_coordinator.data_extractor = data_extractor
+        self.response_coordinator.extractor = extractor
 
     @property
     def processor(self) -> ABCDataProcessor:

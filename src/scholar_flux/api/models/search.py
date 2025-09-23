@@ -35,7 +35,7 @@ class SearchAPIConfig(BaseModel):
         api_key (Optional[str| SecretStr]): This is an API specific parameter for validation of the
                                  current user's identity. If a str type is provided, it is converted
                                  into a SecretStr under the hood
-        mailto: (Optional[str| SecretStr]) An optional email for receiving feedback on useage from providers,
+        mailto: (Optional[str| SecretStr]) An optional email for receiving feedback on usage from providers,
              if applicable. if provided, the email is converted to an email under the hood
 
     """

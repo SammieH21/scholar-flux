@@ -45,15 +45,16 @@ def test_override_build():
     assert repr(response_coordinator) != repr(new_response_coordinator)
 
     base_search_coordinator.parser = base_parser
-    base_search_coordinator.data_extractor = extractor
+    base_search_coordinator.extractor = extractor
     base_search_coordinator.processor = processor
     base_search_coordinator.search_api = new_api
     base_search_coordinator.search_api = new_api
 
     assert base_search_coordinator.parser == base_parser
-    assert base_search_coordinator.data_extractor == extractor
+    assert base_search_coordinator.extractor == extractor
     assert base_search_coordinator.processor == processor
     assert base_search_coordinator.search_api == base_search_coordinator.api == new_api
+    assert base_search_coordinator.responses.cache == base_search_coordinator.responses.cache_manager
 
     base_search_coordinator.response_coordinator = new_response_coordinator
     assert base_search_coordinator.responses == base_search_coordinator.response_coordinator == new_response_coordinator
@@ -68,10 +69,13 @@ def test_override_build():
         base_search_coordinator.response_coordinator.cache_manager = 1  # type:ignore
 
     with pytest.raises(InvalidCoordinatorParameterException):
+        base_search_coordinator.response_coordinator.cache = 1  # type:ignore
+
+    with pytest.raises(InvalidCoordinatorParameterException):
         base_search_coordinator.parser = 1  # type:ignore
 
     with pytest.raises(InvalidCoordinatorParameterException):
-        base_search_coordinator.data_extractor = 1  # type:ignore
+        base_search_coordinator.extractor = 1  # type:ignore
 
     with pytest.raises(InvalidCoordinatorParameterException):
         base_search_coordinator.processor = 1  # type:ignore

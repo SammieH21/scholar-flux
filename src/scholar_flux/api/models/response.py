@@ -408,17 +408,17 @@ class ErrorResponse(APIResponse):
     error: Optional[str] = None
 
     @property
-    def metadata(self) -> None:
-        """Provided for type hinting + compatibility"""
-        return None
-
-    @property
     def parsed_response(self) -> None:
         """Provided for type hinting + compatibility"""
         return None
 
     @property
-    def extracted_response(self) -> None:
+    def extracted_records(self) -> None:
+        """Provided for type hinting + compatibility"""
+        return None
+
+    @property
+    def metadata(self) -> None:
         """Provided for type hinting + compatibility"""
         return None
 
@@ -456,9 +456,9 @@ class ProcessedResponse(APIResponse):
     An error field is provided for compatibility with the ErrorResponse class.
     """
 
-    metadata: Optional[Any] = None
     parsed_response: Optional[Any] = None
     extracted_records: Optional[List[Any]] = None
+    metadata: Optional[Any] = None
     data: Optional[List[Dict[Any, Any]]] = None
     message: Optional[str] = None
 
