@@ -29,6 +29,7 @@ from scholar_flux.api.models.response import (
     ProcessedResponse,
 )
 
+from scholar_flux.api.models.search_results import SearchResult, SearchResultList
 
 __all__ = [
     "BaseAPIParameterMap",
@@ -42,6 +43,8 @@ __all__ = [
     "ProcessedResponse",
     "ReconstructedResponse",
     "ResponseResult",
+    "SearchResult",
+    "SearchResultList",
     "SearchAPIConfig",
     "PageListInput",
 ]

@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from scholar_flux.api import SearchAPI, SearchCoordinator
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse
+from scholar_flux.api.models import ProcessedResponse, ErrorResponse, SearchResult, SearchResultList
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
@@ -32,7 +32,11 @@ def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exce
     pages = coordinator.search_pages(page_list)
     assert len(pages) == 3
     for page, expected_response in zip(pages, page_results):
-        assert page is not None and page.status_code == expected_response.status_code
+        assert (
+            page.response_result is not None
+            and isinstance(page, SearchResult)
+            and page.response_result.status_code == expected_response.status_code
+        )
     caplog.text
 
 
@@ -68,7 +72,7 @@ def test_last_response_page(mock_search, mock_successful_response, mock_unauthor
     search_result = pages[0]
     assert (
         f"The response for page, 1 contains less than the expected "
-        f"{expected_page_count} records. Received {repr(search_result)}. "
+        f"{expected_page_count} records. Received {repr(search_result.response_result)}. "
         f"Halting multi-page retrieval..."
     ) in caplog.text
 
@@ -83,7 +87,7 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
     )
 
     response_list = search_coordinator.search_pages(pages=[1, 2, 3])
-    assert len(response_list) == 0
+    assert len(response_list) == 1
     assert (
         f"Could not retrieve a valid response code for page 1. "
         f"Received {repr(None)}. Halting multi-page retrieval..."
@@ -92,7 +96,7 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
     monkeypatch.setattr(search_coordinator.api, "search", lambda *args, **kwargs: mock_unauthorized_response)
 
     response_list = search_coordinator.search_pages(pages=[1, 2, 3])
-    assert len(response_list) == 1 and isinstance(response_list[0], ErrorResponse)
+    assert len(response_list) == 1 and isinstance(response_list[0].response_result, ErrorResponse)
     assert (
         f"Received an invalid response for page 1. "
         f"(Status Code: {mock_unauthorized_response.status_code}={mock_unauthorized_response.status}). Halting multi-page retrieval..."
@@ -105,5 +109,5 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
     )
 
     response_list = search_coordinator.search_pages(pages=[1, 2, 3])
-    assert response_list == []
+    assert isinstance(response_list, SearchResultList) and response_list == []
     assert "Received an invalid response for page 1. " in caplog.text

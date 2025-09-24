@@ -1,4 +1,5 @@
 from typing import Optional, Dict, List, Any, MutableMapping
+from typing_extensions import Self
 from pydantic import BaseModel, field_serializer, field_validator
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse
 from scholar_flux.utils import CacheDataEncoder, generate_repr
@@ -201,16 +202,18 @@ class APIResponse(BaseModel):
         return response_like
 
     @classmethod
-    def from_response(cls, response: Optional[Any] = None, cache_key: Optional[str] = None, **kwargs) -> "APIResponse":
+    def from_response(cls, response: Optional[Any] = None, cache_key: Optional[str] = None, **kwargs) -> Self:
         """
         Construct an APIResponse from a response object or from keyword arguments.
         If response is not a valid response object, builds a minimal response-like object from kwargs.
         """
 
+        model_kwargs = {field: kwargs.pop(field, None) for field in cls.model_fields if field in kwargs}
+
         response = (
             ReconstructedResponse.build(response, **kwargs) if not isinstance(response, requests.Response) else response
         )
-        return cls(response=response, cache_key=cache_key)
+        return cls(response=response, cache_key=cache_key, **model_kwargs)
 
     @field_serializer("response", when_used="json")
     def encode_response(self, response: Any) -> Optional[Dict[str, Any] | List[Any]]:

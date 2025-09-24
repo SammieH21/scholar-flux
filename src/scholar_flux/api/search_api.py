@@ -34,7 +34,7 @@ class SearchAPI(BaseAPI):
     or with sensible defaults for session-based retrieval, API key management, caching, and configuration
     options.
 
-    This class is integrated into the SearchCoordinator as a core component of a pipeline that further 
+    This class is integrated into the SearchCoordinator as a core component of a pipeline that further
     parses the response, extracts records and metadata, and caches the processed records to facilitate downstream
     tasks such as research, summarization, and data mining.
 
@@ -56,6 +56,7 @@ class SearchAPI(BaseAPI):
         >>> ml_page_2 = response_page_2.json()
 
     """
+
     DEFAULT_URL: str = "https://api.plos.org/search"
     DEFAULT_CACHED_SESSION: bool = False
 

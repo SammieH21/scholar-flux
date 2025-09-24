@@ -11,7 +11,7 @@ from scholar_flux.api.workflows.models import (
     BaseWorkflowResult,
 )
 
-from scholar_flux.api.models import ResponseResult
+from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.api.base_coordinator import BaseCoordinator
 
 logger = logging.getLogger(__name__)
@@ -61,11 +61,11 @@ class WorkflowStep(BaseWorkflowStep):
 
 
 class StepContext(BaseStepContext):
-    """Worker class that holds information on the Wokflow step, step number, and its results after execution"""
+    """Worker class that holds information on the Workflow step, step number, and its results after execution"""
 
     step_number: int
     step: WorkflowStep
-    result: Optional[ResponseResult] = Field(
+    result: Optional[ProcessedResponse | ErrorResponse] = Field(
         default=None,
         description="The response result received after the step's execution.",
     )

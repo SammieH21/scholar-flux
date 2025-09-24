@@ -103,7 +103,7 @@ def test_search_exception(monkeypatch, caplog):
     caplog.clear()
 
     response_list = search_coordinator.search_pages(pages=[1, 2, 3])
-    assert len(response_list) == 0
+    assert len(response_list) == 1 and response_list[0].response_result is None
     assert "An unexpected error occurred when processing the response: Directly raised exception" in caplog.text
 
     caplog.clear()
@@ -117,7 +117,7 @@ def test_search_exception(monkeypatch, caplog):
     response_data = search_coordinator.search_data(page=1)
     assert response_data is None
     assert re.search(
-        "An unexpected error occurred when attempting to retrieve the processsed response data:.*Directly raised search exception",
+        "An unexpected error occurred when attempting to retrieve the processed response data:.*Directly raised search exception",
         caplog.text,
     )
 

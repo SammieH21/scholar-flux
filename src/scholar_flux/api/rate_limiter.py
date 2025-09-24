@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 class RateLimiter:
     """
     A basic rate limiter used to ensure that future API requests don't exceed the provider-specific
-    limits on the total number of requests that can be made within a defined time interval. 
+    limits on the total number of requests that can be made within a defined time interval.
 
     This class ensures that calls to `RateLimiter.wait()` (or any decorated function) are spaced
     by at least `min_interval` seconds.
 
     # Examples
-    
+
     >>> import requests
     >>> from scholar_flux.api import RateLimiter
     >>> rate_limiter = RateLimiter(min_interval = 5)
@@ -32,9 +32,8 @@ class RateLimiter:
     >>> rate_limiter.wait()
     >>> response = requests.get("http://httpbin.org/get")
     """
+
     DEFAULT_MIN_INTERVAL: Optional[float | int] = 6.1
-
-
 
     def __init__(self, min_interval: Optional[float | int] = None):
         """

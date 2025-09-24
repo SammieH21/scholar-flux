@@ -1,5 +1,5 @@
 from __future__ import annotations
-from scholar_flux.api.models import ProcessedResponse, ResponseResult
+from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from typing import Optional, Any, MutableSequence, Iterable
 from requests import Response
@@ -8,7 +8,6 @@ import logging
 
 
 logger = logging.getLogger(__name__)
-
 
 
 class SearchResult(BaseModel):
@@ -27,13 +26,14 @@ class SearchResult(BaseModel):
         provider_name (str): The provider where data is being retrieved
         page (int): THe page number indicating the records to retrieve when creating a response
         response_result (Optional[ProcessedResponse | ErrorResponse]):
-            The ResponseResult containing the specifics of the data retrieved from the response
+            The response result containing the specifics of the data retrieved from the response
             or the error messages recorded if the request is not successful.
     """
+
     query: str
     provider_name: str
     page: int
-    response_result: Optional[ResponseResult] = None
+    response_result: Optional[ProcessedResponse | ErrorResponse] = None
 
     def __bool__(self) -> bool:
         """Makes the SearchResult truthy for ProcessedResponses and False for ErrorResponses/None"""
@@ -110,26 +110,25 @@ class SearchResult(BaseModel):
         Extracts the error name associated with the result from the base class, indicating the
         name/category of the error in the event that the response_result is an ErrorResponse.
         """
-        return self.response_result.error if self.response_result else None
+        return self.response_result.error if isinstance(self.response_result, ErrorResponse) else None
 
     @property
     def message(self) -> Optional[str]:
         """
         Extracts the message associated with the result from the base class, indicating why an error occurred
-        in the event that the response_result is an ErrorResponse 
+        in the event that the response_result is an ErrorResponse
         """
-        return self.response_result.message if self.response_result else None
+        return self.response_result.message if isinstance(self.response_result, ErrorResponse) else None
 
-    
 
 class SearchResultList(list[SearchResult]):
     def __setitem__(self, index, item):
         """
         Overwrites the default __setitem__ method to ensure that only SearchResult objects can
         be added to the custom list
-        
+
         Args:
-            index (int): The numeric index that defines where in the list to insert the SearchResult 
+            index (int): The numeric index that defines where in the list to insert the SearchResult
             item (SearchResult): The response result containing the API response data, the provider name,
                                  and page associated with the response
         """
@@ -141,7 +140,7 @@ class SearchResultList(list[SearchResult]):
         """
         Overwrites the default append method on the user dict to ensure that only SearchResult objects can
         be appended to the custom list
-        
+
         Args:
             item (SearchResult): The response result containing the API response data, the provider name,
                                  and page associated with the response
@@ -154,7 +153,7 @@ class SearchResultList(list[SearchResult]):
         """
         Overwrites the default append method on the user dict to ensure that only an iterable of
         SearchResult objects can be appended to the SearchResultList.
-        
+
         Args:
             other (Iterable[SearchResult]): An iterable/sequence of response results containing the API response
             data, the provider name, and page associated with the response
@@ -165,7 +164,7 @@ class SearchResultList(list[SearchResult]):
             raise TypeError(f"Expected an iterable of SearchResults, received an object type {type(other)}")
         super().extend(other)
 
-    def join(self) -> list[dict[Any, Any]]:
+    def join(self) -> list[dict[str, Any]]:
         """
         Helper method for joining all successfully processed API responses into a single list of dictionaries
         that can be loaded into a pandas or polars dataframe.
@@ -174,10 +173,25 @@ class SearchResultList(list[SearchResult]):
         extracted and processed.
 
         Returns:
-            list[dict[Any, Any]]: A single list containing all records retrieved from each page 
+            list[dict[str, Any]]: A single list containing all records retrieved from each page
         """
-        return [
-            (record or {}) | {'provider_name': item.provider_name, 'page_number': item.page}
-            for item in self for record in getattr(item.response_result,'data', [])
-            if item.response_result and item.response_result.data is not None
-        ]
+        return [self._resolve_record(record, item) for item in self for record in self._get_records(item) if record]
+
+    @classmethod
+    def _get_records(cls, item: SearchResult) -> list[dict[str, Any]]:
+        """Extracts a list of records (dictionaries) from a SearchResult"""
+        records = (
+            None if not isinstance(item, SearchResult) or item.response_result is None else item.response_result.data
+        )
+
+        return records or []
+
+    @classmethod
+    def _resolve_record(cls, record: Optional[dict], item: SearchResult) -> dict[str, Any]:
+        """Formats the current record and appends the provider_name and page number to the record"""
+        record_dict = record or {}
+        return record_dict | {"provider_name": item.provider_name, "page_number": item.page}
+
+    def filter(self) -> SearchResultList:
+        """Helper method that retains only elements from the original response that indicate successful processing."""
+        return SearchResultList(item for item in self if isinstance(item.response_result, ProcessedResponse))

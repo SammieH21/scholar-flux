@@ -3,7 +3,7 @@ from typing_extensions import Self
 import logging
 
 from scholar_flux.api import SearchAPI, ResponseCoordinator
-from scholar_flux.api.models import ResponseResult
+from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.exceptions import (
     RequestFailedException,
     InvalidCoordinatorParameterException,
@@ -72,7 +72,7 @@ class BaseCoordinator:
         """initializes the base coordinator with a searchapi and the constructed responsecoordinator"""
         self.search_api = search_api
         self.response_coordinator = response_coordinator
-        self.last_response: Optional[ResponseResult] = None
+        self.last_response: Optional[ProcessedResponse | ErrorResponse] = None
 
     @property
     def api(self) -> SearchAPI:
@@ -160,7 +160,7 @@ class BaseCoordinator:
             )
         self._response_coordinator = response_coordinator
 
-    def search(self, **kwargs) -> Optional[ResponseResult]:
+    def search(self, **kwargs) -> Optional[ProcessedResponse | ErrorResponse]:
         """
         Public Search Method coordinating the retrieval and processing of an API response.
         This method serves as the base and will primarily handle the "How" of searching
@@ -168,15 +168,15 @@ class BaseCoordinator:
         """
         return self._search(**kwargs)
 
-    def _search(self, **kwargs) -> Optional[ResponseResult]:
+    def _search(self, **kwargs) -> Optional[ProcessedResponse | ErrorResponse]:
         """
         Basic Search Method implementing the core components needed to coordinate the
         the retrieval and processing of the response from the API
         Args:
             **kwargs: Arguments to provide to the search API
         Returns:
-            Optional[ResponseResult]: Contains the raw response and information related to
-            the basic processing of the data within theresponse
+            Optional[ProcessedResponse | ErrorResponse]: Contains the raw response and information related to
+            the basic processing of the data within the response
         """
         try:
             cache_key = kwargs.pop("cache_key", None)
@@ -203,7 +203,7 @@ class BaseCoordinator:
         final building blocks of a SearchCoordinator
 
         Args:
-            searchAPI (Optioanl[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            searchAPI (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
             response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
                                                                  core handling of all responses from APIs
 
