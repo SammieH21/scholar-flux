@@ -214,3 +214,11 @@ class BaseCoordinator:
         search_coordinator = cls.__new__(cls)
         search_coordinator._initialize(search_api, response_coordinator, *args, **kwargs)
         return search_coordinator
+
+    def summary(self) -> str:
+        """Helper method for showing the structure of the current search coordinator"""
+        class_name = self.__class__.__name__
+
+        attributes = {"search_api": self.api.summary(), "response_coordinator": self.response_coordinator.summary()}
+
+        return generate_repr_from_string(class_name, attributes)

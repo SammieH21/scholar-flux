@@ -131,7 +131,7 @@ def generate_repr_from_string(
 
 def generate_repr(
     obj: object,
-    exclude: Optional[list[str] | tuple[str]] = None,
+    exclude: Optional[set[str] | list[str] | tuple[str]] = None,
     show_value_attributes: bool = True,
     flatten: bool = False,
 ) -> str:

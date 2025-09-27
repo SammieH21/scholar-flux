@@ -4,7 +4,7 @@ import datetime
 from textwrap import dedent
 from unittest.mock import patch
 from requests import Response
-from scholar_flux.api.retry_handler import RetryHandler
+from scholar_flux.api import RetryHandler
 from scholar_flux.exceptions import RequestFailedException, InvalidResponseException
 
 

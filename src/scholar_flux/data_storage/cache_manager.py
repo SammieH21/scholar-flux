@@ -45,10 +45,10 @@ class DataCacheManager:
         Checks if the provided cache_key exists in the cache storage.
 
         Args:
-        - cache_key: A unique identifier for the cached data.
+            cache_key: A unique identifier for the cached data.
 
         Returns:
-        - bool: True if the cache key exists, False otherwise.
+            bool: True if the cache key exists, False otherwise.
         """
         if cache_key is None:
             logger.warning("Cache key is None: No cache lookup was performed.")
@@ -61,72 +61,40 @@ class DataCacheManager:
         logger.info(f"No cached data for key: '{cache_key}'")
         return False
 
-    @staticmethod
-    def _verify_cached_response(cache_key: str, cached_response: Dict[str, Any]) -> bool:
-        """Verifies whether the cache key matches the key from cached_response (if available)
-            Note that this method expects that a cache key is provided
-        Args:
-            cache_key (str): The unique identifier for cached data.
-            cached_response: Optional[Dict[str, Any]]: The cached data associated with the key
-
-        Returns:
-            bool: True if the cache is valid, False otherwise.
-        """
-
-        if not isinstance(cached_response, dict):
-            logger.warning("The provided cached_response is not a dictionary")
-            return False
-
-        cached_response_key = cached_response.get("cache_key")
-        if not cached_response_key:
-            logger.warning(
-                f"The provided cached key from the provided cached response (key={cached_response_key}) is empty"
-            )
-            return False
-
-        if cached_response_key != cache_key:
-            logger.warning(
-                f"The provided cached response (key={cached_response_key}) is not associated with the provided cache key {cache_key}"
-            )
-            return False
-        return True
-
     def cache_is_valid(
         self,
         cache_key: str,
         response: Response | ResponseProtocol,
         cached_response: Optional[Dict[str, Any]] = None,
+        verify_hash: Optional[bool] = True,
     ) -> bool:
         """
-        Determines whether the cached data for a given key is still valid.
+        Determines whether the cached data for a given key is still valid or needs reprocessing due
+        to missing fields or modified content when checked against the current response.
+
+        If a cached_response dictionary was not directly passed, the cache key will be retrieved from
+        storage before comparison.
 
         Args:
             cache_key (str): The unique identifier for cached data.
             response: The API response or response-like object used to validate the cache.
             cached_response: Optional[Dict[str, Any]]: The cached data associated with the key
+            verify_hash (Optional[bool]): Determines whether to check the cached response hash for changes
 
         Returns:
             bool: True if the cache is valid, False otherwise.
         """
-        if not self.verify_cache(cache_key):
+
+        if not cached_response and not self.verify_cache(cache_key):
             return False
 
-        if cached_response:
-            if not self._verify_cached_response(cache_key, cached_response):
-                return False
-            current_cached_response = cached_response
-        else:
-            current_cached_response = self.cache_storage.retrieve(cache_key) or {}
+        current_cached_response = cached_response or self.retrieve(cache_key) or {}
 
-        current_hash = self.generate_response_hash(response)
-        previous_hash = current_cached_response.get("response_hash")
+        if not self._verify_cached_response(cache_key, current_cached_response):
+            return False
 
-        if current_hash != previous_hash:
+        if verify_hash and not self._verify_hash(response, current_cached_response):
             logger.info(f"Cached data is outdated for key: {cache_key}")
-            return False
-
-        if current_cached_response.get("processed_response") is None:
-            logger.info(f"Previously processed response is missing for recorded cache key: {cache_key}")
             return False
 
         logger.info(f"Cached data is valid for key: {cache_key}")
@@ -222,8 +190,8 @@ class DataCacheManager:
         except KeyError:
             logger.warning(f"A record for the cache key: '{cache_key}', did not exist...")
 
-    @staticmethod
-    def generate_fallback_cache_key(response: Response | ResponseProtocol) -> str:
+    @classmethod
+    def generate_fallback_cache_key(cls, response: Response | ResponseProtocol) -> str:
         """
         Generates a unique fallback cache key based on the response URL and status code.
 
@@ -240,8 +208,8 @@ class DataCacheManager:
         logger.debug(f"Generated fallback cache key: {cache_key}")
         return cache_key
 
-    @staticmethod
-    def generate_response_hash(response: Response | ResponseProtocol) -> str:
+    @classmethod
+    def generate_response_hash(cls, response: Response | ResponseProtocol) -> str:
         """
         Generates a hash of the response content.
 
@@ -252,6 +220,55 @@ class DataCacheManager:
             str: A SHA-256 hash of the response content.
         """
         return hashlib.sha256(response.content).hexdigest()
+
+    @classmethod
+    def _verify_cached_response(cls, cache_key: str, cached_response: Dict[str, Any]) -> bool:
+        """Verifies whether the cache key matches the key from cached_response (if available)
+            Note that this method expects that a cache key is provided
+        Args:
+            cache_key (str): The unique identifier for cached data.
+            cached_response: Optional[Dict[str, Any]]: The cached data associated with the key
+
+        Returns:
+            bool: True if the cache is valid, False otherwise.
+        """
+
+        if not (cached_response and isinstance(cached_response, dict)):
+            logger.warning("The provided cached_response is not a dictionary")
+            return False
+
+        cached_response_key = cached_response.get("cache_key")
+        if cached_response_key and cached_response_key != cache_key:
+            logger.warning(
+                f"The provided cached response (key={cached_response_key}) is not associated with the provided cache key {cache_key}"
+            )
+            return False
+
+        if cached_response.get("processed_response") is None:
+            logger.info(f"Previously processed response is missing for recorded cache key: {cache_key}")
+            return False
+
+        return True
+
+    @classmethod
+    def _verify_hash(cls, response: Response | ResponseProtocol, cached_response: Dict[str, Any]) -> bool:
+        """
+        Determines whether the cached data for a given key is still valid and the hashed content hasn't
+        significantly changed. If the hash between the current response and cached response_dict has
+        changed, True is returned, and False otherwise.
+
+        Args:
+            response: The API response or response-like object used to validate the cache.
+            cached_response: Optional[Dict[str, Any]]: The cached data associated with the key
+
+        Returns:
+            bool: True if the cache is valid, False otherwise.
+        """
+
+        current_hash = cls.generate_response_hash(response)
+        previous_hash = cached_response.get("response_hash")
+
+        return current_hash == previous_hash
 
     @classmethod
     def null(cls) -> DataCacheManager:
@@ -315,18 +332,17 @@ class DataCacheManager:
         """Helper method for determining whether the current cache manager uses a null storage"""
         return not self
 
-    @staticmethod
-    def cache_fingerprint(obj: Optional[str | Any] = None, package_version: Optional[str] = __version__) -> str:
+    @classmethod
+    def cache_fingerprint(cls, obj: Optional[str | Any] = None, package_version: Optional[str] = __version__) -> str:
         """
-        This method helps identify changes in class/configuration for later
-        cache retrieval. It generates a unique string based on the object
-        and the package version.
+        This method helps identify changes in class/configuration for later cache retrieval. It generates a unique
+        string based on the object and the package version.
 
-        Generates a finger print from package version and object representation, if provided.
-        If otherwise not provided, a new human-readable object representation is generated
-        using the `scholar_flux.utils.generate_repr` helper function that represents the object
-        name and its current state. A package version is also prepended to the current finger-print
-        if enabled (not None), and can be customized if needed for object-specific versioning.
+        By default, a fingerprint is generated from the current package version and object representation, if provided.
+        If otherwise not provided, a new human-readable object representation is generated using the
+        `scholar_flux.utils.generate_repr` helper function that represents the object name and its current state. A
+        package version is also prepended to the current finger-print if enabled (not None), and can be customized if
+        needed for object-specific versioning.
 
         Args:
             obj (Optional[str]): A finger-printed object, or an object to generate a representation of
@@ -348,7 +364,7 @@ class DataCacheManager:
         Helper for showing a representation of the current Cache Manager in the form of a string.
         This class will indicate the current cache storage device that is being used for data caching.
         """
-        return generate_repr(self)
+        return generate_repr(self, show_value_attributes=False)
 
 
 # if __name__ == '__main__':

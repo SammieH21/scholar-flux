@@ -1,5 +1,6 @@
 import pytest
 from scholar_flux.data_storage import DataCacheManager
+import re
 
 
 @pytest.mark.parametrize(
@@ -15,7 +16,7 @@ from scholar_flux.data_storage import DataCacheManager
     ],
 )
 def test_basic_cache_manager_operations(
-    request, storage_type, db_dependency_unavailable, mock_response, mock_cache_storage_data
+    request, storage_type, db_dependency_unavailable, mock_response, mock_cache_storage_data, caplog
 ):
     """Test basic cache operations with different storage types."""
     # Create cache manager with specific storage
@@ -27,6 +28,7 @@ def test_basic_cache_manager_operations(
     storage.delete_all()
     # Test cache key generation
     cache_key = DataCacheManager.generate_fallback_cache_key(mock_response)
+    assert re.search(f"Generated fallback cache key: {cache_key}", caplog.text) is not None
     assert isinstance(cache_key, str)
     assert len(cache_key) > 0
 
@@ -36,7 +38,7 @@ def test_basic_cache_manager_operations(
         data=dict(
             response=mock_response.content,
             parsed_response=mock_cache_storage_data["parsed_response"],
-            processed_response=mock_cache_storage_data["processed_response"],
+            processed_records=mock_cache_storage_data["processed_records"],
             metadata=mock_cache_storage_data["metadata"],
         ),
     )
@@ -49,7 +51,7 @@ def test_basic_cache_manager_operations(
     retrieved = storage.retrieve(cache_key)
     assert retrieved is not None
     assert retrieved["parsed_response"] == mock_cache_storage_data["parsed_response"]
-    assert retrieved["processed_response"] == mock_cache_storage_data["processed_response"]
+    assert retrieved["processed_records"] == mock_cache_storage_data["processed_records"]
 
     # Test delete
     storage.delete(cache_key)
@@ -66,7 +68,7 @@ def test_basic_cache_manager_operations(
             data=dict(
                 response=mock_response.content,
                 parsed_response=mock_cache_storage_data["parsed_response"],
-                processed_response=mock_cache_storage_data["processed_response"],
+                processed_records=mock_cache_storage_data["processed_records"],
                 metadata=mock_cache_storage_data["metadata"],
             ),
         )
@@ -139,14 +141,12 @@ def test_cache_retrieval_with_none_data(request, mock_response, storage_type, db
     assert result is None
 
     # Test with actual data
-    storage.update(
-        key=cache_key, data=dict(response=mock_response.content, parsed_response=None, processed_response={})
-    )
+    storage.update(key=cache_key, data=dict(response=mock_response.content, parsed_response=None, processed_records={}))
 
     retrieved = storage.retrieve(cache_key)
     assert retrieved
     assert retrieved["parsed_response"] is None
-    assert retrieved["processed_response"] == {}
+    assert retrieved["processed_records"] == {}
 
 
 @pytest.mark.parametrize(

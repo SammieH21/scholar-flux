@@ -133,3 +133,12 @@ def test_representation(use_cache):
     class_name = api.__class__.__name__
     api_string = rf"^{class_name}\(session=.*?{type(api.session).__name__}.*timeout={api.timeout}\)$"
     assert re.search(api_string, repr(api)) is not None
+
+
+def test_api_summary():
+    api = BaseAPI()
+    representation = api.summary()
+
+    assert re.search(r"^BaseAPI\(.*\)$", representation, re.DOTALL)
+    assert re.search(f"session=.*{api.session.__class__.__name__}", representation)
+    assert f"timeout={api.timeout}" in representation

@@ -86,7 +86,7 @@ class SearchAPIConfig(BaseModel):
         return v
 
     @field_validator("request_delay", mode="before")
-    def set_default_request_delay(cls, v: Optional[int | float]):
+    def validate_request_delay(cls, v: Optional[int | float]):
         """
         Sets the request_delay (delay between each request):
         Triggers a validation error when request delay is an invalid type.
@@ -327,7 +327,6 @@ class SearchAPIConfig(BaseModel):
                 f"The value for the additional parameter, {parameter_metadata.name}, "
                 "was not provided and has no default"
             )
-            return parameter_metadata.default
 
         if parameter_metadata.validator:
             parameter_value = parameter_metadata.validator(parameter_value)

@@ -1,5 +1,5 @@
 import pytest
-from scholar_flux.api import RateLimiter
+from scholar_flux.api import RateLimiter, ThreadedRateLimiter
 import time
 
 from unittest.mock import patch
@@ -31,11 +31,12 @@ def test_validate_negative():
         RateLimiter._validate(-1)
 
 
-def test_wait_sleeps_when_needed_real_time():
-    limiter = RateLimiter(0.05)
+@pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
+def test_wait_sleeps_when_needed_real_time(Limiter):
+    limiter = Limiter(0.05)
     limiter._last_call = time.time()
     # Simulate a call before min_interval has passed
-    with patch("scholar_flux.api.rate_limiter.time.sleep") as mock_sleep:
+    with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
         limiter.wait()
         # Should sleep for close to min_interval
         mock_sleep.assert_called()
@@ -43,10 +44,11 @@ def test_wait_sleeps_when_needed_real_time():
         assert sleep_arg > 0
 
 
-def test_wait_no_sleep_if_enough_time_real_time():
-    limiter = RateLimiter(0.01)
+@pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
+def test_wait_no_sleep_if_enough_time_real_time(Limiter):
+    limiter = Limiter(0.01)
     limiter._last_call = time.time() - 0.02  # Enough time has passed
-    with patch("scholar_flux.api.rate_limiter.time.sleep") as mock_sleep:
+    with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
         limiter.wait()
         mock_sleep.assert_not_called()
 
@@ -60,15 +62,15 @@ def test_decorator_respects_rate_limit():
         called.append(x)
         return x
 
-    with patch("scholar_flux.api.rate_limiter.time.sleep") as mock_sleep:
+    with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
         fn(1)
         fn(2)
         assert called == [1, 2]
         assert mock_sleep.call_count == 0  # min_interval=0, no sleep
 
 
-@patch("scholar_flux.api.rate_limiter.RateLimiter.wait")
-@patch("scholar_flux.api.rate_limiter.RateLimiter._wait")
+@patch("scholar_flux.api.rate_limiting.rate_limiter.RateLimiter.wait")
+@patch("scholar_flux.api.rate_limiting.rate_limiter.RateLimiter._wait")
 def test_context_manager_calls_wait(mock_time, mock_sleep):
     limiter = RateLimiter(1)
     mock_time.side_effect = [100.0, 101.0]
@@ -78,8 +80,8 @@ def test_context_manager_calls_wait(mock_time, mock_sleep):
     mock_sleep.assert_called_once()
 
 
-@patch("scholar_flux.api.rate_limiter.RateLimiter.wait")
-@patch("scholar_flux.api.rate_limiter.RateLimiter._wait")
+@patch("scholar_flux.api.rate_limiting.rate_limiter.RateLimiter.wait")
+@patch("scholar_flux.api.rate_limiting.rate_limiter.RateLimiter._wait")
 def test_rate_context_manager_temporary_interval(mock_time, mock_sleep):
     limiter = RateLimiter(5)
     mock_time.side_effect = [100.0, 101.0]

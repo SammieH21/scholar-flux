@@ -42,13 +42,16 @@ from scholar_flux.api.providers import PROVIDER_DEFAULTS, provider_registry
 from scholar_flux.api.models.response import APIResponse, ErrorResponse, ProcessedResponse
 from scholar_flux.api.models import SearchAPIConfig
 
-from scholar_flux.api.rate_limiter import RateLimiter
+from scholar_flux.api.rate_limiting.rate_limiter import RateLimiter
+from scholar_flux.api.rate_limiting.threaded_rate_limiter import ThreadedRateLimiter
+from scholar_flux.api.rate_limiting.retry_handler import RetryHandler
 from scholar_flux.api.base_api import BaseAPI
 from scholar_flux.api.search_api import SearchAPI
 
 from scholar_flux.api.response_coordinator import ResponseCoordinator
 from scholar_flux.api.base_coordinator import BaseCoordinator
 from scholar_flux.api.search_coordinator import SearchCoordinator
+from scholar_flux.api.multisearch_coordinator import MultiSearchCoordinator
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse
 
 __all__ = [
@@ -65,11 +68,14 @@ __all__ = [
     "ReconstructedResponse",
     "SearchAPIConfig",
     "RateLimiter",
+    "ThreadedRateLimiter",
+    "RetryHandler",
     "BaseAPI",
     "SearchAPI",
     "ResponseCoordinator",
     "BaseCoordinator",
     "SearchCoordinator",
+    "MultiSearchCoordinator",
     "validate_url",
     "validate_email",
 ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from contextlib import contextmanager
+from typing_extensions import Self
 import time
 from functools import wraps
 from scholar_flux.exceptions import APIParameterException
@@ -151,7 +152,7 @@ class RateLimiter:
         return False
 
     @contextmanager
-    def rate(self, min_interval: float | int) -> Iterator[RateLimiter]:
+    def rate(self, min_interval: float | int) -> Iterator[Self]:
         """
         Allows a temporary adjustment to the minimum interval when used with a context manager.
         The original minimum interval value is then reassigned afterward and the time of the last

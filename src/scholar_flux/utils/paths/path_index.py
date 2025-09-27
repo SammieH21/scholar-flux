@@ -11,7 +11,7 @@ from scholar_flux.exceptions.path_exceptions import (
 )
 
 from scholar_flux.utils.paths import PathSimplifier
-from multiprocessing import Pool, cpu_count
+from multiprocessing import cpu_count, get_context
 
 from scholar_flux.utils.paths import ProcessingPath, PathNode
 from scholar_flux.utils.paths.path_discoverer import PathDiscoverer
@@ -25,7 +25,67 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PathNodeIndex:
+    """
+    The PathNodeIndex is a dataclass that enables the efficient processing of nested key value
+    pairs from JSON data commonly received from APIs providing records, articles, and other forms
+    of data.
+
+    This index enables the orchestration of both parsing, flattening, and the simplification of
+    JSON data structures.
+
+    Args:
+        index (PathNodeMap): A dictionary of path-node mappings that are used by the PathNodeIndex to simplify JSON
+                             structures into a singular list of dictionaries where each dictionary represents a record
+        simplifier (PathSimplifier): A structure that enables the simplification of a path node index into a singular
+                                     list of dictionary records. The structure is initially used to identify unique
+                                     path names for each path-value combination.
+    Class Variables:
+        DEFAULT_DELIMITER (str): A delimiter to use by default when reading JSON structures and transforming the
+                                 list of keys used to retrieve a terminal path into a simplified string. Each
+                                 individual key is separated by this delimiter.
+        MAX_PROCESSES (int): An optional maximum on the total number of processses to use when simplifying multiple
+                             records into a singular structure in parallel. This can be configured directly
+                             or turned off altogether by setting this class variable to None.
+    Example Usage:
+        >>> from scholar_flux.utils import PathNodeIndex
+        >>> record_test_json: list[dict] = [
+        >>>     {
+        >>>         "authors": {"principle_investigator": "Dr. Smith", "assistant": "Jane Doe"},
+        >>>         "doi": "10.1234/example.doi",
+        >>>         "title": "Sample Study",
+        >>>         # "abstract": ["This is a sample abstract.", "keywords: 'sample', 'abstract'"],
+        >>>         "genre": {"subspecialty": "Neuroscience"},
+        >>>         "journal": {"topic": "Sleep Research"},
+        >>>     },
+        >>>     {
+        >>>         "authors": {"principle_investigator": "Dr. Lee", "assistant": "John Roe"},
+        >>>         "doi": "10.5678/example2.doi",
+        >>>         "title": "Another Study",
+        >>>         "abstract": "Another abstract.",
+        >>>         "genre": {"subspecialty": "Psychiatry"},
+        >>>         "journal": {"topic": "Dreams"},
+        >>>     },
+        >>> ]
+        >>> normalized_records = PathNodeIndex.normalize_records(record_test_json)
+        >>> normalized_records
+        # OUTPUT: [{'abstract': 'Another abstract.',
+        #         'doi': '10.5678/example2.doi',
+        #         'title': 'Another Study',
+        #         'authors.assistant': 'John Roe',
+        #         'authors.principle_investigator': 'Dr. Lee',
+        #         'genre.subspecialty': 'Psychiatry',
+        #         'journal.topic': 'Dreams'},
+        #        {'doi': '10.1234/example.doi',
+        #         'title': 'Sample Study',
+        #         'authors.assistant': 'Jane Doe',
+        #         'authors.principle_investigator': 'Dr. Smith',
+        #         'genre.subspecialty': 'Neuroscience',
+        #         'journal.topic': 'Sleep Research'}]
+
+    """
+
     DEFAULT_DELIMITER: ClassVar[str] = ProcessingPath.DEFAULT_DELIMITER
+    MAX_PROCESSES: ClassVar[Optional[int]] = 8
     index: PathNodeMap = field(default_factory=PathNodeMap)
     simplifier: PathSimplifier = field(
         default_factory=lambda: PathSimplifier(
@@ -34,6 +94,13 @@ class PathNodeIndex:
     )
 
     def __post_init__(self):
+        """
+        Method automatically used after initialization, to validate and set the index and simplifier.
+
+        The index represents the preprocessed json data that has been transformed into a dictionary
+        of path-node mappings whereas the validated simplifier is then used to flatten the the
+        index into a list of dictionaries.
+        """
         object.__setattr__(self, "index", self._validate_index(self.index))
         object.__setattr__(self, "simplifier", self._validate_simplifier(self.simplifier))
 
@@ -82,7 +149,9 @@ class PathNodeIndex:
         return cls(PathNodeMap({path: PathNode(path, value) for path, value in path_mappings.items()}))
 
     def __repr__(self) -> str:
-        return f"PathNodeIndex(index(len={len(self.index)}))"
+        """Helper method for simply returning the name of the current class and the count of elemnts in the index"""
+        class_name = self.__class__.__name__
+        return f"{class_name}(index(len={len(self.index)}))"
 
     def retrieve(self, path: Union[ProcessingPath, str]) -> Optional[PathNode]:
         """
@@ -162,7 +231,8 @@ class PathNodeIndex:
         node_chunks = [(node_chunk, object_delimiter) for node_chunk in indexed_nodes.values()]
 
         # Use multiprocessing to process nodes in parallel
-        with Pool(processes=min(cpu_count(), len(node_chunks))) as pool:
+        ctx = get_context("spawn")
+        with ctx.Pool(processes=min(cpu_count(), self.MAX_PROCESSES or len(node_chunks))) as pool:
             normalized_rows = pool.starmap(self.simplifier.simplify_to_row, node_chunks)
         return normalized_rows
 

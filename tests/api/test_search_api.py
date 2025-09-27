@@ -35,6 +35,20 @@ def test_describe_api():
     assert f"timeout={api.timeout}" in representation
 
 
+def test_api_summary():
+    api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
+    assert isinstance(api.describe(), dict)
+    representation = api.summary()
+
+    assert re.search(r"^SearchAPI\(.*\)$", representation, re.DOTALL)
+    assert f"query='{api.query}'" in representation
+    assert f"provider_name='{api.provider_name}'" in representation
+    assert f"base_url='{api.base_url}'" in representation  # ignore padding
+    assert f"records_per_page={api.records_per_page}" in representation  # ignore padding
+    assert re.search(f"session=.*{api.session.__class__.__name__}", representation)
+    assert f"timeout={api.timeout}" in representation
+
+
 def test_session_mod():
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF", use_cache=True)
     api.session = None  # type: ignore
@@ -244,6 +258,7 @@ def test_search_api_initialization(default_api_parameter_config):
         api.query = ""
 
     assert api.query == "tested"  # Confirms the value is retained after exception
+    assert api.request_delay == api.config.DEFAULT_REQUEST_DELAY  # should have the same value with default
 
 
 def test_cached_session(default_api_parameter_config, default_cache_session):
@@ -301,7 +316,6 @@ def test_search_api_parameter_ranges(page: int, records_per_page: int, default_a
     assert records_per_page_param == records_per_page
 
 
-# @patch('scholar_flux.api.BaseAPI.send_request', return_value=MagicMock(status_code=200,json={"page": 1, "results": ["record1"]}))
 def test_cached_response_success(default_api_parameter_config, default_cache_session):
     api = SearchAPI(
         query="test",

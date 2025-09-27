@@ -6,7 +6,7 @@ from scholar_flux.data.data_parser import DataParser
 from scholar_flux.data.base_extractor import BaseDataExtractor
 from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.data.abc_processor import ABCDataProcessor
-from scholar_flux.data.path_data_processor import PathDataProcessor
+from scholar_flux.data.pass_through_data_processor import PassThroughDataProcessor
 
 from scholar_flux.exceptions.api_exceptions import (
     InvalidResponseReconstructionException,
@@ -21,7 +21,8 @@ from scholar_flux.exceptions.data_exceptions import (
 )
 
 
-from scholar_flux.utils.repr_utils import generate_repr_from_string
+from scholar_flux.utils.repr_utils import generate_repr_from_string, generate_repr
+from scholar_flux.utils.helpers import generate_iso_timestamp
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.exceptions.coordinator_exceptions import (
     InvalidCoordinatorParameterException,
@@ -139,7 +140,7 @@ class ResponseCoordinator:
         return cls(
             parser=parser or DataParser(),
             extractor=extractor or DataExtractor(),
-            processor=processor or PathDataProcessor(),
+            processor=processor or PassThroughDataProcessor(),
             cache_manager=cache_manager,
         )
 
@@ -362,32 +363,27 @@ class ResponseCoordinator:
             if not self.cache_manager:
                 return None
 
+            # determine whether we're actually using a response object
             response_obj = self._validate_response(response)
+
+            # ensure that we're either using a cache key from the defaults or creating one
             cache_key = cache_key or self.cache_manager.generate_fallback_cache_key(response_obj)
 
-            if not self.cache_manager.cache_is_valid(cache_key, response_obj):
+            # determine if the cache key created manually or directly from the response hash exists
+            if not self.cache_manager.verify_cache(cache_key):
                 return None
 
-            cached = self.cache_manager.retrieve(cache_key) or {}
+            # attempts to retrieve a cached response
+            cached = self.cache_manager.retrieve(cache_key)
+            logger.debug("Cached exists thus far")
 
-            if not cached:
+            if not (cached and self.cache_manager.cache_is_valid(cache_key, response_obj, cached)):
                 return None
 
-            cached_schema = cached.get("schema")
-            validate_fingerprint = (
-                validate_fingerprint if validate_fingerprint is not None else self.DEFAULT_VALIDATE_FINGERPRINT
-            )
+            logger.debug("Cache validated")
 
-            if validate_fingerprint and cached_schema:
-                current_schema = self.schema_fingerprint()
-
-                if cached_schema != current_schema:
-                    logger.info(
-                        "The current schema does not match the previous schema that generated the "
-                        f"previously cached response.\n\n Current schema: \n{current_schema}\n"
-                        f"\nCached schema: \n{cached_schema}\n\n Skipping retrieval from cache."
-                    )
-                    return None
+            if not self._validate_cached_schema(cached, validate_fingerprint):
+                return None
 
             logger.info(f"retrieved response '{cache_key}' from cache")
 
@@ -398,10 +394,40 @@ class ResponseCoordinator:
                 response=response_obj,
                 parsed_response=cached.get("parsed_response"),
                 extracted_records=cached.get("extracted_records"),
+                created_at=cached.get("created_at"),  # will perform internal validation
             )
         except StorageCacheException as e:
             logger.warning(f"An exception occurred while attempting to retrieve '{cache_key}' from cache: {e}")
             return None
+
+    def _validate_cached_schema(
+        self,
+        cached_response_dict: dict[str, Any],
+        validate_fingerprint: Optional[bool] = None,
+    ) -> Optional[bool]:
+        """
+        Helper method for validating the cache dictionary containing the processed data, metadata,
+        and other information for the current response
+        """
+        if not cached_response_dict:
+            return False
+
+        cached_schema = cached_response_dict.get("schema")
+        validate_fingerprint = (
+            validate_fingerprint if validate_fingerprint is not None else self.DEFAULT_VALIDATE_FINGERPRINT
+        )
+
+        if validate_fingerprint and cached_schema:
+            current_schema = self.schema_fingerprint()
+
+            if cached_schema != current_schema:
+                logger.info(
+                    "The current schema does not match the previous schema that generated the "
+                    f"previously cached response.\n\n Current schema: \n{current_schema}\n"
+                    f"\nCached schema: \n{cached_schema}\n\n Skipping retrieval from cache."
+                )
+                return False
+        return True
 
     @classmethod
     def _resolve_response(
@@ -534,6 +560,8 @@ class ResponseCoordinator:
 
         processed_response = self.processor(extracted_records) if extracted_records else None
 
+        creation_timestamp = generate_iso_timestamp()
+
         if cache_key and self.cache_manager:
             logger.debug("adding_to_cache")
             self.cache_manager.update_cache(
@@ -545,6 +573,7 @@ class ResponseCoordinator:
                 extracted_records=extracted_records,
                 processed_response=processed_response,
                 schema=self.schema_fingerprint(),
+                created_at=creation_timestamp,
             )
         logger.info("Data processed for %s", cache_key)
 
@@ -555,6 +584,7 @@ class ResponseCoordinator:
             extracted_records=extracted_records,
             metadata=metadata,
             data=processed_response,
+            created_at=creation_timestamp,
         )
 
     def _process_error(
@@ -577,11 +607,13 @@ class ResponseCoordinator:
         """
         logger.error(error_message)
 
+        creation_timestamp = generate_iso_timestamp()
         return ErrorResponse(
             cache_key=cache_key,
             response=response.response if isinstance(response, APIResponse) else response,
             message=error_message,
             error=type(error_type).__name__,
+            created_at=creation_timestamp,
         )
 
     def schema_fingerprint(self) -> str:
@@ -594,6 +626,19 @@ class ResponseCoordinator:
         )
 
         return fingerprint
+
+    def summary(self) -> str:
+        """Helper class for creating a quick summary representation of the structure of the Response Coordinator"""
+        class_name = self.__class__.__name__
+
+        components = dict(
+            parser=self.parser.__class__.__name__ + "(...)",
+            extractor=self.extractor.__class__.__name__ + "(...)",
+            processor=self.processor.__class__.__name__ + "(...)",
+            cache_manager=generate_repr(self.cache_manager, show_value_attributes=False, flatten=True),
+        )
+
+        return generate_repr_from_string(class_name, components, flatten=True)
 
     def __repr__(self) -> str:
         """Helper class for representing the structure of the Response Coordinator"""

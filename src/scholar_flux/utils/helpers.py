@@ -1,6 +1,8 @@
 import re
 import hashlib
 import requests
+from datetime import datetime, timezone
+
 from typing import (
     Any,
     Dict,
@@ -95,6 +97,8 @@ def as_tuple(obj: Any) -> tuple:
         case tuple():
             return obj
         case list():
+            return tuple(obj)
+        case set():
             return tuple(obj)
         case None:
             return tuple()
@@ -394,3 +398,51 @@ def try_call(
                 f"An error occurred in the call to the function argument, '{function_name}', args={args}, kwargs={kwargs}: {e}",
             )
     return default
+
+
+def generate_iso_timestamp() -> str:
+    """
+    Generates and formats an ISO 8601 timestamp string in UTC with millisecond precision
+    for reliable round-trip conversion.
+
+    Returns:
+        str: ISO 8601 formatted timestamp (e.g., "2024-03-15T14:30:00.123Z")
+    """
+    return format_iso_timestamp(datetime.now(timezone.utc))
+
+
+def format_iso_timestamp(timestamp: datetime) -> str:
+    """
+    Formats an iso timestamp string in UTC with millisecond precision.
+
+    Returns:
+        str: ISO 8601 formatted timestamp (e.g., "2024-03-15T14:30:00.123Z")
+    """
+    return timestamp.isoformat(timespec="milliseconds")
+
+
+def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
+    """
+    Attempts to convert an ISO 8601 timestamp string back to a datetime object.
+
+    Args:
+        timestamp_str: ISO 8601 formatted timestamp string
+
+    Returns:
+        datetime: datetime object if parsing succeeds, None otherwise
+    """
+    if not isinstance(timestamp_str, str):
+        return None
+
+    try:
+        cleaned = timestamp_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(cleaned)
+        return dt
+    except (ValueError, AttributeError, TypeError, OSError):
+        return None
+
+
+if __name__ == "__main__":
+    timestamp = generate_iso_timestamp()
+    parsed_timestamp = parse_iso_timestamp(timestamp)
+    assert parsed_timestamp is not None and format_iso_timestamp(parsed_timestamp) == timestamp

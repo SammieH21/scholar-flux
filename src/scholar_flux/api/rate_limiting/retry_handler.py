@@ -12,9 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class RetryHandler:
+    """
+    Core class used for determining whether or not to retry failed requests when rate limiting,
+    backoff factors, and max backoff when enabled.
+    """
 
     DEFAULT_VALID_STATUSES = {200}
-    DEFAULT_RETRY_STATUSES = {429, 503, 504}
+    DEFAULT_RETRY_STATUSES = {429, 500, 503, 504}
     DEFAULT_RAISE_ON_ERROR = False
 
     def __init__(
@@ -30,11 +34,18 @@ class RetryHandler:
         The RetryHandler also dynamically controls the
         degree of rate limiting that occurs upon observing a rate limiting error
         status code.
+
         Args:
             max_retries (int): indicates how many attempts should be performed before
                                halting retries at retrieving a valid response
             backoff_factor (float): indicates the factor used to adjust when the next request is
                                   should be attempted based on past unsuccessful attempts
+            max_backoff (int): describes the maximum number of seconds to wait before submitting
+            retry_statuses (Optional[set[int]]):
+                Inidicates the full list of status codes that should be retried if encountered
+            raise_on_error (Optional[bool]): Flag that indicates whether or not to raise an error
+                upon encountering an invalid status_code or exception
+
         """
         self.max_retries = max_retries if max_retries >= 0 else 0
         self.backoff_factor = backoff_factor if backoff_factor >= 0 else 0

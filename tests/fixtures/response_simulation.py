@@ -62,7 +62,7 @@ def mock_cache_storage_data():
         "status_code": 200,
         "raw_response": b"test content",
         "parsed_response": {"key": "value"},
-        "processed_response": {"processed": True},
+        "processed_records": {"processed": True},
         "metadata": {"source": "test"},
     }
 

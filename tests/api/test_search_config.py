@@ -24,12 +24,13 @@ import scholar_flux.api.models.search
     ],
 )
 def test_non_provider_initialization(provider, basename):
-    api_config = SearchAPIConfig.from_defaults(provider_name=provider.upper())
+    api_config = SearchAPIConfig.from_defaults(provider_name=provider.upper(), request_delay=None)
     default_provider = provider_registry.get(provider)
     assert api_config and default_provider
     assert api_config.provider_name == default_provider.provider_name
     assert default_provider and default_provider.base_url == api_config.base_url
     assert api_config and api_config.url_basename == basename
+    assert api_config.request_delay == api_config.DEFAULT_REQUEST_DELAY
 
 
 @pytest.mark.parametrize("provider", ["plos", "pubmed_efetch", "pubmed", "springernature", "crossref", "core"])
@@ -82,7 +83,7 @@ def test_search_api_config_validation(caplog):
 
     invalid_request_delay = "five"
     with pytest.raises(ValueError) as excinfo:
-        _ = SearchAPIConfig.set_default_request_delay(v=invalid_request_delay)  # type:ignore
+        _ = SearchAPIConfig.validate_request_delay(v=invalid_request_delay)  # type:ignore
     assert (
         f"Incorrect type received for the request delay parameter. Expected integer or float, received ({type(invalid_request_delay)})"
         in str(excinfo.value)

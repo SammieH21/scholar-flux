@@ -2,9 +2,11 @@ from scholar_flux.api.models import ErrorResponse, ProcessedResponse, APIRespons
 from scholar_flux.exceptions import InvalidResponseReconstructionException, InvalidResponseStructureException
 from collections import UserDict
 from scholar_flux.utils import quote_if_string, ResponseProtocol
+from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp
 from requests import Response, RequestException
 from http.client import responses
 from unittest.mock import patch
+from datetime import datetime
 import json
 import pytest
 import re
@@ -33,8 +35,11 @@ def test_blank_initialiation():
     assert response.reason is None and response.status_code is None and response.headers == {} and response.url is None
     assert not response.is_response()
 
-    api_response = APIResponse.from_response(url=None, status_code=None)
+    api_response = APIResponse.from_response(url=None, status_code=None, created_at=None)
     assert api_response.response == response
+    assert api_response.url is None
+    assert api_response.status_code is None
+    assert api_response.created_at is None
 
 
 def test_error_response(mock_unauthorized_response):
@@ -47,7 +52,7 @@ def test_error_response(mock_unauthorized_response):
 
 def test_success_response():
     response_dict: list[dict] = [{1: 1}, {2: 2}, {3: 3}, {4: 4}]
-    processed_response = ProcessedResponse(data=response_dict)
+    processed_response = ProcessedResponse(processed_records=response_dict)
     assert processed_response and processed_response.data
     assert len(processed_response) == 4 == len(processed_response.data)
 
@@ -77,7 +82,7 @@ def test_api_response_from_kwargs():
 
 
 def test_api_response_serialize_and_deserialize(mock_successful_response):
-    api_response = APIResponse.from_response(response=mock_successful_response, cache_key="foo")
+    api_response = APIResponse.from_response(response=mock_successful_response, cache_key="foo", auto_created_at=True)
     dumped = api_response.model_dump_json()
     loaded = APIResponse.model_validate_json(dumped)
     assert loaded.status_code == 200
@@ -271,6 +276,40 @@ def test_representation():
     representation = repr(response)
 
     assert re.search(r"APIResponse\(cache_key='test-key',(\n| )*response=ReconstructedResponse\(.*\)\)", representation)
+
+
+def test_api_response_timestamp_validation(caplog):
+
+    example_timestamp = generate_iso_timestamp()
+    keywords = dict(
+        cache_key="another-test-key", status=200, url="https://another-example.com", created_at=example_timestamp
+    )
+
+    response = APIResponse.model_validate(keywords)
+    assert response.created_at is not None and response.created_at == example_timestamp
+
+    # parse the timestamp into a date-time value from string format
+    parsed_example_timestamp = parse_iso_timestamp(example_timestamp)
+    assert isinstance(parsed_example_timestamp, datetime)
+
+    # created_at implicitly formatted as a string in iso 8601 format
+    dt_response = APIResponse.model_validate(keywords | dict(created_at=parsed_example_timestamp))
+    assert dt_response.created_at is not None
+    assert parse_iso_timestamp(dt_response.created_at) == parsed_example_timestamp
+
+    # non-parseable strings not allowed --> None
+    invalid_value = "an invalid datetime"
+    invalid_dt_response = APIResponse.model_validate(keywords | dict(created_at=invalid_value))
+    assert invalid_dt_response.created_at is None
+    assert f"Expected a parsed timestamp but received an unparseable value: {invalid_value}" in caplog.text
+
+    caplog.clear()
+
+    # non-datetime/parseable string fields not allowed --> None
+    another_invalid_dt_response = APIResponse.model_validate(keywords | dict(created_at=True))
+
+    assert another_invalid_dt_response.created_at is None
+    assert f"Expected an iso8601-formatted datetime, Received type ({type(True)})" in caplog.text
 
 
 def test_raise_for_status():
@@ -533,6 +572,12 @@ def test_processed_response_properties():
 
     # a property that isn't a mutable attribute
     assert api_response.error is None
+
+def test_serialization(caplog):
+    response = {'url': 'https://my-url.com'}
+
+    assert APIResponse.serialize_response(response) is None # type: ignore
+    assert f"Could not encode the value of type {type(response)} into a serialized json object " in caplog.text
 
 
 def test_error_response_properties():

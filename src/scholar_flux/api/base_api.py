@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Any
 import requests
+from requests_cache import CachedSession
 from urllib.parse import urljoin
 import logging
 from scholar_flux.exceptions import (
@@ -8,7 +9,6 @@ from scholar_flux.exceptions import (
     APIParameterException,
 )
 
-from requests_cache import CachedSession
 from scholar_flux.sessions import SessionManager, CachedSessionManager
 from scholar_flux.utils.repr_utils import generate_repr
 
@@ -221,6 +221,10 @@ class BaseAPI:
                 f"Expected all parameter names to be strings. verify the types for each key: {parameters.keys()}"
             )
         return parameters
+
+    def summary(self) -> str:
+        """Create a summary representation of the current structure of the API: Returns the original representation"""
+        return repr(self)
 
     def __repr__(self) -> str:
         """Helper method for identifying the configuration for the BaseAPI"""

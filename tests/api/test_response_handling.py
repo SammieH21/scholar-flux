@@ -28,8 +28,8 @@ def test_plos_handling(plos_page_1_response, monkeypatch, caplog):
 
     monkeypatch.setattr(response_coordinator.cache_manager, "retrieve", lambda *args, **kwargs: None)
 
-    assert response_coordinator._from_cache(plos_page_1_response) is None
-    assert response_coordinator._from_cache(plos_page_1_response, "test_cache_key") is None
+    assert response_coordinator._from_cache(response=plos_page_1_response) is None
+    assert response_coordinator._from_cache(response=plos_page_1_response, cache_key="test_cache_key") is None
 
     monkeypatch.setattr(
         response_coordinator.cache_manager,
@@ -37,7 +37,7 @@ def test_plos_handling(plos_page_1_response, monkeypatch, caplog):
         lambda *args, **kwargs: (_ for _ in ()).throw(StorageCacheException("Directly raised exception")),
     )
 
-    assert response_coordinator._from_cache(plos_page_1_response) is None
+    assert response_coordinator._from_cache(response=plos_page_1_response) is None
     assert re.search(
         "An exception occurred while attempting to retrieve '[a-zA-Z0-9]+' " "from cache: Directly raised exception",
         caplog.text,
@@ -131,3 +131,16 @@ def test_response_content_validation(plos_page_1_response, caplog):
     assert "Invalid Response format: received 'application/json charset=UTF-8', and expected 'application/txt'" in str(
         excinfo.value
     )
+
+
+def test_response_coordinator_summary():
+    response_coordinator = ResponseCoordinator.build()
+    representation = response_coordinator.summary()
+
+    assert re.search(r"^ResponseCoordinator\(.*\)$", representation, re.DOTALL)
+    assert f"parser={response_coordinator.parser.__class__.__name__}(...)" in representation
+    assert f"extractor={response_coordinator.extractor.__class__.__name__}(...)" in representation
+    assert (
+        f"cache_manager={response_coordinator.cache_manager.__class__.__name__}(cache_storage={response_coordinator.cache_manager.cache_storage.__class__.__name__}(...))"
+        in representation
+    )  # ignore padding

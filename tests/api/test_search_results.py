@@ -19,7 +19,7 @@ def test_basic_search_results(mock_successful_response, mock_unauthorized_respon
     success_response = ProcessedResponse(
         response=mock_successful_response,
         extracted_records=extracted_records,
-        data=processed_records,
+        processed_records=processed_records,
         metadata=metadata,
     )
 
@@ -36,7 +36,8 @@ def test_basic_search_results(mock_successful_response, mock_unauthorized_respon
     )
 
     assert isinstance(search_result_success, SearchResult) and search_result_success
-    assert search_result_success.data == processed_records
+    assert search_result_success.data == processed_records == search_result_success.processed_records
+    assert search_result_error != unauthorized_response # the two aren't the same class, so this shouldn't equal
     assert search_result_success.metadata == metadata
     assert search_result_success.parsed_response is None
     assert search_result_success.extracted_records == extracted_records
@@ -44,7 +45,11 @@ def test_basic_search_results(mock_successful_response, mock_unauthorized_respon
     assert search_result_success.error is None
     assert search_result_success.message is None
 
-    assert len(search_result_success) == len(search_result_success.data) == len(search_result_success.extracted_records)
+    assert (
+        len(search_result_success)
+        == len(search_result_success.data or [])
+        == len(search_result_success.extracted_records or [])
+    )
 
     assert isinstance(search_result_error, SearchResult) and not search_result_error
     assert search_result_error.data is None
@@ -74,7 +79,7 @@ def test_invalid_search_list():
             status_code=200,
             url="https://www.example-url-test.com",
             extracted_records=extracted_records,
-            data=processed_records,
+            processed_records=processed_records,
             metadata=metadata,
         ),
     )

@@ -4,8 +4,9 @@ import re
 import requests_mock
 
 from requests_cache import CachedResponse
-from scholar_flux.api import SearchAPI, SearchCoordinator
+from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator
 from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep
+from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 
 from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
@@ -177,6 +178,13 @@ def test_initialization_updates():
     )
     assert SearchCoordinator(api, query="")  # should initialize since a query is available through the SearchAPI
 
+    rate_limiter = threaded_rate_limiter_registry.get(api.provider_name)
+    assert rate_limiter is not None
+    rate_limiter.min_interval = 30
+    api._initialize(api.query, config=api.config, parameter_config=api.parameter_config, rate_limiter=rate_limiter)
+    assert api._rate_limiter is rate_limiter
+    assert api.config.request_delay == rate_limiter.min_interval == 30
+
 
 def test_request_failed_exception(monkeypatch, caplog):
     coordinator = SearchCoordinator(query="Computer Science Testing", request_delay=0)
@@ -319,3 +327,30 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
         with pytest.raises(RequestFailedException):
             _ = coordinator.robust_request(page=1)
         assert f"Failed to get a valid response from the {coordinator.search_api.provider_name} API"
+
+
+@pytest.mark.parametrize("Coordinator", (BaseCoordinator, SearchCoordinator))
+def test_base_coordinator_summary(Coordinator):
+    api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
+    response_coordinator = ResponseCoordinator.build()
+
+    coordinator = Coordinator(api, response_coordinator)
+    representation = coordinator.summary()
+
+    class_name = Coordinator.__name__
+    assert re.search(rf"^{class_name}\(.*\)$", representation, re.DOTALL)
+    assert re.search(r"SearchAPI\(.*\)", representation, re.DOTALL)
+    assert f"query='{api.query}'" in representation
+    assert f"provider_name='{api.provider_name}'" in representation
+    assert f"base_url='{api.base_url}'" in representation  # ignore padding
+    assert f"records_per_page={api.records_per_page}" in representation  # ignore padding
+    assert re.search(f"session=.*{api.session.__class__.__name__}", representation)
+    assert f"timeout={api.timeout}" in representation
+
+    assert re.search(r"ResponseCoordinator\(.*\)", representation, re.DOTALL)
+    assert f"parser={response_coordinator.parser.__class__.__name__}(...)" in representation
+    assert f"extractor={response_coordinator.extractor.__class__.__name__}(...)" in representation
+    assert (
+        f"cache_manager={response_coordinator.cache_manager.__class__.__name__}(cache_storage={response_coordinator.cache_manager.cache_storage.__class__.__name__}(...))"
+        in representation
+    )  # ignore padding

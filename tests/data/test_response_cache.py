@@ -81,5 +81,5 @@ def test_response_cache(
             assert search_coordinator.response_coordinator.cache_manager.verify_cache(cache_key)
             retrieved_cache = search_coordinator.response_coordinator.cache_manager.retrieve(cache_key)
             retrieved_data = search_coordinator.search_data(page=1, from_process_cache=False)
-            assert retrieved_cache is not None and retrieved_cache["processed_response"] == retrieved_data
+            assert retrieved_cache is not None and retrieved_cache["processed_records"] == retrieved_data
             search_coordinator._delete_cached_response(page=1)

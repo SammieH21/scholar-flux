@@ -3,7 +3,7 @@ from typing import List, Dict, Optional, Any, Tuple, Sequence, cast, Generator
 from requests import PreparedRequest, Response
 import logging
 
-from scholar_flux.api.retry_handler import RetryHandler
+from scholar_flux.api.rate_limiting.retry_handler import RetryHandler
 from scholar_flux import DataCacheManager
 from scholar_flux.api import (
     SearchAPI,
@@ -103,7 +103,8 @@ class SearchCoordinator(BaseCoordinator):
                                                                  core handling of all responses from APIs
             parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
             extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
-            processor: (Optional[ABCDataProcessor]): Processes API responses into list of dictionaries
+            processor: (Optional[ABCDataProcessor]): Processes the previously extracted API records into list of dictionaries that are
+                                                     filtered and optionally flattened during processing
             cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
             cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
             cache_results: (Optional[bool]): Determines whether or not to cache processed responses - on by default unless specified otherwise

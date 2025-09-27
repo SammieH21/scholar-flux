@@ -2,9 +2,11 @@ from typing import Optional, Dict, List, Any, MutableMapping
 from typing_extensions import Self
 from pydantic import BaseModel, field_serializer, field_validator
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse
+from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp, format_iso_timestamp
 from scholar_flux.utils import CacheDataEncoder, generate_repr
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.api.validators import validate_url
+from datetime import datetime
 from http.client import responses
 from scholar_flux.utils import try_int
 from json import JSONDecodeError
@@ -32,6 +34,7 @@ class APIResponse(BaseModel):
                                    orchestration involving processing, cache storage, and cache retrieval
         response (Any): A response or response-like object to be validated and used/re-used in later caching
                         and response processing/orchestration steps.
+        created_at (Optional[str]): A value indicating the time in which a response or response-like object was created.
 
     Example:
         >>> from scholar_flux.api import APIResponse
@@ -56,6 +59,27 @@ class APIResponse(BaseModel):
 
     cache_key: Optional[str] = None
     response: Optional[Any] = None
+    created_at: Optional[str] = None
+
+    @field_validator("created_at", mode="before")
+    def validate_iso_timestamp(cls, v: Optional[str | datetime]) -> Optional[str]:
+        """Helper method for validating and ensuring that the timestamp accurately follows an iso 8601 format"""
+        if not v:
+            return None
+
+        if isinstance(v, str):
+            if not parse_iso_timestamp(v):
+                logger.warning(f"Expected a parsed timestamp but received an unparseable value: {v}")
+                return None
+
+        elif isinstance(v, datetime):
+            v = format_iso_timestamp(v)
+
+        else:
+            logger.warning(f"Expected an iso8601-formatted datetime, Received type ({type(v)})")
+            return None
+
+        return v
 
     @property
     def status_code(self) -> Optional[int]:
@@ -202,7 +226,13 @@ class APIResponse(BaseModel):
         return response_like
 
     @classmethod
-    def from_response(cls, response: Optional[Any] = None, cache_key: Optional[str] = None, **kwargs) -> Self:
+    def from_response(
+        cls,
+        response: Optional[Any] = None,
+        cache_key: Optional[str] = None,
+        auto_created_at: Optional[bool] = None,
+        **kwargs,
+    ) -> Self:
         """
         Construct an APIResponse from a response object or from keyword arguments.
         If response is not a valid response object, builds a minimal response-like object from kwargs.
@@ -213,10 +243,13 @@ class APIResponse(BaseModel):
         response = (
             ReconstructedResponse.build(response, **kwargs) if not isinstance(response, requests.Response) else response
         )
+
+        if auto_created_at is True and not model_kwargs.get("created_at"):
+            model_kwargs["created_at"] = generate_iso_timestamp()
         return cls(response=response, cache_key=cache_key, **model_kwargs)
 
     @field_serializer("response", when_used="json")
-    def encode_response(self, response: Any) -> Optional[Dict[str, Any] | List[Any]]:
+    def serialize_response(self, response: Any) -> Optional[Dict[str, Any] | List[Any]]:
         """
         Helper method for serializing a response into a json format. Accounts for special cases
         such as CaseInsensitiveDict fields that are otherwise unserializable.
@@ -342,7 +375,7 @@ class APIResponse(BaseModel):
         if not isinstance(other, self.__class__):
             return False
 
-        return self.model_dump() == other.model_dump()
+        return self.model_dump(exclude={"created_at"}) == other.model_dump(exclude={"created_at"})
 
     @field_validator("response", mode="after")
     def transform_response(cls, v: Any) -> Optional[requests.Response | ResponseProtocol]:
@@ -398,7 +431,7 @@ class APIResponse(BaseModel):
 
     def __repr__(self) -> str:
         """Helper method for generating a simple representation of the current API Response"""
-        return generate_repr(self)
+        return generate_repr(self, exclude=("created_at",))
 
 
 class ErrorResponse(APIResponse):
@@ -475,7 +508,7 @@ class ProcessedResponse(APIResponse):
         return (
             f"<ProcessedResponse(len={len(self.data or [])}, "
             f"cache_key={self.cache_key!r}, "
-            "metadata={str(self.metadata)[:40]+'...' if isinstance(self.metadata, (dict, list, str)) else self.metadata!r})>"
+            f"metadata={'{'+str(self.metadata)[1:40]+'...'+'}' if isinstance(self.metadata, (dict, list, str)) and self.metadata else self.metadata!r})>"
         )
 
     def __len__(self) -> int:

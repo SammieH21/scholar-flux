@@ -39,7 +39,7 @@ def test_basic_cache_operations(
         cache_key=cache_key,
         response=mock_response,
         parsed_response=mock_cache_storage_data["parsed_response"],
-        processed_response=mock_cache_storage_data["processed_response"],
+        processed_records=mock_cache_storage_data["processed_records"],
         metadata=mock_cache_storage_data["metadata"],
     )
 
@@ -52,12 +52,12 @@ def test_basic_cache_operations(
     retrieved = cache_manager.retrieve(cache_key)
     assert retrieved is not None
     assert retrieved["parsed_response"] == mock_cache_storage_data["parsed_response"]
-    assert retrieved["processed_response"] == mock_cache_storage_data["processed_response"]
+    assert retrieved["processed_records"] == mock_cache_storage_data["processed_records"]
 
     retrieved_all = cache_manager.retrieve(cache_key)
     assert retrieved_all
     assert retrieved["parsed_response"] == retrieved_all.get("parsed_response")
-    assert retrieved["processed_response"] == retrieved_all.get("processed_response")
+    assert retrieved["processed_records"] == retrieved_all.get("processed_records")
 
     # Test cache validity
     assert cache_manager.cache_is_valid(cache_key, mock_response) is True
@@ -118,7 +118,7 @@ def test_cache_with_different_response_hashes(mock_response):
     cache_key = cache_manager.generate_fallback_cache_key(mock_response)
 
     # Update with first response
-    cache_manager.update_cache(cache_key=cache_key, response=mock_response, processed_response={"original": True})
+    cache_manager.update_cache(cache_key=cache_key, response=mock_response, processed_records={"original": True})
 
     # Cache should be valid initially
     assert cache_manager.cache_is_valid(cache_key, mock_response) is True
@@ -143,12 +143,12 @@ def test_cache_retrieval_with_none_data(mock_response):
     assert isinstance(result, dict)
 
     # Test with actual data
-    cache_manager.update_cache(cache_key=cache_key, response=mock_response, parsed_response=None, processed_response={})
+    cache_manager.update_cache(cache_key=cache_key, response=mock_response, parsed_response=None, processed_records={})
 
     retrieved = cache_manager.retrieve(cache_key)
     assert retrieved
     assert retrieved["parsed_response"] is None
-    assert retrieved["processed_response"] == {}
+    assert retrieved["processed_records"] == {}
 
 
 def test_delete_nonexistent_key(mock_response):
