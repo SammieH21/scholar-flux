@@ -5,9 +5,9 @@ import logging
 import copy
 from typing import Any, ClassVar
 from dataclasses import dataclass
+from typing_extensions import Self
 from scholar_flux.utils.paths.processing_paths import ProcessingPath
 from scholar_flux.exceptions.path_exceptions import (
-    PathIndexingError,
     InvalidProcessingPathError,
     InvalidPathNodeError,
 )
@@ -38,7 +38,7 @@ class PathNode:
             )
 
     @classmethod
-    def to_path_node(cls, path: Union[ProcessingPath, str, list[str]], value: Any, **path_kwargs) -> PathNode:
+    def to_path_node(cls, path: Union[ProcessingPath, str, list[str]], value: Any, **path_kwargs) -> Self:
         """
         Helper method for creating a path node from the components used to create paths
         in addition to value to assign the path node.
@@ -106,19 +106,16 @@ class PathNode:
     @property
     def record_index(self) -> int:
         """
-        Extract the first element of a page to determine the record number originating
-        from a list of dictionaries
+        Extract the first element of the node's path to determine the record number originating
+        from a list of dictionaries, assuming the path originates from a paginated structure
 
         Returns:
             int: Value denoting the record that the path originates from
+
+        Raises:
+            PathIndexingError: if the first element of the path is not a numerical index
         """
-        try:
-            idx = self.path.components[0]
-            return int(idx)
-        except (IndexError, TypeError) as e:
-            raise PathIndexingError(
-                f"The first element of the current path, '{self.path}',  cannot be indexed as a record: {e}"
-            )
+        return self.path.record_index
 
     @classmethod
     def is_valid_node(cls, node) -> bool:

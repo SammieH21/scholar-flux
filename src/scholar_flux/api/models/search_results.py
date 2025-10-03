@@ -88,8 +88,18 @@ class SearchResult(BaseModel):
         return self.response_result.metadata if self.response_result else None
 
     @property
+    def processed_records(self) -> Optional[list[dict[Any, Any]]]:
+        """
+        Contains the processed records from the APIResponse processing step after a successfully
+        received response has been processed. If an error response was received instead, the value
+        of this property is None.
+        """
+        return self.response_result.processed_records if self.response_result else None
+
+    @property
     def data(self) -> Optional[list[dict[Any, Any]]]:
         """
+        Alias referring back to the processed records from the ProcessedResponse or ErrorResponse.
         Contains the processed records from the APIResponse processing step after a successfully
         received response has been processed. If an error response was received instead, the value
         of this property is None.
@@ -119,6 +129,22 @@ class SearchResult(BaseModel):
         in the event that the response_result is an ErrorResponse
         """
         return self.response_result.message if isinstance(self.response_result, ErrorResponse) else None
+
+    def __eq__(self, other: Any) -> bool:
+        """
+        Helper method for determining whether two search results are equal. The equality check operates
+        by determining whether the other object is, first, a SearchResult instance. If it is, the components
+        are dumped into a dictionary and checked for equality.
+
+        Args:
+            other (Any): An object to compare against the current search result
+
+        Returns:
+            bool: True if the class is the same and all components are equal, False otherwise.
+        """
+        if not isinstance(other, self.__class__):
+            return False
+        return self.model_dump() == other.model_dump()
 
 
 class SearchResultList(list[SearchResult]):

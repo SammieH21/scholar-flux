@@ -12,7 +12,11 @@ from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
 from scholar_flux.utils.repr_utils import generate_repr
 from scholar_flux.utils.response_protocol import ResponseProtocol
-from scholar_flux.exceptions import StorageCacheException
+from scholar_flux.exceptions import (
+    StorageCacheException,
+    MissingResponseException,
+    InvalidResponseStructureException,
+)
 from scholar_flux.package_metadata import __version__
 
 logger = logging.getLogger(__name__)
@@ -32,7 +36,7 @@ class DataCacheManager:
     - generate_fallback_cache_key(response): Generates a unique fallback cache key based on the response URL and status code.
     - verify_cache(cache_key): Checks if the provided cache_key exists in the cache storage.
     - cache_is_valid(cache_key, response): Determines whether the cached data for a given key is still valid.
-    - update_cache(cache_key, response, store_raw=False, metadata=None, parsed_response=None, processed_response=None): Updates the cache storage with new data.
+    - update_cache(cache_key, response, store_raw=False, metadata=None, parsed_response=None, processed_records=None): Updates the cache storage with new data.
     - retrieve(cache_key): Retrieves data from the cache storage based on the cache key.
     - retrieve_from_response(response): Retrieves data from the cache storage based on the response if within cache.
     """
@@ -64,9 +68,8 @@ class DataCacheManager:
     def cache_is_valid(
         self,
         cache_key: str,
-        response: Response | ResponseProtocol,
+        response: Optional[Response | ResponseProtocol] = None,
         cached_response: Optional[Dict[str, Any]] = None,
-        verify_hash: Optional[bool] = True,
     ) -> bool:
         """
         Determines whether the cached data for a given key is still valid or needs reprocessing due
@@ -77,9 +80,9 @@ class DataCacheManager:
 
         Args:
             cache_key (str): The unique identifier for cached data.
-            response: The API response or response-like object used to validate the cache.
+            response (Optional[Response | ResponseProtocol]): The API response or response-like object used to validate
+                                                              the cache, if available.
             cached_response: Optional[Dict[str, Any]]: The cached data associated with the key
-            verify_hash (Optional[bool]): Determines whether to check the cached response hash for changes
 
         Returns:
             bool: True if the cache is valid, False otherwise.
@@ -93,7 +96,7 @@ class DataCacheManager:
         if not self._verify_cached_response(cache_key, current_cached_response):
             return False
 
-        if verify_hash and not self._verify_hash(response, current_cached_response):
+        if response is not None and not self._verify_hash(response, current_cached_response):
             logger.info(f"Cached data is outdated for key: {cache_key}")
             return False
 
@@ -108,7 +111,7 @@ class DataCacheManager:
         parsed_response: Optional[Any] = None,
         metadata: Optional[Dict[str, Any]] = None,
         extracted_records: Optional[Any] = None,
-        processed_response: Optional[Any] = None,
+        processed_records: Optional[Any] = None,
         **kwargs,
     ) -> None:
         """
@@ -120,7 +123,7 @@ class DataCacheManager:
             store_raw: (Optional) A boolean indicating whether to store the raw response. Defaults to False.
             metadata: (Optional) Additional metadata associated with the cached data. Defaults to None.
             parsed_response: (Optional) The response data parsed into a structured format. Defaults to None.
-            processed_response: (Optional) The response data processed for specific use. Defaults to None.
+            processed_records: (Optional) The response data processed for specific use. Defaults to None.
             kwargs: Optional additional hashable dictionary fields that can be stored using sql cattrs encodings or in-memory cache.
         """
         self.cache_storage.update(
@@ -131,7 +134,7 @@ class DataCacheManager:
                 "raw_response": response.content if store_raw else None,
                 "parsed_response": parsed_response,
                 "extracted_records": extracted_records,
-                "processed_response": processed_response,
+                "processed_records": processed_records,
                 "metadata": metadata,
             }
             | dict(**kwargs),
@@ -201,6 +204,16 @@ class DataCacheManager:
         Returns:
             str: A unique fallback cache key.
         """
+        if not response:
+            msg = "A response or response-like object was expected but was not provided"
+            logger.error(msg)
+            raise MissingResponseException(msg)
+
+        if not isinstance(response, Response) and not isinstance(response, ResponseProtocol):
+            msg = f"A response or response-like object was expected, Received ({type(response)})"
+            logger.error(msg)
+            raise InvalidResponseStructureException(msg)
+
         parsed_url = urlparse(response.url)
         simplified_url = f"{parsed_url.netloc}{parsed_url.path}"
         status_code = response.status_code
@@ -244,7 +257,7 @@ class DataCacheManager:
             )
             return False
 
-        if cached_response.get("processed_response") is None:
+        if cached_response.get("processed_records") is None:
             logger.info(f"Previously processed response is missing for recorded cache key: {cache_key}")
             return False
 

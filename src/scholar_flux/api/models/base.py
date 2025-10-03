@@ -10,6 +10,19 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class APISpecificParameter:
+    """
+    Dataclass with the responsibility of recording the specifics of parameters that correspond only to a single API
+    with specific defaults, validation steps, and indicators of optional vs. required fields.
+
+    Args:
+        name (str): The name of the parameter used when sending requests to APis
+        description (str): A description of the API Specific parameter
+        validator (Optional[Callable[[Any], Any]]): An optional step for verifying the input to the dataclass based on
+                                                    required types, constrained values, etc.
+        default (Any): An optional default value to populate the required parameter with if otherwise not specified
+        required (bool): An attribute used as a flag for identifying additional parameters that must be provided when
+                         creating extensible API clients for particular providers.
+    """
     name: str
     description: str
     validator: Optional[Callable[[Any], Any]] = None
@@ -53,6 +66,7 @@ class BaseAPIParameterMap(BaseModel):
         api_key_required (bool): Whether the API key is required by this API.
         page_required (bool): If True, indicates that a page is required for the current API
         auto_calculate_page (bool): If True, calculates start index from page; if False, passes page number directly.
+        zero_indexed_pagination (bool): If True, treats 0 as an allowed page value when retrieving data from APIs
         api_specific_parameters (Dict[str, str]): Additional universal to API-specific parameter mappings.
         additional_parameter_validators (Dict[str, str]): Additional universal to API-specific parameter mappings.
     """
@@ -63,6 +77,7 @@ class BaseAPIParameterMap(BaseModel):
     api_key_parameter: Optional[str] = None
     api_key_required: bool = False
     auto_calculate_page: bool = True
+    zero_indexed_pagination: bool = False
     api_specific_parameters: Dict[str, APISpecificParameter] = Field(default_factory=dict)
 
     def update(self, other: BaseAPIParameterMap | Dict[str, Any]) -> BaseAPIParameterMap:
@@ -112,8 +127,12 @@ class BaseAPIParameterMap(BaseModel):
         parameters = [
             parameter
             for parameter in self.model_dump()
-            if parameter not in ("api_key_required", "auto_calculate_page", "api_specific_parameters")
+            if parameter not in ("api_key_required",
+                                 "auto_calculate_page",
+                                 "api_specific_parameters",
+                                 "zero_indexed_pagination")
         ]
+
         parameters += list(self.api_specific_parameters.keys())
         return parameters
 

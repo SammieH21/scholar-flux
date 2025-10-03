@@ -231,9 +231,23 @@ def compare_response_hashes(response1: requests.Response, response2: requests.Re
 
 def coerce_int(value: Any) -> int | None:
     """Attempts to convert a value to an integer, returning None if the conversion fails."""
+    if isinstance(value, int) or value is None:
+        return value
+
     try:
         return int(value) if isinstance(value, str) else None
     except (ValueError, TypeError):
+        return None
+
+
+def coerce_str(value: Any) -> Optional[str]:
+    """Attempts to convert a value into a string, if possible, returning None if conversion fails"""
+    if isinstance(value, str) or value is None:
+        return value
+
+    try:
+        return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+    except (ValueError, TypeError, UnicodeDecodeError):
         return None
 
 
@@ -246,7 +260,19 @@ def try_int(value: JSON_TYPE | None) -> JSON_TYPE | int | None:
         Optional[int]:
     """
     converted_value = coerce_int(value)
-    return converted_value or value
+    return converted_value if isinstance(converted_value, int) else value
+
+
+def try_str(value: Any) -> str | None:
+    """
+    Attempts to convert a value to a string, returning the original value if the conversion fails.
+    Args:
+        value (Any): the value to attempt to coerce into an string
+    Returns:
+        Optional[int]:
+    """
+    converted_value = coerce_str(value)
+    return converted_value if isinstance(converted_value, str) else value
 
 
 def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:

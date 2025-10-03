@@ -33,6 +33,7 @@ class PathDataProcessor(ABCDataProcessor):
         ignore_keys: Optional[list] = None,
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = True,
+        use_cache: Optional[bool] = True,
     ) -> None:
         """
         Initializes the data processor with JSON data and optional parameters for processing.
@@ -42,11 +43,16 @@ class PathDataProcessor(ABCDataProcessor):
         self.regex = regex
         self.ignore_keys = ignore_keys or None
         self.keep_keys = keep_keys or None
-
-        self.path_node_index = PathNodeIndex()
+        self.use_cache = use_cache or False
+        self.path_node_index = PathNodeIndex(use_cache = self.use_cache)
 
         self.json_data = json_data
         self.load_data(json_data)
+
+    @property
+    def cache(self) -> bool:
+        """Property indicating whether the underlying path node index uses a cache of weakreferences to nodes"""
+        return self.path_node_index.index.cache
 
     def load_data(self, json_data: Optional[dict | list[dict]] = None) -> bool:
         """
@@ -62,16 +68,19 @@ class PathDataProcessor(ABCDataProcessor):
         """
 
         if not json_data and not self.json_data:
-            logger.debug("JSON is empty")
             return False
 
         if json_data and json_data != self.json_data:
             logger.debug("Updating JSON data")
             self.json_data = json_data
 
+        logger.debug("Discovering paths")
         discovered_paths = PathDiscoverer(self.json_data).discover_path_elements(inplace=False)
-        self.path_node_index = PathNodeIndex.from_path_mappings(discovered_paths or {})
-        # self.path_node_index.index_json(json_data)
+        logger.debug("Creating a node index")
+
+        self.path_node_index = PathNodeIndex.from_path_mappings(discovered_paths or {},
+                                                                chain_map = True,
+                                                                use_cache = self.use_cache)
         logger.debug("JSON data loaded")
         return True
 
@@ -87,6 +96,7 @@ class PathDataProcessor(ABCDataProcessor):
         record dictionary with an abstract field. Determines whether or not to retain a specific record
         at the index.
         """
+        logger.debug("Processing next record...")
         record_idx_prefix = ProcessingPath(str(record_index))
         indexed_nodes = self.path_node_index.index.filter(record_idx_prefix)
 
@@ -130,9 +140,9 @@ class PathDataProcessor(ABCDataProcessor):
         keep_keys = keep_keys or self.keep_keys
         ignore_keys = ignore_keys or self.ignore_keys
 
-        for path in self.path_node_index.index.values():
+        for record_index in self.path_node_index.record_indices:
             self.process_record(
-                path.record_index,
+                record_index,
                 keep_keys=keep_keys,
                 ignore_keys=ignore_keys,
                 regex=regex,
@@ -179,7 +189,7 @@ class PathDataProcessor(ABCDataProcessor):
         Method for identifying the current implementation of the PathDataProcessor
         Useful for showing the options being used to process the api response records
         """
-        return generate_repr(self, show_value_attributes=False, exclude=["json_data"])
+        return generate_repr(self, show_value_attributes=False, exclude=["json_data", "use_cache"])
 
 
 # if __name__ == "__main__":

@@ -61,7 +61,7 @@ def test_pathnodemap_add_get_remove():
 
 
 def test_pathnodemap_filter_and_cache():
-    m = PathNodeMap()
+    m = PathNodeMap(cache=True)
     nodes = [PathNode(ProcessingPath(["0", "data", str(i), "title"]), f"title_{i}") for i in range(3)]
     for node in nodes:
         m.add(node)

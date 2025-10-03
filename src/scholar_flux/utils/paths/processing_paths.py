@@ -10,6 +10,7 @@ from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
     InvalidPathDelimiterError,
     InvalidComponentTypeError,
+    PathIndexingError
 )
 
 # Configure logging
@@ -244,7 +245,7 @@ class ProcessingPath:
         if delimiter is None:
 
             if not infer_delimiter:
-                logger.debug(f"Infer delimiter is set to False. Default delimiter {cls.DEFAULT_DELIMITER} will be used")
+                # logger.debug(f"Infer delimiter is set to False. Default delimiter {cls.DEFAULT_DELIMITER} will be used")
                 delimiter = cls.DEFAULT_DELIMITER
             else:
                 if isinstance(path, list):
@@ -364,6 +365,26 @@ class ProcessingPath:
             int: The number of components in the path.
         """
         return len(self.components) if self.components != ("",) else 0
+
+    @property
+    def record_index(self) -> int:
+        """
+        Extract the first element of the current path to determine the record number
+        if the current path  refers back to a paginated structure
+
+        Returns:
+            int: The first value, converted to an integer if possible
+
+        Raises:
+           PathIndexingError: if the first element of the path is not a numerical index
+        """
+        try:
+            idx = self.components[0]
+            return int(idx)
+        except (IndexError, TypeError) as e:
+            raise PathIndexingError(
+                f"The first element of the current path, '{self}',  cannot be indexed as a record: {e}"
+            )
 
     def is_ancestor_of(self, path: Union[str, ProcessingPath]) -> bool:
         """Determine whether the current path (self) is equal to or a subset/descendant path of the specified path.

@@ -573,10 +573,11 @@ def test_processed_response_properties():
     # a property that isn't a mutable attribute
     assert api_response.error is None
 
-def test_serialization(caplog):
-    response = {'url': 'https://my-url.com'}
 
-    assert APIResponse.serialize_response(response) is None # type: ignore
+def test_serialization(caplog):
+    response = {"url": "https://my-url.com"}
+
+    assert APIResponse.serialize_response(response) is None  # type: ignore
     assert f"Could not encode the value of type {type(response)} into a serialized json object " in caplog.text
 
 

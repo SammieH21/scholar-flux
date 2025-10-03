@@ -44,6 +44,12 @@ class InvalidPathNodeError(PathUtilsError):
     pass
 
 
+class PathChainMapError(PathUtilsError):
+    """Exception raised for invalid operations on a PathChainMap."""
+
+    pass
+
+
 class PathNodeIndexError(PathUtilsError):
     """Exception raised when performing an invalid operation on a PathNodeIndex"""
 
@@ -67,6 +73,11 @@ class PathCacheError(PathUtilsError):
 
 class PathNodeMapError(PathUtilsError):
     """Exception raised when attempting to perform an invalid operation a PathNodeMap"""
+
+    pass
+
+class PathRecordMapError(PathNodeMapError):
+    """Exception raised when attempting to perform an invalid operation a PathRecordMap"""
 
     pass
 

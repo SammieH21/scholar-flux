@@ -1,15 +1,16 @@
 from __future__ import annotations
 from typing import Optional, Generator, Sequence, Iterable
 from concurrent.futures import ThreadPoolExecutor
-import concurrent
+import concurrent.futures
 import logging
 
 from collections import UserDict, defaultdict
 from scholar_flux.api import ProviderConfig
 from scholar_flux.utils import generate_repr_from_string
-from scholar_flux.api.models import SearchResultList, SearchResult
+from scholar_flux.api.models import SearchResultList, SearchResult, PageListInput
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry, ThreadedRateLimiter
 from scholar_flux.api import SearchAPI, SearchCoordinator, ErrorResponse, APIResponse
+from scholar_flux.exceptions import InvalidCoordinatorParameterException
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class MultiSearchCoordinator(UserDict):
     directly set by overriding the `MultiSearchCoordinator.DEFAULT_THREADED_REQUEST_DELAY` class variable.
     """
 
-    DEFAULT_THREADED_REQUEST_DELAY: int = 6
+    DEFAULT_THREADED_REQUEST_DELAY: float | int = 6.0
 
     def __init__(self, *args, **kwargs):
         """
@@ -49,7 +50,7 @@ class MultiSearchCoordinator(UserDict):
             value (SearchCoordinator): The value (SearchCoordinator) to associate with the key.
 
         Raises:
-            TypeError: If the value is not a SearchCoordinator instance.
+            InvalidCoordinatorParameterException: If the value is not a SearchCoordinator instance.
         """
 
         self._verify_search_coordinator(value)
@@ -61,10 +62,17 @@ class MultiSearchCoordinator(UserDict):
         Helper method that ensures that the current value is a SearchCoordinator.
 
         Raises:
-            TypeError: If the received value is not a SearchCoordinator instance
+            InvalidCoordinatorParameterException: If the received value is not a SearchCoordinator instance
         """
         if not isinstance(search_coordinator, SearchCoordinator):
-            raise TypeError(f"Expected a SearchCoordinator, received type {type(search_coordinator)}")
+            raise InvalidCoordinatorParameterException(
+                f"Expected a SearchCoordinator, received type {type(search_coordinator)}"
+            )
+
+    @property
+    def coordinators(self) -> list[SearchCoordinator]:
+        """Utility property for quickly retrieving a list of all currently registered coordinators"""
+        return list(self.data.values())
 
     def add(self, search_coordinator: SearchCoordinator):
         """
@@ -73,7 +81,7 @@ class MultiSearchCoordinator(UserDict):
         Args:
             search_coordinator (SearchCoordinator): A search coordinator to add to the MultiSearchCoordinator dict
 
-        Raises: TypeError: If the expected type is not a SearchCoordinator
+        Raises: InvalidCoordinatorParameterException: If the expected type is not a SearchCoordinator
         """
         self._verify_search_coordinator(search_coordinator)
         search_coordinator = self._normalize_rate_limiter(search_coordinator)
@@ -84,15 +92,118 @@ class MultiSearchCoordinator(UserDict):
 
     def add_coordinators(self, search_coordinators: Iterable[SearchCoordinator]):
         """Helper method for adding a sequence of coordinators at a time"""
-        if not isinstance(search_coordinators, (Sequence, Iterable)):
-            raise TypeError(
-                "Expected a sequence or iterable of search_coordinators, " f"received type {type(search_coordinators)}"
+
+        # ignore flagging singular coordinators as invalid by adding them to a list beforehand
+        search_coordinators = (
+            [search_coordinators] if isinstance(search_coordinators, SearchCoordinator) else search_coordinators
+        )
+
+        if not isinstance(search_coordinators, (Sequence, Iterable)) or isinstance(search_coordinators, str):
+            raise InvalidCoordinatorParameterException(
+                f"Expected a sequence or iterable of search_coordinators, received type {type(search_coordinators)}"
             )
 
         for search_coordinator in search_coordinators:
             self.add(search_coordinator)
 
-    def iter_pages(self, pages: Sequence[int], iterate_by_group: bool = False, **kwargs):
+    def search(
+        self,
+        page: int = 1,
+        iterate_by_group: bool = False,
+        max_workers: Optional[int] = None,
+        multithreading: bool = True,
+        **kwargs,
+    ) -> SearchResultList:
+        """
+        Public method used to search for a single or multiple pages from multiple providers at once using a sequential
+        or multithreading approach. This approach delegates the search to search_pages to retrieve a single page for
+        query and provider using an iterative approach to search for articles grouped by provider.
+
+        Note that the `MultiSearchCoordinator.search_pages` method uses shared rate limiters to ensure
+        that APIs are not overwhelmed by the number of requests being sent within a specific time interval.
+
+        Args:
+            pages (Sequence[int]): A sequence of page numbers to iteratively request from the API Provider.
+            from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
+                                       requests-cache storage.
+            from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
+                                       the cache storage.
+            use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
+
+        Returns:
+            SearchResultList: The list containing all retrieved and processed pages from the API. If any non-stopping
+                              errors occur, this will return an ErrorResponse instead with error and message attributes
+                              further explaining any issues that occurred during processing.
+        """
+        return self.search_pages(
+            pages=[page] if isinstance(page, int) else page,
+            iterate_by_group=iterate_by_group,
+            max_workers=max_workers,
+            multithreading=multithreading,
+        )
+
+    def search_pages(
+        self,
+        pages: Sequence[int] | PageListInput,
+        iterate_by_group: bool = False,
+        max_workers: Optional[int] = None,
+        multithreading: bool = True,
+        **kwargs,
+    ) -> SearchResultList:
+        """
+        Public method used to search articles from multiple providers at once using a sequential or
+        multithreading approach. This approach uses `iter_pages` under the
+
+        Note that the `MultiSearchCoordinator.search_pages` method uses shared rate limiters to ensure
+        that APIs are not overwhelmed by the number of requests being sent within a specific time interval.
+
+        Args:
+            pages (Sequence[int]): A sequence of page numbers to iteratively request from the API Provider.
+            from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
+                                       requests-cache storage.
+            from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
+                                       the cache storage.
+            use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
+
+        Returns:
+            SearchResultList: The list containing all retrieved and processed pages from the API. If any non-stopping
+                              errors occur, this will return an ErrorResponse instead with error and message attributes
+                              further explaining any issues that occurred during processing.
+        """
+
+        search_results = SearchResultList()
+
+        if max_workers is not None and not isinstance(max_workers, int):
+            raise InvalidCoordinatorParameterException(
+                "Expected max_workers to be a positive integer, " f"Received a value of type {type(max_workers)}"
+            )
+
+        pages = SearchCoordinator._validate_page_list_input(pages)
+
+        if not self.data:
+            logger.warning(
+                "A coordinator has not yet been registered with the MultiSearchCoordinator: "
+                "returning an empty list..."
+            )
+            return search_results
+
+        if multithreading:
+            search_iterator: Generator[SearchResult, None, None] = self.iter_pages_threaded(
+                pages, max_workers=max_workers, **kwargs
+            )
+        else:
+            search_iterator = self.iter_pages(pages, iterate_by_group=iterate_by_group, **kwargs)
+
+        for search_result in search_iterator:
+            search_results.append(search_result)
+
+        logging.debug("Completed multi-search coordinated retrieval and processing")
+
+        return search_results
+
+    def iter_pages(
+        self, pages: Sequence[int] | PageListInput, iterate_by_group: bool = False, **kwargs
+    ) -> Generator[SearchResult, None, None]:
         """
         Helper method that creates and joins a sequence of generator functions for retrieving and processing
         records from each combination of queries, pages, and providers in sequence.
@@ -132,8 +243,6 @@ class MultiSearchCoordinator(UserDict):
             # Retrieve a single page number for all providers before moving to the next page
             yield from self._round_robin_iteration(provider_generator_dict)
 
-        logging.debug("Completed multi-search coordinated retrieval and processing")
-
     @classmethod
     def _grouped_iteration(
         cls, provider_generator_dict: dict[str, Generator[SearchResult, None, None]]
@@ -151,13 +260,7 @@ class MultiSearchCoordinator(UserDict):
         """
 
         for provider_name, generator in provider_generator_dict.items():
-
-            try:
-                yield from generator
-                logger.debug(f"Successfully halted retrieval for provider, {provider_name}")
-
-            except Exception as e:
-                logger.debug("Encountered an unexpected error during iteration for provider, " f"{provider_name}: {e}")
+            yield from cls._process_page_generator(provider_name, generator)
 
     @classmethod
     def _round_robin_iteration(
@@ -169,7 +272,7 @@ class MultiSearchCoordinator(UserDict):
         Note that the received generator dictionary will be popped as each generator is consumed.
 
         Args:
-            generator_dict (Mapping[str, Generator[SearchResult, None, None]]):
+            provider_generator_dict (Mapping[str, Generator[SearchResult, None, None]]):
                 A dictionary containing provider names as keys and generators as values.
 
         Yields:
@@ -187,7 +290,7 @@ class MultiSearchCoordinator(UserDict):
                     logger.debug(f"Successfully halted retrieval for provider, {provider_name}")
                     inactive_generators.append(provider_name)
                 except Exception as e:
-                    logger.debug(
+                    logger.error(
                         "Encountered an unexpected error during iteration for provider, " f"{provider_name}: {e}"
                     )
                     inactive_generators.append(provider_name)
@@ -195,7 +298,9 @@ class MultiSearchCoordinator(UserDict):
             for provider_name in inactive_generators:
                 provider_generator_dict.pop(provider_name)
 
-    def iter_pages_threaded(self, pages, max_workers=None, **kwargs):
+    def iter_pages_threaded(
+        self, pages: Sequence[int] | PageListInput, max_workers: Optional[int] = None, **kwargs
+    ) -> Generator[SearchResult, None, None]:
         """
         Threading by provider to respect rate limits
         Helper method that implements threading to simultaneously retrieve a sequence of generator functions
@@ -210,7 +315,7 @@ class MultiSearchCoordinator(UserDict):
         the `MultiSearchCoordinator.iter_pages` method if only a single provider has been specified.
 
         Args:
-            pages (Sequence[int]): A sequence of page numbers to iteratively request from the API Provider.
+            pages (Sequence[int] | PageListInput): A sequence of page numbers to request from the API Provider.
             from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
                                        requests-cache storage.
             from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
@@ -227,18 +332,51 @@ class MultiSearchCoordinator(UserDict):
 
         provider_groups = self.group_by_provider()
 
-        workers = max_workers if max_workers is not None else min(8, len(provider_groups))
+        workers = max_workers if max_workers is not None else min(8, len(provider_groups) or 1)
+        if workers < 1:
+            logger.warning(f"The value for workers ({workers}) is non-positive: defaulting to 1 worker")
+            workers = 1
+
+        # creates a dictionary of generators grouped by provider. On each yield, each generator retrieves a single page
+        provider_generator_dict = {
+            provider_name: self._process_provider_group(group, pages, **kwargs)
+            for provider_name, group in provider_groups.items()
+        }
+
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = [
-                executor.submit(list, self._process_provider_group(provider_search_coordinators, pages, **kwargs))
-                for provider_search_coordinators in provider_groups.values()
+                executor.submit(list, self._process_page_generator(provider_name, generator))
+                for provider_name, generator in provider_generator_dict.items()
             ]
 
             for future in concurrent.futures.as_completed(futures):
                 yield from future.result()
 
+    @classmethod
+    def _process_page_generator(
+        cls, provider_name: str, generator: Generator[SearchResult, None, None]
+    ) -> Generator[SearchResult, None, None]:
+        """
+        Helper method for safely consuming a generator, accounting for errors that could stop iteration
+        during threaded retrieval of page data.
+
+        Args:
+            provider_name (str): The name of the current provider
+            generator (Generator[SearchResult, None, None]):
+                A generator that returns a SearchResult upon the successful retrieval of the next page
+
+        Yields:
+            SearchResult: The next search result from the generator if there is at least one more page to retrieve
+        """
+        try:
+            yield from generator
+            logger.debug(f"Successfully halted retrieval for provider, {provider_name}")
+
+        except Exception as e:
+            logger.error("Encountered an unexpected error during iteration for provider, " f"{provider_name}: {e}")
+
     def _process_provider_group(
-        self, provider_coordinators: dict[str, SearchCoordinator], pages: Sequence[int], **kwargs
+        self, provider_coordinators: dict[str, SearchCoordinator], pages: Sequence[int] | PageListInput, **kwargs
     ) -> Generator[SearchResult, None, None]:
         """
         Helper method used to process all queries and pages for a single provider under a common thread.
@@ -248,9 +386,8 @@ class MultiSearchCoordinator(UserDict):
         Args:
             provider_coordinators (dict[str, SearchCoordinator]):
                 A dictionary of all coordinators corresponding to a single provider.
-            pages (Sequence[int]): A sequence of page numbers to iteratively request from the API Provider.
-            pages (Sequence[int]): A list, set, or other common sequence of integer page numbers corresponding to
-                                   records/articles to iteratively request from the API Provider.
+            pages (Sequence[int] | PageListInput): A list, set, or other common sequence of integer page numbers
+                                    corresponding to records/articles to iteratively request from the API Provider.
             **kwargs: Keyword arguments to pass to the `iter_pages` method call to facilitate single or multithreaded
                       record page retrieval
 
@@ -271,8 +408,9 @@ class MultiSearchCoordinator(UserDict):
 
             if (
                 isinstance(last_response, ErrorResponse)
-                and last_response.response is not None
-                and not search_coordinator.retry_handler.should_retry(last_response.response)
+                and isinstance(last_response.status_code, int)
+                and last_response != 200
+                and last_response.status_code not in search_coordinator.retry_handler.retry_statuses
             ):
                 # breaks if a non-retriable status code is encountered.
                 logger.warning(
@@ -346,72 +484,71 @@ class MultiSearchCoordinator(UserDict):
         return generate_repr_from_string(class_name, attributes)
 
 
-if __name__ == "__main__":
-    """
-    Testing and debugging the functionality of the multisearch_coordinator: Determine first whether rate limiters
-    were normalized as intended (Yes), and whether a single generator could be produced successfully (yes).
-    The SearchResultList consumes the generator directly although iteration for each result may be more preferable
-    in case of run-time errors.
-    """
-    from scholar_flux.api import MultiSearchCoordinator, SearchCoordinator
-    from scholar_flux.api.models import SearchResultList, SearchResult, APIResponse
-    from scholar_flux.data_storage import DataCacheManager
-    from scholar_flux.utils import FileUtils
-
-    multisearch_coordinator = MultiSearchCoordinator()
-
-    coordinators: list[SearchCoordinator] = [
-        SearchCoordinator(
-            query=query,
-            user="sammie h",
-            provider_name=provider,
-            cache_requests=True,
-            mailto="your_email@email_provider.com",  # email will only register for crossref
-            cache_manager=DataCacheManager.with_storage("redis"),
-        )
-        for query in [
-            "depth psychology",
-            "occupational psychology",
-        ]  # ['AI ML', 'data engineering innovation', 'distributed databases']
-        for provider in ["plos", "springernature", "core"]
-    ]
-
-    multisearch_coordinator.add_coordinators(coordinators)
-
-    # all coordinators should be added at this point
-    assert len(multisearch_coordinator) == len(coordinators)
-    print(repr(multisearch_coordinator))
-
-    grouped_provider_dict = multisearch_coordinator.group_by_provider()
-
-    # test to ensure all providers use one rate limiter each
-    for provider in grouped_provider_dict:
-        rate_limiters = [
-            coordinator.api._rate_limiter  # type: ignore
-            for current_provider_group, provider_coordinators in grouped_provider_dict.items()
-            for coordinator in provider_coordinators.values()
-            if current_provider_group == provider
-        ]
-        assert len(set(map(id, rate_limiters))) == 1
-
-    # ensures there are 3 distinct rate limiters (by provider)
-    all_rate_limiters = [
-        coordinator.api._rate_limiter  # type: ignore
-        for current_provider_group, provider_coordinators in grouped_provider_dict.items()
-        for coordinator in provider_coordinators.values()
-    ]
-    assert len(set(map(id, all_rate_limiters))) == len(multisearch_coordinator.current_providers())
-
-    # caches on the second run with requests-cache on the backend
-    page_search_generator = multisearch_coordinator.iter_pages(pages=range(1, 3), iterate_by_group=True)
-    search_results = SearchResultList()
-    for page in page_search_generator:
-        search_results.append(page)
-    assert len(search_results) >= 3  # at the very least, assuming worst case an error stops processing
-    results_dict = search_results.filter().join()
-
-    # list of dictionaries
-    assert isinstance(results_dict, list) and all(isinstance(result, dict) for result in results_dict)
-
-    # saving for later browsing
-    FileUtils.save_as(results_dict, "~/Downloads/ai-data-engineering-search-9-25-2025")
+# if __name__ == "__main__":
+#     """
+#     Testing and debugging the functionality of the multisearch_coordinator: Determine first whether rate limiters
+#     were normalized as intended (Yes), and whether a single generator could be produced successfully (yes).
+#     The SearchResultList consumes the generator directly although iteration for each result may be more preferable
+#     in case of run-time errors.
+#     """
+#     from scholar_flux.api import MultiSearchCoordinator, SearchCoordinator
+#     from scholar_flux.api.models import SearchResultList, SearchResult, APIResponse
+#     from scholar_flux.data_storage import DataCacheManager
+#     from scholar_flux.utils import FileUtils
+#
+#     multisearch_coordinator = MultiSearchCoordinator()
+#
+#     coordinators: list[SearchCoordinator] = [
+#         SearchCoordinator(
+#             query=query,
+#             user_agent="scholar_flux",
+#             provider_name=provider,
+#             cache_requests=True,
+#             cache_manager=DataCacheManager.with_storage("redis"),
+#         )
+#         for query in [
+#             "depth psychology",
+#             "occupational psychology",
+#         ]  # ['AI ML', 'data engineering innovation', 'distributed databases']
+#         for provider in ["plos", "springernature", "core"]
+#     ]
+#
+#     multisearch_coordinator.add_coordinators(coordinators)
+#
+#     # all coordinators should be added at this point
+#     assert len(multisearch_coordinator) == len(coordinators)
+#     print(repr(multisearch_coordinator))
+#
+#     grouped_provider_dict = multisearch_coordinator.group_by_provider()
+#
+#     # test to ensure all providers use one rate limiter each
+#     for provider in grouped_provider_dict:
+#         rate_limiters = [
+#             coordinator.api._rate_limiter  # type: ignore
+#             for current_provider_group, provider_coordinators in grouped_provider_dict.items()
+#             for coordinator in provider_coordinators.values()
+#             if current_provider_group == provider
+#         ]
+#         assert len(set(map(id, rate_limiters))) == 1
+#
+#     # ensures there are 3 distinct rate limiters (by provider)
+#     all_rate_limiters = [
+#         coordinator.api._rate_limiter  # type: ignore
+#         for current_provider_group, provider_coordinators in grouped_provider_dict.items()
+#         for coordinator in provider_coordinators.values()
+#     ]
+#     assert len(set(map(id, all_rate_limiters))) == len(multisearch_coordinator.current_providers())
+#
+#     # caches on the second run with requests-cache on the backend
+#     page_search_generator = multisearch_coordinator.iter_pages(pages=range(1, 3), iterate_by_group=True)
+#     search_results = SearchResultList()
+#     for page in page_search_generator:
+#         search_results.append(page)
+#     assert len(search_results) >= 3  # at the very least, assuming worst case an error stops processing
+#     results_dict = search_results.filter().join()
+#
+#     # list of dictionaries
+#     assert isinstance(results_dict, list) and all(isinstance(result, dict) for result in results_dict)
+#
+#     # saving for later browsing
+#     FileUtils.save_as(results_dict, "~/Downloads/ai-data-engineering-search-9-25-2025")

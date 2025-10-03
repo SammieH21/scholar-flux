@@ -10,7 +10,7 @@ class CoordinatorException(Exception):
 class InvalidCoordinatorParameterException(CoordinatorException):
     """
     Coordinator exception raised when attempting to set an unintended injectable
-    class dependency as an attribute of a Coordinator
+    class dependency as an attribute of a Coordinator or parameter to a method
     """
 
     pass

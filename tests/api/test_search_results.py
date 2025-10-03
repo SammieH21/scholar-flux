@@ -37,7 +37,7 @@ def test_basic_search_results(mock_successful_response, mock_unauthorized_respon
 
     assert isinstance(search_result_success, SearchResult) and search_result_success
     assert search_result_success.data == processed_records == search_result_success.processed_records
-    assert search_result_error != unauthorized_response # the two aren't the same class, so this shouldn't equal
+    assert search_result_error != unauthorized_response  # the two aren't the same class, so this shouldn't equal
     assert search_result_success.metadata == metadata
     assert search_result_success.parsed_response is None
     assert search_result_success.extracted_records == extracted_records

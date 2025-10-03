@@ -94,7 +94,7 @@ def test_workflow_default(
         )
 
         api = SearchAPI.from_defaults(
-            "anxiety", "pubmed", user_agent="SammieH", api_key=pubmed_api_key, request_delay=0.01, use_cache=True
+            "anxiety", "pubmed", user_agent="scholar_flux", api_key=pubmed_api_key, request_delay=0.01, use_cache=True
         )
         pubmed_coordinator = SearchCoordinator(api)
         search_result = pubmed_coordinator.search(page=3, use_workflow=False)

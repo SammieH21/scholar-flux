@@ -4,7 +4,7 @@ import re
 import requests_mock
 
 from requests_cache import CachedResponse
-from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator
+from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator, APIParameterConfig
 from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
@@ -53,6 +53,10 @@ def test_incorrect_config(param_overrides, caplog):
         _ = SearchCoordinator(query="valid_query", response_coordinator="invalid response coordinator")  # type: ignore
         assert "Could not initialize the SearchCoordinator due to an issue creating the SearchAPI." in caplog.text
 
+def test_blank_create_api():
+    with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
+        _ = SearchCoordinator._create_search_api()
+    assert "Either 'query' or 'search_api' must be provided." in str(excinfo.value)
 
 def test_build():
     search_coordinator = SearchCoordinator(query="test_query")
@@ -178,12 +182,17 @@ def test_initialization_updates():
     )
     assert SearchCoordinator(api, query="")  # should initialize since a query is available through the SearchAPI
 
+    new_api = SearchCoordinator._create_search_api(api, query = 'new_query', request_delay = api.request_delay + 5)
+
     rate_limiter = threaded_rate_limiter_registry.get(api.provider_name)
     assert rate_limiter is not None
     rate_limiter.min_interval = 30
     api._initialize(api.query, config=api.config, parameter_config=api.parameter_config, rate_limiter=rate_limiter)
     assert api._rate_limiter is rate_limiter
     assert api.config.request_delay == rate_limiter.min_interval == 30
+
+    search_coordinator2 = SearchCoordinator.as_coordinator(new_api, search_coordinator.responses)
+    assert repr(search_coordinator) == repr(search_coordinator2)
 
 
 def test_request_failed_exception(monkeypatch, caplog):
@@ -268,6 +277,29 @@ def test_cache_deletions(monkeypatch, caplog):
 
     search_coordinator._delete_cached_response(page=1)  # type: ignore
     assert "Error in deleting from processing cache: Directly raised exception" in caplog.text
+
+@pytest.mark.parametrize("page", [(0), (1), (2)])
+def test_parameter_building(page):
+    basic_parameter_config = APIParameterConfig.as_config(
+        {
+            "query": "q",
+            "start": "start",
+            "records_per_page": "pagesize",
+            "api_key_parameter": None,
+            "api_key_required": False,
+            "auto_calculate_page": True,
+            "zero_indexed_pagination": True,
+        }
+    )
+    RECORDS_PER_PAGE =  10
+    api = SearchAPI(query = 'new query', parameter_config = basic_parameter_config, records_per_page = RECORDS_PER_PAGE)
+    search_coordinator = SearchCoordinator(api)
+
+    parameters = search_coordinator.api.build_parameters(page = page)
+
+    assert parameters['q'] == 'new query'
+    assert parameters['start'] == page * RECORDS_PER_PAGE
+    assert parameters['pagesize'] == RECORDS_PER_PAGE
 
 
 def test_basic_coordinator_search(default_memory_cache_session, academic_json_response, caplog):

@@ -1,4 +1,5 @@
 from typing import Optional, Dict, List, Any, MutableMapping
+from scholar_flux.exceptions import InvalidResponseReconstructionException
 from typing_extensions import Self
 from pydantic import BaseModel, field_serializer, field_validator
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse
@@ -79,6 +80,33 @@ class APIResponse(BaseModel):
             logger.warning(f"Expected an iso8601-formatted datetime, Received type ({type(v)})")
             return None
 
+        return v
+
+    @field_validator("response", mode="after")
+    def transform_response(cls, v: Any) -> Optional[requests.Response | ResponseProtocol]:
+        """
+        Attempts to resolve a response object as an original or ReconstructedResponse:
+            All original response objects (duck-typed or requests response) with valid values will
+            be returned as is.
+
+            If the passed object is a string - this function will attempt to serialize it before
+            attempting to parse it as a dictionary.
+
+            Dictionary fields will be decoded, if originally encoded, and parsed as a ReconstructedResponse object,
+            if possible.
+
+            Otherwise, the original object is returned as is.
+        """
+
+        if isinstance(v, (requests.Response, ReconstructedResponse)) or cls._is_response_like(v):
+            return v
+        try:
+            v = cls.from_serialized_response(v)
+            if v is not None:
+                return v
+        except (TypeError, JSONDecodeError, AttributeError) as e:
+            logger.warning(f"Couldn't decode a valid response object: {e}")
+        logger.warning("Couldn't decode a valid response object. Returning the object as is")
         return v
 
     @property
@@ -249,7 +277,7 @@ class APIResponse(BaseModel):
         return cls(response=response, cache_key=cache_key, **model_kwargs)
 
     @field_serializer("response", when_used="json")
-    def serialize_response(self, response: Any) -> Optional[Dict[str, Any] | List[Any]]:
+    def encode_response(self, response: Any) -> Optional[Dict[str, Any] | List[Any]]:
         """
         Helper method for serializing a response into a json format. Accounts for special cases
         such as CaseInsensitiveDict fields that are otherwise unserializable.
@@ -258,6 +286,28 @@ class APIResponse(BaseModel):
         """
         if isinstance(response, (requests.Response, ReconstructedResponse)) or self._is_response_like(response):
             return self._encode_response(response)
+        return None
+
+    @classmethod
+    def serialize_response(cls, response: requests.Response | ResponseProtocol) -> Optional[str]:
+        """
+        Helper method for serializing a response into a json format. The response object is first converted
+        into a serialized string and subsequently dumped after ensuring that the field is serializable.
+
+        Args:
+            response (Response, ResponseProtocol)
+        """
+        try:
+            encoded_response = cls._encode_response(response)
+
+            if encoded_response:
+                return json.dumps(encoded_response)
+        except (InvalidResponseReconstructionException, TypeError, AttributeError, UnicodeEncodeError) as e:
+            logger.error(
+                f"Could not encode the value of type {type(response)} into a serialized json object "
+                f"due to an error: {e}"
+            )
+
         return None
 
     @classmethod
@@ -288,7 +338,7 @@ class APIResponse(BaseModel):
         return response_dictionary
 
     @classmethod
-    def _decode_response(cls, encoded_response_dict: Dict[str, Any]) -> Optional[ReconstructedResponse]:
+    def _decode_response(cls, encoded_response_dict: Dict[str, Any], **kwargs) -> Optional[ReconstructedResponse]:
         """
         Helper method for decoding a dictionary of encoded fields that were previously encoded using _encode_response.
         This class approximately creates the previous response object by creating a ReconstructedResponse that
@@ -298,6 +348,9 @@ class APIResponse(BaseModel):
             encoded_response_dict (Dict[str, Any]):
                 Contains a list of all encoded dictionary-based elements of the original response or response-like
                 object.
+            **kwargs:
+                Any keyword-based overrides to use when building a request from the decoded response dictionary
+                when the same values in the decoded_response are otherwise missing
 
         Returns:
             Optional[ReconstructedResponse]:
@@ -313,8 +366,13 @@ class APIResponse(BaseModel):
             else encoded_response_dict
         )
 
-        decoded_response = CacheDataEncoder.decode(response_dict)
-        return ReconstructedResponse(**decoded_response)
+        decoded_response = CacheDataEncoder.decode(response_dict) or {}
+
+        decoded_response.update(
+            {field: value for field, value in kwargs.items() if decoded_response.get(field) is None}
+        )
+
+        return ReconstructedResponse.build(**decoded_response)
 
     @classmethod
     def from_serialized_response(cls, response: Optional[Any] = None, **kwargs) -> Optional[ReconstructedResponse]:
@@ -337,7 +395,7 @@ class APIResponse(BaseModel):
             response = cls._deserialize_response_dict(response)
 
         if isinstance(response, dict):
-            return cls._decode_response(response)
+            return cls._decode_response(response, **kwargs)
 
         elif kwargs:
             return ReconstructedResponse.build(**kwargs)
@@ -376,33 +434,6 @@ class APIResponse(BaseModel):
             return False
 
         return self.model_dump(exclude={"created_at"}) == other.model_dump(exclude={"created_at"})
-
-    @field_validator("response", mode="after")
-    def transform_response(cls, v: Any) -> Optional[requests.Response | ResponseProtocol]:
-        """
-        Attempts to resolve a response object as an original or ReconstructedResponse:
-            All original response objects (duck-typed or requests response) with valid values will
-            be returned as is.
-
-            If the passed object is a string - this function will attempt to serialize it before
-            attempting to parse it as a dictionary.
-
-            Dictionary fields will be decoded, if originally encoded, and parsed as a ReconstructedResponse object,
-            if possible.
-
-            Otherwise, the original object is returned as is.
-        """
-
-        if isinstance(v, (requests.Response, ReconstructedResponse)) or cls._is_response_like(v):
-            return v
-        try:
-            v = cls.from_serialized_response(v)
-            if v is not None:
-                return v
-        except (TypeError, JSONDecodeError, AttributeError) as e:
-            logger.warning(f"Couldn't decode a valid response object: {e}")
-        logger.warning("Couldn't decode a valid response object. Returning the object as is")
-        return v
 
     @classmethod
     def _deserialize_response_dict(cls, serialized_response_dict: str) -> Optional[dict]:
@@ -454,6 +485,11 @@ class ErrorResponse(APIResponse):
         return None
 
     @property
+    def processed_records(self) -> None:
+        """Provided for type hinting + compatibility"""
+        return None
+
+    @property
     def metadata(self) -> None:
         """Provided for type hinting + compatibility"""
         return None
@@ -461,7 +497,7 @@ class ErrorResponse(APIResponse):
     @property
     def data(self) -> None:
         """Provided for type hinting + compatibility"""
-        return None
+        return self.processed_records
 
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the underlying ErrorResponse"""
@@ -487,16 +523,21 @@ class ProcessedResponse(APIResponse):
 
         1) parsed responses
         2) extracted records and metadata
-        3) processed records
+        3) processed records (aliased as data)
         4) any additional messages
     An error field is provided for compatibility with the ErrorResponse class.
     """
 
     parsed_response: Optional[Any] = None
     extracted_records: Optional[List[Any]] = None
+    processed_records: Optional[List[Dict[Any, Any]]] = None
     metadata: Optional[Any] = None
-    data: Optional[List[Dict[Any, Any]]] = None
     message: Optional[str] = None
+
+    @property
+    def data(self) -> Optional[List[Dict[Any, Any]]]:
+        """Alias to the processed_records attribute that holds a list of dictionaries, when available"""
+        return self.processed_records
 
     @property
     def error(self) -> None:
@@ -506,14 +547,14 @@ class ProcessedResponse(APIResponse):
     def __repr__(self) -> str:
         """Helper method for creating a simple representation of the ProcessedResponse"""
         return (
-            f"<ProcessedResponse(len={len(self.data or [])}, "
+            f"<ProcessedResponse(len={len(self.processed_records or [])}, "
             f"cache_key={self.cache_key!r}, "
             f"metadata={'{'+str(self.metadata)[1:40]+'...'+'}' if isinstance(self.metadata, (dict, list, str)) and self.metadata else self.metadata!r})>"
         )
 
     def __len__(self) -> int:
         """Indicates the overall length of the processed data field as processed in the last step after filtering"""
-        return len(self.data or [])
+        return len(self.processed_records or [])
 
     def __bool__(self) -> bool:
         """

@@ -22,6 +22,7 @@ class APIParameterMap(BaseAPIParameterMap):
         api_key_parameter (Optional[str]): The API-specific parameter name for the API key.
         api_key_required (bool): Whether the API key is required by this API.
         auto_calculate_page (bool): If True, calculates start index from page; if False, passes page number directly.
+        zero_indexed_pagination (bool): If True, treats 0 as an allowed page value when retrieving data from APIs
         api_specific_parameters (Dict[str, str]): Additional universal to API-specific parameter mappings.
     """
 
@@ -208,6 +209,8 @@ class APIParameterConfig:
         """
         Helper method for retrieving the start index as an offset and records_per_page if auto_calculate_page is True,
         and as a regular page number otherwise, if offset is calculated on the server side.
+        Note that the behavior of the pagination depends on whether 0 is allowed for an API and
+        whether pagination is calculated on the server or client side.
 
         Page is allowed to be optional on the condition that the API does not use page
 
@@ -226,9 +229,12 @@ class APIParameterConfig:
         if not self.parameter_map.start:
             return None
 
-        if not isinstance(page, int) or page < 1:
-            logger.error(f"Expected a non-zero integer for page. Received '{page}'")
-            raise APIParameterException(f"Expected a non-zero integer for page. Received '{page}'")
+        zero_indexed = self.parameter_map.zero_indexed_pagination
+        start = int(not zero_indexed) # 0 if zero-indexed, 1 if one-indexed
+        if not isinstance(page, int) or (page < start):
+            expected = "non-negative" if zero_indexed else "positive"
+            logger.error(f"Expected a {expected} integer for page. Received '{page}'")
+            raise APIParameterException(f"Expected a {expected} integer for page. Received '{page}'")
 
         if not isinstance(records_per_page, int) or records_per_page < 1:
             logger.error(f"Expected a non-zero integer for records_per_page. Received '{records_per_page}'")
@@ -240,7 +246,8 @@ class APIParameterConfig:
 
             return page
 
-        return 1 + (page - 1) * records_per_page
+
+        return start + (page - start) * records_per_page
 
     def _get_api_specific_parameters(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
         """

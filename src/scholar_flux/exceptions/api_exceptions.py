@@ -32,6 +32,12 @@ class MissingProviderException(ValueError):
     pass
 
 
+class MissingResponseException(ValueError):
+    """Exception raised when a response or response-like objects is required but not provided"""
+
+    pass
+
+
 class PermissionException(APIException):
     """Exception raised for permission errors."""
 

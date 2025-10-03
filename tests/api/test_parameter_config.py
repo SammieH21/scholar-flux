@@ -346,7 +346,35 @@ def test_page_start_index_exception(page, caplog):
 
     with pytest.raises(APIParameterException):
         parameter_config._calculate_start_index(page=page)
-    assert f"Expected a non-zero integer for page. Received '{page}'" in caplog.text
+
+    assert f"Expected a positive integer for page. Received '{page}'" in caplog.text
+
+@pytest.mark.parametrize("page", [(0), (1), (2)])
+def test_zero_indexed_pagination(page, caplog):
+    parameter_config = APIParameterConfig.as_config(
+        {
+            "query": "q",
+            "start": "start",
+            "records_per_page": "pagesize",
+            "api_key_parameter": None,
+            "api_key_required": False,
+            "auto_calculate_page": True,
+            "zero_indexed_pagination": True,
+        }
+    )
+
+    RECORDS_PER_PAGE = 6
+    start = parameter_config._calculate_start_index(page=page, records_per_page=RECORDS_PER_PAGE)
+    assert start == page * RECORDS_PER_PAGE
+
+
+    parameter_config.map.auto_calculate_page = False
+    start = parameter_config._calculate_start_index(page=page, records_per_page=RECORDS_PER_PAGE)
+    assert start == page
+
+    if page == 0:
+        assert f"Expected a positive integer for page" not in caplog.text
+
 
 
 @pytest.mark.parametrize("records_per_page", [(None), (0), (-1), (-10)])

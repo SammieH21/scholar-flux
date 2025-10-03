@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import copy
-from typing import Optional, Union, Set, Generator
+from typing import Optional, Union, Set, Generator, MutableMapping, Sequence
 from collections import UserDict
 from scholar_flux.exceptions.path_exceptions import (
-    InvalidPathNodeError,
     InvalidProcessingPathError,
     PathNodeMapError,
 )
@@ -12,6 +11,7 @@ from scholar_flux.exceptions.path_exceptions import (
 from types import GeneratorType
 
 from scholar_flux.utils.paths import ProcessingPath, PathNode, ProcessingCache
+from scholar_flux.utils import unlist_1d
 
 import logging
 
@@ -23,6 +23,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
     """
     A dictionary-like class that maps Processing paths to PathNode objects.
     """
+    DEFAULT_USE_CACHE: bool = True
 
     def __init__(
         self,
@@ -34,7 +35,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             dict[str, "PathNode"],
             dict[ProcessingPath, "PathNode"],
         ],
-        cache: bool = True,
+        cache: Optional[bool] = None,
         allow_terminal: Optional[bool] = False,
         overwrite: Optional[bool] = True,
         **path_nodes: dict[Union[str, ProcessingPath], "PathNode"],
@@ -44,7 +45,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         """
         super().__init__()
         logger.debug("Initializing PathNodeMap instance")  # Log initialization
-        self.cache: bool = cache or False  # Store the cache flag
+        self.cache: bool = cache if cache is not None else self.DEFAULT_USE_CACHE  # Store the cache flag
         self.allow_terminal = (allow_terminal or False,)  # Store the allow_terminal flag
         self.overwrite: bool = overwrite or False  # Store the overwrite flag
         self._cache: ProcessingCache = ProcessingCache()
@@ -57,17 +58,21 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         Checks if a key exists in the PathNodeMap instance.
 
         Args:
-            key (Union[str, ProcessingPath]): The key (Processing path) to check.
+            key (Union[str, ProcessingPath, PathNode]): The key that is or contains Processing path to check.
 
         Returns:
             bool: True if the key exists, False otherwise.
         """
+        if key is None:
+            return False
 
+        if isinstance(key, PathNode):
+            key = key.path
         if isinstance(key, str):
             key = ProcessingPath.with_inferred_delimiter(key)
         if not isinstance(key, ProcessingPath):
             raise InvalidProcessingPathError(
-                "Unexpected value type observed: {type(key)}): Expected a ProcessingPath/string"
+                f"Unexpected value type observed: {type(key)}: Expected a ProcessingPath/string"
             )
         return self.data.get(key) is not None
 
@@ -120,9 +125,15 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             self._cache.lazy_remove(key)
         # self._remove_from_cache(key)
 
-    def values(self):
-        """enables looping over child/terminal nodes"""
-        return self.data.values()
+    @property
+    def nodes(self) -> list[PathNode]:
+        """enables the retrieval of paths stored within the current map as a property"""
+        return list(self.data.values())
+
+    @property
+    def paths(self) -> list[ProcessingPath]:
+        """enables retrieval of nodes stored within the current map as a property"""
+        return list(self.data.keys())
 
     def filter(
         self,
@@ -290,6 +301,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             )
 
     def node_exists(self, node: Union["PathNode", ProcessingPath]) -> bool:
+        """Helper method to validate whether the current node exists"""
         if not isinstance(node, (PathNode, ProcessingPath)):
             raise KeyError(f"Key must be node or path. Received '{type(node)}'")
 
@@ -299,6 +311,10 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return self.data.get(node) is not None
 
     def _validate_new_node_path(self, node: Union["PathNode", ProcessingPath], overwrite: Optional[bool] = None):
+        """
+        Helper method to validate whether the current node already exists in the current map: Raises an error if
+        the field does. otherwise, if overwriting is enabled, indicates that the current node will be overwritten
+        """
         overwrite = overwrite if overwrite is not None else self.overwrite
         if self.node_exists(node):
             if not overwrite:
@@ -376,7 +392,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return filtered_path_list
 
     @classmethod
-    def format_terminal_nodes(cls, node_obj: Union[dict, PathNodeMap, PathNode]) -> dict[ProcessingPath, "PathNode"]:
+    def format_terminal_nodes(cls, node_obj: Union[MutableMapping, PathNodeMap, PathNode]) -> dict[ProcessingPath, "PathNode"]:
         """
         Recursively iterate over terminal nodes from Path Node Maps and retrieve only terminal_nodes
         Args:
@@ -390,9 +406,9 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
         if isinstance(node_obj, dict):
             return {
-                path: node
-                for path, node in node_obj.items()
-                if PathNode.is_valid_node(node) and isinstance(path, ProcessingPath)
+                node.path: node
+                for node in node_obj.values()
+                if PathNode.is_valid_node(node)
             }
 
         if isinstance(node_obj, PathNode):
@@ -444,9 +460,10 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         except Exception as e:
             raise PathNodeMapError(f"Error validating path ({path}) and node ({node}): {e}") from e
 
+    @classmethod
     def format_mapping(
-        self,
-        key_value_pairs: Union["PathNodeMap", dict[ProcessingPath, "PathNode"], dict[str, "PathNode"]],
+        cls,
+        key_value_pairs: Union["PathNodeMap", MutableMapping[ProcessingPath, "PathNode"], dict[str, "PathNode"]],
     ) -> dict[ProcessingPath, "PathNode"]:
         """
         Takes a dictionary or a PathNodeMap Transforms the string keys in a dictionary into Processing paths and returns the mapping
@@ -459,34 +476,34 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             PathNodeMapError: If the validation process fails.
         """
         try:
-            terminal_nodes = self.format_terminal_nodes(key_value_pairs)
+            terminal_nodes = cls.format_terminal_nodes(key_value_pairs)
             if len(terminal_nodes) == 0:
                 return terminal_nodes
-            terminal_paths = self._keep_terminal_paths({node.path for node in terminal_nodes.values()})
+            terminal_paths = cls._keep_terminal_paths({node.path for node in terminal_nodes.values()})
             filtered_dict = {path: node for path, node in terminal_nodes.items() if path in terminal_paths}
         except Exception as e:
             raise PathNodeMapError(f":The validation process for the input pairs failed: {e}")
 
         return filtered_dict
 
-    def _extract_node(self, *nodes) -> Optional["PathNode"]:
-        """
-        Attempts to extract a node from arguments of arbitrary lengths.
-        If there is more than one node, this method will return None with
-        the aim of defering processing multiple nodes to other helper methods
+#   def _extract_node(self, *nodes) -> Optional["PathNode"]:
+#       """
+#       Attempts to extract a node from arguments of arbitrary lengths.
+#       If there is more than one node, this method will return None with
+#       the aim of defering processing multiple nodes to other helper methods
 
-        """
-        if isinstance(nodes, PathNode):
-            return nodes
+#       """
+#       if isinstance(nodes, PathNode):
+#           return nodes
 
-        if isinstance(nodes, (list, tuple)) and len(nodes) == 1:
-            node = nodes[0]
-            return node if isinstance(node, PathNode) else None
-        return None
+#       if isinstance(nodes, (list, tuple)) and len(nodes) == 1:
+#           node = nodes[0]
+#           return node if isinstance(node, PathNode) else None
+#       return None
 
-    def _format_nodes_as_dict(self, *nodes, **path_nodes) -> Union[
+    @classmethod
+    def _format_nodes_as_dict(cls, *nodes, **path_nodes) -> Union[
         "PathNodeMap",
-        dict[ProcessingPath, "PathNode"],
         dict[ProcessingPath, "PathNode"],
     ]:
         """
@@ -494,38 +511,41 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         """
 
         type_verified = False
-        node_dict = self.format_mapping(path_nodes)
+        node_dict = cls.format_mapping(path_nodes) if path_nodes else {}
 
         if not nodes:
             return node_dict
 
-        formatted_nodes: tuple | dict | list | set | Generator = (
-            nodes[0] if (isinstance(nodes, tuple) and len(nodes) == 1 and not isinstance(nodes[0], PathNode)) else nodes
+        formatted_nodes: tuple | MutableMapping | list | set | Generator = (
+            nodes[0] if (isinstance(nodes, tuple) and 
+                         len(nodes) == 1 and 
+                         not isinstance(nodes[0], PathNode))
+            else nodes
         )
 
-        if isinstance(formatted_nodes, (tuple, list, set, GeneratorType)):
+        if isinstance(formatted_nodes, PathNode):
+            processed_nodes: Optional[MutableMapping]  = {formatted_nodes.path: formatted_nodes}
+            type_verified = True
+        elif isinstance(formatted_nodes, (set, Sequence, GeneratorType)):
             processed_nodes = {node.path: node for node in formatted_nodes if PathNode.is_valid_node(node)}
             type_verified = True
+        elif isinstance(formatted_nodes, MutableMapping):
+            processed_nodes = formatted_nodes
         else:
-            processed_nodes = formatted_nodes if isinstance(formatted_nodes, dict) else {}
+            processed_nodes = None
 
-        if isinstance(processed_nodes, (dict, PathNodeMap)):
-            if processed_nodes:
-                if (
-                    not type_verified
-                    and not isinstance(processed_nodes, PathNodeMap)
-                    and not all(isinstance(node, PathNode) for node in processed_nodes.values())
-                ):
-                    raise InvalidPathNodeError(
-                        f"Invalid node type: {type(nodes)}. Must be a PathNode or an iterable of PathNodes."
-                    )
+        if isinstance(processed_nodes, (MutableMapping, PathNodeMap)) and \
+           (
+               type_verified or isinstance(processed_nodes, PathNodeMap) or \
+               all(isinstance(node, PathNode) for node in processed_nodes.values())
+           ):
 
-                node_dict = node_dict | self.format_mapping(processed_nodes)
-        else:
-            raise InvalidPathNodeError(
-                f"Invalid node type: {type(nodes)}. Must be a PathNode or an iterable of PathNodes."
-            )
-        return node_dict
+            node_dict = node_dict | cls.format_mapping(processed_nodes)
+
+            return node_dict
+
+        raise PathNodeMapError("Could not format the input as a dictionary of nodes: Expected the input to be a "
+                               f"PathNode or sequence/mapping containing PathNodes. Instead received {type(unlist_1d(nodes))}")
 
     def update(  # type: ignore[override]
         self,
@@ -543,35 +563,33 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         Returns
         """
         logger.debug("Updating PathNodeMap instance")  # Log updating
-        default_overwrite = self.overwrite
-        overwrite = overwrite if overwrite is not None else default_overwrite
-        # kwargs = {key:node for key,node in kwargs.items() if isinstance(node,PathNode)}
-
-        # if there is only one node to extract
-        node = self._extract_node(*args) if not kwargs else None
-        if node:
-            try:
-                self.overwrite = overwrite
-                self.__setitem__(node.path, node)
-            except Exception as e:
-                raise PathNodeMapError(f"An error occurred during updating: {e}") from e
-            finally:
-                self.overwrite = default_overwrite
-
-            return
 
         node_dict = self._format_nodes_as_dict(*args, **kwargs)
 
+        self._update(node_dict, overwrite)
+        logger.debug("Updated successfully")
+
+    def _update(
+        self,
+        node_dict: Union[
+        "PathNodeMap",
+        dict[ProcessingPath, "PathNode"],
+        dict[ProcessingPath, "PathNode"],
+    ],
+        overwrite: Optional[bool] = None
+    ) -> None:
+        """Helper method for directly updating the current path node map skipping previously performed validation steps"""
+        default_overwrite = overwrite if overwrite is not None else self.overwrite
         try:
             # setting and using self.overwrite as a tempoary overwrite parameter
-            self.overwrite = overwrite
+            self.overwrite = default_overwrite
             super().update(node_dict)
         except Exception as e:
             raise PathNodeMapError(f"An error occurred during updating: {e}") from e
         finally:
             self.overwrite = default_overwrite
 
-        logger.debug("Updated successfully")
+
 
     def get(  # type: ignore[override]
         self, key: Union[str, ProcessingPath], default: Optional[PathNode] = None
@@ -586,9 +604,31 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         Returns:
             PathNode: The value (PathNode instance).
         """
+        if key is None:
+            return None
+
+        if isinstance(key, PathNode):
+            key = key.path
 
         key = self._validate_path(key)
         return super().get(key)
+
+    @property
+    def record_indices(self) -> list[int]:
+        """
+        Helper property for retrieving the full list of all record indices across all paths for the current map
+        Note: This assumes that all paths within the curent map are derived from a list of records where every
+        path's first element denotes its initial position in a list with nested json components
+
+        Returns:
+            list[int]: A list containing integers denoting individual records found in each path
+        """
+        return sorted({path.record_index for path in self.nodes})
+
+
+    def retrieve(self, key: Union[str, ProcessingPath], default: Optional[PathNode] = None) -> Optional[PathNode]:
+        """Helper method for retrieving a path node in a standardized way"""
+        return self.get(key, default)
 
     def __getitem__(self, key: Union[str, ProcessingPath]) -> PathNode:
         """

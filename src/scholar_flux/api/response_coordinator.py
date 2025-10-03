@@ -22,14 +22,14 @@ from scholar_flux.exceptions.data_exceptions import (
 
 
 from scholar_flux.utils.repr_utils import generate_repr_from_string, generate_repr
-from scholar_flux.utils.helpers import generate_iso_timestamp
+from scholar_flux.utils.helpers import generate_iso_timestamp, coerce_str
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.exceptions.coordinator_exceptions import (
     InvalidCoordinatorParameterException,
 )
-from scholar_flux.exceptions.storage_exceptions import StorageCacheException
+from scholar_flux.exceptions import StorageCacheException, MissingResponseException
 from requests.exceptions import RequestException
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, cast
 from requests import Response
 
 import logging
@@ -337,15 +337,15 @@ class ResponseCoordinator:
 
         if from_cache:
             # attempt to retrieve from cache first
-            cached_response = self._from_cache(response, cache_key, validate_fingerprint)
+            cached_response = self._from_cache(cache_key, response, validate_fingerprint)
 
         # if caching is not being being used, or the cache is not available or valid anymore, process:
         return cached_response or self._handle_response(response, cache_key)
 
     def _from_cache(
         self,
-        response: Response | ResponseProtocol,
         cache_key: Optional[str] = None,
+        response: Optional[Response | ResponseProtocol] = None,
         validate_fingerprint: Optional[bool] = None,
     ) -> Optional[ProcessedResponse]:
         """
@@ -364,10 +364,12 @@ class ResponseCoordinator:
                 return None
 
             # determine whether we're actually using a response object
-            response_obj = self._validate_response(response)
+            response_obj = self._validate_response(response) if response is not None else None
 
             # ensure that we're either using a cache key from the defaults or creating one
-            cache_key = cache_key or self.cache_manager.generate_fallback_cache_key(response_obj)
+            if not cache_key:
+                logger.debug("A cache key was not specified. Attempting to create a cache key from the response...")
+                cache_key = self.cache_manager.generate_fallback_cache_key(cast(ResponseProtocol, response_obj))
 
             # determine if the cache key created manually or directly from the response hash exists
             if not self.cache_manager.verify_cache(cache_key):
@@ -375,44 +377,76 @@ class ResponseCoordinator:
 
             # attempts to retrieve a cached response
             cached = self.cache_manager.retrieve(cache_key)
-            logger.debug("Cached exists thus far")
 
             if not (cached and self.cache_manager.cache_is_valid(cache_key, response_obj, cached)):
                 return None
-
-            logger.debug("Cache validated")
 
             if not self._validate_cached_schema(cached, validate_fingerprint):
                 return None
 
             logger.info(f"retrieved response '{cache_key}' from cache")
 
-            return ProcessedResponse(
-                data=cached.get("processed_response"),
-                metadata=cached.get("metadata"),
+            return self._rebuild_processed_response(
                 cache_key=cache_key,
                 response=response_obj,
-                parsed_response=cached.get("parsed_response"),
-                extracted_records=cached.get("extracted_records"),
-                created_at=cached.get("created_at"),  # will perform internal validation
+                cached_response=cached,
             )
-        except StorageCacheException as e:
+        except (
+            StorageCacheException,
+            MissingResponseException,
+            InvalidResponseReconstructionException,
+            InvalidResponseStructureException,
+        ) as e:
             logger.warning(f"An exception occurred while attempting to retrieve '{cache_key}' from cache: {e}")
             return None
 
+    @classmethod
+    def _rebuild_processed_response(
+        cls,
+        cache_key: str,
+        response: Optional[Response | ResponseProtocol] = None,
+        cached_response: Optional[Dict[str, Any]] = None,
+    ) -> ProcessedResponse:
+        """Helper method for creating a processed response containing fields needed for processing"""
+
+        if not isinstance(cached_response, dict):
+            logger.warning(
+                f"A non-dictionary cache of type {type(cached_response)} was encountered when rebuilding "
+                "a ProcessedResponse from its components. Skipping retrieval of processed fields..."
+            )
+            cached_response = {}
+
+        # if a response object is not passed, but cache is available and stored in a dictionary
+        # creates a new response from the serialized response, returning None if an error is encountered
+        response = response or APIResponse.from_serialized_response(
+            cached_response.get("serialized_response"),
+            status_code=cached_response.get("status_code"),
+            text=coerce_str(cached_response.get("content")),
+        )
+
+        return ProcessedResponse(
+            response=response,
+            cache_key=cache_key,
+            parsed_response=cached_response.get("parsed_response"),
+            extracted_records=cached_response.get("extracted_records"),
+            processed_records=cached_response.get("processed_records"),
+            metadata=cached_response.get("metadata"),
+            created_at=cached_response.get("created_at"),  # will perform internal validation
+        )
+
     def _validate_cached_schema(
         self,
-        cached_response_dict: dict[str, Any],
+        cached_response: dict[str, Any],
         validate_fingerprint: Optional[bool] = None,
     ) -> Optional[bool]:
         """
         Helper method for validating the cache dictionary containing the processed data, metadata,
         and other information for the current response
         """
-        if not cached_response_dict:
+        if not cached_response:
             return False
 
-        cached_schema = cached_response_dict.get("schema")
+        cached_schema = cached_response.get("schema")
         validate_fingerprint = (
             validate_fingerprint if validate_fingerprint is not None else self.DEFAULT_VALIDATE_FINGERPRINT
         )
@@ -558,9 +592,11 @@ class ResponseCoordinator:
 
         extracted_records, metadata = self.extractor(parsed_response_data)
 
-        processed_response = self.processor(extracted_records) if extracted_records else None
+        processed_records = self.processor(extracted_records) if extracted_records else None
 
         creation_timestamp = generate_iso_timestamp()
+
+        serialized_response = APIResponse.serialize_response(response)
 
         if cache_key and self.cache_manager:
             logger.debug("adding_to_cache")
@@ -571,7 +607,8 @@ class ResponseCoordinator:
                 metadata=metadata,
                 parsed_response=parsed_response_data,
                 extracted_records=extracted_records,
-                processed_response=processed_response,
+                processed_records=processed_records,
+                serialized_response=serialized_response,
                 schema=self.schema_fingerprint(),
                 created_at=creation_timestamp,
             )
@@ -583,7 +620,7 @@ class ResponseCoordinator:
             parsed_response=parsed_response_data,
             extracted_records=extracted_records,
             metadata=metadata,
-            data=processed_response,
+            processed_records=processed_records,
             created_at=creation_timestamp,
         )
 

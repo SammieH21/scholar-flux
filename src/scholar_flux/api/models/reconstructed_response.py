@@ -73,16 +73,20 @@ class ReconstructedResponse:
 
         if response is not None:
             if isinstance(response, dict):
-                kwargs = response
+                kwargs = response | kwargs
             elif isinstance(response, (Mapping, MutableMapping)):
-                kwargs = dict(response)
+                kwargs = dict(response) | kwargs
             else:
-                kwargs = response.__dict__ | {
-                    # extract properties not serialized in a dict
-                    field: getattr(response, field)
-                    for field in ReconstructedResponse.fields()
-                    if hasattr(response, field)
-                }
+                kwargs = (
+                    response.__dict__
+                    | {
+                        # extract properties not serialized in a dict
+                        field: getattr(response, field)
+                        for field in ReconstructedResponse.fields()
+                        if hasattr(response, field)
+                    }
+                    | kwargs
+                )
 
         return ReconstructedResponse.from_keywords(**kwargs)
 

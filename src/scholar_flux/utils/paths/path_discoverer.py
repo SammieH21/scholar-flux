@@ -36,6 +36,7 @@ class PathDiscoverer:
 
     @property
     def terminal_paths(self) -> Set[ProcessingPath]:
+        """Helper method for returning a list of all discovered paths from the PathDiscoverer"""
         return set(self.path_mappings.keys())
 
     def discover_path_elements(
@@ -119,7 +120,7 @@ class PathDiscoverer:
                     # ensure that the first element of a path starts with an indexable key
                     new_path = current_path / path_node if current_path.depth else path_node
 
-                    if is_nested(value):
+                    if is_nested(value) and value:
                         if recursive:
 
                             # pop a previous path if exists
@@ -141,7 +142,7 @@ class PathDiscoverer:
                     new_path = current_path / path_node if current_path.depth else path_node
 
                     # determine whether the next value is a nested structure (non-str iterable)
-                    if is_nested(item):
+                    if is_nested(item) and item:
                         if recursive:
 
                             # removes a previous pair if exists
@@ -164,7 +165,7 @@ class PathDiscoverer:
     @staticmethod
     def _log_early_stop(path: ProcessingPath, value: Any, max_depth: Optional[int] = None):
         """
-        Logs the resulting value after stopping the addition of paths early by max depth.
+        Logs the resulting value after halting the addition of paths early by max depth.
 
         Args:
             path (ProcessingPath): The path where traversal stopped.

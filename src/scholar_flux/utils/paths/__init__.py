@@ -17,12 +17,17 @@ Modules:
     - path_node_map:       Defines validated PathNodeMap data structure built off a user dict to efficiently store
                            nodes found at terminal paths. This mapping also uses a generated a cache that uses `weakref`
                            to keep a running mapping of all terminal nodes.
+    - path_chain_map       Implements the PathRecordMap that adds a mandatory record index to PathNodeMaps for consistency
+                           when reading and manipulating JSON data nested within lists. The PathChainMap is also implemented,
+                           building on the PathChainMap for increased consistency and faster retrieval of nodes associated with
+                           particular records in a JSON data set. Operates as a drop-in replacement when used in a PathNodeIndex.
     - path_index:          Implements a PathNodeIndex data structure used to orchestrate the processing path-based
                            sparse trie data structures that take a JSON  and extract, flatten, and simplify the original
                            data structure to create an easy to process flattened dictionary.
     - path_simplifier      Implements the PathSimplifier utility class that takes a PathNodeIndex as input, identifies
                            unique paths (ignoring index) and simplifying the path into a flattened list that outputs
                            joined paths collapsed into string or flattened into a list.
+
 
 Examples:
     >>> from scholar_flux.utils import PathNodeIndex
@@ -85,6 +90,7 @@ from scholar_flux.utils.paths.path_simplification import PathSimplifier
 from scholar_flux.utils.paths.path_discoverer import PathDiscoverer
 from scholar_flux.utils.paths.path_cache import ProcessingCache
 from scholar_flux.utils.paths.path_node_map import PathNodeMap
+from scholar_flux.utils.paths.path_chain_map import PathRecordMap, PathChainMap
 from scholar_flux.utils.paths.path_index import PathNodeIndex
 
 __all__ = [
@@ -94,5 +100,7 @@ __all__ = [
     "PathDiscoverer",
     "ProcessingCache",
     "PathNodeMap",
+    "PathRecordMap",
+    "PathChainMap",
     "PathNodeIndex",
 ]

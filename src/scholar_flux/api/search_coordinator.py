@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Dict, Optional, Any, Tuple, Sequence, cast, Generator
 from requests import PreparedRequest, Response
+from pydantic import ValidationError
 import logging
 
 from scholar_flux.api.rate_limiting.retry_handler import RetryHandler
@@ -57,12 +58,13 @@ class SearchCoordinator(BaseCoordinator):
         extractor: Optional[BaseDataExtractor] = None,
         processor: Optional[ABCDataProcessor] = None,
         cache_manager: Optional[DataCacheManager] = None,
+        query: Optional[str] = None,
+        provider_name: Optional[str] = None,
         cache_requests: Optional[bool] = None,
         cache_results: Optional[bool] = None,
-        query: Optional[str] = None,
         retry_handler: Optional[RetryHandler] = None,
         validator: Optional[ResponseValidator] = None,
-        workflow: Optional[SearchWorkflow] = None,  # updating workflow with a workflow method by default
+        workflow: Optional[SearchWorkflow] = None, 
         **kwargs,
     ):
         """
@@ -106,9 +108,12 @@ class SearchCoordinator(BaseCoordinator):
             processor: (Optional[ABCDataProcessor]): Processes the previously extracted API records into list of dictionaries that are
                                                      filtered and optionally flattened during processing
             cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
+            query: (Optional[str]): Query to be used when sending requests when creating an API - modifies the query if the API already exists
+            provider_name (Optional[str]): The name of the API provider where requests will be sent.
+                                                       If a provider_name and base_url are both given, the SearchAPIConfig will
+                                                       prioritize base_urls over the provider_name.
             cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
             cache_results: (Optional[bool]): Determines whether or not to cache processed responses - on by default unless specified otherwise
-            query: (Optional[str]): Query to be used when sending requests when creating an API - modifies the query if the API already exists
             retry_handler (Optional[RetryHandler]): class used to retry failed requests-cache
             validator (Optional[ResponseValidator]): class used to verify and validate responses returned from APIs
             workflow (Optional[SearchWorkflow]): An optional workflow used to customize how records are retrieved
@@ -139,35 +144,11 @@ class SearchCoordinator(BaseCoordinator):
         if not query and search_api is None:
             raise InvalidCoordinatorParameterException("Either 'query' or 'search_api' must be provided.")
 
-        provider_name = kwargs.pop("provider_name", None)
-        kwargs["use_cache"] = cache_requests if cache_requests is not None else kwargs.get("use_cache")
+        api = self._create_search_api(search_api, query=query, provider_name=provider_name,
+                                      cache_requests = cache_requests, **kwargs)
 
-        try:
-            api: SearchAPI = (
-                SearchAPI.from_defaults(cast(str, query), provider_name=provider_name, **kwargs)
-                if not search_api
-                else SearchAPI.update(search_api, query=query, provider_name=provider_name, **kwargs)
-            )
-        except APIParameterException as e:
-            logger.error("Could not initialize the SearchCoordinator due to an issue creating the SearchAPI.")
-            raise InvalidCoordinatorParameterException(
-                "Could not initialize the SearchCoordinator due to an API " f"parameter exception. {e}"
-            )
-
-        try:
-            response_coordinator = (
-                ResponseCoordinator.build(parser, extractor, processor, cache_manager, cache_results)
-                if not response_coordinator
-                else ResponseCoordinator.update(
-                    response_coordinator, parser, extractor, processor, cache_manager, cache_results
-                )
-            )
-        except (APIParameterException, InvalidCoordinatorParameterException) as e:
-            logger.error("Could not initialize the SearchCoordinator due to an issue creating the ResponseCoordinator.")
-            raise InvalidCoordinatorParameterException(
-                "Could not initialize the SearchCoordinator due to an "
-                f"exception creating the ResponseCoordinator. {e}"
-            )
+        response_coordinator = self._create_response_coordinator(response_coordinator, parser, extractor,
+                                                                 processor, cache_manager, cache_results)
 
         self._initialize(api, response_coordinator, retry_handler, validator, workflow)
 
@@ -198,6 +179,92 @@ class SearchCoordinator(BaseCoordinator):
         self.retry_handler = retry_handler or RetryHandler()
         self.validator = validator or ResponseValidator()
         self.workflow = workflow or WORKFLOW_DEFAULTS.get(self.search_api.provider_name)
+
+    @classmethod
+    def _create_search_api(cls,
+            search_api: Optional[SearchAPI] = None,
+            provider_name: Optional[str] = None,
+            query: Optional[str] = None,
+            cache_requests: Optional[bool] = None,
+            **kwargs) -> SearchAPI:
+        """
+        Helper method for creating a new Search API from its components or an existing SearchAPI.
+        Useful for when a search API needs to be created and used from scratch rather than directly
+        copied given constraints on copying session and cached session objects.
+
+        Args:
+            search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
+                                                                 core handling of all responses from APIs
+            provider_name (Optional[str]): The name of the API provider where requests will be sent.
+                                                       If a provider_name and base_url are both given, the SearchAPIConfig will
+                                                       prioritize base_urls over the provider_name.
+            cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
+            query: (Optional[str]): Query to be used when sending requests when creating an API - modifies the query if the API already exists
+        Returns:
+            A new search API either based on the original search api with modified components or created entirely anew
+        """
+        if not query and search_api is None:
+            raise InvalidCoordinatorParameterException("Either 'query' or 'search_api' must be provided.")
+
+        kwargs["use_cache"] = cache_requests if cache_requests is not None else kwargs.get("use_cache")
+
+        try:
+            api: SearchAPI = (
+                SearchAPI.from_defaults(cast(str, query), provider_name=provider_name, **kwargs)
+                if not search_api
+                else SearchAPI.update(search_api, query=query, provider_name=provider_name, **kwargs)
+            )
+        except APIParameterException as e:
+            logger.error("Could not initialize the SearchCoordinator due to an issue creating the SearchAPI.")
+            raise InvalidCoordinatorParameterException(
+                "Could not initialize the SearchCoordinator due to an API " f"parameter exception. {e}"
+            )
+        return api
+
+    @classmethod
+    def _create_response_coordinator(cls,
+								     response_coordinator: Optional[ResponseCoordinator] = None,
+                                     parser: Optional[BaseDataParser] = None,
+                                     extractor: Optional[BaseDataExtractor] = None,
+                                     processor: Optional[ABCDataProcessor] = None,
+                                     cache_manager: Optional[DataCacheManager] = None,
+                                     cache_results: Optional[bool] = None,
+                                    ) -> ResponseCoordinator:
+        """
+        Helper method for creating a new response coordinator either from an existing response coordinator
+        with overrides or created anew entirely from its core dependencies.
+
+        Args:
+            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
+                                                                 core handling of all responses from APIs
+            parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
+            extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
+            processor: (Optional[ABCDataProcessor]): Processes the previously extracted API records into list of dictionaries that are
+                                                     filtered and optionally flattened during processing
+            cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
+            cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
+            cache_results: (Optional[bool]): Determines whether or not to cache processed responses - on by default unless specified otherwise
+
+        Returns:
+            ResponseCoordinator: A new response coordinator consisting of the base components from the original
+                                 response coordinator or constructed directly from its components
+        """
+        try:
+            coordinator = (
+                ResponseCoordinator.build(parser, extractor, processor, cache_manager, cache_results)
+                if not response_coordinator
+                else ResponseCoordinator.update(
+                    response_coordinator, parser, extractor, processor, cache_manager, cache_results
+                )
+            )
+        except (APIParameterException, InvalidCoordinatorParameterException) as e:
+            logger.error("Could not initialize the SearchCoordinator due to an issue creating the ResponseCoordinator.")
+            raise InvalidCoordinatorParameterException(
+                "Could not initialize the SearchCoordinator due to an "
+                f"exception creating the ResponseCoordinator. {e}"
+            )
+
+        return coordinator
 
     @classmethod
     def as_coordinator(
@@ -321,7 +388,7 @@ class SearchCoordinator(BaseCoordinator):
 
     def search_pages(
         self,
-        pages: Sequence[int],
+        pages: Sequence[int] | PageListInput,
         from_request_cache: bool = True,
         from_process_cache: bool = True,
         use_workflow: Optional[bool] = True,
@@ -371,7 +438,7 @@ class SearchCoordinator(BaseCoordinator):
 
     def iter_pages(
         self,
-        pages: Sequence[int],
+        pages: Sequence[int] | PageListInput,
         from_request_cache: bool = True,
         from_process_cache: bool = True,
         use_workflow: Optional[bool] = True,
@@ -387,7 +454,7 @@ class SearchCoordinator(BaseCoordinator):
         the complexity of iterators and is also provided for convenience when iteration is more preferable.
 
         Args:
-            pages (int): A sequence of page numbers to iteratively request from the API Provider.
+            pages (Sequence[int] | PageListInput): A sequence of page numbers to request from the API Provider.
             from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
                                        requests-cache storage.
             from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
@@ -403,8 +470,8 @@ class SearchCoordinator(BaseCoordinator):
                           an ErrorResponse, or None (api response)
         """
 
-        # preprocesses the iterable of pages to reduce redundancy and validate beforehand
-        page_list_input = PageListInput(pages)
+        # preprocesses the iterable or sequence of pages to reduce redundancy and validate beforehand
+        page_list_input = self._validate_page_list_input(pages)
 
         for page in page_list_input.page_numbers:
 
@@ -474,6 +541,32 @@ class SearchCoordinator(BaseCoordinator):
         )
 
         return search_result
+
+    @classmethod
+    def _validate_page_list_input(cls, pages: Sequence[int] | PageListInput) -> PageListInput:
+        """
+        Helper method for validating the input to pages: Used to coerce a sequence of pages
+        to PageListInput if possible.
+
+        Args:
+            pages (Sequence[int] | PageListInput): The input to pass to search_pages containing
+                                                   a sequence of pages to retrieve.
+
+        Returns:
+            PageListInput: If the conversion to a page_list_input object was successful.
+
+        Raises:
+            InvalidCoordinatorParameterException: If conversion to a page list is not possible.
+        """
+
+        try:
+            page_list_input = pages if isinstance(pages, PageListInput) else PageListInput(pages)
+            return page_list_input
+        except ValidationError as e:
+            raise InvalidCoordinatorParameterException(
+                "Expected `pages` to be a list or other sequence of integer "
+                f"pages. Received an error on validation: {e}"
+            )
 
     def _process_page_result(self, response_result: Optional[ErrorResponse | ProcessedResponse], page: int) -> bool:
         """Helper method for logging the result of each page search and determining whether to continue"""
