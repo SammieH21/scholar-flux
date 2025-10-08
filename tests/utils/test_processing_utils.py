@@ -38,27 +38,30 @@ def test_remove_path_indices():
 def test_constant_path_indices():
     """Validates whether numeric values are successfully converted into the intended constant for grouping paths"""
     assert PathUtils.constant_path_indices(["a", 1, "b", 2]) == ["a", "i", "b", "i"]
-    assert PathUtils.constant_path_indices(["a", 1, "b", 2], constant = 'x') == ["a", "x", "b", "x"]
+    assert PathUtils.constant_path_indices(["a", 1, "b", 2], constant="x") == ["a", "x", "b", "x"]
 
 
 def join_as_str(values: list[list[str]]) -> str:
-    return '.'.join(str(v) for v in values)
+    return ".".join(str(v) for v in values)
+
+
 def test_group_path_assignments():
     """
     Validates whether grouped path assignments returns the expected values after converting numeric values into strings
     and attempting to convert nested list elements (paths) into a string representation.
     """
     # each list within each group of lists indicates a path
-    group_one = [['a', i, 'b'] for i in range(3)]
-    group_two = [['b', i, 'c'] for i in range(3)]
-    group_three = [['d', i, 'f'] for i in range(3)]
+    group_one = [["a", i, "b"] for i in range(3)]
+    group_two = [["b", i, "c"] for i in range(3)]
+    group_three = [["d", i, "f"] for i in range(3)]
 
     # nest multiple groups in a single list
     groups = [group_one, group_two, group_three]
 
     # equivalent calculations to group each individual path after converting numeric values into constants
-    grouped_paths = ['.'.join('i' if isinstance(value, int) else str(value) for value in path)
-                     for group in groups for path in group]
+    grouped_paths = [
+        ".".join("i" if isinstance(value, int) else str(value) for value in path) for group in groups for path in group
+    ]
 
     # each individual path should be calculated in a similar manner:
     assert [PathUtils.group_path_assignments(path) for group in groups for path in group] == grouped_paths
@@ -154,7 +157,7 @@ def test_key_discoverer_get_all_keys(sample_json):
     Tests whether key-path identification via the `KeyDiscoverer` occurs as intended to identify path taken
     to arrive at nested values.
 
-    For nested json data with multiple nested components, the identified key indicates the 
+    For nested json data with multiple nested components, the identified key indicates the
     name of the last key of a particular terminal path while the value represents the traversed paths taken
     to arrive at that key.
     """
@@ -203,7 +206,7 @@ def test_key_discoverer_keys_with_path(sample_json):
 
 def test_key_discoverer_filter_keys(sample_json):
     """
-    Verifies whether using `filter_keys` results in the expected value when the `KeyFilter` is called from 
+    Verifies whether using `filter_keys` results in the expected value when the `KeyFilter` is called from
     the current `KeyDiscoverer`.
     """
     kd = KeyDiscoverer([sample_json])
@@ -241,14 +244,22 @@ def test_combine_normalized():
     as intended. If specified, the object delimiter should be used to successfully join lists into a single string
     where applicable.
     """
-    sample_json = {"name": "John", "bio": ["Developer", "Pythonista", "OpenAI enthusiast"], "experience": {"testing": None}}
+    sample_json = {
+        "name": "John",
+        "bio": ["Developer", "Pythonista", "OpenAI enthusiast"],
+        "experience": {"testing": None},
+    }
     processor = RecursiveDictProcessor(sample_json, normalizing_delimiter=None, object_delimiter="; ")
     flattened_json = processor.process_dictionary().flatten()
     expected_flattened = {"name": "John", "bio": "Developer; Pythonista; OpenAI enthusiast", "testing": None}
     assert flattened_json == expected_flattened
     processor.use_full_path = True
-    flattened_json_two  = processor.process_dictionary().flatten()
-    expected_flattened_two = {"name": "John", "bio": "Developer; Pythonista; OpenAI enthusiast", "experience.testing": None}
+    flattened_json_two = processor.process_dictionary().flatten()
+    expected_flattened_two = {
+        "name": "John",
+        "bio": "Developer; Pythonista; OpenAI enthusiast",
+        "experience.testing": None,
+    }
     assert flattened_json_two == expected_flattened_two
 
 
@@ -274,7 +285,7 @@ def test_process_and_flatten():
     result = processor.process_and_flatten(sample_json, exclude_keys=["age"])
     assert isinstance(result, dict)
     # all keys/values found in the sample json should be available unless the checked key is age which was removed
-    assert all((key in result and value == result[key]) ^ (key == 'age') for key, value in sample_json.items())
+    assert all((key in result and value == result[key]) ^ (key == "age") for key, value in sample_json.items())
 
 
 def test_unlist():
@@ -295,6 +306,7 @@ def test_process_dictionary_raises():
 
 
 #################### JsonNormalizer Tests ###################
+
 
 def test_json_normalizer_with_nested_dicts():
     """

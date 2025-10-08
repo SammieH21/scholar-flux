@@ -38,7 +38,7 @@ def test_env_key_loader(caplog):
     Validates whether the use of a SCHOLAR_FLUX_CACHE_SECRET_KEY will be successfully when generating a new
     encryption pipeline factory class
     """
-    # generates the fernet key 
+    # generates the fernet key
     fernet = EncryptionPipelineFactory.generate_secret_key()
 
     # simulates the fernet key being saved as a bytes object in the config
@@ -132,7 +132,7 @@ def test_encrypted_cached_session_initialization(
     with requests_mock.Mocker() as m:
         m.get(prepared_request.url, status_code=200, json=params)
 
-        response = api.search(page = 1)
+        response = api.search(page=1)
         assert not getattr(response, "from_cache", False)
 
         response_two = api.send_request(api.base_url, parameters=params)
@@ -156,7 +156,7 @@ def test_encrypted_cached_session_initialization(
         response_three = None
         try:
             m.get(prepared_request.url, status_code=200, json=params)
-            response_three = api_two.search(page = 1)
+            response_three = api_two.search(page=1)
         except InvalidToken:
             pass
         assert not getattr(response_three, "from_cache", False)

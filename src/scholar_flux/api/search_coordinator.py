@@ -13,7 +13,7 @@ from scholar_flux.api import (
     ProcessedResponse,
     APIResponse,
     ErrorResponse,
-    NonResponse
+    NonResponse,
 )
 from scholar_flux.api.models import PageListInput, SearchResult, SearchResultList
 
@@ -671,21 +671,20 @@ class SearchCoordinator(BaseCoordinator):
                 A Processed API Response if successful, Otherwise, returns an ErrorResponse
         """
         # all missing response values values are handled at this step and transformed into NonResponses
-        api_response = self._fetch_api_response(
-            page, from_request_cache=from_request_cache, **api_specific_parameters
-        )
+        api_response = self._fetch_api_response(page, from_request_cache=from_request_cache, **api_specific_parameters)
 
         self._log_response_source(api_response.response, page, api_response.cache_key)
-        
+
         # if there is no data to process within the response, return it as is
         if isinstance(api_response, NonResponse):
             return api_response
 
-        
         # otherwise process the data before returning it
-        processed_response = self._process_response(response = cast(ResponseProtocol, api_response.response),
-                                                    cache_key = cast(str, api_response.cache_key),
-                                                    from_process_cache = from_process_cache)
+        processed_response = self._process_response(
+            response=cast(ResponseProtocol, api_response.response),
+            cache_key=cast(str, api_response.cache_key),
+            from_process_cache=from_process_cache,
+        )
         return processed_response
 
     # Request Handling
@@ -797,27 +796,27 @@ class SearchCoordinator(BaseCoordinator):
             logger.error(f"Error retrieving cached response: {e}")
             return None
 
-    def _fetch_api_response(
-        self, page: int, from_request_cache: bool = True, **api_specific_parameters
-    ) -> APIResponse:
+    def _fetch_api_response(self, page: int, from_request_cache: bool = True, **api_specific_parameters) -> APIResponse:
         """Helper method for fetching the response and retrieving the cache key.
         Args:
             page (int): The page number to retrieve from the cache.
         Returns:
             APIResponse | NonResponse: A data class containing the response and cache key when successfully retrieved,
-                                        independent of status code, and a NonResponse otherwise when retrieval is 
+                                        independent of status code, and a NonResponse otherwise when retrieval is
                                         unsuccessful due to an error.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
         """
         cache_key = self._create_cache_key(page)
         try:
-            response = self.fetch(page, from_request_cache=from_request_cache, raise_on_error=True, **api_specific_parameters)
+            response = self.fetch(
+                page, from_request_cache=from_request_cache, raise_on_error=True, **api_specific_parameters
+            )
         except RequestFailedException as e:
-            return NonResponse.from_error(error = e, message = str(e), cache_key = cache_key) 
+            return NonResponse.from_error(error=e, message=str(e), cache_key=cache_key)
 
         if not response:
             logger.info(f"Response retrieval for cache key {cache_key} was unsuccessful.")
-        return APIResponse(response = response, cache_key = cache_key)
+        return APIResponse(response=response, cache_key=cache_key)
 
     def _log_response_source(
         self, response: Optional[Response | ResponseProtocol], page: int, cache_key: Optional[str]

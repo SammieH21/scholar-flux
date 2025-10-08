@@ -566,9 +566,7 @@ def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplo
         )  # only one key is invalid
 
 
-def test_invalid_parameters(
-    initialize_mocker, pause_rate_limiting, caplog
-):
+def test_invalid_parameters(initialize_mocker, pause_rate_limiting, caplog):
     """
     Ensures that invalid parameters provided for the MultiSearchCoordinator halt processing prior to any
     requests being sent. This includes parameters for the number of workers, non-integer page numbers,

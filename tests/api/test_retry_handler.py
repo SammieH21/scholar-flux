@@ -167,7 +167,7 @@ def test_execute_with_retry_exception():
 
 def test_execute_with_retry_custom_validator(caplog):
     """Tests the retry handler to determine if it successfully uses the `validator_func` for custom data validation"""
-    handler = RetryHandler(raise_on_error = True)
+    handler = RetryHandler(raise_on_error=True)
     response = response_factory(201)
     request_func = lambda: response
     validator_func = lambda r: r.status_code == 201

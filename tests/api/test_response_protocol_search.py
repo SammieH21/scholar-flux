@@ -13,7 +13,7 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
     Tests whether the retrieved ProcessedResponse, once reprocessed, will return the same result. This test
     verifies idempotence of response processing when responses are not pulled from cache and are instead
     rehandled.
-    
+
     Both original and reconstructed responses should return identically processed records.
     """
     plos_search_coordinator = SearchCoordinator(
@@ -104,7 +104,7 @@ def test_mocked_response_like_search(plos_search_api, plos_page_1_url, plos_page
     """
     Verifies that valid reconstructed (mocked) APIResponse objects, when checked against a ResponseProtocol,
     and validated using ReconstructedResponse.validate() are identified as response-like objects.
-    
+
     The DataParser should also recognize that the response is a response-like object and successfully
     load the JSON data that had been dumped and encoded as byte content in the response-like object.
     """
@@ -154,6 +154,5 @@ def test_response_like_exception(monkeypatch):
     with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
         _ = ResponseCoordinator._resolve_response(response, validate=False)
     assert (
-        "Expected a valid response or response-like object. "
-        f"The object of type {type(response)} is not a response."
+        "Expected a valid response or response-like object. " f"The object of type {type(response)} is not a response."
     ) in str(excinfo.value)

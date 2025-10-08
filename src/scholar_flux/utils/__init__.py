@@ -21,7 +21,7 @@ Modules:
 
     - file_utils.py: Implements a FileUtils class that contains several static methods for reading files
 
-    - encoder: Contains an implementation of a CacheDataEncoder and JsonDataEncoder that uses base64 and json utilities 
+    - encoder: Contains an implementation of a CacheDataEncoder and JsonDataEncoder that uses base64 and json utilities
                to recursively serialize, deserialize, encode and decode JSON dictionaries and lists for storage and retrieval
                by using base64. This method accounts for when direct serialization isn't possible and would otherwise
                result in a JSONDecodeError as a direct result of not accounting for nested structures and types.

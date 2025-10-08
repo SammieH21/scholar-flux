@@ -6,7 +6,8 @@ from base64 import b64encode
 import pytest
 import json
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def round_trip_data_encoder(data: T) -> T:
     """
@@ -25,6 +26,7 @@ def round_trip_data_encoder(data: T) -> T:
     decoded = CacheDataEncoder.decode(from_json)
     return decoded
 
+
 def round_trip_json_encoder(data: T) -> T:
     """
     Helper function used to serialize and deserialize data into the original input:
@@ -40,33 +42,37 @@ def round_trip_json_encoder(data: T) -> T:
     deserialized = JsonDataEncoder.deserialize(serialized)
     return deserialized
 
-@pytest.mark.parametrize("data",
-                         (b'hello world',
-                          None,
-                          -1e20,
-                          0,
-                          0.0,
-                          1e50,
-                          True,
-                          False,
-                          'hello world',
-                          ['hello', 'world'],
-                          {'hello': 'world'},
-                          {'hello': b'world'},
-                          {'hello': [b'world', '!']},
-                          {"a": b"bytes", "b": "string", "c": None, "d": [b"listbytes", "liststr", None]}
-                         )
-                        )
+
+@pytest.mark.parametrize(
+    "data",
+    (
+        b"hello world",
+        None,
+        -1e20,
+        0,
+        0.0,
+        1e50,
+        True,
+        False,
+        "hello world",
+        ["hello", "world"],
+        {"hello": "world"},
+        {"hello": b"world"},
+        {"hello": [b"world", "!"]},
+        {"a": b"bytes", "b": "string", "c": None, "d": [b"listbytes", "liststr", None]},
+    ),
+)
 def test_encode_decode_roundtrip(data):
     """
     Verifies that the CacheDataEncoder, when encoding and decoding bytes results in the same value, even
-    after being dumped into a JSON string and subsequently loaded. 
+    after being dumped into a JSON string and subsequently loaded.
 
     This test uses `pytest.mark.parametrize` in order to validate the different types of data that can
     be expected
     """
     result = round_trip_data_encoder(data)
     assert data == result == round_trip_json_encoder(data)
+
 
 def test_tuple_roundtrip():
     """
@@ -79,7 +85,8 @@ def test_tuple_roundtrip():
     result = round_trip_data_encoder(data)
     # note that json dumps+loads results in lists becoming tuples
     assert data == tuple(result)
-    
+
+
 @pytest.mark.parametrize("DictType", (UserDict, CaseInsensitiveDict, OrderedDict))
 def test_mapping_roundtrip(DictType, caplog):
     """
@@ -107,30 +114,33 @@ def test_sequence_roundtrip(SequenceType, caplog):
     decoded = CacheDataEncoder.decode(encoded)
     assert decoded == list(data)
 
+
 def test_base64():
-    data = b'bytes string'
+    data = b"bytes string"
     encoded_data = b64encode(data)
 
-    assert CacheDataEncoder.is_base64(encoded_data, hash_prefix = '')
-    assert not CacheDataEncoder.is_base64(data, hash_prefix = '')
+    assert CacheDataEncoder.is_base64(encoded_data, hash_prefix="")
+    assert not CacheDataEncoder.is_base64(data, hash_prefix="")
     with pytest.raises(ValueError) as excinfo:
-       _ = CacheDataEncoder.is_base64(111) # type: ignore
+        _ = CacheDataEncoder.is_base64(111)  # type: ignore
     assert "Argument must be string or bytes" in str(excinfo.value)
 
-    assert not CacheDataEncoder.is_base64('')
-    assert not CacheDataEncoder.is_base64(b'')
+    assert not CacheDataEncoder.is_base64("")
+    assert not CacheDataEncoder.is_base64(b"")
 
-    assert not CacheDataEncoder.is_base64(b'')
+    assert not CacheDataEncoder.is_base64(b"")
+
 
 def test_nonreadable_character_identification():
     """
     Verifies that the classification of readable vs nonreadable characters also depends on `p` which is the proportion
     of non-readable byte characters, defined as unicode characters not between the range of (32 <= c <= 126)
     """
-    nonreadable_character = b'\xc2\x80'
-    assert not CacheDataEncoder.is_nonreadable(b'readable characters' + nonreadable_character, p=0.1)
+    nonreadable_character = b"\xc2\x80"
+    assert not CacheDataEncoder.is_nonreadable(b"readable characters" + nonreadable_character, p=0.1)
     assert CacheDataEncoder.is_nonreadable(nonreadable_character, p=0.1)
-    assert not CacheDataEncoder.is_nonreadable(b'   ', p=1)
+    assert not CacheDataEncoder.is_nonreadable(b"   ", p=1)
+
 
 def test_json_roundtrip(mock_academic_json):
     """
@@ -145,14 +155,42 @@ def test_json_roundtrip(mock_academic_json):
     json_encoder_result = JsonDataEncoder.deserialize(serialized)
     assert mock_academic_json == json_encoder_result
 
-@pytest.mark.parametrize(['transform', 'value', "error_type"], (
-    (CacheDataEncoder._encode_dict, ['a', 'b', 'c'], "Error encoding an element of type {current_type} into a recursively encoded dictionary"),
-    (CacheDataEncoder._decode_dict, ['a', 'b', 'c'], "Failed to decode an element of type {current_type} into a recursively decoded dictionary"),
-    (CacheDataEncoder._encode_list, 11, "Error encoding an element of type {current_type} into a recursively encoded list"),
-    (CacheDataEncoder._decode_list, 11, "Failed to decode an element of type {current_type} into a recursively decoded list"),
-    (CacheDataEncoder._encode_tuple, 2, "Error encoding an element of type {current_type} into a recursively encoded tuple"),
-    (CacheDataEncoder._decode_tuple, 3, "Failed to decode an element of type {current_type} into a recursively decoded tuple"),
-    (CacheDataEncoder._encode_bytes, 3, "Error encoding element of {current_type} into a base64 encoded string"))
+
+@pytest.mark.parametrize(
+    ["transform", "value", "error_type"],
+    (
+        (
+            CacheDataEncoder._encode_dict,
+            ["a", "b", "c"],
+            "Error encoding an element of type {current_type} into a recursively encoded dictionary",
+        ),
+        (
+            CacheDataEncoder._decode_dict,
+            ["a", "b", "c"],
+            "Failed to decode an element of type {current_type} into a recursively decoded dictionary",
+        ),
+        (
+            CacheDataEncoder._encode_list,
+            11,
+            "Error encoding an element of type {current_type} into a recursively encoded list",
+        ),
+        (
+            CacheDataEncoder._decode_list,
+            11,
+            "Failed to decode an element of type {current_type} into a recursively decoded list",
+        ),
+        (
+            CacheDataEncoder._encode_tuple,
+            2,
+            "Error encoding an element of type {current_type} into a recursively encoded tuple",
+        ),
+        (
+            CacheDataEncoder._decode_tuple,
+            3,
+            "Failed to decode an element of type {current_type} into a recursively decoded tuple",
+        ),
+        (CacheDataEncoder._encode_bytes, 3, "Error encoding element of {current_type} into a base64 encoded string"),
+    ),
 )
 def test_exception_handling(transform, value, error_type, caplog):
     """
@@ -163,9 +201,10 @@ def test_exception_handling(transform, value, error_type, caplog):
     with pytest.raises(ValueError) as excinfo:
         _ = transform(value)
 
-    err = error_type.format(current_type = type(value))
+    err = error_type.format(current_type=type(value))
     assert err in str(excinfo.value)
     assert err in caplog.text
+
 
 def test_decode_string_exception(monkeypatch, caplog):
     """
@@ -177,7 +216,7 @@ def test_decode_string_exception(monkeypatch, caplog):
     """
     original_object = b"32"
     bytes_object = b64encode(original_object)
-    value = CacheDataEncoder._decode_string(bytes_object) # type: ignore
+    value = CacheDataEncoder._decode_string(bytes_object)  # type: ignore
     assert original_object == value
 
     monkeypatch.setattr(
@@ -185,9 +224,8 @@ def test_decode_string_exception(monkeypatch, caplog):
         "is_nonreadable",
         lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("Directly raised exception")),
     )
-    
+
     value = CacheDataEncoder._decode_string(bytes_object)
     assert value == bytes_object
     assert f"Failed to decode a value of type {type(bytes_object)} as bytes" in caplog.text
     assert "Returning original input" in caplog.text
-

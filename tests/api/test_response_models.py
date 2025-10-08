@@ -14,6 +14,7 @@ import re
 
 class DummyResponse(Response):
     """Helper class for testing how `status_code functions for requests.Response subclassess"""
+
     def __init__(*args, **kwargs):
         pass
 
@@ -63,7 +64,9 @@ def test_success_response():
     response_dict: list[dict] = [{1: 1}, {2: 2}, {3: 3}, {4: 4}]
     processed_response = ProcessedResponse(processed_records=response_dict)
     assert processed_response and processed_response.data
-    assert len(processed_response) == 4 == len(processed_response.data) == len(processed_response.processed_records or [])
+    assert (
+        len(processed_response) == 4 == len(processed_response.data) == len(processed_response.processed_records or [])
+    )
 
 
 def test_api_response_from_response(mock_successful_response):

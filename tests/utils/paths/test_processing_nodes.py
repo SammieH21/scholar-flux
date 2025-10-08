@@ -50,5 +50,3 @@ def test_pathnode_update_and_equality():
     assert node != updated
     assert node == copied_node
     assert hash(node) == hash(node.path)
-
-

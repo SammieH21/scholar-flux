@@ -114,7 +114,7 @@ def test_workflow_called():
     assert not workflow.called and search.called and uses_workflow is False
 
     uses_workflow = search_coordinator.search(page=1, use_workflow=True)
-    assert workflow.called and isinstance(uses_workflow, MagicMock) 
+    assert workflow.called and isinstance(uses_workflow, MagicMock)
 
 
 def test_search_exception(monkeypatch, caplog):
@@ -162,7 +162,7 @@ def test_workflow_components():
     be modified when `pre_transform` is called with `None`. Also validates that the context of the workflow step
     is returned as is by default.
 
-    These basic configurations are used to provide the blueprint for flexible modification of workflow steps 
+    These basic configurations are used to provide the blueprint for flexible modification of workflow steps
     before and after the execution of a workflow step while not providing additional functionality by default.
     """
     workflow_step = BaseWorkflowStep()
@@ -221,7 +221,7 @@ def test_initialization_updates():
     # create a new SearchCoordinator specifying only an API and a query override
     api = SearchAPI.from_defaults(provider_name="crossref", query="testing_query")
     search_coordinator = SearchCoordinator(api, query="new_query", request_delay=api.request_delay + 5)
-    
+
     # the API should override the previous request_delay and use the new query only
     assert (
         api.query != search_coordinator.api.query
@@ -230,7 +230,6 @@ def test_initialization_updates():
     )
     # Queries usually need to be specified. The query already exists in the SearchAPI, so `query=""` is ignored.
     assert SearchCoordinator(api, query="")  # should initialize since a query is available through the SearchAPI
-
 
     # retrieves the rate limiter for the current provider
     rate_limiter = threaded_rate_limiter_registry.get(api.provider_name)
@@ -243,7 +242,7 @@ def test_initialization_updates():
     new_api = SearchCoordinator._create_search_api(api, query="new_query", request_delay=api.request_delay + 5)
 
     # as a template rather than modify it inplace altogether
-    assert api is not new_api 
+    assert api is not new_api
     assert new_api._rate_limiter != api._rate_limiter
 
     # reinitializes the original API object in comparison with a new query, config, and rate limiter
@@ -260,7 +259,7 @@ def test_initialization_updates():
 
 def test_request_failed_exception(monkeypatch, caplog):
     """
-    Verifies that, when a request fails to generate a response and, instead, throws an error, the error is logged 
+    Verifies that, when a request fails to generate a response and, instead, throws an error, the error is logged
     and the response result is `None`.
     """
     coordinator = SearchCoordinator(query="Computer Science Testing", request_delay=0)
@@ -274,12 +273,13 @@ def test_request_failed_exception(monkeypatch, caplog):
     assert res.error and res.error in "RequestFailedException" in res.error
     assert "NonResponse(error=RequestFailedException, message='Failed to fetch page 3: fail')" in repr(res)
 
+
 def test_none_type_fetch(monkeypatch, caplog):
     """
     Tests to verify that a NonResponse is returned when a retry_handler receives None in the request retrieval step
     """
     search_coordinator = SearchCoordinator(
-        query="new query", base_url="https://example-example-example-url.com", request_delay = 0
+        query="new query", base_url="https://example-example-example-url.com", request_delay=0
     )
     search_coordinator.retry_handler.max_backoff = 0
 
@@ -290,11 +290,12 @@ def test_none_type_fetch(monkeypatch, caplog):
     )
 
     with pytest.raises(RequestFailedException) as excinfo:
-        _ = search_coordinator.robust_request(page = 1)
-        assert ("Expected to receive a valid response or response-like object, "
-                f"Received type: {type(None)}") in str(excinfo.value)
+        _ = search_coordinator.robust_request(page=1)
+        assert ("Expected to receive a valid response or response-like object, " f"Received type: {type(None)}") in str(
+            excinfo.value
+        )
 
-    response = search_coordinator._fetch_api_response(page = 1)
+    response = search_coordinator._fetch_api_response(page=1)
     assert isinstance(response, NonResponse)
     assert "NonResponse" in repr(response)
 
@@ -390,7 +391,7 @@ def test_cache_deletions(monkeypatch, caplog):
 @pytest.mark.parametrize("page", [(0), (1), (2)])
 def test_parameter_building(page):
     """
-    Integration test to determine whether, at the level of the coordinator, requests are built with the 
+    Integration test to determine whether, at the level of the coordinator, requests are built with the
     correct parameter values prior to the preparation of the URL string and before the request is sent
     """
     basic_parameter_config = APIParameterConfig.as_config(
@@ -423,7 +424,7 @@ def test_basic_fetch():
         base_url="https://api.example.com",
     )
     coordinator = SearchCoordinator(api, request_delay=0)
-    coordinator.retry_handler.max_backoff=0
+    coordinator.retry_handler.max_backoff = 0
     params = api.build_parameters(page=1)
     prepared_request = api.prepare_request(api.base_url, parameters=params)
 
@@ -450,6 +451,7 @@ def test_basic_fetch():
     with requests_mock.Mocker() as m:
         result = coordinator.fetch(page=1)
         assert result is None
+
 
 def test_basic_coordinator_search(default_memory_cache_session, academic_json_response, caplog):
     """
@@ -510,14 +512,15 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
         assert f"Failed to get a valid response from the {coordinator.search_api.provider_name} API"
 
     with requests_mock.Mocker() as m:
-        non_response = coordinator.search(page = 1)
+        non_response = coordinator.search(page=1)
         assert isinstance(non_response, NonResponse)
+
 
 @pytest.mark.parametrize("Coordinator", (BaseCoordinator, SearchCoordinator))
 def test_base_coordinator_summary(Coordinator):
     """
     Validates whether the coordinator shows the correct representation of the structure when using the summary method.
-    The summaries for the BaseCoordinator and SearchCoordinator are checked and tested using `parametrize` in pytest. 
+    The summaries for the BaseCoordinator and SearchCoordinator are checked and tested using `parametrize` in pytest.
     """
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     response_coordinator = ResponseCoordinator.build()

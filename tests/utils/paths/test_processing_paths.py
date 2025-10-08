@@ -34,6 +34,7 @@ def test_initialization():
     basic_path = ProcessingPath(components=["1", "2", "3"], component_types=[] * 3)
     assert basic_path
 
+
 def test_invalid_path_initialization():
     """Validates the exception raising of paths when invalid combinations of inputs are entered"""
     basic_path = ProcessingPath(components=["1", "2", "3"], component_types=[] * 3, delimiter=None)

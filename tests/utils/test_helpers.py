@@ -29,6 +29,7 @@ from scholar_flux.utils.helpers import (
 
 ############################### Helper objects ################################
 
+
 class DummyResponse(Response):
     """Helper class for subclassing a Response for further utility testing"""
 
@@ -41,6 +42,7 @@ class DummyResponse(Response):
 
 
 ################### Tests for try_quote_numeric / quote_numeric ##############
+
 
 @pytest.mark.parametrize(
     ("value", "expected"),
@@ -70,6 +72,7 @@ def test_quote_numeric_failure():
 
 ############################## Tests for flatten ##############################
 
+
 def test_flatten_single_dict_list():
     """Tests if calling `flatten` nested dictionary values will result in the expected dictionary value"""
     assert flatten([{"a": 1}]) == {"a": 1}
@@ -79,6 +82,7 @@ def test_flatten_single_dict_list():
 
 
 ################### Tests for pattern_search / path_search #################
+
 
 @pytest.mark.parametrize(
     ("obj", "pattern", "regex", "expected"),
@@ -105,8 +109,8 @@ def test_path_search_alias():
     assert path_search(obj, "z") == []
 
 
-
 ############################## Tests for nested_key_exists ##############################
+
 
 def test_nested_key_exists_found():
     """Validates that nested records can be identified within dictionaries with nested components"""
@@ -122,6 +126,7 @@ def test_nested_key_exists_not_found():
 
 
 ################ Tests for get_nested_dictionary_data / get_nested_data ##################
+
 
 def test_get_nested_dictionary_data():
     """Verifies that nested elements within a dictionary are extracted given a path that contains those components"""
@@ -141,6 +146,7 @@ def test_get_nested_data_simple_and_nested():
 
 
 ############## Tests for generate_response_hash & compare_response_hashes #################
+
 
 def test_generate_response_hash_and_compare():
     """
@@ -173,6 +179,7 @@ def test_generate_response_hash_and_compare():
 
 
 ####################### Tests for coerce_int & try_int #########################
+
 
 @pytest.mark.parametrize(
     ("value", "expected"),
@@ -207,6 +214,7 @@ def test_try_int_none_value():
 
 ############################## Tests for try_pop ################################
 
+
 def test_try_pop_existing_and_missing():
     s = {1, 2, 3}
     assert try_pop(s, 2) == 2
@@ -216,6 +224,7 @@ def test_try_pop_existing_and_missing():
 
 
 ############################## Tests for try_dict ################################
+
 
 def test_try_dict_cases():
     """
@@ -232,7 +241,9 @@ def test_try_dict_cases():
 
     assert try_dict(test_list) == try_dict(test_tuple) == {0: 1, 1: 2, 2: 3}  # type:ignore
 
+
 ############################## Tests for is_nested ################################
+
 
 def test_is_nested():
     """Verifies that mappings, sequences, and sets are correctly identified as nested while strings/ints are not"""
@@ -247,18 +258,30 @@ def test_is_nested():
 
 ############################## Tests for unlist_1d ################################
 
+
 def test_unlist_1d():
     """Verifies whether attempting to unlist singular elements within a list will result in the expected value"""
     assert unlist_1d([42]) == 42
     assert unlist_1d((42,)) == 42
     assert unlist_1d([{1, 2}]) == {1, 2}
-    assert unlist_1d([(1, 2,)]) == (1, 2,)
+    assert unlist_1d(
+        [
+            (
+                1,
+                2,
+            )
+        ]
+    ) == (
+        1,
+        2,
+    )
     assert unlist_1d([[1, 2]]) == [1, 2]
-    assert unlist_1d([{1:'a', 2:'b'}]) == {1:'a', 2:'b'}
+    assert unlist_1d([{1: "a", 2: "b"}]) == {1: "a", 2: "b"}
     assert unlist_1d(42) == 42  # type: ignore
 
 
 ############################## Tests for as_list_1d ###############################
+
 
 def test_as_list_1d():
     """
@@ -269,12 +292,13 @@ def test_as_list_1d():
     assert as_list_1d([1, 2]) == [1, 2]
     assert as_list_1d((5,)) == [(5,)]
     assert as_list_1d({5}) == [{5}]
-    assert as_list_1d({'a':5}) == [{'a':5}]
+    assert as_list_1d({"a": 5}) == [{"a": 5}]
     assert as_list_1d(5) == [5]
     assert as_list_1d("x") == ["x"]
 
 
 ############################## Tests for try_call ###############################
+
 
 def dummy_func(a, *, b=0):
     """A simple test function used to determine whether the `try_call` function works as intended"""
@@ -282,7 +306,7 @@ def dummy_func(a, *, b=0):
 
 
 def error_func():
-    """Basic function for directly raising a runtime error to verify the behavior `try_call` on known exceptions """
+    """Basic function for directly raising a runtime error to verify the behavior `try_call` on known exceptions"""
     raise RuntimeError("boom")
 
 
@@ -302,7 +326,9 @@ def test_try_call_with_suppress(caplog):
     logger = logging.getLogger("test_logger")
     result = try_call(error_func, suppress=(RuntimeError,), logger=logger, log_level=logging.ERROR, default="fallback")
     assert result == "fallback"
-    assert "An error occurred in the call to the function argument, 'error_func', args=(), kwargs={}: boom" in caplog.text
+    assert (
+        "An error occurred in the call to the function argument, 'error_func', args=(), kwargs={}: boom" in caplog.text
+    )
 
 
 def test_try_call_non_callable(caplog):
@@ -314,10 +340,10 @@ def test_try_call_non_callable(caplog):
 
     This test also verifies that the exception, if caught, will also display in the logger if configured and specified.
     """
-    default = 'not callable'
+    default = "not callable"
     logger = logging.getLogger("test_logger")
     with pytest.raises(TypeError) as excinfo:
         _ = try_call(123, default=default)  # type:ignore
-    value = try_call(123, default=default, suppress = (TypeError,), logger = logger)  # type:ignore
+    value = try_call(123, default=default, suppress=(TypeError,), logger=logger)  # type:ignore
     assert value == default
     assert str(excinfo.value) in caplog.text

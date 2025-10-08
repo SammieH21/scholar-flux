@@ -23,7 +23,7 @@ class ConfigLoader:
         API_KEYS:
             - SPRINGER_NATURE_API_KEY: API Key used when retrieving academic data from Springer Nature
             - CROSSREF_API_KEY: API key used to retrieve academic metadata from Crossref
-            - CORE_API_KEY: API key used to retrieve metadata and full-text publications from the CORE API 
+            - CORE_API_KEY: API key used to retrieve metadata and full-text publications from the CORE API
             - PUBMED_API_KEY: API key used to retrieve publications from the NIH PubMed database
         Session Cache:
             - SCHOLAR_FLUX_CACHE_DIRECTORY: defines where requests and response processing cache will be stored when
@@ -37,6 +37,7 @@ class ConfigLoader:
 
 
     """
+
     DEFAULT_ENV_PATH: Path = (
         Path(__file__).resolve().parent.parent / ".env"
     )  # Default directory for the package env file

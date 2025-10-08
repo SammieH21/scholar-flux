@@ -91,7 +91,7 @@ def test_workflow_default(
     """
     Verifies with default settings that a simple `SearchCoordinator.search will automatically retrieve
     The expected results using the workflow automatically when using the `pubmed` provider_name.
-    
+
     Also verifies that when `use_workflow` is False, the SearchCoordinator will only perform the `esearch`
     step that retrieves a list of metadata IDs for articles relating to the query.
     """

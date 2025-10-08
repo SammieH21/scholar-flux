@@ -475,12 +475,13 @@ class ErrorResponse(APIResponse):
     error: Optional[str] = None
 
     @classmethod
-    def from_error(cls, 
-                   message: str,
-                   error: Exception,
-                   cache_key: Optional[str] = None,
-                   response: Optional[requests.Response | ResponseProtocol] = None,
-                  ) -> Self:
+    def from_error(
+        cls,
+        message: str,
+        error: Exception,
+        cache_key: Optional[str] = None,
+        response: Optional[requests.Response | ResponseProtocol] = None,
+    ) -> Self:
         """
         Creates and logs the processing error if one occurs during response processing
 
@@ -501,7 +502,6 @@ class ErrorResponse(APIResponse):
             error=type(error).__name__,
             created_at=creation_timestamp,
         )
-
 
     @property
     def parsed_response(self) -> None:
@@ -543,17 +543,20 @@ class ErrorResponse(APIResponse):
         """Indicates that the underlying response was not successfully processed or contained an error code"""
         return False
 
+
 class NonResponse(ErrorResponse):
     """
     Response class used to indicate that an error occurred in the preparation of a request or in the retrieval
     of a response object from an API. This class is used to signify the error that occurred within the search process
     using a similar interface as the other scholar_flux Response dataclasses.
     """
+
     response: None = None
 
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the underlying ErrorResponse"""
         return f"<NonResponse(error={self.error}, " f"message={self.message!r})>"
+
 
 class ProcessedResponse(APIResponse):
     """

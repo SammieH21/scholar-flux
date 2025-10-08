@@ -51,7 +51,7 @@ class CacheDataEncoder:
             bool: True if the string is base64 encoded, False otherwise.
         """
         if isinstance(s, (str, bytes)) and not s:
-            return False 
+            return False
 
         if isinstance(s, str):
             # removes the hash_prefix if it exists, then encodes the data
@@ -159,7 +159,6 @@ class CacheDataEncoder:
 
         return data  # Return unmodified non-decodable types
 
-
     @classmethod
     def _encode_bytes(cls, data: bytes, hash_prefix: Optional[str] = None) -> str:
         """
@@ -214,7 +213,7 @@ class CacheDataEncoder:
             hash_prefix (Optional[str]): Prefix to prepend to recursively encoded strings.
 
         Returns:
-            list: A list containing the recursively encoded elements 
+            list: A list containing the recursively encoded elements
         """
         # exact type comparison, ignores format
         if type(data) is not list:  # noqa: E721
@@ -236,7 +235,7 @@ class CacheDataEncoder:
             hash_prefix (Optional[str]): Prefix to prepend to recursively encoded strings.
 
         Returns:
-            tuple: A tuple containing the recursively encoded elements 
+            tuple: A tuple containing the recursively encoded elements
         ."""
         try:
             return tuple(cls.encode(item, hash_prefix) for item in data)
@@ -244,7 +243,6 @@ class CacheDataEncoder:
             err = f"Error encoding an element of type {type(data)} into a recursively encoded tuple"
             logger.error(f"{err}: {e}")
             raise ValueError(f"{err}.") from e
-
 
     @classmethod
     def _decode_string(cls, data: str | bytes, hash_prefix: Optional[str] = None) -> str | bytes:
@@ -263,18 +261,18 @@ class CacheDataEncoder:
             return data
 
         try:
-            data_string = data.decode('utf8') if isinstance(data, bytes) else data
+            data_string = data.decode("utf8") if isinstance(data, bytes) else data
             data_string = data_string.replace(hash_prefix, "", 1) if hash_prefix else data_string
             if not cls.is_base64(data_string):
                 return data
 
-            decoded_bytes = base64.b64decode(data_string.encode('utf-8'))
+            decoded_bytes = base64.b64decode(data_string.encode("utf-8"))
             if not hash_prefix and cls.is_nonreadable(decoded_bytes):
                 return data  # Return original if decoded data is likely gibberish
             return decoded_bytes
         except (ValueError, TypeError) as e:
             logger.error(f"Failed to decode a value of type {type(data)} as bytes: {e}\nReturning original input...")
-            return data # Return original if decoding error occurs
+            return data  # Return original if decoding error occurs
 
     @classmethod
     def _decode_dict(cls, data: dict, hash_prefix: Optional[str] = None) -> dict:
@@ -286,7 +284,7 @@ class CacheDataEncoder:
             hash_prefix (Optional[str]): Optional Prefix that identifies recursively encoded strings to decode.
 
         Returns:
-            dict: A dictionary containing the recursively decoded elements 
+            dict: A dictionary containing the recursively decoded elements
         """
         try:
             return {key: cls.decode(value, hash_prefix) for key, value in data.items()}
@@ -305,7 +303,7 @@ class CacheDataEncoder:
             hash_prefix (Optional[str]): Optional Prefix that identifies recursively encoded strings to decode.
 
         Returns:
-            list: A list containing the recursively decoded elements 
+            list: A list containing the recursively decoded elements
         """
         try:
             return [cls.decode(item, hash_prefix) for item in data]
@@ -324,7 +322,7 @@ class CacheDataEncoder:
             hash_prefix (Optional[str]): Optional Prefix that identifies recursively encoded strings to decode.
 
         Returns:
-            tuple: A tuple containing the recursively decoded elements 
+            tuple: A tuple containing the recursively decoded elements
         """
         try:
             return tuple(cls.decode(item, hash_prefix) for item in data)
@@ -332,6 +330,7 @@ class CacheDataEncoder:
             err = f"Failed to decode an element of type {type(data)} into a recursively decoded tuple"
             logger.error(f"{err}: {e}")
             raise ValueError(f"{err}.") from e
+
 
 class JsonDataEncoder(CacheDataEncoder):
     """
@@ -414,6 +413,7 @@ class JsonDataEncoder(CacheDataEncoder):
             Any: The loaded json data.
         """
         return json.loads(s, **json_kwargs)
+
 
 # if __name__ == "__main__":
 #     # Example usage of CacheDataEncoder class

@@ -10,7 +10,7 @@ Classes:
                             to process, filter, and flatten JSON formatted data.
     JsonRecordData: Helper class used as a container to hold extracted path/data components for further processing.
     JsonNormalizer: Helper class used by the `RecursiveDictProcessor` to flatten the inputted JSON record into a
-                    non-nested dictionary 
+                    non-nested dictionary
 
 Example Use:
     >>> from scholar_flux.utils import RecursiveDictProcessor
@@ -22,7 +22,7 @@ Example Use:
             "abstract": ["This is a sample abstract.", "keywords: 'sample', 'abstract'"],
             "genre": {"subspecialty": "Neuroscience"},
             "journal": {"topic": "Sleep Research"},
-        } 
+        }
     # joins fields with nested components using a newline character - retains full paths leading to each value
     >>> processor = RecursiveDictProcessor(object_delimiter = '   ', use_full_path = True)
     # processes and flattens the JSON dict using the defined helper classes under the hood
@@ -55,6 +55,7 @@ class PathUtils:
     in either form, requiring conversion from one type to the other in specific JSON path processing
     scenarios.
     """
+
     @staticmethod
     def path_name(level_names: List[Any]) -> str:
         """
@@ -106,7 +107,7 @@ class PathUtils:
         return key_path
 
     @staticmethod
-    def constant_path_indices(path: List[Any], constant: str = 'i') -> List[Any]:
+    def constant_path_indices(path: List[Any], constant: str = "i") -> List[Any]:
         """
         Replace integer indices with constants in the provided path.
 
@@ -117,7 +118,7 @@ class PathUtils:
         Returns:
             List[Any]: A path with only the key names.
         """
-        constant = constant or 'i'
+        constant = constant or "i"
         key_path = [constant if isinstance(k, int) else k for k in path]
         return key_path
 
@@ -145,6 +146,7 @@ class KeyFilter:
     Helper class used to create a simple filter that allows for the identification of terminal keys
     associated with data in a JSON structure and the paths that lead to each terminal key.
     """
+
     @staticmethod
     def filter_keys(
         discovered_keys: Dict[str, List[str]],
@@ -159,6 +161,7 @@ class KeyFilter:
         For example, filtering can be configured to identify keys based on prefix, minimum path length,
         and path substring/pattern matching with conditional match inclusion/exclusion.
         """
+
         def matches_criteria(key: str, paths: List[str]) -> bool:
             """
             Helper function that, when configured via `filter_keys` allows for the identification
@@ -278,8 +281,10 @@ class JsonRecordData:
         data (dict[str, Any]): The nested terminal value at the end of a path
 
     """
+
     path: List[str | int]
     data: Dict[str, Any]
+
 
 class RecursiveDictProcessor:
     """
@@ -291,6 +296,7 @@ class RecursiveDictProcessor:
     into flattened representations where its keys represent the terminal paths at each
     node and its values represent the data found at each terminal path.
     """
+
     def __init__(
         self,
         json_dict: Optional[Dict] = None,
@@ -439,6 +445,7 @@ class RecursiveDictProcessor:
 
 class JsonNormalizer:
     """Helper class that flattens and normalizes the retrieved list of JsonRecordData into singular flattened dictionary"""
+
     def __init__(
         self,
         json_record_data_list: List[JsonRecordData],

@@ -72,11 +72,11 @@ def test_process_page_with_dict_keys(mock_api_parsed_json_records):
     assert isinstance(results[0]["abstract"], list)
     assert results[1]["abstract"] == "Another abstract."
 
-    assert 'authors.principle_investigator' not in results[0]
-    assert 'authors.assistant' not in results[1]
+    assert "authors.principle_investigator" not in results[0]
+    assert "authors.assistant" not in results[1]
 
 
-@pytest.mark.parametrize("delimiter", (' | ', '%%', ';'))
+@pytest.mark.parametrize("delimiter", (" | ", "%%", ";"))
 def test_value_delimiter_joins_lists(delimiter, mock_api_parsed_json_records):
     """Validates the final delimiter used to join a list of records into a single string if specified."""
     record_keys: list[list] = [["abstract"]]

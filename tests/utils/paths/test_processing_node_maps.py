@@ -1,10 +1,6 @@
 from typing import MutableMapping
 import pytest
-from scholar_flux.utils import (
-    PathNode,
-    PathNodeMap,
-    ProcessingPath
-)
+from scholar_flux.utils import PathNode, PathNodeMap, ProcessingPath
 
 
 @pytest.fixture
@@ -94,4 +90,3 @@ def test_pathnodemap_filter_and_cache():
     m.cache = True
     filtered_cache = m.filter(ProcessingPath(["0", "data"]), from_cache=True)
     assert filtered_cache == filtered
-

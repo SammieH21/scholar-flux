@@ -176,29 +176,23 @@ class SearchAPI(BaseAPI):
         """
         if not isinstance(search_api, SearchAPI):
             raise APIParameterException(
-                "Expected a SearchAPI to perform parameter updates. "
-                f"Received type {type(search_api)}"
+                "Expected a SearchAPI to perform parameter updates. " f"Received type {type(search_api)}"
             )
 
-
-        request_delay = api_specific_parameters.get(
-            "request_delay", getattr(rate_limiter, "min_interval", None)
-        )
+        request_delay = api_specific_parameters.get("request_delay", getattr(rate_limiter, "min_interval", None))
 
         if request_delay is not None:
-            api_specific_parameters['request_delay'] = request_delay
+            api_specific_parameters["request_delay"] = request_delay
 
         config = (
-            SearchAPIConfig.update(config or search_api.config, 
-                                   **api_specific_parameters)
+            SearchAPIConfig.update(config or search_api.config, **api_specific_parameters)
             if config or api_specific_parameters
             else search_api.config
         )
 
-
         update_rate_limiter: Optional[RateLimiter] = rate_limiter or (
-             search_api._rate_limiter if "request_delay" not in api_specific_parameters else None
-         )
+            search_api._rate_limiter if "request_delay" not in api_specific_parameters else None
+        )
 
         if not parameter_config:
             parameter_config = search_api.parameter_config if config.provider_name == config.provider_name else None
@@ -224,21 +218,21 @@ class SearchAPI(BaseAPI):
         rate_limiter: Optional[RateLimiter] = None,
     ):
         """
-                Initializes the API session with the provided base URL and API key.
-                This method is called during the initialization of the class.
+        Initializes the API session with the provided base URL and API key.
+        This method is called during the initialization of the class.
 
-                Args:
-                    query (str):
-                        The query to send to the current API provider. Note, this must be non-missing
-                    search_api_config (SearchAPIConfig):
-                        Indicates the configuration settings to be used when sending requests to APIs
-                    parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
-                       Maps global scholar_flux parameters to those that are specific to the provider's API 
-                    masker: (Optional[SensitiveDataMasker]):
-                        A masker used to filter logs of API keys and other sensitive data
-                   rate_limiter (Optional[RateLimiter]):
-                       An optional rate limiter to control the number of requests sent at. when the request_delay and
-                       min_interval do not agree, `min_interval` is preferred
+        Args:
+            query (str):
+                The query to send to the current API provider. Note, this must be non-missing
+            search_api_config (SearchAPIConfig):
+                Indicates the configuration settings to be used when sending requests to APIs
+            parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
+               Maps global scholar_flux parameters to those that are specific to the provider's API
+            masker: (Optional[SensitiveDataMasker]):
+                A masker used to filter logs of API keys and other sensitive data
+           rate_limiter (Optional[RateLimiter]):
+               An optional rate limiter to control the number of requests sent at. when the request_delay and
+               min_interval do not agree, `min_interval` is preferred
 
 
         """
@@ -251,7 +245,6 @@ class SearchAPI(BaseAPI):
         # prefer the rate limit derived from the RateLimiter if provided explicitly when neither matches
         if rate_limiter and self.config.request_delay != rate_limiter.min_interval:
             self.config.request_delay = config.validate_request_delay(rate_limiter.min_interval)
-
 
         # first attempt to retrieve a non-empty parameter_config. If unsuccessful,
         # then whether the provided namespace or url matches a default provider

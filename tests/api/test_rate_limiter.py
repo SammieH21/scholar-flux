@@ -17,13 +17,14 @@ def set_default_rate_limiter_interval():
     yield
     RateLimiter.DEFAULT_MIN_INTERVAL = default_min_interval
 
+
 def test_default_initialization(set_default_rate_limiter_interval):
     """Tests if the RateLimiter is populated with the DEFAULT_MIN_INTERVAL when instantiated without input"""
     limiter = RateLimiter()
     assert limiter.min_interval == RateLimiter.DEFAULT_MIN_INTERVAL == 999
 
 
-@pytest.mark.parametrize(('min_interval'), (0, 1.5, 2))
+@pytest.mark.parametrize(("min_interval"), (0, 1.5, 2))
 def test_custom_initialization(min_interval):
     """Verifies that the assignment of a min-interval is valid for non-negative integers/floats"""
     assert RateLimiter._validate(min_interval) == min_interval
@@ -76,7 +77,7 @@ def test_decorator_respects_rate_limit():
     """
     Tests the `wait()` method to ensure that, when setting `min_interval` to 0, the `sleep` function is never called.
 
-    A helper function (`fn`) is defined and decorated so that subsequent calls are both rate limited and recorded 
+    A helper function (`fn`) is defined and decorated so that subsequent calls are both rate limited and recorded
 
     After patching sleep to record the call count, the test verifies that sleep never triggers due to `min_interval=0`.
     """
@@ -104,7 +105,7 @@ def test_context_manager_calls_wait(mock_sleep):
     Patches the  `_wait` method to record the number of calls to the sleep function.
     """
     limiter = RateLimiter(1)
-    mock_sleep.side_effect = ['method called 0 times', 'called 1 time']
+    mock_sleep.side_effect = ["method called 0 times", "called 1 time"]
     limiter._last_call = 99.0
     with limiter:
         pass
@@ -118,7 +119,7 @@ def test_rate_context_manager_temporary_interval(mock_time):
     not affect the parameter value of the original rate limiter outside of the context manager.
     """
     limiter = RateLimiter(5)
-    mock_time.side_effect = ['method called 0 times', 'called 1 time']
+    mock_time.side_effect = ["method called 0 times", "called 1 time"]
     orig_interval = limiter.min_interval
     with limiter.rate(2):
         assert limiter.min_interval == orig_interval  # min_interval is not changed permanently

@@ -644,12 +644,7 @@ class ResponseCoordinator:
         """
         logger.error(error_message)
 
-        return ErrorResponse.from_error(
-            response=response,
-            cache_key=cache_key,
-            message=error_message,
-            error=error_type
-        )
+        return ErrorResponse.from_error(response=response, cache_key=cache_key, message=error_message, error=error_type)
 
     def schema_fingerprint(self) -> str:
         """Helper method for generating a concise view of the current structure of the response coordinator"""

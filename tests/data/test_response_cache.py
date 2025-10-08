@@ -14,7 +14,7 @@ import pytest
 def search_api() -> SearchAPI:
     """
     Basic SearchAPI for testing response retrieval and caching. By default, request cache is turned off by default
-    but can be turned on during the creation of the SearchCoordinator. 
+    but can be turned on during the creation of the SearchCoordinator.
 
     Returns:
         SearchAPI: A search API configured for response testing and retrieval.
@@ -34,11 +34,9 @@ def search_api() -> SearchAPI:
     )
     return search_api
 
+
 @pytest.fixture()
-def initialize_mocker(
-    search_api: SearchAPI,
-    academic_json_response: Response
-) -> Callable:
+def initialize_mocker(search_api: SearchAPI, academic_json_response: Response) -> Callable:
     """
     Helper function for quickly initializing a mock URL for testing and verifying cache settings.
 
@@ -54,8 +52,8 @@ def initialize_mocker(
     @contextmanager
     def with_mocker():
         """Nested function for creating a reusable mocker without redefining each individual URL across tests"""
-        parameters = search_api.build_parameters(page = 1)
-        prepared_request = search_api.prepare_request(parameters = parameters)
+        parameters = search_api.build_parameters(page=1)
+        prepared_request = search_api.prepare_request(parameters=parameters)
         with Mocker() as m:
             m.get(
                 prepared_request.url,
@@ -65,17 +63,22 @@ def initialize_mocker(
             )
             yield m
         return False
+
     return with_mocker
 
 
-def create_search_coordinator(search_api: SearchAPI, cache_backend: Literal['redis', 'null', 'inmemory', 'sql', 'redis'],
-                              cache_requests: bool = False, **cache_kwargs) -> SearchCoordinator:
+def create_search_coordinator(
+    search_api: SearchAPI,
+    cache_backend: Literal["redis", "null", "inmemory", "sql", "redis"],
+    cache_requests: bool = False,
+    **cache_kwargs,
+) -> SearchCoordinator:
     """
     Helper method for creating a new search coordinator for response cache testing.
     Takes a cache backend and creates the required backend based on the keyword arguments applied.
 
     Args:
-        search_api (SearchAPI): A SearchAPI instance that the SearchCoordinator will use for response retrieval 
+        search_api (SearchAPI): A SearchAPI instance that the SearchCoordinator will use for response retrieval
         cache_backend (Literal): The backend to use for caching the processing of responses
         cache_requests (bool): Indicates whether request caching will be performed during response retrieval
         **cache_kwargs: A list of key-value pairs to use when creating the response processing cache storage
@@ -94,6 +97,7 @@ def create_search_coordinator(search_api: SearchAPI, cache_backend: Literal['red
     )
 
     return search_coordinator
+
 
 @pytest.mark.parametrize(
     ["cache_backend", "cache_kwargs", "cache_requests"],
@@ -120,9 +124,10 @@ def test_response_cache(
     if db_dependency_unavailable(cache_backend):
         pytest.skip(f"{cache_backend} not available")
 
-
     cache_kwargs = {k: request.getfixturevalue(v) for k, v in cache_kwargs.items()}
-    search_coordinator = create_search_coordinator(search_api, cache_backend, cache_requests = cache_requests, **cache_kwargs)
+    search_coordinator = create_search_coordinator(
+        search_api, cache_backend, cache_requests=cache_requests, **cache_kwargs
+    )
 
     # ensures that any cached requests and responses are deleted beforehand
     search_coordinator._delete_cached_request(page=1)

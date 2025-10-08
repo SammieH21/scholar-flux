@@ -1,7 +1,14 @@
 import re
 from scholar_flux import DataExtractor
-from scholar_flux.utils import (PathSimplifier, PathDiscoverer, PathNode, PathNodeMap,
-                                PathNodeIndex, PathChainMap, ProcessingPath)
+from scholar_flux.utils import (
+    PathSimplifier,
+    PathDiscoverer,
+    PathNode,
+    PathNodeMap,
+    PathNodeIndex,
+    PathChainMap,
+    ProcessingPath,
+)
 import pytest
 
 
@@ -79,6 +86,7 @@ def test_map_method_equality(path_nodes):
 
     assert index1.simplify_to_rows() == index2.simplify_to_rows()
 
+
 def test_path_node_index_from_path_mappings_and_search():
     """validates whether the use of path node indices correctly retrieves and searches relevant nodes"""
     mappings = {ProcessingPath(["0", "data", "0", "title"]): "A"}
@@ -149,6 +157,7 @@ def test_integration_flatten_and_simplify(mock_academic_json):
         assert any("title" in k for k in row)
         assert any("doi" in k for k in row)
 
+
 def test_index_parallel_normalization(extracted_records, caplog):
     """Validates whether index normalization correctly operates in parallel using multiprocessing"""
     assert isinstance(extracted_records, list)
@@ -159,4 +168,3 @@ def test_index_parallel_normalization(extracted_records, caplog):
     assert "Created path index successfully from the provided path mappings" in caplog.text
     assert "Combining keys.." in caplog.text
     assert f"Successfully normalized {len(normalized_records)} records" in caplog.text
-

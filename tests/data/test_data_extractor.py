@@ -208,7 +208,7 @@ def test_extractor_invalid_nested_configuration():
 def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, mock_academic_json, caplog):
     """
     Verifies that an attempt to provide an invalid record path type returns None.
-    Also verifies that, when a metadata path cannot be found, a dictionary is still returned with a value of `None` 
+    Also verifies that, when a metadata path cannot be found, a dictionary is still returned with a value of `None`
     for the key.
     """
     # point to a key that contains a string instead of a list

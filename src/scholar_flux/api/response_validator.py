@@ -27,6 +27,7 @@ class ResponseValidator:
         >>> ResponseValidator.validate_response(mock_success_response) is True
         >>> ResponseValidator.validate_content(mock_success_response) is True
     """
+
     @classmethod
     def validate_response(cls, response: requests.Response | ResponseProtocol, *, raise_on_error: bool = False) -> bool:
         """
@@ -48,12 +49,13 @@ class ResponseValidator:
 
         Raises:
             InvalidResponseException: If response is invalid and raise_on_error is True
-            RequestFailedException: If an exception occurs during response validation due to missing or incorrect types 
+            RequestFailedException: If an exception occurs during response validation due to missing or incorrect types
         """
         try:
             if not isinstance(response, requests.Response) and not isinstance(response, ResponseProtocol):
-                raise TypeError("The response is not a valid response or response-like object, "
-                                f"Received type: {type(response)}")
+                raise TypeError(
+                    "The response is not a valid response or response-like object, " f"Received type: {type(response)}"
+                )
 
             response.raise_for_status()
             logger.debug("Successfully received response from %s", response.url)

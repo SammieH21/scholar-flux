@@ -27,7 +27,7 @@ def test_non_provider_initialization(provider, basename):
     """
     Verifies that specifying a default provider successfully retrieves its corresponding config/parameter map.
     This function uses a parametrized set of arguments to test different combinations of providers
-    to verify that it retrieves the expected base name for the URL of the provider. 
+    to verify that it retrieves the expected base name for the URL of the provider.
     """
     api_config = SearchAPIConfig.from_defaults(provider_name=provider.upper(), request_delay=None)
     default_provider = provider_registry.get(provider)

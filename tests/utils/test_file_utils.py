@@ -98,4 +98,3 @@ def test_get_file_size(cleanup, tmp_path):
     # Get the size of the file
     size = FileUtils.get_file_size(filepath)
     assert size == len(content)
-

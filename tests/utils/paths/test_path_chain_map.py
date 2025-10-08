@@ -136,7 +136,7 @@ def test_invalid_formatting():
     Validates the `_format_nodes_as_dict` function by attempting to raise a PathNodeMapError by providing invalid inputs
     that should raise the exception.
 
-    This test identifies whether non-nodes are successfully flagged and the appropriate exception raised. 
+    This test identifies whether non-nodes are successfully flagged and the appropriate exception raised.
     """
     new_path_node = PathRecordMap(record_index=1)
     invalid_path_node = {"a": " "}
@@ -181,7 +181,7 @@ def test_record_map_creation():
     assert record_map_single == PathRecordMap(a1)
 
     # with a tuple containing a single node
-    record_map_single_two = PathRecordMap((a1, ))
+    record_map_single_two = PathRecordMap((a1,))
 
     # verifies whether the two methods are equal
     assert record_map_single == record_map_single_two
@@ -287,7 +287,7 @@ def test_filtering(all_path_nodes):
     Tests filtering against a range of both valid and invalid inputs to ensure that filtering correctly
     returns nodes matching a condition when valid inputs are received.
 
-    Also verifies edge cases concerning invalid inputs and exceptions that can result with invalid inputs. 
+    Also verifies edge cases concerning invalid inputs and exceptions that can result with invalid inputs.
     """
     mapping = PathChainMap()
 

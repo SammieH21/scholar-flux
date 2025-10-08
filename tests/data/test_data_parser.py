@@ -5,6 +5,7 @@ import json
 import pytest
 import requests
 
+
 def custom_json_parser(response_content: bytes) -> dict:
     """Custom JSON parser for testing whether overrides occur as intended with the `DataParser`"""
     records = json.loads(response_content)

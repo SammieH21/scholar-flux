@@ -18,7 +18,7 @@ from scholar_flux.security import SecretUtils
 from scholar_flux.exceptions import QueryValidationException, APIParameterException, RequestCreationException
 
 
-@pytest.mark.parametrize('query', (None, ''))
+@pytest.mark.parametrize("query", (None, ""))
 def test_missing_query(query):
     """Tests whether a query validation exception is raised when an empty value is supplied to a query"""
     with pytest.raises(QueryValidationException):
@@ -546,14 +546,15 @@ def test_with_config_parameters_invalid_field_ignored(original_config, original_
         assert not hasattr(api.config, "nonexistent_field")
 
         # all other other fields should not have changed:
-        assert api.config.model_dump(exclude={'api_specific_parameters'}) ==\
-                original_config.model_dump(exclude={'api_specific_parameters'})
+        assert api.config.model_dump(exclude={"api_specific_parameters"}) == original_config.model_dump(
+            exclude={"api_specific_parameters"}
+        )
 
         # added but shouldn't be used in the parameter building stages
         assert "nonexistent_field" in (api.config.api_specific_parameters or {})
 
         # the nonexistent_field, because it's not in the parameter map, won't be added
-        assert "nonexistent_field" not in api.build_parameters(page = 1)
+        assert "nonexistent_field" not in api.build_parameters(page=1)
 
     assert api.config == original_config
     # the non-existent field should no longer be a part of the api_specific_parameters
@@ -590,7 +591,6 @@ def test_with_config_precedence_over_provider(monkeypatch, new_config, original_
         api_key=new_config.api_key,
         parameter_config=original_param_config,
     )
-
 
     monkeypatch.setattr(
         SearchAPIConfig,

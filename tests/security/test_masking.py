@@ -107,7 +107,7 @@ def test_secret_masking():
     Ensures that secrets can be masked and unmasked when required based on whether or not the
     key is already a secret string.
 
-    When non-secrets are entered into `unmask_secret`, they should be returned as is. 
+    When non-secrets are entered into `unmask_secret`, they should be returned as is.
 
     Conversely, with `mask_secret`, non-secrets, unless None, should be coerced into secrets if not already a secret.
     Otherwise, secrets should be returned as is.
@@ -130,7 +130,7 @@ def test_secret_masking():
 
     assert masker.register_secret_if_exists(field="a_secret", value=a_secret, name="new_secret")
     new_secret = list(masker.get_patterns_by_name("new_secret"))
-    assert new_secret and isinstance(new_secret[0].pattern, SecretStr) and new_secret[0].pattern == a_secret  
+    assert new_secret and isinstance(new_secret[0].pattern, SecretStr) and new_secret[0].pattern == a_secret
 
     masker.add_sensitive_string_patterns(name="new_secret", patterns=[a_secret.get_secret_value()], use_regex=False)
 
