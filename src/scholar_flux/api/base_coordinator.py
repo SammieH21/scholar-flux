@@ -44,7 +44,7 @@ class BaseCoordinator:
     Example:
         >>> from scholar_flux.api import SearchAPI, ResponseCoordinator, BaseCoordinator
         # Note, the SearchAPI, if a provider name isn't provider_name uses PLOS by default
-        # Unless the `DEFAULT_SCHOLAR_FLUX_PROVIDER` env variable is set to another provider.
+        # Unless the `SCHOLAR_FLUX_DEFAULT_PROVIDER` env variable is set to another provider.
         >>> base_search_coordinator = BaseCoordinator(search_api = SearchAPI(query = 'Math'),
         >>>                                           response_coordinator = ResponseCoordinator.build())
         >>> response = base_search_coordinator.search(page = 1)

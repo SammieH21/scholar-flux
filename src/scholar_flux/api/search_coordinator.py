@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Dict, Optional, Any, Tuple, Sequence, cast, Generator
+from typing import List, Dict, Optional, Any, Sequence, cast, Generator
 from requests import PreparedRequest, Response
 from pydantic import ValidationError
 import logging
@@ -11,7 +11,9 @@ from scholar_flux.api import (
     ResponseCoordinator,
     ResponseValidator,
     ProcessedResponse,
+    APIResponse,
     ErrorResponse,
+    NonResponse
 )
 from scholar_flux.api.models import PageListInput, SearchResult, SearchResultList
 
@@ -46,7 +48,7 @@ class SearchCoordinator(BaseCoordinator):
     if valid to help avoid exceeding limits in API requests.
 
     If no search_api is provided, the coordinator will create a Search API that uses the default
-    provider if the environment variable, `DEFAULT_SCHOLAR_FLUX_PROVIDER`is not provided.
+    provider if the environment variable, `SCHOLAR_FLUX_DEFAULT_PROVIDER`is not provided.
     Otherwise PLOS is used on the backend.
     """
 
@@ -64,7 +66,7 @@ class SearchCoordinator(BaseCoordinator):
         cache_results: Optional[bool] = None,
         retry_handler: Optional[RetryHandler] = None,
         validator: Optional[ResponseValidator] = None,
-        workflow: Optional[SearchWorkflow] = None, 
+        workflow: Optional[SearchWorkflow] = None,
         **kwargs,
     ):
         """
@@ -144,11 +146,13 @@ class SearchCoordinator(BaseCoordinator):
         if not query and search_api is None:
             raise InvalidCoordinatorParameterException("Either 'query' or 'search_api' must be provided.")
 
-        api = self._create_search_api(search_api, query=query, provider_name=provider_name,
-                                      cache_requests = cache_requests, **kwargs)
+        api = self._create_search_api(
+            search_api, query=query, provider_name=provider_name, cache_requests=cache_requests, **kwargs
+        )
 
-        response_coordinator = self._create_response_coordinator(response_coordinator, parser, extractor,
-                                                                 processor, cache_manager, cache_results)
+        response_coordinator = self._create_response_coordinator(
+            response_coordinator, parser, extractor, processor, cache_manager, cache_results
+        )
 
         self._initialize(api, response_coordinator, retry_handler, validator, workflow)
 
@@ -181,12 +185,14 @@ class SearchCoordinator(BaseCoordinator):
         self.workflow = workflow or WORKFLOW_DEFAULTS.get(self.search_api.provider_name)
 
     @classmethod
-    def _create_search_api(cls,
-            search_api: Optional[SearchAPI] = None,
-            provider_name: Optional[str] = None,
-            query: Optional[str] = None,
-            cache_requests: Optional[bool] = None,
-            **kwargs) -> SearchAPI:
+    def _create_search_api(
+        cls,
+        search_api: Optional[SearchAPI] = None,
+        provider_name: Optional[str] = None,
+        query: Optional[str] = None,
+        cache_requests: Optional[bool] = None,
+        **kwargs,
+    ) -> SearchAPI:
         """
         Helper method for creating a new Search API from its components or an existing SearchAPI.
         Useful for when a search API needs to be created and used from scratch rather than directly
@@ -222,14 +228,15 @@ class SearchCoordinator(BaseCoordinator):
         return api
 
     @classmethod
-    def _create_response_coordinator(cls,
-								     response_coordinator: Optional[ResponseCoordinator] = None,
-                                     parser: Optional[BaseDataParser] = None,
-                                     extractor: Optional[BaseDataExtractor] = None,
-                                     processor: Optional[ABCDataProcessor] = None,
-                                     cache_manager: Optional[DataCacheManager] = None,
-                                     cache_results: Optional[bool] = None,
-                                    ) -> ResponseCoordinator:
+    def _create_response_coordinator(
+        cls,
+        response_coordinator: Optional[ResponseCoordinator] = None,
+        parser: Optional[BaseDataParser] = None,
+        extractor: Optional[BaseDataExtractor] = None,
+        processor: Optional[ABCDataProcessor] = None,
+        cache_manager: Optional[DataCacheManager] = None,
+        cache_results: Optional[bool] = None,
+    ) -> ResponseCoordinator:
         """
         Helper method for creating a new response coordinator either from an existing response coordinator
         with overrides or created anew entirely from its core dependencies.
@@ -584,8 +591,11 @@ class SearchCoordinator(BaseCoordinator):
                 )
             else:
                 halt = False
+        elif (response_result is None or isinstance(response_result, NonResponse)) and page == 0:
+            logger.warning("Skipping the page number, 0, as it is not a valid page number...")
+            halt = False
 
-        elif isinstance(response_result, ErrorResponse):
+        elif isinstance(response_result, ErrorResponse) and not isinstance(response_result, NonResponse):
             status_code = response_result.status_code
             status_description = (
                 f"(Status Code: {status_code}={response_result.status})" if status_code else "(Status Code: Missing)"
@@ -660,16 +670,27 @@ class SearchCoordinator(BaseCoordinator):
             Optional[ProcessedResponse | ErrorResponse]:
                 A Processed API Response if successful, Otherwise, returns an ErrorResponse
         """
-        response, cache_key = self._fetch_and_log(
+        # all missing response values values are handled at this step and transformed into NonResponses
+        api_response = self._fetch_api_response(
             page, from_request_cache=from_request_cache, **api_specific_parameters
         )
-        self._log_response_source(response, page, cache_key)
-        processed_response = self._process_response(response, cache_key, from_process_cache)
+
+        self._log_response_source(api_response.response, page, api_response.cache_key)
+        
+        # if there is no data to process within the response, return it as is
+        if isinstance(api_response, NonResponse):
+            return api_response
+
+        
+        # otherwise process the data before returning it
+        processed_response = self._process_response(response = cast(ResponseProtocol, api_response.response),
+                                                    cache_key = cast(str, api_response.cache_key),
+                                                    from_process_cache = from_process_cache)
         return processed_response
 
     # Request Handling
     def fetch(
-        self, page: int, from_request_cache: bool = True, **api_specific_parameters
+        self, page: int, from_request_cache: bool = True, raise_on_error: bool = False, **api_specific_parameters
     ) -> Optional[Response | ResponseProtocol]:
         """
         Fetches the raw response from the current API or from cache if available.
@@ -696,7 +717,11 @@ class SearchCoordinator(BaseCoordinator):
             response = self.robust_request(page, **api_specific_parameters)
             return response
         except RequestFailedException as e:
-            logger.warning(f"Failed to fetch page {page}: {e}")
+            msg = f"Failed to fetch page {page}"
+            err = f"{msg}: {e}" if str(e) else msg
+            logger.warning(err)
+            if raise_on_error:
+                raise RequestFailedException(err)
         return None
 
     def robust_request(self, page: int, **api_specific_parameters) -> Optional[Response | ResponseProtocol]:
@@ -719,8 +744,10 @@ class SearchCoordinator(BaseCoordinator):
             )
 
         except RequestFailedException as e:
-            logger.error(f"Failed to get a valid response from the {self.search_api.provider_name} API: {e}")
-            raise
+            msg = f"Failed to get a valid response from the {self.search_api.provider_name} API"
+            err = f"{msg}: {e}" if str(e) else msg
+            logger.error(err)
+            raise RequestFailedException(err) from e
 
         if getattr(response, "from_cache", False):
             logger.info(f"Retrieved cached response for query: {self.search_api.query} and page: {page}")
@@ -770,23 +797,27 @@ class SearchCoordinator(BaseCoordinator):
             logger.error(f"Error retrieving cached response: {e}")
             return None
 
-    def _fetch_and_log(
+    def _fetch_api_response(
         self, page: int, from_request_cache: bool = True, **api_specific_parameters
-    ) -> Tuple[Optional[Response | ResponseProtocol], str]:
+    ) -> APIResponse:
         """Helper method for fetching the response and retrieving the cache key.
         Args:
             page (int): The page number to retrieve from the cache.
         Returns:
-            Tuple[Optional[Response], str]: A tuple containing The request object
-                                            if available and its cache key
+            APIResponse | NonResponse: A data class containing the response and cache key when successfully retrieved,
+                                        independent of status code, and a NonResponse otherwise when retrieval is 
+                                        unsuccessful due to an error.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
         """
-        response = self.fetch(page, from_request_cache=from_request_cache, **api_specific_parameters)
         cache_key = self._create_cache_key(page)
+        try:
+            response = self.fetch(page, from_request_cache=from_request_cache, raise_on_error=True, **api_specific_parameters)
+        except RequestFailedException as e:
+            return NonResponse.from_error(error = e, message = str(e), cache_key = cache_key) 
 
         if not response:
             logger.info(f"Response retrieval for cache key {cache_key} was unsuccessful.")
-        return response, cache_key
+        return APIResponse(response = response, cache_key = cache_key)
 
     def _log_response_source(
         self, response: Optional[Response | ResponseProtocol], page: int, cache_key: Optional[str]
@@ -817,7 +848,7 @@ class SearchCoordinator(BaseCoordinator):
 
     def _process_response(
         self,
-        response: Optional[Response | ResponseProtocol],
+        response: Response | ResponseProtocol,
         cache_key: str,
         from_process_cache: bool = True,
     ) -> Optional[ProcessedResponse | ErrorResponse]:
@@ -836,9 +867,7 @@ class SearchCoordinator(BaseCoordinator):
                 A Processed API Response if successful, Otherwise, returns an ErrorResponse
         """
 
-        if not isinstance(response, Response) and not isinstance(response, ResponseProtocol):  # noqa: S101
-            return None
-
+        # assume that the entered value is a response protocol to be further validated when handled
         processed_response = self.response_coordinator.handle_response(
             response, cache_key, from_cache=from_process_cache
         )

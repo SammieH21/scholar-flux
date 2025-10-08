@@ -39,7 +39,7 @@ from scholar_flux.api.models import APIParameterMap, APIParameterConfig
 from scholar_flux.api.models import ProviderConfig, ProviderRegistry
 from scholar_flux.api.providers import PROVIDER_DEFAULTS, provider_registry
 
-from scholar_flux.api.models.response import APIResponse, ErrorResponse, ProcessedResponse
+from scholar_flux.api.models.response import APIResponse, ErrorResponse, ProcessedResponse, NonResponse
 from scholar_flux.api.models import SearchAPIConfig
 
 from scholar_flux.api.rate_limiting.rate_limiter import RateLimiter
@@ -64,6 +64,7 @@ __all__ = [
     "provider_registry",
     "APIResponse",
     "ErrorResponse",
+    "NonResponse",
     "ProcessedResponse",
     "ReconstructedResponse",
     "SearchAPIConfig",

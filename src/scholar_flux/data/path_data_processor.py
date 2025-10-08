@@ -44,7 +44,7 @@ class PathDataProcessor(ABCDataProcessor):
         self.ignore_keys = ignore_keys or None
         self.keep_keys = keep_keys or None
         self.use_cache = use_cache or False
-        self.path_node_index = PathNodeIndex(use_cache = self.use_cache)
+        self.path_node_index = PathNodeIndex(use_cache=self.use_cache)
 
         self.json_data = json_data
         self.load_data(json_data)
@@ -78,9 +78,9 @@ class PathDataProcessor(ABCDataProcessor):
         discovered_paths = PathDiscoverer(self.json_data).discover_path_elements(inplace=False)
         logger.debug("Creating a node index")
 
-        self.path_node_index = PathNodeIndex.from_path_mappings(discovered_paths or {},
-                                                                chain_map = True,
-                                                                use_cache = self.use_cache)
+        self.path_node_index = PathNodeIndex.from_path_mappings(
+            discovered_paths or {}, chain_map=True, use_cache=self.use_cache
+        )
         logger.debug("JSON data loaded")
         return True
 

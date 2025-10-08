@@ -8,7 +8,13 @@ from scholar_flux.exceptions import InvalidCoordinatorParameterException, Reques
 from scholar_flux.data import BaseDataParser, DataExtractor, PassThroughDataProcessor, PathDataProcessor
 
 
-def test_init(caplog):
+def test_initialization(caplog):
+    """
+    Tests both valid and invalid inputs to ensure that upon creating a BaseCoordinator, inputs are validated to
+    accept only a SearchAPI and a ResponseCoordinator.
+
+    For all other possible input types, a InvalidCoordinatorParameterException should be raised instead.
+    """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
 
@@ -19,8 +25,20 @@ def test_init(caplog):
         _ = BaseCoordinator(search_api=1, response_coordinator=response_coordinator)  # type: ignore
         assert "Could not initialize the BaseCoordinator due to an issue creating the SearchAPI." in caplog.text
 
+    base_coordinator = BaseCoordinator(api, response_coordinator)
+    assert (
+        isinstance(base_coordinator, BaseCoordinator)
+        and base_coordinator.search_api == api
+        and base_coordinator.response_coordinator == response_coordinator
+    )
+
 
 def test_build():
+    """
+    Tests whether the `as_coordinator` argument creates a new BaseCoordinator as a classmethod that can be
+    extended by subclasses. Independent of whether the regular __init__ method or the classmethod is used,
+    the result should have the same structure as indicated by its representation
+    """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
 
@@ -30,6 +48,11 @@ def test_build():
 
 
 def test_override_build():
+    """
+    All additional parameters should override previous configurations as requested with updates to
+    the properties that hold the search_api and response_coordinator while simultaneously not allowing
+    bad inputs for components when set directly
+    """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
     base_search_coordinator = BaseCoordinator.as_coordinator(api, response_coordinator)
@@ -48,12 +71,12 @@ def test_override_build():
     base_search_coordinator.extractor = extractor
     base_search_coordinator.processor = processor
     base_search_coordinator.search_api = new_api
-    base_search_coordinator.search_api = new_api
 
     assert base_search_coordinator.parser == base_parser
     assert base_search_coordinator.extractor == extractor
     assert base_search_coordinator.processor == processor
     assert base_search_coordinator.search_api == base_search_coordinator.api == new_api
+    assert base_search_coordinator.responses == base_search_coordinator.response_coordinator == response_coordinator
     assert base_search_coordinator.responses.cache == base_search_coordinator.responses.cache_manager
 
     base_search_coordinator.response_coordinator = new_response_coordinator
@@ -97,6 +120,10 @@ def test_override_build():
 
 
 def test_initialization_updates():
+    """
+    Ensure that updates to core components don't directly impact the configuration of an existing base coordinator,
+    and instead create new objects without changing the original
+    """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build(cache_results=True)
     base_search_coordinator = BaseCoordinator.as_coordinator(api, response_coordinator)
@@ -114,6 +141,11 @@ def test_initialization_updates():
 
 
 def test_request_failed_exception(monkeypatch, caplog):
+    """
+    Ensure that, when searching for a request, the exception is caught
+    and returned as None with the user-facing `base_coordinator.search` method
+    """
+
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
 
@@ -126,10 +158,17 @@ def test_request_failed_exception(monkeypatch, caplog):
     assert res is None
 
 
-def test_basic_coordinator_search(default_memory_cache_session, academic_json_response, caplog):
+def test_basic_coordinator_search(default_memory_cache_session, academic_json_response):
     """
-    Test for whether the defaults are specified correctly and whether the mocked response is processed
-    as intended throughout the coordinator
+    Tests for whether the defaults are specified correctly and whether the mocked response is processed
+    as intended throughout the coordinator.
+
+    Sucessfully received and processed responses should return a ProcessedResponse, even in the absence
+    of extracted record.
+
+    For processed responses, the data attribute contains the records that has been parsed, and processed
+
+    Errors that occur during retrieval or processing should instead be logged and recorded in an ErrorResponse.
     """
 
     session_manager = CachedSessionManager(user_agent="test-user", backend="memory")
@@ -159,15 +198,16 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
         )
 
         result = coordinator.search(page=1, cache_key="test-cache-key")
-        assert result and result.data  # and len(result.data) == 3
+
+        assert result and result.data and len(result.data) == 3
 
     with requests_mock.Mocker() as m:
         m.get(prepared_request.url, status_code=429, headers={"Content-Type": "application/json"})
         result = coordinator.search(page=1, cache_key="test-cache-key")
-        assert isinstance(result, ProcessedResponse)
+        assert isinstance(result, ProcessedResponse) and result
 
         request_key = api.cache.create_key(prepared_request)
         api.cache.delete(request_key)
 
         result = coordinator.search(page=1, cache_key="test-cache-key")
-        assert isinstance(result, ErrorResponse)
+        assert isinstance(result, ErrorResponse) and not result

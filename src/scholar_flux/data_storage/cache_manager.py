@@ -299,7 +299,9 @@ class DataCacheManager:
     @classmethod
     def with_storage(
         cls,
-        storage: Optional[Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "null"]] = None,
+        storage: Optional[
+            Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"]
+        ] = None,
         *args,
         **kwargs,
     ) -> DataCacheManager:
@@ -317,7 +319,7 @@ class DataCacheManager:
                 "The chosen storage device for caching processed responses is not valid. Expected a valid string"
             )
         match storage.lower():
-            case "inmemory":
+            case "inmemory" | "memory":
                 return cls(InMemoryStorage(*args, **kwargs))
             case "sql" | "sqlalchemy":
                 return cls(SQLAlchemyStorage(*args, **kwargs))

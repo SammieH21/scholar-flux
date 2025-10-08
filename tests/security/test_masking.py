@@ -11,6 +11,7 @@ from scholar_flux.security import (
 
 
 def test_initialization():
+    """Verifies that the sensitive data masker is populated with masking defaults only if `register_defaults=True"""
     masker = SensitiveDataMasker(register_defaults=True)
     assert masker.patterns
 
@@ -19,6 +20,7 @@ def test_initialization():
 
 
 def test_basic_string_pattern():
+    """Verifies that basic string patterns can be redacted by defining the masking pattern with associated options"""
     masker = SensitiveDataMasker(register_defaults=False)
     masking_text = "<redacted>"
     password = "paxw0rD"
@@ -32,6 +34,7 @@ def test_basic_string_pattern():
 
 
 def test_regex_string_pattern():
+    """Verifies that regular expressions can be masked from text using regular expressions to identify text to mask"""
     masker = SensitiveDataMasker(register_defaults=False)
     masking_text = "<redacted>"
     string_pattern = StringMaskingPattern(name="birthdate", pattern=r"\d\d\d\d-\d\d-\d\d", replacement=masking_text)
@@ -45,6 +48,10 @@ def test_regex_string_pattern():
 
 
 def test_basic_key_pattern():
+    """
+    Validates that key-value pairs that indicate patterns to mask will successfully trigger when encountering
+    strings containing the matching pattern.
+    """
     masker = SensitiveDataMasker(register_defaults=False)
     masking_text = "<redacted>"
     birthdate = r"[0-9][0-9][0-9][0-9]-[0-9][0-9]?-[0-9][0-9]?|[0-9][0-9]?-[0-9][0-9]?-[0-9][0-9][0-9][0-9]"
@@ -71,6 +78,7 @@ def test_basic_key_pattern():
 
 
 def test_pattern_removal():
+    """Validates whether patterns can be removed as intended by the name associated with the pattern"""
     masker = SensitiveDataMasker(register_defaults=True)
     assert masker.get_patterns_by_name("api_key") is not None
     masker.remove_pattern_by_name("api_key")
@@ -78,6 +86,7 @@ def test_pattern_removal():
 
 
 def test_factory_key_patterns():
+    """Validates whether key patterns can be initialized without defining the underlying KeyMaskingPattern upfront"""
     masker = SensitiveDataMasker(register_defaults=False)
 
     # lists and strings should work in this scenario:
@@ -94,6 +103,19 @@ def test_factory_key_patterns():
 
 
 def test_secret_masking():
+    """
+    Ensures that secrets can be masked and unmasked when required based on whether or not the
+    key is already a secret string.
+
+    When non-secrets are entered into `unmask_secret`, they should be returned as is. 
+
+    Conversely, with `mask_secret`, non-secrets, unless None, should be coerced into secrets if not already a secret.
+    Otherwise, secrets should be returned as is.
+
+    The `register_secret_if_exists` method is also tested and expected to work similarly:
+        With a secret as input, the value of the secret will be added as a masked text patterns and return True.
+        Otherwise, no patterns are added, and False is returned to signify that nothing was added.
+    """
     masker = SensitiveDataMasker(register_defaults=False)
     assert masker.mask_secret(None) is None
     assert masker.mask_secret("") == SecretStr("")
@@ -108,7 +130,7 @@ def test_secret_masking():
 
     assert masker.register_secret_if_exists(field="a_secret", value=a_secret, name="new_secret")
     new_secret = list(masker.get_patterns_by_name("new_secret"))
-    assert new_secret and isinstance(new_secret[0].pattern, SecretStr) and new_secret[0].pattern == a_secret  # type: ignore
+    assert new_secret and isinstance(new_secret[0].pattern, SecretStr) and new_secret[0].pattern == a_secret  
 
     masker.add_sensitive_string_patterns(name="new_secret", patterns=[a_secret.get_secret_value()], use_regex=False)
 
@@ -116,14 +138,22 @@ def test_secret_masking():
 
 
 def test_repr():
+    """
+    Verifies that the patterns shown in the SensitiveDataMasker's representation are masked and not directly shown.
+    """
     masker = SensitiveDataMasker(register_defaults=True)
     assert repr(masker) == "SensitiveDataMasker(patterns=MaskingPatternSet(...))"
 
+    # when no patterns are added, the `...` won't be present
     masker = SensitiveDataMasker(register_defaults=False)
     assert repr(masker) == "SensitiveDataMasker(patterns=MaskingPatternSet())"
 
 
 def test_masking_pattern_abc():
+    """
+    Tests the underlying MaskingPattern parent class to verify the implementation of the underlying methods used
+    to compare patterns, hashes, and `_identity_key` methods.
+    """
     string_pattern = StringMaskingPattern(name="abstract testing", pattern="abc")
     key_pattern = KeyMaskingPattern(name="abstract testing", field="subclassing", pattern="abc")
 
@@ -136,6 +166,15 @@ def test_masking_pattern_abc():
 
 
 def test_pattern_identity():
+    """
+    Validates whether the identity_key correctly identifies StringMaskingPatterns and KeyMaskingPatterns based
+    on their respective configuration.
+
+    StringMaskingPatterns should be identifiable based their assigned names and the secret values of their patterns.
+
+    KeyMaskingPatterns should be identifiable based on the name assigned to a pattern, the associated field (or key)
+    indicating the pattern to mask, and the secret values of their patterns.
+    """
     string_pattern = StringMaskingPattern(name="abstract testing", pattern="abc")
     key_pattern = KeyMaskingPattern(name="key_patterns", field="identity", pattern="abc")
     assert string_pattern._identity_key() == f"('StringMaskingPattern', '{string_pattern.name}', '{string_pattern.pattern.get_secret_value()}')"  # type: ignore
@@ -143,6 +182,10 @@ def test_pattern_identity():
 
 
 def test_pattern_set():
+    """
+    Validates whether, as intended, the `MaskingPatternSet` will correctly allow only patterns and otherwise raise
+    a type error when encountering incorrect types.
+    """
     string_pattern = StringMaskingPattern(name="abstract testing", pattern="abc")
     key_pattern = KeyMaskingPattern(name="key_patterns", field="identity", pattern="abc")
     pattern_set = MaskingPatternSet()

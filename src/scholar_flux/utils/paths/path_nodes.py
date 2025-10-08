@@ -38,7 +38,9 @@ class PathNode:
             )
 
     @classmethod
-    def to_path_node(cls, path: Union[ProcessingPath, str, list[str]], value: Any, **path_kwargs) -> Self:
+    def to_path_node(
+        cls, path: Union[ProcessingPath, str, int, list[str], list[int], list[str | int]], value: Any, **path_kwargs
+    ) -> Self:
         """
         Helper method for creating a path node from the components used to create paths
         in addition to value to assign the path node.

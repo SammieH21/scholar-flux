@@ -15,7 +15,7 @@ class DataParser(BaseDataParser):
     in APIs that send news and academic articles in XML, JSON, and YAML formats.
 
     The BaseDataParser contains each of the necessary class elements to parse JSON, XML,
-    and YAML formats as classmethods while this class allows for the specification
+    and YAML formats as class methods while this class allows for the specification
     of additional parsers.
 
     Args:
@@ -28,7 +28,7 @@ class DataParser(BaseDataParser):
         """
         On initialization, the data parser is set to use built-in class methods to
         parse json, xml, and yaml-based response content by default and the parse
-        halper class to determine which parser to use based on the Content-Type.
+        helper class to determine which parser to use based on the Content-Type.
 
         Args:
             additional_parsers (Optional[dict[str, Callable]]): Allows for the addition of
@@ -47,7 +47,7 @@ class DataParser(BaseDataParser):
            and return a parsed dictionary (json) structure.
 
         Args:
-            response (response type): The response or response-like object from the API request.
+            response (requests.Response | ResponseProtocol): The response or response-like object from the API request.
             format (str): The parser needed to format the response as a list of dicts
 
         Returns:
@@ -68,7 +68,7 @@ class DataParser(BaseDataParser):
 
     def __repr__(self):
         """
-        Helper method for indentifying the current implementation of the DataParser.
+        Helper method for identifying the current implementation of the DataParser.
         Useful for showing the options being used for parsing response content into dictionary objects
         """
         class_name = self.__class__.__name__

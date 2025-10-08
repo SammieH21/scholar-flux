@@ -42,7 +42,7 @@ class RetryHandler:
                                   should be attempted based on past unsuccessful attempts
             max_backoff (int): describes the maximum number of seconds to wait before submitting
             retry_statuses (Optional[set[int]]):
-                Inidicates the full list of status codes that should be retried if encountered
+                Indicates the full list of status codes that should be retried if encountered
             raise_on_error (Optional[bool]): Flag that indicates whether or not to raise an error
                 upon encountering an invalid status_code or exception
 
@@ -81,6 +81,7 @@ class RetryHandler:
         validator_func = validator_func or self._default_validator_func
 
         response = None
+        msg = None
 
         try:
             while attempts <= self.max_retries:
@@ -92,9 +93,10 @@ class RetryHandler:
                 if not (
                     isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)
                 ) or not self.should_retry(response):
-                    self.log_retry_warning("Received an invalid or non-retryable response.")
+                    msg = "Received an invalid or non-retryable response."
+                    self.log_retry_warning(msg)
                     if self.raise_on_error:
-                        raise InvalidResponseException(response)
+                        raise InvalidResponseException(response, msg)
                     break
 
                 delay = self.calculate_retry_delay(attempts, response)
@@ -109,10 +111,11 @@ class RetryHandler:
                 time.sleep(delay)
                 attempts += 1
             else:
-                self.log_retry_warning("Max retries exceeded without a valid response.")
+                msg = "Max retries exceeded without a valid response."
+                self.log_retry_warning(msg)
 
                 if self.raise_on_error:
-                    raise InvalidResponseException(response)
+                    raise InvalidResponseException(response, msg)
 
             logger.debug(
                 f"Returning a request of type {type(response)}, status_code={response.status_code if isinstance(response, requests.Response) else None}"
@@ -122,7 +125,9 @@ class RetryHandler:
         except InvalidResponseException:
             raise
         except Exception as e:
-            raise RequestFailedException from e
+            msg = "A valid response could not be retrieved after {attempts} attempts"
+            err = f"{msg}: {e}" if str(e) else f"{msg}."
+            raise RequestFailedException(err) from e
 
     @classmethod
     def _default_validator_func(cls, response: requests.Response | ResponseProtocol) -> bool:

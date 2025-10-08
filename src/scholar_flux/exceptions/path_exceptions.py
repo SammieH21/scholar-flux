@@ -76,6 +76,7 @@ class PathNodeMapError(PathUtilsError):
 
     pass
 
+
 class PathRecordMapError(PathNodeMapError):
     """Exception raised when attempting to perform an invalid operation a PathRecordMap"""
 

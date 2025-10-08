@@ -1,7 +1,7 @@
 # scholar_flux.utils.path_index
 from __future__ import annotations
 import re
-from typing import Optional, Union, Any, ClassVar, MutableMapping
+from typing import Optional, Union, Any, ClassVar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from scholar_flux.exceptions.path_exceptions import (
@@ -123,9 +123,9 @@ class PathNodeIndex:
         return simplifier
 
     @classmethod
-    def _validate_index(cls, index: Union[PathNodeMap, MutableMapping[ProcessingPath, PathNode]],
-                        use_cache: Optional[bool] = None
-                       ) -> PathNodeMap | PathChainMap:
+    def _validate_index(
+        cls, index: Union[PathNodeMap, PathChainMap, dict[ProcessingPath, PathNode]], use_cache: Optional[bool] = None
+    ) -> PathNodeMap | PathChainMap:
         """
         Determine whether the current path is an index of paths and nodes.
         Args:
@@ -134,18 +134,18 @@ class PathNodeIndex:
             PathNodeIndexError in the event that the expected type is not a dictionary of paths
         """
         if not index:
-            return PathNodeMap(cache = use_cache) # set directly if empty
+            return PathNodeMap(cache=use_cache)  # set directly if empty
         if isinstance(index, (PathNodeMap, PathChainMap)):
             return index
-        if isinstance(index, MutableMapping):
-            return PathNodeMap(dict(index), cache = use_cache)
+        if isinstance(index, dict):
+            return PathNodeMap(index, cache=use_cache)
         else:
             raise PathNodeIndexError(f"The argument, index, expected a PathNodeMap. Recieved {type(index)}")
 
     @classmethod
-    def from_path_mappings(cls, path_mappings: dict[ProcessingPath, Any],
-                           chain_map: bool = False,
-                           use_cache: Optional[bool] = None) -> PathNodeIndex:
+    def from_path_mappings(
+        cls, path_mappings: dict[ProcessingPath, Any], chain_map: bool = False, use_cache: Optional[bool] = None
+    ) -> PathNodeIndex:
         """
         Takes a dictionary of path:value mappings and transforms the dictionary into
         a list of PathNodes: useful for later path manipulations such as grouping and
@@ -160,7 +160,7 @@ class PathNodeIndex:
 
         Map = PathChainMap if chain_map else PathNodeMap
         nodes = (PathNode(path, value) for path, value in path_mappings.items())
-        return cls(Map(*nodes, cache = use_cache), use_cache = use_cache)
+        return cls(Map(*nodes, cache=use_cache), use_cache=use_cache)
 
     def __repr__(self) -> str:
         """Helper method for simply returning the name of the current class and the count of elemnts in the index"""
@@ -368,7 +368,9 @@ class PathNodeIndex:
         path_mappings = PathDiscoverer(record_list).discover_path_elements() if isinstance(record_list, list) else {}
 
         if not isinstance(path_mappings, dict) or not path_mappings:
-            logger.warning(f"The json structure of type, {type(json_records)} contains no rows. Returning an empty list")
+            logger.warning(
+                f"The json structure of type, {type(json_records)} contains no rows. Returning an empty list"
+            )
             return []
 
         logger.info(f"Discovered {len(path_mappings)} terminal paths")

@@ -15,26 +15,45 @@ from base64 import b64encode, b64decode
 
 
 def test_validate_key_error():
+    """
+    Validates whether the a string secret key will raise an error: The EncryptionPipelineFactory expects a Fernet
+    if a key is provided. Otherwise it should generate it automatically.
+    """
     with pytest.raises(SecretKeyError):
         key = " " * 44
         EncryptionPipelineFactory._validate_key(key.encode())
 
 
 def test_generate_secret_key():
+    """
+    Tests the generation of a new Fernet key and verifies the type.
+    Fernet keys should be URL encoded bytes with a of a length `len(fernet) == 44`
+    """
     fernet = EncryptionPipelineFactory.generate_secret_key()
-    assert isinstance(fernet, bytes)
+    assert isinstance(fernet, bytes) and len(fernet) == 44
 
 
 def test_env_key_loader(caplog):
+    """
+    Validates whether the use of a SCHOLAR_FLUX_CACHE_SECRET_KEY will be successfully when generating a new
+    encryption pipeline factory class
+    """
+    # generates the fernet key 
     fernet = EncryptionPipelineFactory.generate_secret_key()
+
+    # simulates the fernet key being saved as a bytes object in the config
     with patch.dict(scholar_flux.sessions.encryption.config, {"SCHOLAR_FLUX_CACHE_SECRET_KEY": fernet}):
+        # verifies whether, when a fernet key is not provided, the secret key will be used by default
         new_fernet = EncryptionPipelineFactory._prepare_key(None)
         assert "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY" in caplog.text
         assert fernet == new_fernet
 
 
 def test_encryption_factory_secret_initialization(session_encryption_dependency):
-
+    """
+    Tests whether the initialization of a faulty and secret keys will raise the intended error.
+    Also validates whether valid secret keys are successfully used in the EncryptionPipelineFactory
+    """
     if not session_encryption_dependency:
         pytest.skip()
 
@@ -63,7 +82,7 @@ def test_encryption_factory_secret_initialization(session_encryption_dependency)
 
 
 def test_missing_encryption(session_encryption_dependency):
-
+    """Validates whether a missing package dependency will correctly raise an error once instantiated"""
     if not session_encryption_dependency:
         pytest.skip()
 
@@ -84,6 +103,14 @@ def test_encrypted_cached_session_initialization(
     incorrect_secret_salt_encryption_cache_session_manager,
     session_encryption_dependency,
 ):
+    """
+    Verifies that, when available, the EncryptionPipelineFactory works as intended to encrypt session cache
+    when using the initial fernet key for session encryption and decryption.
+
+    Also validates that, when a new fernet key is used to attempt to access the same encrypted cache sql file with a
+    a session encryption pipeline, the SearchAPI will instead raise an InvalidToken error indicating that the
+    previously accessible resource can't be accessed with the current, incorrect Fernet key.
+    """
 
     if not session_encryption_dependency:
         pytest.skip()
@@ -105,7 +132,7 @@ def test_encrypted_cached_session_initialization(
     with requests_mock.Mocker() as m:
         m.get(prepared_request.url, status_code=200, json=params)
 
-        response = api.send_request(api.base_url, parameters=params)
+        response = api.search(page = 1)
         assert not getattr(response, "from_cache", False)
 
         response_two = api.send_request(api.base_url, parameters=params)
@@ -129,7 +156,7 @@ def test_encrypted_cached_session_initialization(
         response_three = None
         try:
             m.get(prepared_request.url, status_code=200, json=params)
-            response_three = api_two.send_request(api.base_url, parameters=params)
+            response_three = api_two.search(page = 1)
         except InvalidToken:
             pass
         assert not getattr(response_three, "from_cache", False)

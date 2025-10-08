@@ -4,6 +4,9 @@ import os
 
 
 def test_get_filepath(cleanup, tmp_path):
+    """
+    Verifies that the home directory of the user is expanded with the `~/` symbol when defining Paths with FileUtils.
+    """
     # Test with ~
     filepath = "~/test.txt"
     ext = ".txt"
@@ -24,6 +27,7 @@ def test_get_filepath(cleanup, tmp_path):
 
 
 def test_save_as(cleanup, tmp_path):
+    """Verifies that saving a file at a path using FileUtils works as intended in saving and identifying saved files"""
     obj = {"key": "value"}
     filepath = Path(tmp_path) / "test.json"
     FileUtils.save_as(obj, filepath)
@@ -31,6 +35,7 @@ def test_save_as(cleanup, tmp_path):
 
 
 def test_load_data(cleanup, tmp_path):
+    """Tests a validates the ability to load files saved with this `save_as` FileUtils class method"""
     # Test with valid JSON
     data = {"key": "value"}
     filepath = Path(tmp_path) / "test.json"
@@ -48,6 +53,7 @@ def test_load_data(cleanup, tmp_path):
 
 
 def test_file_exists(cleanup, tmp_path):
+    """Verifies that the `file_exists` tool can be used from the FileUtils helper class to find saved files"""
     # Test existing file
     filepath = Path(tmp_path) / "test.json"
     FileUtils.save_as({}, filepath)
@@ -59,6 +65,7 @@ def test_file_exists(cleanup, tmp_path):
 
 
 def test_delete_file(cleanup, tmp_path):
+    """Verifies that a file that exists can also be deleted with te `delete_file` method"""
     # Create a file to delete
     filepath = os.path.join(tmp_path, "test.json")
     FileUtils.save_as({}, filepath)
@@ -69,6 +76,7 @@ def test_delete_file(cleanup, tmp_path):
 
 
 def test_show_dir(cleanup, tmp_path):
+    """Verifies that a list of json files can be created from a simple empty dictionary"""
     files = [f"file{i}.json" for i in range(1, 6)]
     obj = {"key": "value"}
     for file_name in files:
@@ -80,6 +88,7 @@ def test_show_dir(cleanup, tmp_path):
 
 
 def test_get_file_size(cleanup, tmp_path):
+    """Verifies that the size of a file is quickly retrievable via `FileUtils.get_file_size`"""
     # Create a file with known content
     content = "test content"
     filepath = Path(tmp_path) / "test.txt"
@@ -90,5 +99,3 @@ def test_get_file_size(cleanup, tmp_path):
     size = FileUtils.get_file_size(filepath)
     assert size == len(content)
 
-
-# Additional tests for other methods can be written similarly.

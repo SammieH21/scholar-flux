@@ -8,6 +8,7 @@ import pytest
 
 
 def test_initialization():
+    """Validates the initialization of ProcessingPaths with a variety of components/component_types"""
     basic_path = ProcessingPath(components=["1", "2", "3"], component_types=["odd", "even", "odd"])
     assert isinstance(basic_path, ProcessingPath)
 
@@ -27,9 +28,14 @@ def test_initialization():
     basic_path = ProcessingPath(components=["1", "2", "3"], component_types=None)
     assert basic_path
 
+    basic_path_int = ProcessingPath(components=[1, 2, 3], component_types=["odd", "even", "odd"])
+    assert basic_path == basic_path_int  # discouraged to use integers but allowed
+
     basic_path = ProcessingPath(components=["1", "2", "3"], component_types=[] * 3)
     assert basic_path
 
+def test_invalid_path_initialization():
+    """Validates the exception raising of paths when invalid combinations of inputs are entered"""
     basic_path = ProcessingPath(components=["1", "2", "3"], component_types=[] * 3, delimiter=None)
 
     with pytest.raises(InvalidProcessingPathError):
@@ -48,9 +54,6 @@ def test_initialization():
         basic_path = ProcessingPath(components=["1", "2", "3"], component_types=["odd", "even"])
 
     with pytest.raises(InvalidProcessingPathError):
-        basic_path = ProcessingPath(components=[1, 2, 3], component_types=["odd", "even", "odd"])  # type:ignore
-
-    with pytest.raises(InvalidProcessingPathError):
         basic_path = ProcessingPath(components=["No", "", "Yes"], component_types=["false", "0", "even"])
 
     with pytest.raises(InvalidPathDelimiterError):
@@ -58,6 +61,7 @@ def test_initialization():
 
 
 def test_components():
+    """Verifies the basic functioning of processing paths including components, component types, and key membership"""
     basic_path = ProcessingPath(components=["1", "2", "3"], component_types=["odd", "even", "odd"])
     assert isinstance(basic_path, ProcessingPath)
 

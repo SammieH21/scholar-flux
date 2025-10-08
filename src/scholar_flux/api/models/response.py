@@ -184,7 +184,7 @@ class APIResponse(BaseModel):
     def text(self) -> Optional[str]:
         """
         Attempts to retrieve the response text by first decode the bytes of the its content.
-        If not avaialable, this property attempts to directly reference the text attribute directly.
+        If not available, this property attempts to directly reference the text attribute directly.
 
         Returns:
             Optional[str]: A text string if the text is available in the correct format, otherwise None
@@ -474,6 +474,35 @@ class ErrorResponse(APIResponse):
     message: Optional[str] = None
     error: Optional[str] = None
 
+    @classmethod
+    def from_error(cls, 
+                   message: str,
+                   error: Exception,
+                   cache_key: Optional[str] = None,
+                   response: Optional[requests.Response | ResponseProtocol] = None,
+                  ) -> Self:
+        """
+        Creates and logs the processing error if one occurs during response processing
+
+        Args:
+            response (Response): Raw API response.
+            cache_key (Optional[str]): Cache key for storing results.
+
+        Returns:
+            ErrorResponse: A Dataclass Object that contains the error response data
+                            and background information on what precipitated the error.
+        """
+
+        creation_timestamp = generate_iso_timestamp()
+        return cls(
+            cache_key=cache_key,
+            response=response.response if isinstance(response, APIResponse) else response,
+            message=message,
+            error=type(error).__name__,
+            created_at=creation_timestamp,
+        )
+
+
     @property
     def parsed_response(self) -> None:
         """Provided for type hinting + compatibility"""
@@ -514,6 +543,17 @@ class ErrorResponse(APIResponse):
         """Indicates that the underlying response was not successfully processed or contained an error code"""
         return False
 
+class NonResponse(ErrorResponse):
+    """
+    Response class used to indicate that an error occurred in the preparation of a request or in the retrieval
+    of a response object from an API. This class is used to signify the error that occurred within the search process
+    using a similar interface as the other scholar_flux Response dataclasses.
+    """
+    response: None = None
+
+    def __repr__(self) -> str:
+        """Helper method for creating a string representation of the underlying ErrorResponse"""
+        return f"<NonResponse(error={self.error}, " f"message={self.message!r})>"
 
 class ProcessedResponse(APIResponse):
     """

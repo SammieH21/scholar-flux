@@ -9,6 +9,10 @@ from copy import deepcopy
 
 
 def test_provider_config_validation(caplog):
+    """
+    Tests that the provider config, upon encountering both invalid base/documentation URLs, will log and raise an
+    APIParameterException. This test also verifies that valid URLs are not flagged and do not raise errors.
+    """
     invalid_url: dict = {}
     with pytest.raises(APIParameterException) as excinfo:
         ProviderConfig.validate_base_url(invalid_url)  # type: ignore
@@ -36,7 +40,8 @@ def test_provider_config_validation(caplog):
     assert ProviderConfig.validate_docs_url("https:// www.usersite.com")  # type: ignore
 
 
-def test_provider_retrieval():
+def test_unknown_provider_retrieval():
+    """Verifies that the attempted retrieval of a provider will return None if it is not registered"""
     provider_registry = ProviderRegistry.from_defaults()
 
     assert provider_registry.get_from_url(provider_url="https://non-existent-provider.com") is None
@@ -44,7 +49,8 @@ def test_provider_retrieval():
     assert provider_registry.get("non-existent-provider") is None
 
 
-def test_provider_deletion():
+def test_unknown_provider_deletion():
+    """Verifies that the deletion of an unknown provider will raise a KeyError"""
     provider_registry = ProviderRegistry.from_defaults()
     n = len(provider_registry)
     with pytest.raises(KeyError):
@@ -53,6 +59,12 @@ def test_provider_deletion():
 
 
 def test_provider_addition():
+    """
+    Tests whether the addition of a new provider occurs as intended when initialized with
+    a string (key) and a ProviderConfig (value).
+
+    Upon registering the new provider, the provider should be retrievable from the `provider_registry`.
+    """
     provider_registry = ProviderRegistry.from_defaults()
     n = len(provider_registry)
 
@@ -82,7 +94,7 @@ def test_provider_addition():
 
 
 def test_invalid_provider_addition():
-
+    """Tests whether the attempted addition of an invalid provider raises an APIParameterException"""
     provider_registry = ProviderRegistry.from_defaults()
     n = len(provider_registry)
 
@@ -112,6 +124,10 @@ def test_invalid_provider_addition():
 
 
 def test_successful_import():
+    """
+    Ensures that dynamic imports for supported providers are loaded as intended through the use of
+    the ProviderUtils.load_provider_config_dict helper class method.
+    """
     with contextlib.suppress(AttributeError):
         ProviderUtils.load_provider_config_dict.cache_clear()  # lru cached
 
@@ -120,6 +136,10 @@ def test_successful_import():
 
 
 def test_failed_import():
+    """
+    Tests and validates that any unsuccessful imports of provider configs do not preclude python from successfully
+    loading the scholar_flux package. Exceptions should be handled by the `ProviderUtils.load_provider_config` method.
+    """
     from scholar_flux.utils.provider_utils import importlib
 
     providers_module_name = scholar_flux_api_providers.__name__

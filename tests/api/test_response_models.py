@@ -13,22 +13,29 @@ import re
 
 
 class DummyResponse(Response):
+    """Helper class for testing how `status_code functions for requests.Response subclassess"""
     def __init__(*args, **kwargs):
         pass
 
     @property
     def status_code(self) -> int:  # type: ignore
+        """Used to automatically raise a ValueError for later testing with the ReconstructedResponse class"""
         raise ValueError
 
 
 @patch("scholar_flux.utils.helpers.try_int")
 def test_response_creation(mock_try_int, mock_successful_response):
+    """Tests whether the property accounts for issues such as raised value errors when retrieving status codes"""
     api_response = APIResponse(cache_key="key", response=DummyResponse())
     code = api_response.status_code
     assert code is None
 
 
-def test_blank_initialiation():
+def test_blank_initialization():
+    """
+    Verifies that initializing a reconstructed response is possible when explicitly setting `url` and `status_code`
+    to None.
+    """
     response = ReconstructedResponse.build(url=None, status_code=None)
 
     assert response
@@ -43,6 +50,7 @@ def test_blank_initialiation():
 
 
 def test_error_response(mock_unauthorized_response):
+    """Verifies the representation of the ErrorResponse as defined by its original parent class __repr__"""
     error_response = ErrorResponse(cache_key="key", response=mock_unauthorized_response)
     assert (
         repr(error_response) == f"<ErrorResponse(status_code={error_response.status_code}, error=None, message=None)>"
@@ -51,13 +59,15 @@ def test_error_response(mock_unauthorized_response):
 
 
 def test_success_response():
+    """Tests if the processed reecords and data fields are populated as intended for a ProcessedResponse"""
     response_dict: list[dict] = [{1: 1}, {2: 2}, {3: 3}, {4: 4}]
     processed_response = ProcessedResponse(processed_records=response_dict)
     assert processed_response and processed_response.data
-    assert len(processed_response) == 4 == len(processed_response.data)
+    assert len(processed_response) == 4 == len(processed_response.data) == len(processed_response.processed_records or [])
 
 
 def test_api_response_from_response(mock_successful_response):
+    """Verifies elements of the APIResponse parent clsas such as status code, status, cache_key, etc"""
     api_response = APIResponse.from_response(response=mock_successful_response, cache_key="foo")
     assert api_response.status_code == 200
     assert api_response.cache_key == "foo"
@@ -66,6 +76,9 @@ def test_api_response_from_response(mock_successful_response):
 
 
 def test_api_response_from_kwargs():
+    """
+    Verifies that header, content, and other relevant fields are populated as intended when constructed manually
+    """
     api_response = APIResponse.from_response(
         status_code=201,
         headers={"X-Test": "yes"},
@@ -82,6 +95,10 @@ def test_api_response_from_kwargs():
 
 
 def test_api_response_serialize_and_deserialize(mock_successful_response):
+    """
+    Tests idempotence and the reliability of serializing and deserializing responses using ReconstructedResponses
+    and the most important fields derived from response classes.
+    """
     api_response = APIResponse.from_response(response=mock_successful_response, cache_key="foo", auto_created_at=True)
     dumped = api_response.model_dump_json()
     loaded = APIResponse.model_validate_json(dumped)
@@ -107,6 +124,7 @@ def test_api_response_serialize_and_deserialize(mock_successful_response):
 
 
 def test_deserializing_response(monkeypatch, caplog):
+    """Verifies whether desrialization occurs as intended when encountering errors in the desrialization process"""
     response = APIResponse.from_response(status_code=200, content=b"success", url="https://examples.com")
 
     exc = "Directly raised exception"
@@ -130,6 +148,7 @@ def test_deserializing_response(monkeypatch, caplog):
 
 
 def test_reconstructed_response_json():
+    """Tests whether reconstructed responses from JSON objects can be parsed as intended using the `json()` method"""
     rr = ReconstructedResponse(
         status_code=200,
         reason="OK",
@@ -141,6 +160,10 @@ def test_reconstructed_response_json():
 
 
 def test_reconstructed_response_equality():
+    """
+    Verifies that reconstructed response objects only factor in data types and values instead of memory bytes
+    when determining whether two instances are equal.
+    """
     rr1 = ReconstructedResponse(status_code=200, reason="OK", headers={}, content=b"abc", url="u")
     rr2 = ReconstructedResponse(status_code=200, reason="OK", headers={}, content=b"abc", url="u")
     assert rr1 == rr2

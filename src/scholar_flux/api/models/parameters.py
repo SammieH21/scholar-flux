@@ -230,7 +230,7 @@ class APIParameterConfig:
             return None
 
         zero_indexed = self.parameter_map.zero_indexed_pagination
-        start = int(not zero_indexed) # 0 if zero-indexed, 1 if one-indexed
+        start = int(not zero_indexed)  # 0 if zero-indexed, 1 if one-indexed
         if not isinstance(page, int) or (page < start):
             expected = "non-negative" if zero_indexed else "positive"
             logger.error(f"Expected a {expected} integer for page. Received '{page}'")
@@ -245,7 +245,6 @@ class APIParameterConfig:
         if not self.parameter_map.auto_calculate_page:
 
             return page
-
 
         return start + (page - start) * records_per_page
 

@@ -5,6 +5,7 @@ from pydantic import SecretStr
 import requests_mock
 import logging
 import contextlib
+from copy import deepcopy
 import re
 
 from math import ceil
@@ -17,13 +18,16 @@ from scholar_flux.security import SecretUtils
 from scholar_flux.exceptions import QueryValidationException, APIParameterException, RequestCreationException
 
 
-def test_missing_query():
+@pytest.mark.parametrize('query', (None, ''))
+def test_missing_query(query):
+    """Tests whether a query validation exception is raised when an empty value is supplied to a query"""
     with pytest.raises(QueryValidationException):
         # an empty query should error
-        _ = SearchAPI.from_defaults(provider_name="plos", query="")
+        _ = SearchAPI.from_defaults(provider_name="plos", query=query)
 
 
 def test_describe_api():
+    """Verifies that the representation of the SearchAPI in a command line interface contains the expected fields"""
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     assert isinstance(api.describe(), dict)
     representation = repr(api)
@@ -36,6 +40,7 @@ def test_describe_api():
 
 
 def test_api_summary():
+    """Verifies that the summary of the SearchAPI contains the expected fields and structure"""
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     assert isinstance(api.describe(), dict)
     representation = api.summary()
@@ -50,6 +55,7 @@ def test_api_summary():
 
 
 def test_session_mod():
+    """Tests to determine how a missing session object impacts the cache property (should be returned as None)"""
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF", use_cache=True)
     api.session = None  # type: ignore
     # at the moment, removing a session isn't ever encouraged but possible for mocking/testing
@@ -88,6 +94,7 @@ def test_incorrect_config(param_overrides):
 
 
 def test_incorrect_property_settings():
+    """Verifies that an API parameter exception is raised when an invalid parameter config value is encountered"""
     api = SearchAPI(query="another valid query", use_cache=False)
     value = "not a parameter config"
     with pytest.raises(APIParameterException) as excinfo:
@@ -96,17 +103,27 @@ def test_incorrect_property_settings():
 
 
 def test_cache_storage_off():
+    """Tests to ensure that API cache is not registered when `use_cache=False`"""
     api = SearchAPI(query="another valid query", use_cache=False)
     assert not api.cache
 
 
-def test_incorrect_init():
+def test_incorrect_base_url(caplog):
+    """
+    Verifies that providing an invalid base URL will raise an APIParameterException indicating an issue
+    in the URL
+    """
     with pytest.raises(APIParameterException) as excinfo:
         _ = SearchAPI("valid query", base_url="invalid_base_url")
+    assert "The value, 'invalid_base_url' is not a valid URL" in str(caplog.text)
     assert "Invalid SearchAPIConfig: " in str(excinfo.value)
 
 
 def test_incorrect_config_type():
+    """
+    Verifies that an incorrect configuration raises an APIParameterException
+    when a dictionary is provided inplace of a SearchAPIConfig
+    """
     api = SearchAPI.from_defaults(query="no-query", provider_name="plos")
     config_dict = api.config.model_dump()
     with pytest.raises(APIParameterException):
@@ -262,6 +279,7 @@ def test_search_api_initialization(default_api_parameter_config):
 
 
 def test_cached_session(default_api_parameter_config, default_cache_session):
+    """Verifies that a cached session is used when specified in the SearchAPI arguments"""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -276,7 +294,10 @@ def test_cached_session(default_api_parameter_config, default_cache_session):
 
 @patch.object(SearchAPI, "search", return_value=MagicMock(status_code=200, json={"page": 1, "results": ["record1"]}))
 def test_search_by_page(_, default_api_parameter_config):
-
+    """
+    Tests and verifies that the features needed to prepare a request and receive a response via a SearchAPI instance
+    are working as intended and return the MagicMock object.
+    """
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -291,6 +312,11 @@ def test_search_by_page(_, default_api_parameter_config):
 
 @pytest.mark.parametrize("page, records_per_page", [(1, 1), (2, 5), (1, 20), (2, 10)])
 def test_search_api_parameter_ranges(page: int, records_per_page: int, default_api_parameter_config):
+    """
+    Verifies that, when attempting to retrieve a page, the page start is successfully calculated
+    and fields such as `api_key` and `records_per_page` are mapped to their respective values according
+    to the APIParameterConfig.
+    """
     api = SearchAPI(
         query="test",
         records_per_page=records_per_page,
@@ -317,6 +343,11 @@ def test_search_api_parameter_ranges(page: int, records_per_page: int, default_a
 
 
 def test_cached_response_success(default_api_parameter_config, default_cache_session):
+    """
+    Tests whether responses are successfully cached when using a cached session. For this purpose,
+    requests_mock package is used to simulate a request that can be cached to determine whether caching
+    is working as intended.
+    """
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -345,6 +376,10 @@ def test_cached_response_success(default_api_parameter_config, default_cache_ses
 
 @pytest.mark.parametrize("unsuccessful_response_code", [400, 402, 404, 500])
 def test_cached_response_failure(unsuccessful_response_code, default_api_parameter_config, default_cache_session):
+    """
+    Tests and verifies that unsuccessful_response_codes are received but not cached when requesting a response via a
+    requests_mock mocker.
+    """
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -368,6 +403,7 @@ def test_cached_response_failure(unsuccessful_response_code, default_api_paramet
 
 
 def test_missing_api_key(default_api_parameter_config, caplog):
+    """Verifies that an error is raised when an API key is required according to the ParamConfig but is not set"""
     # default_api_parameter_config requires an API key
     with caplog.at_level(logging.WARNING):
         _ = SearchAPI(query="test", parameter_config=default_api_parameter_config)
@@ -375,7 +411,7 @@ def test_missing_api_key(default_api_parameter_config, caplog):
 
 
 def test_cache_expiration(default_api_parameter_config, default_cache_session, default_seconds_cache_expiration):
-
+    """Tests the cache expiration time using requests_cache to ensure that the expiration field is sucessfully used"""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -409,6 +445,7 @@ def test_cache_expiration(default_api_parameter_config, default_cache_session, d
 
 
 def test_prepare_search_url_and_params():
+    """Ensures that the URL used in requests preparation can be overriden prior to being sent"""
     api = SearchAPI.from_defaults(query="test", provider_name="core", api_key="this_is_a_fake_api_key")
     req = api.prepare_request("https://api.example.com", "endpoint", {"foo": "bar"}, api_key="123")
     assert isinstance(req.url, str) and req.url.startswith("https://api.example.com/endpoint")
@@ -417,6 +454,14 @@ def test_prepare_search_url_and_params():
 
 
 def test_core_api_filtering(monkeypatch, caplog, scholar_flux_logger):
+    """
+    Tests and verifies that
+    1, the API key is successfully prepared in the URL when created
+    2. that the Masker, when cleared of all masking patterns corresponding to the API key, automatically masks and adds
+       the key to a list of secret strings to mask from logs when preparing the request to be sent
+    3. When patching `api.session.send()` to always return a request exception and reveal the full URL in the log,
+       that the received API key is replaced with `***`
+    """
     core_api_key = "this_is_a_mock_api_key"
     api = SearchAPI.from_defaults(query="a search string", provider_name="core", api_key=core_api_key)
     api.masker.clear()
@@ -446,12 +491,23 @@ def test_core_api_filtering(monkeypatch, caplog, scholar_flux_logger):
 
 
 def test_api_key_exists_true_and_false():
+    """
+    Verifies that the `api_key_exists` method is working as intended to ensure that API keys are identified
+    with booleans when parameters are built and requests prepared.
+    """
     assert SearchAPI._api_key_exists({"api_key": "123"})
+    assert SearchAPI._api_key_exists({"apikey": "123"})
     assert SearchAPI._api_key_exists({"API_KEY": "123"})
+    assert SearchAPI._api_key_exists({"APIKEY": "123"})
     assert not SearchAPI._api_key_exists({"foo": "bar"})
 
 
 def test_with_config_parameters_temporary_override(original_config, original_param_config):
+    """
+    Tests and verifies that the API's SearchAPIConfig can be temporarily overridden with a context manager and
+    the `with_api_parameters` method and identically reverted back to the previous SearchAPIConfig after the
+    context manager closes
+    """
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -470,6 +526,10 @@ def test_with_config_parameters_temporary_override(original_config, original_par
 
 
 def test_with_config_parameters_invalid_field_ignored(original_config, original_param_config):
+    """
+    Verifies that fields unknown to the APIParameterConfig are ignored when building parameters
+    for a new request
+    """
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -477,17 +537,31 @@ def test_with_config_parameters_invalid_field_ignored(original_config, original_
         api_key=original_config.api_key,
         parameter_config=original_param_config,
     )
-    original_config = api.config
+    # copy the current config
+    original_config = deepcopy(api.config)
 
-    # Pass an invalid field; should not raise, but should not be present
+    # Temporarily modify the config -  Pass an invalid field; should not raise
     with api.with_config_parameters(nonexistent_field=123):
+        # the field is not added as an extra attribute
         assert not hasattr(api.config, "nonexistent_field")
-        assert api.config.records_per_page == original_config.records_per_page
+
+        # all other other fields should not have changed:
+        assert api.config.model_dump(exclude={'api_specific_parameters'}) ==\
+                original_config.model_dump(exclude={'api_specific_parameters'})
+
+        # added but shouldn't be used in the parameter building stages
+        assert "nonexistent_field" in (api.config.api_specific_parameters or {})
+
+        # the nonexistent_field, because it's not in the parameter map, won't be added
+        assert "nonexistent_field" not in api.build_parameters(page = 1)
 
     assert api.config == original_config
+    # the non-existent field should no longer be a part of the api_specific_parameters
+    assert "nonexistent_field" not in (api.config.api_specific_parameters or {})
 
 
 def test_with_config_parameters_exception_restores(original_config, original_param_config):
+    """Tests and verifies that the configuration can temporarily be modified and restored with the context maanger"""
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -504,6 +578,11 @@ def test_with_config_parameters_exception_restores(original_config, original_par
 
 
 def test_with_config_precedence_over_provider(monkeypatch, new_config, original_param_config):
+    """
+    Tests and verifies that the SearchAPIConfig.from_defaults factory method is overridden as intended
+    when the `with_config` method is called as a context manager to temporarily change the config.
+    The base URL should always take precedence over the provider unless not explicitly provided.
+    """
     api = SearchAPI(
         query="test",
         base_url="https://original.com",
@@ -511,6 +590,7 @@ def test_with_config_precedence_over_provider(monkeypatch, new_config, original_
         api_key=new_config.api_key,
         parameter_config=original_param_config,
     )
+
 
     monkeypatch.setattr(
         SearchAPIConfig,
@@ -524,12 +604,20 @@ def test_with_config_precedence_over_provider(monkeypatch, new_config, original_
     )
 
     # Explicit config should take precedence over provider_name
+    previous_config = deepcopy(api.config)
     with api.with_config(config=new_config, provider_name="testprovider"):
         assert api.config == new_config
         assert api.config.base_url == "https://new.com"
+    assert api.config != new_config and api.config == previous_config
 
 
 def test_updates():
+    """
+    Ensures that updates to the API occur in the intended manner:
+        1. Calling update with only a SearchAPIConfig will return the identical config
+        2. Calling update without a SearchAPI object will throw an error, because `update` is a classmethod and
+           requires a SearchAPI for the first argument.
+    """
     api = SearchAPI(query="test")
 
     identical_api = SearchAPI.update(api)
@@ -545,6 +633,10 @@ def test_updates():
 def test_nested_with_config_and_with_config_parameters(
     original_config, new_config, original_param_config, new_param_config
 ):
+    """
+    Verifies that nested context managers modifies the current config with precedence given to the latest context
+    that modifies the configuration and other parameters for the SearchAPI.
+    """
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -577,6 +669,7 @@ def test_nested_with_config_and_with_config_parameters(
 
 
 def test_missing_parameters():
+    """Validates that an APIParameterException is thrown when neither page nor parameter is provided"""
     api = SearchAPI(query="new query")
     with pytest.raises(APIParameterException) as excinfo:
         api.search()
@@ -584,6 +677,10 @@ def test_missing_parameters():
 
 
 def test_parameter_exceptions(monkeypatch, mock_successful_response):
+    """
+    Tests whether an APIParameterException is raised when the `parameters` argument
+    to `prepare_request` is not a dictionary as intended.
+    """
     minimum_request_delay = 0.5  # second interval between requests minimum
 
     api = SearchAPI.from_defaults(
@@ -602,6 +699,10 @@ def test_parameter_exceptions(monkeypatch, mock_successful_response):
 
 
 def test_base_url_omission(default_api_parameter_config):
+    """
+    Validates that the omission of a base URL in the preparation of a request will return the
+    automatically same URL value for the API as when it is specified explicitly.
+    """
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -618,6 +719,10 @@ def test_base_url_omission(default_api_parameter_config):
 
 
 def test_rate_limiter_use(monkeypatch, mock_successful_response):
+    """
+    Validates and tests whether the request delay, when modified with a context manager,
+    successfully changes the duration between requests for the duration of the context
+    """
     minimum_request_delay = 0.5  # second interval between requests minimum
 
     api = SearchAPI.from_defaults(

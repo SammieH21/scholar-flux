@@ -14,6 +14,7 @@ def response_factory(
     json_data=None,
     text=None,
 ):
+    """Helper function for creating mock response objects using a requests.Response object"""
     response = Response()
     response.status_code = status_code
     response.headers.update(headers or {})
@@ -29,6 +30,7 @@ def response_factory(
 
 
 def test_execute_with_retry_valid_first_try():
+    """Tests and ensures that responses with 200 status codes are returned as valid responses"""
     handler = RetryHandler()
     response = response_factory(200)
     request_func = lambda: response
@@ -37,6 +39,10 @@ def test_execute_with_retry_valid_first_try():
 
 
 def test_execute_with_retry_retry_then_success():
+    """
+    Tests whether the retry handler continues to retrieve from the response list
+    until the 200 status code is encountered.
+    """
     handler = RetryHandler()
     responses = [response_factory(503), response_factory(200)]
     request_func = lambda: responses.pop(0)
@@ -46,6 +52,7 @@ def test_execute_with_retry_retry_then_success():
 
 
 def test_execute_with_retry_max_retries_exceeded():
+    """Tests whether the response is returned as is at `max_retries=503`"""
     handler = RetryHandler(max_retries=1)
     response = response_factory(503)
     request_func = lambda: response
@@ -55,6 +62,7 @@ def test_execute_with_retry_max_retries_exceeded():
 
 
 def test_execute_with_retry_max_retries_and_raise(caplog):
+    """Verifies that an InvalidResponseException is raised when `raise_on_error` is set to True"""
     handler = RetryHandler(max_retries=3, raise_on_error=True)
     status_code = 503
     response = response_factory(status_code)
@@ -65,6 +73,11 @@ def test_execute_with_retry_max_retries_and_raise(caplog):
 
 
 def test_execute_with_retry_non_retryable_status(caplog):
+    """
+    Tests whether an error is raised with the response message when `raise_on_error` is set to True.
+
+    Also verifies that the response is returned as is when `raise_on_error` is False
+    """
     handler = RetryHandler(raise_on_error=True)
     message = "Cannot process the current request with your credentials"
     status_code = 400
@@ -82,6 +95,7 @@ def test_execute_with_retry_non_retryable_status(caplog):
 
 
 def test_invalid_response_exception_non_json(caplog):
+    """Tests and verifies that the InvalidResponseException is retrieves the error details as intended when available"""
     from scholar_flux.exceptions import InvalidResponseException
 
     response = response_factory(400, text="Not JSON")
@@ -102,6 +116,10 @@ def test_invalid_response_exception_non_json(caplog):
 
 
 def test_calculate_retry_delay_with_invalid_retry_after(caplog):
+    """
+    Validates the calculation of the retry delay when a `retry_after` value is available.
+    Also verifies whether the backoff is calculated as intended when `retry_after` is not available.
+    """
     handler = RetryHandler(backoff_factor=2, max_backoff=10)
     retry_after = "not-a-date"
     response = response_factory(503, headers={"Retry-After": retry_after})
@@ -114,6 +132,7 @@ def test_calculate_retry_delay_with_invalid_retry_after(caplog):
 
 
 def test_nonresponse():
+    """Verifies that an error is raised when a non-response is encountered"""
     handler = RetryHandler()
     value = "a nonresponse"
     with pytest.raises(RequestFailedException):
@@ -121,6 +140,7 @@ def test_nonresponse():
 
 
 def test_repr():
+    """Verifies that the representation of the RetryHandler appears as intended when printed in the CLI"""
     handler = RetryHandler()
     assert repr(handler) == dedent(
         f"RetryHandler(max_retries={handler.max_retries},\n"
@@ -132,6 +152,10 @@ def test_repr():
 
 
 def test_execute_with_retry_exception():
+    """
+    Verifies that, when an exception is encountered when requesting a response with a custom function,
+    the exception is caught and instead raises a RequestFailedException.
+    """
     handler = RetryHandler()
 
     def request_func():
@@ -141,17 +165,23 @@ def test_execute_with_retry_exception():
         handler.execute_with_retry(request_func)
 
 
-def test_execute_with_retry_custom_validator():
-    handler = RetryHandler()
+def test_execute_with_retry_custom_validator(caplog):
+    """Tests the retry handler to determine if it successfully uses the `validator_func` for custom data validation"""
+    handler = RetryHandler(raise_on_error = True)
     response = response_factory(201)
     request_func = lambda: response
     validator_func = lambda r: r.status_code == 201
     with patch("time.sleep"):
         result = handler.execute_with_retry(request_func, validator_func)
     assert isinstance(result, Response) and result.status_code == 201
+    assert "Received an invalid or non-retryable response." not in caplog.text
 
 
 def test_default_validator_func():
+    """
+    Validates and verifies that the default validator successfully marks 200 status codes as valid
+    and marks non-200 responses as  invalid status codes.
+    """
     response = response_factory(200)
     assert RetryHandler._default_validator_func(response)
     resp2 = response_factory(404)
@@ -160,6 +190,7 @@ def test_default_validator_func():
 
 
 def test_should_retry():
+    """Verifies that the `should_retry` function successfully marks specific status codes as retryable"""
     handler = RetryHandler()
     response = response_factory(429)
     assert handler.should_retry(response)
@@ -168,6 +199,10 @@ def test_should_retry():
 
 
 def test_calculate_retry_delay_no_retry_after():
+    """
+    Verifies the calculation of the retry delay given the backoff_factor and default retry delay
+    given the calculation: delay = min(backoff_factor * 2^attempt_count, max_backoff).
+    """
     handler = RetryHandler(backoff_factor=1, max_backoff=10)
     response = response_factory(503)
     delay = handler.calculate_retry_delay(2, response)
@@ -175,12 +210,14 @@ def test_calculate_retry_delay_no_retry_after():
 
 
 def test_calculate_retry_delay_with_retry_after_int():
+    """Verifies that the `calculate_retry_delay`, when possible, extracts and uses the integer `retry-after` field"""
     handler = RetryHandler()
     response = response_factory(503, headers={"Retry-After": "5"})
     assert handler.calculate_retry_delay(1, response) == 5
 
 
 def test_calculate_retry_delay_with_retry_after_date():
+    """Verifies that the `calculate_retry_delay`, when possible, extracts and uses date from the `retry-after` field"""
     handler = RetryHandler()
     future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=10)
     date_str = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
@@ -190,11 +227,13 @@ def test_calculate_retry_delay_with_retry_after_date():
 
 
 def test_parse_retry_after_int():
+    """Verifies that simple integer parsing works as intended"""
     handler = RetryHandler()
     assert handler.parse_retry_after("7") == 7
 
 
 def test_parse_retry_after_date():
+    """Verifies that date parsing works as intended upon receiving a datetime GMT string"""
     handler = RetryHandler()
     future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=15)
     date_str = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
@@ -204,6 +243,7 @@ def test_parse_retry_after_date():
 
 
 def test_log_retry_attempt_and_warning(caplog):
+    """Verifies that logging works as intended when encountering non-200 status codes"""
     handler = RetryHandler()
     with caplog.at_level("INFO"):
         handler.log_retry_attempt(2, 503)

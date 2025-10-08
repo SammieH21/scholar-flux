@@ -11,10 +11,9 @@ import re
 
 def test_extract_with_manual_paths(mock_academic_json):
     """
-    Verify that DataExtractor correctly splits the payload when explicit
-    paths are provided.  The JSON payload contains a top‑level ``data`` key
-    that holds the list of records, and the remaining keys are considered
-    metadata.
+    Verifies that DataExtractor correctly splits the parsed response content when
+    explicit paths are provided. The JSON response contains a top‑level `data` key
+    that holds the list of records, and the remaining keys are considered metadata.
     """
     record_path = ["data"]
     # Use the real metadata keys that exist in the payload
@@ -57,8 +56,8 @@ def test_extract_with_manual_paths(mock_academic_json):
 
 def test_dynamic_identification_heuristics(mock_academic_json):
     """
-    When no explicit paths are supplied, the extractor should
-    automatically split the payload: everything that is not a list
+    When no explicit paths are supplied, the extractor should automatically
+    split the response content: everything that is not a list
     under a top‑level key is considered metadata.
     """
     extractor = DataExtractor()
@@ -81,7 +80,7 @@ def test_dynamic_identification_heuristics(mock_academic_json):
 
 def test_extract_records_returns_none_on_invalid_type(mock_academic_json):
     """
-    When the data at ``record_path`` is not a list, ``extract_records`` should return None.
+    When the data at `record_path` is not a list, `extract_records` should return None.
     """
     mock_academic_json["data"] = {"single": {"title": "Only one"}}
     extractor = DataExtractor(record_path=["data"])
@@ -111,7 +110,7 @@ def extractor_manual_paths() -> DataExtractor:
 
 def test_extract_manual_paths(extractor_manual_paths: DataExtractor, mock_academic_json):
     """
-    Verify that both metadata and records are returned when explicit
+    Verifies that both metadata and records are returned when explicit
     paths are supplied.
     """
     records, metadata = extractor_manual_paths(mock_academic_json)
@@ -119,7 +118,7 @@ def test_extract_manual_paths(extractor_manual_paths: DataExtractor, mock_academ
     # metadata
     assert metadata == {
         "apiMessage": "This JSON was provided by scholar_flux testing mocks",
-        "query": "Computationaly Aided Analysis",
+        "query": "Computationally Aided Analysis",
         "total": 3,
         "pageLength": 3,
         "recordsDisplayed": 3,
@@ -146,10 +145,10 @@ def test_extract_metadata_without_paths(mock_academic_json):
     assert extractor.extract_metadata(mock_academic_json) == {}
 
 
-def test_extractor_invalid_cofiguration():
+def test_extractor_invalid_configuration():
     """
     Providing a non‑list record_path should raise a DataExtractionException
-    during extractor initialisation.
+    during extractor initialization.
     """
     with pytest.raises(DataExtractionException) as excinfo:
         DataExtractor(record_path="invalid record identifier")  # type: ignore
@@ -172,10 +171,10 @@ def test_extractor_invalid_cofiguration():
     )
 
 
-def test_extractor_invalid_nested_cofiguration():
+def test_extractor_invalid_nested_configuration():
     """
-    Providing a non‑list record_path should raise a DataExtractionException
-    during extractor initialisation.
+    Verifies whether providing a non‑list record_path will raise a DataExtractionException
+    during extractor initialization.
     """
     list_set = [{True, False}]
     with pytest.raises(DataExtractionException) as excinfo:
@@ -208,7 +207,9 @@ def test_extractor_invalid_nested_cofiguration():
 
 def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, mock_academic_json, caplog):
     """
-    When record_path points to a non‑list, extract_records must return None.
+    Verifies that an attempt to provide an invalid record path type returns None.
+    Also verifies that, when a metadata path cannot be found, a dictionary is still returned with a value of `None` 
+    for the key.
     """
     # point to a key that contains a string instead of a list
     extractor_manual_paths.record_path = ["start"]
@@ -222,6 +223,9 @@ def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, moc
 
 
 def test_key_error(mock_academic_json, extractor_manual_paths, caplog):
+    """
+    Tests whether an attempt to extract records from a dictionary, when KeyErrors occur, is instead caught and logged
+    """
     extractor_manual_paths.metadata_path = [["starting"]]
 
     metadata = extractor_manual_paths.extract_metadata(mock_academic_json)
@@ -235,11 +239,13 @@ def test_key_error(mock_academic_json, extractor_manual_paths, caplog):
 
 
 def test_blank_extraction(extractor_manual_paths, caplog):
+    """Verifies that an attempt to extract records when None is specified will also return None"""
     assert extractor_manual_paths.extract_records(None) is None
     assert "No records extracted from path" in caplog.text
 
 
 def test_dictionary_transformation():
+    """Tests that the steps take to extract both records and metadata from a dictionary work as intended"""
     extractor = DataExtractor()
     data = [[{"a": 1}, {"b": 3}, {"c": 4}, {"d": 5}]]
     prepped_page = extractor._prepare_page(data)  # type: ignore
@@ -251,6 +257,10 @@ def test_dictionary_transformation():
 
 
 def test_blank_prepare_page():
+    """
+    Verifies that attempting to extract records and metadata from a list of dictionaries
+    will raise an error when `None` is provided instead of a list or dictionary
+    """
     extractor = DataExtractor()
     with pytest.raises(DataExtractionException):
         _ = extractor._prepare_page(None)  # type: ignore
@@ -306,9 +316,9 @@ def test_invalid_extract_records(extractor_manual_paths: DataExtractor, mock_aca
     assert msg in caplog.text
 
 
-def test_dynamic_identification_basic(mock_academic_json):
+def test_basic_dynamic_identification(mock_academic_json):
     """
-    Verify that the extractor can split the payload into metadata
+    Verifies that the extractor can split the payload into metadata
     (query, total, etc.) and records (the items in ``data``) when no
     explicit paths are provided.
     """
@@ -324,7 +334,7 @@ def test_dynamic_identification_basic(mock_academic_json):
 
 def test_extract_from_dict_and_list(mock_academic_json):
     """
-    ``extract`` must work with a plain dict and with a list of dicts.
+    Verifies that the `extract` method works with a plain dict and a dictionary nested within a list
     """
     extractor = DataExtractor(
         record_path=["data"],
@@ -334,10 +344,9 @@ def test_extract_from_dict_and_list(mock_academic_json):
     # dict input
     records, metadata = extractor.extract(mock_academic_json)
     assert isinstance(records, list) and len(records) == 3
-    assert metadata and metadata["query"] == "Computationaly Aided Analysis"
+    assert metadata and metadata["query"] == "Computationally Aided Analysis"
 
     # list input (should be converted via try_dict)
-    # create a minimal wrapper list: [[dict]] – the extractor expects a single dict
     wrapper = [mock_academic_json]
     records, metadata = extractor.extract(wrapper)
     assert isinstance(records, list) and len(records) == 3
@@ -346,7 +355,7 @@ def test_extract_from_dict_and_list(mock_academic_json):
 
 def test_identify_by_key_logic():
     """
-    Ensure that _identify_by_key returns True when a record contains
+    Tests whether _identify_by_key returns True when a record contains
     one of the dynamic record identifiers.
     """
     extractor = DataExtractor()
@@ -359,7 +368,7 @@ def test_identify_by_key_logic():
 
 def test_metadata_path_dict(mock_academic_json):
     """
-    Test that a dictionary of metadata paths works correctly.
+    Tests that a dictionary of metadata paths correctly extracts records that can be in each path.
     """
     extractor = DataExtractor(
         record_path=["data"],
@@ -369,14 +378,14 @@ def test_metadata_path_dict(mock_academic_json):
         },
     )
     records, metadata = extractor.extract(mock_academic_json)
-    assert metadata == {"query": "Computationaly Aided Analysis", "total": 3}
+    assert metadata == {"query": "Computationally Aided Analysis", "total": 3}
     assert records and len(records) == 3
 
 
 @pytest.mark.parametrize("bad_path", ["data", 5])
 def test_invalid_metadata_path_type(bad_path: Any, mock_academic_json: List):
     """
-    Passing a non‑list/dict for metadata_path should raise an exception.
+    Verifies that passing a non‑list/dict for metadata_path should raise an exception.
     """
 
     with pytest.raises(DataExtractionException):

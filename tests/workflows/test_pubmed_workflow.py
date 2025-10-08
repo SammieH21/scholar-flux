@@ -7,6 +7,12 @@ import pytest
 
 
 def test_pubmed_workflow_context(caplog):
+    """
+    Validates whether the use of a pubmed workflow with missing IDs will correctly be flagged.
+
+    When a received response is valid and contains a valid formatted metadata field, the
+    metadata dictionary will contain {'IdList':{'Id': [...]}. If unavailable, a type error should be raised.
+    """
     response = Response()
     response.status_code = 200
 
@@ -30,6 +36,14 @@ def test_direct_pubmed_workflow(
     mock_pubmed_fetch_data,
     xml_parsing_dependency,
 ):
+    """
+    Tests whether mock pubmed search and fetch XML data can be directly parsed and processed in that order.
+    The use of the PubMed API requires that xml2dict is available. If available, the retrieval steps
+    occur in order:
+        1) Fetch a response containing IDs matching the query
+        2) Process and retrieve a list of metadata fields in a post_transform step
+        3) Use the list of metadata responses to retrieve their corresponding abstracts
+    """
     if not xml_parsing_dependency:
         pytest.skip("Cannot test the direct pubmed workflow without the xmltodict library. Skipping...")
 
@@ -74,6 +88,13 @@ def test_workflow_default(
     mock_pubmed_fetch_data,
     xml_parsing_dependency,
 ):
+    """
+    Verifies with default settings that a simple `SearchCoordinator.search will automatically retrieve
+    The expected results using the workflow automatically when using the `pubmed` provider_name.
+    
+    Also verifies that when `use_workflow` is False, the SearchCoordinator will only perform the `esearch`
+    step that retrieves a list of metadata IDs for articles relating to the query.
+    """
     if not xml_parsing_dependency:
         pytest.skip("Cannot test the direct pubmed workflow without the xmltodict library. Skipping...")
 

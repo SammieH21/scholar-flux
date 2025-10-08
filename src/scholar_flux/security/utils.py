@@ -21,13 +21,16 @@ class SecretUtils:
             obj (SecretStr): A SecretStr representation of the oiginal object
 
         Examples:
+            >>> from scholar_flux.security import SecretUtils
             >>> string = 'a secret'
             >>> secret_string = SecretUtils.mask_secret(string)
             >>> isinstance(secret_string, SecretStr) is True
+            # OUTPUT: True
 
             >>> no_string = None
             >>> non_secret = SecretUtils.mask_secret(no_string)
             >>> non_secret is None
+            # OUTPUT: True
 
         """
 
@@ -45,11 +48,14 @@ class SecretUtils:
             obj (Any): The object's original type before being converted into a secret string
 
         Examples:
+            >>> from scholar_flux.security import SecretUtils
             >>> string = 'a secret'
             >>> secret_string = SecretUtils.mask_secret(string)
             >>> isinstance(secret_string, SecretStr) is True
+            # OUTPUT: True
             >>> SecretUtils.unmask_secret(secret_string) == string
             >>> SecretUtils.unmask_secret(None) is None
+            # OUTPUT: True
         """
 
         return obj.get_secret_value() if isinstance(obj, SecretStr) else obj

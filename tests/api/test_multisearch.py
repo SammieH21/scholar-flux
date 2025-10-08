@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from scholar_flux.api import SearchAPI, SearchCoordinator
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse, SearchResult, SearchResultList
+from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse, SearchResult, SearchResultList
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
@@ -44,15 +44,16 @@ def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exce
 def test_last_response_page(mock_search, mock_successful_response, mock_unauthorized_response, caplog):
     """
     Test for whether the defaults are specified correctly and whether the mocked response is processed
-    as intended throughout the coordinator
+    as intended throughout the coordinator.
     """
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
     success_response = ProcessedResponse(response=mock_successful_response, extracted_records=extracted_records)
+    no_response = None
     unauthorized_response = ErrorResponse(response=mock_unauthorized_response, message="Unauthorized")
 
-    page_results = [success_response, unauthorized_response]
+    page_results = [no_response, success_response, unauthorized_response]
 
-    page_list = [1, 2]
+    page_list = [0, 1, 2]
 
     mock_search.side_effect = page_results
 
@@ -68,16 +69,22 @@ def test_last_response_page(mock_search, mock_successful_response, mock_unauthor
     coordinator = SearchCoordinator(api)
 
     pages = coordinator.search_pages(page_list)
-    assert len(pages) == 1
-    search_result = pages[0]
+    assert len(pages) == 2
+    search_result = pages[1]  # get the result for page 1
     assert (
         f"The response for page, 1 contains less than the expected "
         f"{expected_page_count} records. Received {repr(search_result.response_result)}. "
         f"Halting multi-page retrieval..."
     ) in caplog.text
+    assert "Skipping the page number, 0, as it is not a valid page number..." in caplog.text
 
 
 def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
+    """
+    Tests whether exceptions are successfully captured and formatted as an ErrorResponse within a
+    ResponseResult when an error is encountered. The presence of a specific error should ideally
+    halt the process, especially relevant when encountering `400` status codes.
+    """
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")
 
     monkeypatch.setattr(
@@ -86,11 +93,16 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Directly raised exception")),
     )
 
-    response_list = search_coordinator.search_pages(pages=[1, 2, 3])
-    assert len(response_list) == 1
+    response_list = search_coordinator.search_pages(pages=[0, 1, 2, 3])
+    non_response_0 = response_list[0].response_result
+    non_response_1 = response_list[1].response_result
+
+    assert isinstance(non_response_0, NonResponse) and isinstance(non_response_1, NonResponse)
+    assert len(response_list) == 2
+    assert "Skipping the page number, 0, as it is not a valid page number..." in caplog.text
     assert (
         f"Could not retrieve a valid response code for page 1. "
-        f"Received {repr(None)}. Halting multi-page retrieval..."
+        f"Received {repr(non_response_1)}. Halting multi-page retrieval..."
     ) in caplog.text
 
     monkeypatch.setattr(search_coordinator.api, "search", lambda *args, **kwargs: mock_unauthorized_response)

@@ -14,6 +14,29 @@ config_logger = logging.getLogger("ConfigLoader")
 
 
 class ConfigLoader:
+    """
+    Helper class used to load the configuration of the scholar_flux package on initialization to dynamically configure
+    package options. Using the config loader with environment variables, the following settings can be defined
+    at runtime:
+        Package Level Settings:
+            - SCHOLAR_FLUX_DEFAULT_PROVIDER: Defines the provider to use by default when creating a SearchAPI instance
+        API_KEYS:
+            - SPRINGER_NATURE_API_KEY: API Key used when retrieving academic data from Springer Nature
+            - CROSSREF_API_KEY: API key used to retrieve academic metadata from Crossref
+            - CORE_API_KEY: API key used to retrieve metadata and full-text publications from the CORE API 
+            - PUBMED_API_KEY: API key used to retrieve publications from the NIH PubMed database
+        Session Cache:
+            - SCHOLAR_FLUX_CACHE_DIRECTORY: defines where requests and response processing cache will be stored when
+                                             using sqlite and similar cache storages
+            - SCHOLAR_FLUX_CACHE_SECRET_KEY: defines the secret key used to create encrypted session cache for request
+                                             retrieval
+        Logging:
+            - SCHOLAR_FLUX_LOG_DIRECTORY: defines where rotatable logs will be stored when logging is enabled
+            - SCHOLAR_FLUX_LOG_LEVEL: defines the default log level used for package level logging during and after
+                                      scholar_flux package initialization
+
+
+    """
     DEFAULT_ENV_PATH: Path = (
         Path(__file__).resolve().parent.parent / ".env"
     )  # Default directory for the package env file
@@ -25,10 +48,10 @@ class ConfigLoader:
         "CORE_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("CORE_API_KEY")),
         "PUBMED_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("PUBMED_API_KEY")),
         "SCHOLAR_FLUX_CACHE_SECRET_KEY": SensitiveDataMasker.mask_secret(os.getenv("SCHOLAR_FLUX_CACHE_SECRET_KEY")),
-        "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY") or None,
-        "SCHOLAR_FLUX_LOG_DIRECTORY": os.getenv("SCHOLAR_FLUX_LOG_DIRECTORY") or None,
+        "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY"),
+        "SCHOLAR_FLUX_LOG_DIRECTORY": os.getenv("SCHOLAR_FLUX_LOG_DIRECTORY"),
         "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL") or "DEBUG",
-        "DEFAULT_SCHOLAR_FLUX_PROVIDER": os.getenv("DEFAULT_SCHOLAR_FLUX_PROVIDER") or "plos",
+        "SCHOLAR_FLUX_DEFAULT_PROVIDER": os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
     }
 
     def __init__(self, env_path: Optional[Path | str] = None):
@@ -84,7 +107,7 @@ class ConfigLoader:
     def _guard_secret(
         value: Any,
         key: str | int,
-        matches: list | tuple = ("API_KEY", "SECRET", "MAIL"),
+        matches: list[str] | tuple = ("API_KEY", "SECRET", "MAIL"),
     ) -> Any | SecretStr:
         """
         Helper method to flag and guard the values of api keys, secrets, and likely email addresses by transforming

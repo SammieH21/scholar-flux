@@ -1,3 +1,5 @@
+"""Helper script that contains the complete list of fixtures that were made globally available to pytest"""
+
 from tests.fixtures.plos_api import (
     plos_search_api,
     plos_coordinator,

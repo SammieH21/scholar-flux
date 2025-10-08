@@ -10,7 +10,7 @@ from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
     InvalidPathDelimiterError,
     InvalidComponentTypeError,
-    PathIndexingError
+    PathIndexingError,
 )
 
 # Configure logging
@@ -23,8 +23,13 @@ class ProcessingPath:
     A utility class to handle path operations for processing and flattening dictionaries.
 
     Args:
-        path (Union[str, List[str]]): The initial path, either as a string or a list of strings.
-        delimiter (str): The delimiter used to separate components in the path.
+        components (Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]):
+            The initial path, either as a string or a list of strings. Any integers will be auto-converted
+            to strings in the process of formatting the components of the path
+        component_types (Optional[Union[Tuple[str, ...], List[str]]]):
+           Optional metadata fields that can be used to annotate specific components of a path
+        delimiter (str):
+            The delimiter used to separate components in the path.
 
     Raises:
         InvalidProcessingPathError: If the path is neither a string nor a list of strings.
@@ -42,7 +47,7 @@ class ProcessingPath:
 
     def __init__(
         self,
-        components: Union[str, Tuple[str, ...], List[str]] = (),
+        components: Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]] = (),
         component_types: Optional[Union[Tuple[str, ...], List[str]]] = None,
         delimiter: Optional[str] = None,
     ):
@@ -82,12 +87,16 @@ class ProcessingPath:
             )
         return delimiter
 
-    def _validate_and_split_path(self, path: Union[str, Tuple[str, ...], List[str]]) -> Tuple[str, ...]:
+    def _validate_and_split_path(
+        self, path: Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]
+    ) -> Tuple[str, ...]:
         """
-        Validate and split the given path into components.
+        Helper method used to validate and prepare a tuple of path components on the instantiation of the
+        ProcessingPath. After validation, the path is prepared, split and formatted depending on its input type
 
         Args:
-            path (Union[str, Tuple[str, ...], List[str]]): The path to validate and split.
+            path (Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]):
+                The path to validate and split. Note that all integers are auto-converted to strings
 
         Returns:
             Tuple[str, ...]: The validated tuple of path components.
@@ -99,6 +108,9 @@ class ProcessingPath:
         if isinstance(path, str):
             path = path.split(self.delimiter)
 
+        if isinstance(path, int):
+            path = [str(path)]
+
         # Convert tuple to list for easier manipulation
         if isinstance(path, tuple):
             path = list(path)
@@ -108,7 +120,7 @@ class ProcessingPath:
             return ("",)
 
         # Ensure the path is a list of non-empty strings
-        if not isinstance(path, list) or not all(isinstance(p, str) for p in path):
+        if not isinstance(path, list) or not all(isinstance(p, (str, int)) for p in path):
             raise InvalidProcessingPathError("Path must be a list or tuple of strings.")
 
         ## Add a root path indicator
@@ -116,17 +128,19 @@ class ProcessingPath:
         #    path = [''] + path[1:]
 
         # Check for empty components in the path after stripping whitespace
-        if any(not p.strip() for p in path[1:]):
+        if any(not p.strip() for p in path[1:] if isinstance(p, str)):
             raise InvalidProcessingPathError("Non-root path components must be non-empty strings.")
 
         # Return the validated path as a tuple
-        return tuple(path)
+        return tuple(str(p) if isinstance(p, int) else p for p in path)
 
     def _validate_component_types(
         self, component_types: Optional[Union[str, Tuple[str, ...], List[str]]] = None
     ) -> Optional[Tuple[str, ...]]:
         """
-        Validate and split the given path into components.
+        Helper method that validates the component types that serve as metadata for each component.
+        Upon validation, the component types are split into a tuple of strings depending on their initial
+        type
 
         Args:
             path (Union[str, Tuple[str, ...], List[str]]): The path to validate and split.
@@ -177,7 +191,8 @@ class ProcessingPath:
         delimiters: list[str] = ["<>", "//", "/", ">", "<", "\\", "%", "."],
     ) -> Optional[str]:
         """
-        Infer the delimiter used in the path string.
+        Infer the delimiter used in the path string based on its string representation.
+
         Args:
             path (Union[str,ProcessingPath]): The path string to infer the delimiter from.
             delimiters (List[str]): A list of common delimiters to search for in the path.
@@ -220,7 +235,7 @@ class ProcessingPath:
     @classmethod
     def to_processing_path(
         cls,
-        path: Union[ProcessingPath, str, List[str]],
+        path: Union[ProcessingPath, str, int, List[str], List[int], List[str | int]],
         component_types: Optional[list | tuple] = None,
         delimiter: Optional[str] = None,
         infer_delimiter: bool = False,
@@ -229,7 +244,7 @@ class ProcessingPath:
         Convert an input to a ProcessingPath instance if it's not already.
 
         Args:
-            path (Union[ProcessingPath, str, List[str]]): The input path to convert.
+            path (Union[ProcessingPath, str, int, List[str], List[int], List[str | int]]): The input path to convert.
             component_types (list|tuple): The type of component associated with each path element
             delimiter (str): The delimiter to use if the input is a string.
 
@@ -248,11 +263,11 @@ class ProcessingPath:
                 # logger.debug(f"Infer delimiter is set to False. Default delimiter {cls.DEFAULT_DELIMITER} will be used")
                 delimiter = cls.DEFAULT_DELIMITER
             else:
-                if isinstance(path, list):
-                    raise InvalidProcessingPathError("Cannot infer delimiter for list of strings")
+                if isinstance(path, (list, int)):
+                    raise InvalidProcessingPathError("Cannot infer delimiter for list of strings or integers")
                 return cls.with_inferred_delimiter(path, component_types)
 
-        if isinstance(path, (str, list)):
+        if isinstance(path, (str, int, list)):
             return cls(path, component_types, delimiter)
         else:
             raise InvalidProcessingPathError(f"Cannot convert {type(path)} to {cls.__name__}.")
@@ -264,7 +279,7 @@ class ProcessingPath:
         component_types: Optional[List | Tuple] = None,
     ) -> ProcessingPath:
         """
-        Convert an input to a ProcessingPath instance if it's not already.
+        Converts an input to a ProcessingPath instance if it's not already a processing path.
 
         Args:
             path (Union[ProcessingPath, str, List[str]]): The input path to convert.
@@ -602,6 +617,14 @@ class ProcessingPath:
         return not self.is_root
 
     def __len__(self) -> int:
+        """
+        Helper method that retrieves the total number of components from the processing path.
+
+        Excludes the root component in the calculation.
+
+        Returns:
+            int: The total number of components in the processing path
+        """
         return self.depth
 
     def __repr__(self) -> str:
@@ -659,6 +682,7 @@ class ProcessingPath:
         return ProcessingPath(ordered_components, ordered_component_types, self.delimiter)
 
     def __reversed__(self) -> ProcessingPath:
+        """Helper method to reverse the ProcessingPath using the `reversed` built-in method"""
         return self.reversed()
 
     def reversed(self) -> ProcessingPath:
@@ -673,11 +697,6 @@ class ProcessingPath:
             self.component_types[::-1] if self.component_types is not None else None,
             self.delimiter,
         )
-
-    def as_tuple(self):
-        if self.component_types is None:
-            return tuple(zip(self.components, [None] * len(self.components)))
-        return tuple(zip(self.components, self.component_types))
 
     def copy(self) -> ProcessingPath:
         """Create a copy of the ProcessingPath.
@@ -994,7 +1013,7 @@ class ProcessingPath:
 #     path_depth=ProcessingPath.to_processing_path('a.b.c',None,delimiter='.').depth
 #     path_ancestor=ProcessingPath.to_processing_path('a.b',['list','terminal'],delimiter='.')
 #     path2=ProcessingPath.to_processing_path('c.d',['list','list'],delimiter='.')
-#     path_child=ProcessingPath.to_processing_path('e.f.g',['list','list'],delimiter='.')
+#     path_child=ProcessingPath.to_processing_path('e.f.g',['list','list', 'list'],delimiter='.')
 #
 #     path=ProcessingPath.to_processing_path('a.b.c',None, delimiter='.')
 #     path.has_ancestor(path_ancestor)

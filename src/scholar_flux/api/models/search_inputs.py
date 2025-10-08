@@ -25,7 +25,7 @@ class PageListInput(RootModel[Sequence[int]]):
     @field_validator("root", mode="before")
     def page_validation(cls, v: str | int | Sequence[int | str]) -> Sequence[int]:
         """
-        Processes the page input to ensure that a list of integers is return if
+        Processes the page input to ensure that a list of integers is returned if
         the received page list is in a valid format.
 
         Args:
@@ -42,14 +42,7 @@ class PageListInput(RootModel[Sequence[int]]):
             return [cls.process_page(v)]
 
         if isinstance(v, Sequence):
-            pages = sorted(set({cls.process_page(v_i) for v_i in v}))
-
-            valid_pages = [page for page in pages if page != 0]
-
-            if len(pages) != len(valid_pages):
-                logger.warning("Skipping the page number, 0, as it is not a valid page number.")
-
-            return valid_pages
+            return sorted(set({cls.process_page(v_i) for v_i in v}))
 
         err_msg = f"Expected a list, set, or generator containing page numbers. Received: '{type(v)}'"
         logger.error(err_msg)

@@ -20,7 +20,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-JSON_TYPE = TypeVar("JSON_TYPE", bound=list | dict | str | int | None)
+JSON_TYPE = TypeVar("JSON_TYPE", bound=list | dict | str | bytes | int | None)
 T = TypeVar("T", bound=Hashable)
 
 
@@ -294,7 +294,7 @@ def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
         return default
 
 
-def try_dict(value: List[Dict] | Dict) -> Optional[Dict]:
+def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
     """
     Attempts to convert a value into a dictionary, if possible
     If it is not possible to convert the value into a dictionary,
@@ -306,7 +306,7 @@ def try_dict(value: List[Dict] | Dict) -> Optional[Dict]:
     """
     if isinstance(value, dict):
         return value
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return dict(enumerate(value))
     try:
         return dict(value)
@@ -327,7 +327,7 @@ def is_nested(obj: Any) -> bool:
     return isinstance(obj, Iterable) and not isinstance(obj, str)
 
 
-def unlist_1d(current_data: Tuple | List) -> Any:
+def unlist_1d(current_data: Tuple | List | Any) -> Any:
     """
     Retrieves an element from a list/tuple if it contains only a single element.
     Otherwise, it will return the element as is. Useful for extracting
@@ -335,7 +335,7 @@ def unlist_1d(current_data: Tuple | List) -> Any:
 
 
     Args:
-        current_data (Tuple | List): An object potentially unlist if it contains a single element.
+        current_data (Tuple | List | Any): An object potentially unlist if it contains a single element.
 
     Returns:
         Optional[Any]: The unlisted object if it comes from a single element list/tuple,
@@ -361,9 +361,10 @@ def as_list_1d(value: Any) -> List:
     return []
 
 
-def path_search(obj: Union[Dict, List], key_to_find: str):
+def path_search(obj: Union[Dict, List], key_to_find: str) -> list[str]:
     """
     Searches for keys matching the regex pattern in the given dictionary.
+    This function only verifies top-level keys rather than nested values
 
     Args:
         obj: The dictionary to search.

@@ -1,40 +1,76 @@
 import requests
 import logging
-from scholar_flux.exceptions.api_exceptions import InvalidResponseException
+from scholar_flux.exceptions.api_exceptions import InvalidResponseException, RequestFailedException
+from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.utils.repr_utils import generate_repr
 
 logger = logging.getLogger(__name__)
 
 
 class ResponseValidator:
-    @staticmethod
-    def validate_response(response: requests.Response, *, raise_on_error: bool = False) -> bool:
+    """
+    Helper class that serves as an initial response validation step to ensure that, in custom
+    retry handling, the basic structure of a response can be validated to determine whether or not
+    to retry the response retrieval process.
+
+    The ResponseValidator implements class methods that are simple tools that return boolean values
+    (True/False) when response or response-like objects do not contain the required structure and
+    raise errors when encountering non-response objects or when `raise_on_error = True` otherwise.
+
+    Example:
+        >>> from scholar_flux.api import ResponseValidator, ReconstructedResponse
+        >>> mock_success_response = ReconstructedResponse.build(status_code = 200,
+        >>>                                                     json = {'response': 'success'},
+        >>>                                                     url = "https://an-example-url.com",
+        >>>                                                     headers={'Content-Type': 'application/json'}
+        >>>                                                     )
+        >>> ResponseValidator.validate_response(mock_success_response) is True
+        >>> ResponseValidator.validate_content(mock_success_response) is True
+    """
+    @classmethod
+    def validate_response(cls, response: requests.Response | ResponseProtocol, *, raise_on_error: bool = False) -> bool:
         """
-        Validates HTTP response for errors.
+        Validates HTTP responses by verifying first whether the object is a Response or follows a ResponseProtocol.
+        For valid response or response-like objects, the status code is verified, returning True for 400 and 500
+        level validation errors and raising an error if `raise_on_error` is set to True.
+
+        Note that a ResponseProtocol duck-types and verifies that each of a minimal set of attributes and/or properties
+        can be found within the current response.
+
+        In the scholar_flux retrieval step, this validator verifies that the response received is a valid response.
 
         Args:
-            response: The HTTP response object to validate
-            raise_on_error: If True, raises InvalidResponseException on error
+            response: (requests.Response | ResponseProtocol): The HTTP response object to validate
+            raise_on_error (bool): If True, raises InvalidResponseException on error for invalid response status codes
 
         Returns:
             True if valid, False otherwise
 
         Raises:
             InvalidResponseException: If response is invalid and raise_on_error is True
+            RequestFailedException: If an exception occurs during response validation due to missing or incorrect types 
         """
         try:
+            if not isinstance(response, requests.Response) and not isinstance(response, ResponseProtocol):
+                raise TypeError("The response is not a valid response or response-like object, "
+                                f"Received type: {type(response)}")
+
             response.raise_for_status()
             logger.debug("Successfully received response from %s", response.url)
             return True
         except requests.HTTPError as e:
-            logger.error(f"Response validation failed: {e}")  # Better
+            logger.error(f"Response validation failed. {e}")
             if raise_on_error:
-                raise InvalidResponseException(response, str(e))
+                raise InvalidResponseException(response, e)
+        except Exception as e:
+            logger.error(f"Response validation failed. {e}")
+            raise RequestFailedException(e)
         return False
 
-    @staticmethod
+    @classmethod
     def validate_content(
-        response: requests.Response,
+        cls,
+        response: requests.Response | ResponseProtocol,
         expected_format: str = "application/json",
         *,
         raise_on_error: bool = False,
@@ -43,7 +79,7 @@ class ResponseValidator:
         Validates the response content type.
 
         Args:
-            response (requests.Response): The HTTP response object to check.
+            response (requests.Response | ResponseProtocol): The HTTP response or response-like object to check.
             expected_format (str): The expected content type substring (e.g., "application/json").
             raise_on_error (bool): If True, raises InvalidResponseException on mismatch.
 
@@ -53,7 +89,7 @@ class ResponseValidator:
         Raises:
             InvalidResponseException: If the content type does not match and raise_on_error is True.
         """
-        content_type = response.headers.get("Content-Type", "")
+        content_type = (response.headers or {}).get("Content-Type", "")
 
         if expected_format in content_type:
             return True
@@ -70,8 +106,7 @@ class ResponseValidator:
 
     def __repr__(self) -> str:
         """
-        Helper method to generate a summary of the ResponsValidator class. This method
-        will show the name of the class and the (non-existent) attributes used to
-        instantiate the validator.
+        Helper method to generate a summary of the ResponseValidator class. This method will show the
+        name of the current class along with its attributes (`ResponseValidator()`)
         """
         return generate_repr(self)

@@ -196,7 +196,7 @@ class ResponseCoordinator:
         Args:
             cache_manager (Optional[DataCacheManager]): An optional cache manager to use
             cache_results (Optional[bool]): Ground truth parameter, used to resolve whether to use caching when the
-                                            cache_manager and cache_results contridict
+                                            cache_manager and cache_results contradict
 
         Returns:
             DataCacheManager: An existing or newly created cache manager that can be used with the ResponseCoordinator
@@ -263,7 +263,7 @@ class ResponseCoordinator:
     @property
     def cache(self) -> DataCacheManager:
         """
-        Alias for the reponse data processing cache manager:
+        Alias for the response data processing cache manager:
         Also allows direct access to the DataCacheManager from the ResponseCoordinator
         """
         return self._cache_manager
@@ -271,7 +271,7 @@ class ResponseCoordinator:
     @cache.setter
     def cache(self, cache_manager: DataCacheManager) -> None:
         """
-        Alias for the reponse data processing cache manager:
+        Alias for the response data processing cache manager:
         Also allows the direct modification of the DataCacheManager from the ResponseCoordinator
         """
         self.cache_manager = cache_manager
@@ -524,7 +524,7 @@ class ResponseCoordinator:
     ) -> ErrorResponse | ProcessedResponse:
         """
         Parses, extracts, processes, and optionally caches response data and orchestrates the process of handling errors
-        if one occurs anywhere along the response hanlding preocess.
+        if one occurs anywhere along the response handling process.
 
         Args:
             response (Response): Raw API response.
@@ -644,17 +644,15 @@ class ResponseCoordinator:
         """
         logger.error(error_message)
 
-        creation_timestamp = generate_iso_timestamp()
-        return ErrorResponse(
+        return ErrorResponse.from_error(
+            response=response,
             cache_key=cache_key,
-            response=response.response if isinstance(response, APIResponse) else response,
             message=error_message,
-            error=type(error_type).__name__,
-            created_at=creation_timestamp,
+            error=error_type
         )
 
     def schema_fingerprint(self) -> str:
-        """Helper method for generating a concise view of the current sructure of the response coordinator"""
+        """Helper method for generating a concise view of the current structure of the response coordinator"""
         fingerprint = self.cache_manager.cache_fingerprint(
             generate_repr_from_string(
                 self.__class__.__name__,

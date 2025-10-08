@@ -9,7 +9,7 @@ from scholar_flux.api import ProviderConfig
 from scholar_flux.utils import generate_repr_from_string
 from scholar_flux.api.models import SearchResultList, SearchResult, PageListInput
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry, ThreadedRateLimiter
-from scholar_flux.api import SearchAPI, SearchCoordinator, ErrorResponse, APIResponse
+from scholar_flux.api import SearchAPI, SearchCoordinator, ErrorResponse, APIResponse, NonResponse
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
 
 
@@ -32,7 +32,7 @@ class MultiSearchCoordinator(UserDict):
     def __init__(self, *args, **kwargs):
         """
         Initializes the MultiSearchCoordinator, allowing positional and keyword arguments to be specified when
-        creating the MultiSearchCoordinator. The initialzation of the MultiSearchCoordinator operates similarly
+        creating the MultiSearchCoordinator. The initialization of the MultiSearchCoordinator operates similarly
         to that of a regular dict with the caveat that values are statically typed as SearchCoordinator instances.
         """
         super().__init__(*args, **kwargs)
@@ -401,20 +401,21 @@ class MultiSearchCoordinator(UserDict):
         """
         # All coordinators in this group share the same threaded rate limiter
 
-        # will be used to flag non-retriable error codes from the provider for early stopping across queries if needed
+        # will be used to flag non-retryable error codes from the provider for early stopping across queries if needed
         last_response: Optional[APIResponse] = None
         for search_coordinator in provider_coordinators.values():
             provider_name = ProviderConfig._normalize_name(search_coordinator.api.provider_name)
 
             if (
                 isinstance(last_response, ErrorResponse)
+                and not isinstance(last_response, NonResponse)
                 and isinstance(last_response.status_code, int)
                 and last_response != 200
                 and last_response.status_code not in search_coordinator.retry_handler.retry_statuses
             ):
-                # breaks if a non-retriable status code is encountered.
+                # breaks if a non-retryable status code is encountered.
                 logger.warning(
-                    f"Encountered a non-retriable response during retrieval: {last_response}. "
+                    f"Encountered a non-retryable response during retrieval: {last_response}. "
                     f"Halting retrieval for provider, {provider_name}"
                 )
                 break

@@ -3,6 +3,7 @@ from scholar_flux.utils import quote_if_string
 
 
 def test_data_processor_repr():
+    """Verifies the representation of the DataProcessor to ensure it shows in the terminal as intended"""
     processor = DataProcessor()
 
     value_delimiter = quote_if_string(processor.value_delimiter)
@@ -22,6 +23,7 @@ def test_data_processor_repr():
 
 
 def test_path_data_processor_repr():
+    """Verifies the representation of the PathDataProcessor in the CLI to determine whether it displays as intended"""
     processor = PathDataProcessor()
 
     value_delimiter = quote_if_string(processor.value_delimiter)
@@ -40,6 +42,9 @@ def test_path_data_processor_repr():
 
 
 def test_recursive_data_processor_repr():
+    """
+    Verifies the representation of the RecursiveDataProcessor in the CLI to determine whether it displays as intended
+    """
     processor = RecursiveDataProcessor()
 
     value_delimiter = quote_if_string(processor.value_delimiter)

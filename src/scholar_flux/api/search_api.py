@@ -157,11 +157,12 @@ class SearchAPI(BaseAPI):
         If no changes are made, an identical SearchAPI is generated from the existing defaults.
 
         Args:
-            config (SearchAPIConfig): Indicates the configuration settings to be used when sending requests to APIs
+            config (SearchAPIConfig):
+                Indicates the configuration settings to be used when sending requests to APIs
             parameter_config (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
                 Maps global scholar_flux parameters to those that are API specific.
-            session:(Optional[requests.Session | CachedSession]): An optional session to use for the creation
-                                                                  of request sessions
+            session:(Optional[requests.Session | CachedSession]):
+                An optional session to use for the creation of request sessions
             timeout: (Optional[int | float]): Identifies the number of seconds to wait before raising a TimeoutError
             use_cache: Optional[bool]: Indicates whether or not to use cache. The settings from session
                                        are otherwise used this option is not specified.
@@ -175,17 +176,29 @@ class SearchAPI(BaseAPI):
         """
         if not isinstance(search_api, SearchAPI):
             raise APIParameterException(
-                "Expected a SearchAPI to perform parameter updates. " f"Received type {type(search_api)}"
+                "Expected a SearchAPI to perform parameter updates. "
+                f"Received type {type(search_api)}"
             )
 
+
+        request_delay = api_specific_parameters.get(
+            "request_delay", getattr(rate_limiter, "min_interval", None)
+        )
+
+        if request_delay is not None:
+            api_specific_parameters['request_delay'] = request_delay
+
         config = (
-            SearchAPIConfig.update(config or search_api.config, **api_specific_parameters)
+            SearchAPIConfig.update(config or search_api.config, 
+                                   **api_specific_parameters)
             if config or api_specific_parameters
             else search_api.config
         )
+
+
         update_rate_limiter: Optional[RateLimiter] = rate_limiter or (
-            search_api._rate_limiter if "request_delay" not in api_specific_parameters else None
-        )
+             search_api._rate_limiter if "request_delay" not in api_specific_parameters else None
+         )
 
         if not parameter_config:
             parameter_config = search_api.parameter_config if config.provider_name == config.provider_name else None
@@ -215,25 +228,30 @@ class SearchAPI(BaseAPI):
                 This method is called during the initialization of the class.
 
                 Args:
-                    query (str): The query to send to the current API provider. Note, this must be non-missing
-                    search_api_config (SearchAPIConfig): Indicates the configuration settings to be used when sending requests
-                                                         to APIs
+                    query (str):
+                        The query to send to the current API provider. Note, this must be non-missing
+                    search_api_config (SearchAPIConfig):
+                        Indicates the configuration settings to be used when sending requests to APIs
                     parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
-                       Maps global scholar_flux parameters to those that are specific to the provider's API of request sessions
-                    masker: (Optional[SensitiveDataMasker]): A masker used to filter logs of API keys and other sensitive data
-        `          rate_limiter (Optional[RateLimiter]): An optional rate limiter to control the number of requests sent at
+                       Maps global scholar_flux parameters to those that are specific to the provider's API 
+                    masker: (Optional[SensitiveDataMasker]):
+                        A masker used to filter logs of API keys and other sensitive data
+                   rate_limiter (Optional[RateLimiter]):
+                       An optional rate limiter to control the number of requests sent at. when the request_delay and
+                       min_interval do not agree, `min_interval` is preferred
 
 
         """
         self.config = config
-
-        if rate_limiter and self.config.request_delay != rate_limiter.min_interval:
-            self.config.request_delay = config.validate_request_delay(rate_limiter.min_interval)
-
         self.query = query
         self.last_request: Optional[float] = None
         self._rate_limiter: RateLimiter = rate_limiter or RateLimiter(min_interval=self.config.request_delay)
         self.masker: SensitiveDataMasker = masker or default_masker
+
+        # prefer the rate limit derived from the RateLimiter if provided explicitly when neither matches
+        if rate_limiter and self.config.request_delay != rate_limiter.min_interval:
+            self.config.request_delay = config.validate_request_delay(rate_limiter.min_interval)
+
 
         # first attempt to retrieve a non-empty parameter_config. If unsuccessful,
         # then whether the provided namespace or url matches a default provider
@@ -443,7 +461,7 @@ class SearchAPI(BaseAPI):
     ) -> "SearchAPI":
         """
         Factory method to create SearchAPI instances with sensible defaults for known providers. PLOS is used by default
-        unless the environment variable, `DEFAULT_SCHOLAR_FLUX_PROVIDER` is set to another provider.
+        unless the environment variable, `SCHOLAR_FLUX_DEFAULT_PROVIDER` is set to another provider.
 
         Args:
             query (str): The search keyword or query string.
@@ -462,7 +480,7 @@ class SearchAPI(BaseAPI):
             A new SearchAPI instance initialized with the config chosen
         """
         try:
-            default_provider_name = provider_name or config.get("DEFAULT_SCHOLAR_FLUX_PROVIDER", "PLOS")
+            default_provider_name = provider_name or config.get("SCHOLAR_FLUX_DEFAULT_PROVIDER", "PLOS")
             search_api_config = SearchAPIConfig.from_defaults(
                 provider_name=default_provider_name, **api_specific_parameters
             )

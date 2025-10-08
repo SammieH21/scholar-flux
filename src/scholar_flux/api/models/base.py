@@ -23,6 +23,7 @@ class APISpecificParameter:
         required (bool): An attribute used as a flag for identifying additional parameters that must be provided when
                          creating extensible API clients for particular providers.
     """
+
     name: str
     description: str
     validator: Optional[Callable[[Any], Any]] = None
@@ -127,10 +128,8 @@ class BaseAPIParameterMap(BaseModel):
         parameters = [
             parameter
             for parameter in self.model_dump()
-            if parameter not in ("api_key_required",
-                                 "auto_calculate_page",
-                                 "api_specific_parameters",
-                                 "zero_indexed_pagination")
+            if parameter
+            not in ("api_key_required", "auto_calculate_page", "api_specific_parameters", "zero_indexed_pagination")
         ]
 
         parameters += list(self.api_specific_parameters.keys())

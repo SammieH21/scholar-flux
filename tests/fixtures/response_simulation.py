@@ -4,11 +4,12 @@ from unittest.mock import Mock
 from requests.models import Response
 from http.client import responses
 import json
+from typing import Any
 from pathlib import Path
 
 
 @pytest.fixture
-def mock_response():
+def mock_response() -> Response:
     """Create a mock response object."""
     response = Mock(spec=Response)
     response.url = "https://api.example.com/test"
@@ -19,7 +20,7 @@ def mock_response():
 
 
 @pytest.fixture
-def mock_successful_response():
+def mock_successful_response() -> Response:
     """Create a response object that simulates a 429 rate limit exceeded error"""
     mock_response = Response()
     mock_response.status_code = 200
@@ -28,7 +29,7 @@ def mock_successful_response():
 
 
 @pytest.fixture
-def mock_internal_error_response():
+def mock_internal_error_response() -> Response:
     """Create a response object that simulates a 500 internal error"""
     mock_response = Response()
     mock_response.status_code = 500
@@ -37,7 +38,7 @@ def mock_internal_error_response():
 
 
 @pytest.fixture
-def mock_unauthorized_response():
+def mock_unauthorized_response() -> Response:
     """Create a response object that simulates a 401 unauthorized error"""
     mock_response = Response()
     mock_response.status_code = 401
@@ -46,7 +47,7 @@ def mock_unauthorized_response():
 
 
 @pytest.fixture
-def mock_rate_limit_exceeded_response():
+def mock_rate_limit_exceeded_response() -> Response:
     """Create a response object that simulates a 429 rate limit exceeded error"""
     mock_response = Response()
     mock_response.status_code = 429
@@ -55,7 +56,7 @@ def mock_rate_limit_exceeded_response():
 
 
 @pytest.fixture
-def mock_cache_storage_data():
+def mock_cache_storage_data() -> dict[str, Any]:
     """Test data for cache operations."""
     return {
         "response_hash": hashlib.sha256(b"test content").hexdigest(),
@@ -124,23 +125,6 @@ def academic_yaml_response(mock_academic_yaml) -> Response:
 
     return mock_response
 
-
-# @pytest.fixture
-# def mock_academic_json_response(mock_academic_json) -> Response:
-#
-#     # Create a mock object that behaves like a Response instance
-#     mock_response = Mock(spec=Response)
-#
-#     # Set desired attributes and method return values
-#     mock_response.status_code = 200
-#     mock_response.text = str(mock_academic_json)
-#     mock_response.raw = mock_response.text
-#     mock_response.content = mock_response.text.encode("utf-8")
-#     mock_response.json.return_value = mock_academic_json
-#     mock_response.headers = {"Content-Type": "application/json"}
-#     mock_response.raise_for_status = lambda: 200
-#
-#     return mock_response
 
 __all__ = [
     "mock_response",

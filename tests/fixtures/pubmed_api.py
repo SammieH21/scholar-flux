@@ -91,18 +91,6 @@ def mock_pubmed_fetch_response(mock_pubmed_fetch_data) -> Response:
     return mock_response
 
 
-# def mock_pubmed_fetch_xml_response(mock_pubmed_search_data, mock_pubmed_fetch_data):
-
-#   pubmed_api_key = "this_is_a_mocked_api_key"
-#   with requests_mock.Mocker() as m:
-#       m.get(
-#           mock_pubmed_fetch_endpoint,
-#           content=mock_pubmed_search_data["_content"].encode(),
-#           headers={"Content-Type": "text/xml; charset=UTF-8"},
-#           status_code=200,
-#       )
-#       return coordinator.fetch(page = 1)
-
 __all__ = [
     "mock_pubmed_search_json_path",
     "mock_pubmed_fetch_json_path",

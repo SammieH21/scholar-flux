@@ -69,7 +69,7 @@ from scholar_flux.data.data_processor import DataProcessor
 from scholar_flux.data.pass_through_data_processor import PassThroughDataProcessor
 from scholar_flux.data.recursive_data_processor import RecursiveDataProcessor
 from scholar_flux.data.path_data_processor import PathDataProcessor
-from scholar_flux.utils.data_processing_utils import RecursiveDictProcessor
+from scholar_flux.utils.json_processing_utils import RecursiveDictProcessor
 
 __all__ = [
     "BaseDataExtractor",

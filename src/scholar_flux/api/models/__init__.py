@@ -26,6 +26,7 @@ from scholar_flux.api.models.search_inputs import PageListInput
 from scholar_flux.api.models.response import (
     APIResponse,
     ErrorResponse,
+    NonResponse,
     ProcessedResponse,
 )
 
@@ -40,6 +41,7 @@ __all__ = [
     "ProviderRegistry",
     "APIResponse",
     "ErrorResponse",
+    "NonResponse",
     "ProcessedResponse",
     "ReconstructedResponse",
     "ResponseResult",

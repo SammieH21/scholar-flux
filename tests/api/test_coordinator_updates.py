@@ -5,12 +5,13 @@ from scholar_flux.api.search_coordinator import SearchCoordinator, SearchAPI, Re
 
 @pytest.fixture(scope="session")
 def base_coordinator():
+    """A search coordinator coordinator serving as a baseline for testing update functionality"""
     base_coordinator = SearchCoordinator(query="original_query", provider_name="pubmed", cache_results=False)
     return base_coordinator
 
 
 def test_identical_update(base_coordinator):
-    """All components should be the same since no individual component was modified"""
+    """Tests whether all components are unmodified as expected, since no elements were modified"""
     identical_coordinator = SearchCoordinator.update(base_coordinator)
     assert (
         base_coordinator.search_api == identical_coordinator.search_api
@@ -22,7 +23,10 @@ def test_identical_update(base_coordinator):
 
 
 def test_with_new_components(base_coordinator):
-    """Each component, outside of the workflow will be different"""
+    """
+    Test whether each component, outside of the workflow, will be modified in a new instance as expected
+    after updating the response coordinator.
+    """
     new_response_coordinator = deepcopy(base_coordinator.responses)
     new_response_coordinator.cache_manager = new_response_coordinator.cache_manager.with_storage("inmemory")
     new_search_api = base_coordinator.search_api.update(base_coordinator.search_api, query="new_query")

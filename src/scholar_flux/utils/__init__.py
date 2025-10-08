@@ -1,3 +1,4 @@
+# /utils
 """
 
 The scholar_flux.utils module contains a comprehensive set of utility tools used to simplify the re-implementation
@@ -20,11 +21,12 @@ Modules:
 
     - file_utils.py: Implements a FileUtils class that contains several static methods for reading files
 
-    - encoder: Contains an implementation of a CacheDataEncoder that uses base64 utilities  to recursively encode
-               and decode JSON dictionaries and lists for storage and retrieval by using base64. This method accounts
-               for when direct serialization isn't possible. Without accounting for nested structures and types.
+    - encoder: Contains an implementation of a CacheDataEncoder and JsonDataEncoder that uses base64 and json utilities 
+               to recursively serialize, deserialize, encode and decode JSON dictionaries and lists for storage and retrieval
+               by using base64. This method accounts for when direct serialization isn't possible and would otherwise
+               result in a JSONDecodeError as a direct result of not accounting for nested structures and types.
 
-    - data_processing_utils: Contains a variety of utilities used in the creation of the RecursiveDictProcessor which
+    - json_processing_utils: Contains a variety of utilities used in the creation of the RecursiveDictProcessor which
                              is used to streamline the process of filtering and flattening parsed record data
 
     - /paths: Contains custom implementations for processing JSON lists using path processing that abstracts
@@ -46,7 +48,7 @@ from scholar_flux.utils.config_loader import ConfigLoader
 from scholar_flux.utils.initializer import config_settings, initialize_package
 
 from scholar_flux.utils.file_utils import FileUtils
-from scholar_flux.utils.encoder import CacheDataEncoder
+from scholar_flux.utils.encoder import CacheDataEncoder, JsonDataEncoder
 
 from scholar_flux.utils.helpers import (
     get_nested_data,
@@ -82,11 +84,12 @@ from scholar_flux.utils.paths import (
     PathDiscoverer,
 )
 
-from scholar_flux.utils.data_processing_utils import (
+from scholar_flux.utils.json_processing_utils import (
     PathUtils,
     KeyDiscoverer,
     KeyFilter,
     RecursiveDictProcessor,
+    JsonRecordData,
     JsonNormalizer,
 )
 
@@ -124,6 +127,7 @@ __all__ = [
     "ConfigLoader",
     "config_settings",
     "CacheDataEncoder",
+    "JsonDataEncoder",
     "get_nested_data",
     "nested_key_exists",
     "generate_response_hash",
@@ -155,6 +159,7 @@ __all__ = [
     "KeyFilter",
     "RecursiveDictProcessor",
     "JsonNormalizer",
+    "JsonRecordData",
     "generate_repr",
     "generate_repr_from_string",
     "format_repr_value",

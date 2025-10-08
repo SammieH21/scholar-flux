@@ -1,5 +1,46 @@
+# /utils/json_processing_utils.py
+"""
+Helper module used to process recursive JSON data received from APIs of an unknown type and structure.
+
+Classes:
+    PathUtils: Utility class used to prepare path strings and lists of path components consistently for processing.
+    KeyDiscoverer: Helper class for identifying JSON paths and terminal keys containing nested data elements.
+    KeyFilter: Helper class used to identify and filter nested dictionaries based on path length and pattern matching.
+    RecursiveDictProcessor: Front-end facing utility function used by the `scholar_flux.data.RecursiveDataProcessor`
+                            to process, filter, and flatten JSON formatted data.
+    JsonRecordData: Helper class used as a container to hold extracted path/data components for further processing.
+    JsonNormalizer: Helper class used by the `RecursiveDictProcessor` to flatten the inputted JSON record into a
+                    non-nested dictionary 
+
+Example Use:
+    >>> from scholar_flux.utils import RecursiveDictProcessor
+    >>> from pprint import pp
+    >>> data = {
+            "authors": {"principle_investigator": "Dr. Smith", "assistant": "Jane Doe"},
+            "doi": "10.1234/example.doi",
+            "title": "Sample Study",
+            "abstract": ["This is a sample abstract.", "keywords: 'sample', 'abstract'"],
+            "genre": {"subspecialty": "Neuroscience"},
+            "journal": {"topic": "Sleep Research"},
+        } 
+    # joins fields with nested components using a newline character - retains full paths leading to each value
+    >>> processor = RecursiveDictProcessor(object_delimiter = '   ', use_full_path = True)
+    # processes and flattens the JSON dict using the defined helper classes under the hood
+    >>> result = processor.process_and_flatten(data)
+    # prints the result in a format that is easier to view from the CLI
+    >>> pp(result)
+    # OUTPUT: {'authors.principle_investigator': 'Dr. Smith',
+               'authors.assistant': 'Jane Doe',
+               'doi': '10.1234/example.doi',
+               'title': 'Sample Study',
+               'abstract': "This is a sample abstract.   keywords: 'sample', 'ab
+              stract'",
+               'genre.subspecialty': 'Neuroscience',
+               'journal.topic': 'Sleep Research'}
+"""
 from typing import Dict, List, Tuple, Any, Optional
 from itertools import chain
+from dataclasses import dataclass
 import re
 
 from collections import defaultdict
@@ -9,6 +50,11 @@ logger = logging.getLogger(__name__)
 
 
 class PathUtils:
+    """
+    Helper class used to perform string/list manipulations for paths that can be represented
+    in either form, requiring conversion from one type to the other in specific JSON path processing
+    scenarios.
+    """
     @staticmethod
     def path_name(level_names: List[Any]) -> str:
         """
@@ -60,17 +106,19 @@ class PathUtils:
         return key_path
 
     @staticmethod
-    def constant_path_indices(path: List[Any]) -> List[Any]:
+    def constant_path_indices(path: List[Any], constant: str = 'i') -> List[Any]:
         """
         Replace integer indices with constants in the provided path.
 
         Args:
             path (List[Any]): The original path containing both keys and indices.
+            constant (str): A value to replace a numeric value with.
 
         Returns:
             List[Any]: A path with only the key names.
         """
-        key_path = ["i" if isinstance(k, int) else k for k in path]
+        constant = constant or 'i'
+        key_path = [constant if isinstance(k, int) else k for k in path]
         return key_path
 
     @staticmethod
@@ -93,6 +141,10 @@ class PathUtils:
 
 
 class KeyFilter:
+    """
+    Helper class used to create a simple filter that allows for the identification of terminal keys
+    associated with data in a JSON structure and the paths that lead to each terminal key.
+    """
     @staticmethod
     def filter_keys(
         discovered_keys: Dict[str, List[str]],
@@ -102,7 +154,16 @@ class KeyFilter:
         pattern: Optional[str] = None,
         include_matches: bool = True,
     ) -> Dict[str, List[str]]:
+        """
+        A method used to create a function that matches key-value pairs based on the specified criteria.
+        For example, filtering can be configured to identify keys based on prefix, minimum path length,
+        and path substring/pattern matching with conditional match inclusion/exclusion.
+        """
         def matches_criteria(key: str, paths: List[str]) -> bool:
+            """
+            Helper function that, when configured via `filter_keys` allows for the identification
+            of keys and paths that match a specific criteria
+            """
             if prefix and key.startswith(prefix):
                 return True
             if min_length is not None and any(len(path.split(".")) >= min_length for path in paths):
@@ -119,7 +180,13 @@ class KeyFilter:
 
 
 class KeyDiscoverer:
+    """
+    Helper class used to discover terminal keys containing data within nested JSON data structures and
+    identify the paths used to arrive at each key.
+    """
+
     def __init__(self, records: Optional[List[Dict]] = None):
+        """Initializes the KeyDiscoverer and identifies terminal key/path pairs within the JSON data structure"""
         self.records = records or []
         self._discovered_keys, self._terminal_paths = self._discover_keys()
 
@@ -201,7 +268,29 @@ class KeyDiscoverer:
         )
 
 
+@dataclass
+class JsonRecordData:
+    """
+    Helper class used as a container to record the paths, data, and names associated with each terminal path.
+
+    Args:
+        path (list[str | int]): The path associated with the terminal data point where nested terminal values can be found
+        data (dict[str, Any]): The nested terminal value at the end of a path
+
+    """
+    path: List[str | int]
+    data: Dict[str, Any]
+
 class RecursiveDictProcessor:
+    """
+    An implementation of a recursive JSON dictionary processor that is used
+    to process and identify nested components such as paths, terminal key names, and
+    the data at each terminal path.
+
+    This utility of the RecursiveDictProcessor is for flattening dictionary records
+    into flattened representations where its keys represent the terminal paths at each
+    node and its values represent the data found at each terminal path.
+    """
     def __init__(
         self,
         json_dict: Optional[Dict] = None,
@@ -224,9 +313,14 @@ class RecursiveDictProcessor:
             KeyDiscoverer([json_dict] if not isinstance(json_dict, list) else json_dict) if json_dict else None
         )
         self.use_full_path = use_full_path or False
-        self.json_extracted: list = []
+        self.extracted_record_data_list: list[JsonRecordData] = []
 
     def combine_normalized(self, normalized_field_value: Optional[list | str]) -> list | str | None:
+        """
+        Combines lists of nested data (strings, ints, None, etc.) into a single string separated by
+        the normalizing_delimiter. If a delimiter isn't specified or if the value is None, it is
+        returned as is without modification.
+        """
         if isinstance(normalized_field_value, str):
             return normalized_field_value
         if self.normalizing_delimiter is not None and isinstance(normalized_field_value, list):
@@ -252,17 +346,21 @@ class RecursiveDictProcessor:
         return current_data
 
     def process_dictionary(self, obj: Optional[Dict] = None):
-        """create a new json dictionary that contains information about the relative paths of each
+        """Create a new json dictionary that contains information about the relative paths of each
         field that can be found within the current json_dict.
         """
         self.json_dict = obj or self.json_dict
         if not self.json_dict:
             raise ValueError("Json Dictionary not specified")
-        self.json_extracted.clear()
+        self.extracted_record_data_list.clear()
         self.process_level(self.json_dict)
         return self
 
     def process_level(self, obj: Any, level_name: Optional[List[Any]] = None) -> List[Any]:
+        """
+        Helper method for processing a level within a dictionary. This method is recursively called
+        to process nested components
+        """
         level_name = level_name if level_name is not None else []
         if isinstance(obj, list):
             if any(isinstance(v_i, (list, dict)) for v_i in obj):
@@ -272,10 +370,9 @@ class RecursiveDictProcessor:
         elif isinstance(obj, dict):
             return list(chain.from_iterable(self.process_level(v, level_name + [k]) for k, v in obj.items()))
         else:
-            fmt_name = PathUtils.group_path_assignments(level_name)
             obj = list(obj) if isinstance(obj, tuple) else obj
-            obj_info = {"data": obj, "path": level_name, "last_key": fmt_name}
-            self.json_extracted.append(obj_info)
+            obj_info = JsonRecordData(data=obj, path=level_name)
+            self.extracted_record_data_list.append(obj_info)
             return [obj_info]
 
     def filter_extracted(self, exclude_keys: Optional[List[str]] = None):
@@ -286,10 +383,10 @@ class RecursiveDictProcessor:
             exclude_keys ([List[str]]): List of keys to exclude from the flattened result.
         """
 
-        self.json_extracted = (
-            [obj for obj in self.json_extracted if not any(key in set(exclude_keys) for key in obj["path"])]
+        self.extracted_record_data_list = (
+            [obj for obj in self.extracted_record_data_list if not any(key in set(exclude_keys) for key in obj.path)]
             if exclude_keys
-            else self.json_extracted
+            else self.extracted_record_data_list
         )
 
         return self
@@ -302,11 +399,10 @@ class RecursiveDictProcessor:
             Optional[Dict[str, List[Any]]]: A dictionary with flattened paths as keys and lists of values.
         """
 
-        if self.json_extracted:
+        if self.extracted_record_data_list:
             normalizer = JsonNormalizer(
-                [json_extraction["data"] for json_extraction in self.json_extracted],
-                [json_extraction["path"] for json_extraction in self.json_extracted],
-                full_path=self.use_full_path,
+                self.extracted_record_data_list,
+                use_full_path=self.use_full_path,
             )
             normalized_json = normalizer.normalize_extracted()
             normalized_json = {
@@ -342,28 +438,23 @@ class RecursiveDictProcessor:
 
 
 class JsonNormalizer:
+    """Helper class that flattens and normalizes the retrieved list of JsonRecordData into singular flattened dictionary"""
     def __init__(
         self,
-        json_extracted_dicts: List[Dict[str, Any]],
-        json_extracted_paths: List[List],
-        full_path: bool = False,
+        json_record_data_list: List[JsonRecordData],
+        use_full_path: bool = False,
     ):
         """
         Initialize the JsonNormalizer with extracted JSON data and a delimiter.
 
         Args:
-            json_extracted (List[Dict[str, Any]]): The list of extracted JSON data.
+            extracted_record_data_list (List[JsonRecordData]): The list of extracted JSON data.
             delimiter (str): The delimiter used to join elements in lists.
-            full_path (str): Indicates whether to use the full nested json path or the smallest unique path available
+            use_full_path (str): Indicates whether to use the full nested json path or the smallest unique path available
         """
 
-        if not len(json_extracted_dicts) == len(json_extracted_paths):
-            raise ValueError(
-                "Extracted Dicts and Paths not of the same length, {len(json_extracted_dicts)} != {len(json_extracted_paths)}"
-            )
-        self.json_extracted_dicts = json_extracted_dicts
-        self.json_extracted_paths = json_extracted_paths
-        self.full_path = full_path or False
+        self.json_record_data_list = json_record_data_list
+        self.use_full_path = use_full_path or False
 
     def normalize_extracted(self) -> Dict[str, List[Any] | str | None]:
         """
@@ -376,7 +467,8 @@ class JsonNormalizer:
         flattened_json_dict: dict = defaultdict(list)
         unique_mappings_dict: dict = defaultdict(list)
 
-        for current_obj, current_path in zip(self.json_extracted_dicts, self.json_extracted_paths):
+        for json_record_data in self.json_record_data_list:
+            current_obj, current_path = json_record_data.data, json_record_data.path
             current_group = PathUtils.remove_path_indices(current_path)
             current_key_str = ".".join(current_group)
 
@@ -418,11 +510,6 @@ class JsonNormalizer:
         if found_key:
             return found_key
 
-        #       if len(unique_mappings_dict[current_group[-1]]) < 1:
-        #           unique_mappings_dict[current_group[-1]].append(current_key_str)
-        #           logger.debug(f"Using last key part as unique key: {current_group[-1]}")
-        #           return current_group[-1]
-
         return self.create_unique_key(current_group, current_key_str, unique_mappings_dict)
 
     def create_unique_key(
@@ -442,7 +529,7 @@ class JsonNormalizer:
         Returns:
             str: A unique key for the current data entry.
         """
-        idx = 1 if not self.full_path else len(current_group)
+        idx = 1 if not self.use_full_path else len(current_group)
         while idx <= len(current_group):
             current_data_key_test = ".".join(current_group[-idx:])
             if current_data_key_test not in unique_mappings_dict:
