@@ -1,3 +1,7 @@
+# /api/providers/pubmed_efetch.py
+"""
+Defines the core configuration necessary to interact with the PubMed eFetch API using the scholar_flux package.
+"""
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
 

@@ -19,7 +19,7 @@ from scholar_flux.api.models.parameters import APIParameterMap, APIParameterConf
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.provider_registry import ProviderRegistry
 
-from scholar_flux.api.models.response_types import ResponseResult
+from scholar_flux.api.models.response_types import APIResponseType
 from scholar_flux.api.models.search import SearchAPIConfig
 from scholar_flux.api.models.search_inputs import PageListInput
 
@@ -44,7 +44,7 @@ __all__ = [
     "NonResponse",
     "ProcessedResponse",
     "ReconstructedResponse",
-    "ResponseResult",
+    "APIResponseType",
     "SearchResult",
     "SearchResultList",
     "SearchAPIConfig",

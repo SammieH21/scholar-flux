@@ -13,6 +13,9 @@ Sub-modules:
                provider with minimal code. (e.g, plos.py contains the necessary config settings for the PLOS API)
     workflows: Defines custom workflows for APIs requiring API-specific logic modifications for easier record retrieval.
                This includes the PubMed Wokflow which searches IDs and then fetches the records
+    rate_limiting: Defines the methods and classes used to ensure that the rate limits associated with each API
+                   are not exceeded. The SearchAPI implements rate limiting using the `RateLimiter` and, optionally,
+                   ThreadedRateLimiter class to wait a specified interval of time before sending the next request.
 
 In order to use the API one can get started with the SearchCoordinator with minimal effort:
     >>> from scholar_flux.api import SearchCoordinator # imports the most forward facing interface for record retrieval

@@ -75,6 +75,16 @@ class RecursiveDataProcessor(ABCDataProcessor):
         self.load_data(json_data)
 
     def load_data(self, json_data: Optional[list[dict]] = None):
+        """
+        Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
+        from. If `json_data` is missing, or the json input is equal to the current `json_data` attribute, then
+        the json_data attribute will not be updated from the json input.
+
+        Args:
+            json_data (Optional[list[dict]]) The json data to be loaded as an attribute
+        Returns:
+            bool: Indicates whether the data was successfully loaded (True) or not (False)
+        """
         json_data = json_data if json_data is not None else self.json_data
         if json_data:
             self.json_data = json_data
@@ -175,29 +185,29 @@ class RecursiveDataProcessor(ABCDataProcessor):
         )
 
 
-if __name__ == "__main__":
-    record_test_json: list[dict] = [
-        {
-            "authors": {"principle_investigator": "Dr. Smith", "assistant": "Jane Doe"},
-            "doi": "10.1234/example.doi",
-            "title": "Sample Study",
-            "abstract": [
-                "This is a sample abstract.",
-                "keywords: 'sample', 'abstract'",
-            ],
-            "genre": {"subspecialty": "Neuroscience"},
-            "journal": {"topic": "Sleep Research"},
-        },
-        {
-            "authors": {"principle_investigator": "Dr. Lee", "assistant": "John Roe"},
-            "dois": [{"doi": "10.5678/example2.doi"}, {"doi": "10.5681/example3.doi"}],
-            "title": "Another Study",
-            "abstract": "Another abstract.",
-            "genre": {"subspecialty": "Psychiatry"},
-            "journal": {"topic": "Dreams"},
-        },
-    ]
-    processor = RecursiveDataProcessor(value_delimiter="; ", use_full_path=True)
-    processed = processor.process_page(record_test_json)
-
-    assert processed
+# if __name__ == "__main__":
+#     record_test_json: list[dict] = [
+#         {
+#             "authors": {"principle_investigator": "Dr. Smith", "assistant": "Jane Doe"},
+#             "doi": "10.1234/example.doi",
+#             "title": "Sample Study",
+#             "abstract": [
+#                 "This is a sample abstract.",
+#                 "keywords: 'sample', 'abstract'",
+#             ],
+#             "genre": {"subspecialty": "Neuroscience"},
+#             "journal": {"topic": "Sleep Research"},
+#         },
+#         {
+#             "authors": {"principle_investigator": "Dr. Lee", "assistant": "John Roe"},
+#             "dois": [{"doi": "10.5678/example2.doi"}, {"doi": "10.5681/example3.doi"}],
+#             "title": "Another Study",
+#             "abstract": "Another abstract.",
+#             "genre": {"subspecialty": "Psychiatry"},
+#             "journal": {"topic": "Dreams"},
+#         },
+#     ]
+#     processor = RecursiveDataProcessor(value_delimiter="; ", use_full_path=True)
+#     processed = processor.process_page(record_test_json)
+# 
+#     assert processed

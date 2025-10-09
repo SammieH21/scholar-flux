@@ -20,6 +20,7 @@ def redis_test_config():
 
 @pytest.fixture(scope="module")
 def storage_test_namespace():
+    """Indicates the specific storage namespace to use for testing when creating data storage caches"""
     return "cache_collection"
 
 
@@ -45,31 +46,41 @@ def sqlite_test_config():
 
 @pytest.fixture(scope="module")
 def redis_test_storage(redis_test_config, storage_test_namespace):
-    """Create a Redis Data Storage instance"""
+    """Create a Redis Data Storage instance to use for later testing at the module level"""
     return RedisStorage(namespace=storage_test_namespace, **redis_test_config)
 
 
 @pytest.fixture(scope="module")
 def mongo_test_storage(mongo_test_config):
-    """Create a MongoDB Data Storage instance"""
+    """Create a MongoDB Data Storage instance to use for later testing at the module level"""
     return MongoDBStorage(**mongo_test_config)
 
 
 @pytest.fixture(scope="module")
 def mongo_nm_test_storage(mongo_test_config, storage_test_namespace):
-    """Create a MongoDB Data Storage instance"""
+    """
+    Create a MongoDB Data Storage instance to use for later testing at the module level.
+
+    This storage instance uses a separate namespace than the original `mongo_test_storage` to validate
+    namespace filtering for MongoDB.
+    """
     return MongoDBStorage(namespace=storage_test_namespace, **mongo_test_config)
 
 
 @pytest.fixture(scope="module")
 def sqlite_test_storage(sqlite_test_config):
-    """Create a SQL Data Storage instance"""
+    """Create a SQL Data Storage instance to use for later testing at the module level"""
     return SQLAlchemyStorage(**sqlite_test_config)
 
 
 @pytest.fixture(scope="module")
 def sqlite_nm_test_storage(sqlite_test_config, storage_test_namespace):
-    """Create a SQL Data Storage instance"""
+    """
+    Create a SQL Data Storage instance
+
+    This storage instance uses a separate namespace than the original `sqlite_test_storage` to validate
+    namespace filtering for SQLite.
+    """
     return SQLAlchemyStorage(namespace=storage_test_namespace, **sqlite_test_config)
 
 
@@ -81,13 +92,18 @@ def in_memory_test_storage():
 
 @pytest.fixture(scope="module")
 def in_memory_nm_test_storage(storage_test_namespace):
-    """Create an in-memory Data Storage instance"""
+    """
+    Create an in-memory Data Storage instance
+
+    This storage instance uses a separate namespace than the original `in_memory_test_storage` to validate
+    namespace filtering for in-memory caching.
+    """
     return InMemoryStorage(namespace=storage_test_namespace)
 
 
 @pytest.fixture(scope="module")
 def null_test_storage():
-    """Create a Null Data Storage instance"""
+    """Creates a Null Data Storage instance that essentially prevents the caching of response processing data"""
     return NullStorage()
 
 

@@ -16,6 +16,39 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAPI:
+    """
+    Base API client that contains a minimal implementation that prepares requests and retrieve responses in a
+    user-friendly manner.
+
+    Args:
+        session (Optional[requests.Session]): A pre-configured requests or requests-cache session.
+                                              A new session is created if not specified.
+        user_agent (Optional[str]): An optional user-agent string for the session.
+        timeout: (Optional[int | float]): Identifies the number of seconds to wait before raising a TimeoutError
+        masker (Optional[str]): Used for filtering potentially sensitive information from logs (API keys, auth
+                                bearers, emails, etc).
+        use_cache (bool): Indicates whether or not to create a cached session. If a cached session is already
+                          specified, this setting will have no effect on the creation of a session.
+
+        >>> from scholar_flux.api import BaseAPI
+        # creating a basic API that uses the PLOS as the default while caching data in-memory:
+        >>> base_api = BaseAPI(use_cache = True)
+        # retrieve a basic request:
+        >>> response_page_1 = base_api.send_request('https://api.plos.org/search', parameters={'q': 'machine learning', 'start': 1, 'rows': 20})
+        >>> assert response_page_1.ok
+        >>> response_page_1
+        # OUTPUT: <Response [200]>
+        >>> ml_page_1 = response_page_1.json()
+        # future requests automatically wait until te specified request delay passes to send another request:
+        >>> response_page_2 = api.search(page = 2)
+        >>> assert response_page_1.ok
+        >>> response_page_2
+        # OUTPUT: <Response [200]
+        >>> ml_page_2 = response_page_2.json()
+        >>> ml_page_2
+        # OUTPUT: {'response': {'numFound': '...', 'start': 21, 'docs': ['...']}} # redacted
+
+    """
     DEFAULT_TIMEOUT: int = 20
     DEFAULT_USE_CACHE: bool = False
 

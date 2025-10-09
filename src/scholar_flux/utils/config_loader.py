@@ -22,7 +22,7 @@ class ConfigLoader:
             - SCHOLAR_FLUX_DEFAULT_PROVIDER: Defines the provider to use by default when creating a SearchAPI instance
         API_KEYS:
             - SPRINGER_NATURE_API_KEY: API Key used when retrieving academic data from Springer Nature
-            - CROSSREF_API_KEY: API key used to retrieve academic metadata from Crossref
+            - CROSSREF_API_KEY: API key used to retrieve academic metadata from Crossref (API key not required)
             - CORE_API_KEY: API key used to retrieve metadata and full-text publications from the CORE API
             - PUBMED_API_KEY: API key used to retrieve publications from the NIH PubMed database
         Session Cache:

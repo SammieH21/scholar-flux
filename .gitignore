@@ -73,13 +73,13 @@ pip-delete-this-directory.txt
 .coverage
 .tox/
 .pytest_cache/
+.pytest.log/
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
-.pytest_cache/
 
 # Translations
 *.mo
@@ -122,6 +122,8 @@ dmypy.json
 notes/
 archived/
 /profiling
+**/secrets/
+**/secure/*
 **/logs/*
 **/cspell.json
 src/scholar_flux/logs/*

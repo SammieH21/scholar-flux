@@ -56,10 +56,9 @@ class PathDataProcessor(ABCDataProcessor):
 
     def load_data(self, json_data: Optional[dict | list[dict]] = None) -> bool:
         """
-        Attempts to load a data dictionary or list, contingent of it having
-        at least one nonmissing record to load from. If json_data is missing,
-        or the json input is equal to the current json_data attribute then
-        the json_data attribute will not be updated from the json input.
+        Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
+        from. If `json_data` is missing or the json input is equal to the current `json_data` attribute, then
+        the `json_data` attribute will not be updated from the json input.
 
         Args:
             json_data (Optional[dict | list[dict]]) The json data to be loaded as an attribute

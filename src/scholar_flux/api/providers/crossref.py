@@ -1,3 +1,7 @@
+# /api/providers/crossref.py
+"""
+Defines the core configuration necessary to interact with the Crossref API using the scholar_flux package.
+"""
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.api.validators import validate_and_process_email

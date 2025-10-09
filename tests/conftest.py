@@ -1,4 +1,9 @@
-"""Helper script that contains the complete list of fixtures that were made globally available to pytest"""
+# /tests/conftest.py
+"""
+Helper script that contains the complete list of fixtures that were made globally available to pytest for testing the
+scholar_flux package. The test suite fixtures are prepared to aid the testing of both simulated and known provider
+configurations.
+"""
 
 from tests.fixtures.plos_api import (
     plos_search_api,
@@ -31,10 +36,12 @@ from tests.fixtures.config import (
     new_config_test_api_key,
     original_config,
     new_config,
-    original_param_config,
-    new_param_config,
+    original_api_parameter_config,
+    new_api_parameter_config,
     core_api_key,
     pubmed_api_key,
+    springer_nature_api_key,
+    crossref_api_key,
 )
 
 from tests.fixtures.response_simulation import (
@@ -116,8 +123,8 @@ __all__ = [
     "new_config_test_api_key",
     "original_config",
     "new_config",
-    "original_param_config",
-    "new_param_config",
+    "original_api_parameter_config",
+    "new_api_parameter_config",
     "core_api_key",
     "pubmed_api_key",
     "mock_response",
@@ -172,6 +179,8 @@ __all__ = [
     "sqlite_db_url",
     "core_api_key",
     "pubmed_api_key",
+    "springer_nature_api_key",
+    "crossref_api_key",
     "redis_test_config",
     "storage_test_namespace",
     "mongo_test_config",

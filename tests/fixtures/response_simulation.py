@@ -10,7 +10,7 @@ from pathlib import Path
 
 @pytest.fixture
 def mock_response() -> Response:
-    """Create a mock response object."""
+    """Creates a mock success response object for the `https://api.example.com/test endpoint."""
     response = Mock(spec=Response)
     response.url = "https://api.example.com/test"
     response.status_code = 200
@@ -21,7 +21,7 @@ def mock_response() -> Response:
 
 @pytest.fixture
 def mock_successful_response() -> Response:
-    """Create a response object that simulates a 429 rate limit exceeded error"""
+    """Creates a response object that simulates a 429 rate limit exceeded error"""
     mock_response = Response()
     mock_response.status_code = 200
     mock_response.status = responses[200]  # type:ignore
@@ -30,7 +30,7 @@ def mock_successful_response() -> Response:
 
 @pytest.fixture
 def mock_internal_error_response() -> Response:
-    """Create a response object that simulates a 500 internal error"""
+    """Creates a response object that simulates a 500 internal error"""
     mock_response = Response()
     mock_response.status_code = 500
     mock_response.status = responses[500]  # type:ignore
@@ -39,7 +39,7 @@ def mock_internal_error_response() -> Response:
 
 @pytest.fixture
 def mock_unauthorized_response() -> Response:
-    """Create a response object that simulates a 401 unauthorized error"""
+    """Creates a response object that simulates a 401 unauthorized error"""
     mock_response = Response()
     mock_response.status_code = 401
     mock_response.status = responses[401]  # type:ignore
@@ -48,7 +48,7 @@ def mock_unauthorized_response() -> Response:
 
 @pytest.fixture
 def mock_rate_limit_exceeded_response() -> Response:
-    """Create a response object that simulates a 429 rate limit exceeded error"""
+    """Creates a response object that simulates a 429 rate limit exceeded error"""
     mock_response = Response()
     mock_response.status_code = 429
     mock_response.status = responses[429]  # type:ignore
@@ -57,7 +57,10 @@ def mock_rate_limit_exceeded_response() -> Response:
 
 @pytest.fixture
 def mock_cache_storage_data() -> dict[str, Any]:
-    """Test data for cache operations."""
+    """
+    Mocks the creation of processed data that is stored for later retrieval after response retrieval/processing
+    when processed response caching is enabled.
+    """
     return {
         "response_hash": hashlib.sha256(b"test content").hexdigest(),
         "status_code": 200,
@@ -70,19 +73,27 @@ def mock_cache_storage_data() -> dict[str, Any]:
 
 @pytest.fixture
 def mock_academic_json_path() -> Path:
+    """
+    The path where the data is stored to simulate the retrieval/processing of JSON data from an academic response API.
+    """
     mock_academic_json_path = Path(__file__).resolve().parent.parent / "mocks" / "mock_article_response.json"
     return mock_academic_json_path
 
 
 @pytest.fixture
 def mock_academic_json(mock_academic_json_path) -> dict:
+    """
+    The data to return when simulating the retrieval/processing of mock JSON data from an academic response API.
+    """
     mock_academic_json = json.loads(mock_academic_json_path.read_text(encoding="utf-8"))
     return mock_academic_json
 
 
 @pytest.fixture
 def academic_json_response(mock_academic_json) -> Response:
-
+    """
+    The response to return when simulating the creation of a JSON response from an academic response API.
+    """
     # Create a mock object that behaves like a Response instance
     mock_response = Response()
 
@@ -99,19 +110,28 @@ def academic_json_response(mock_academic_json) -> Response:
 
 @pytest.fixture
 def mock_academic_yaml_path() -> Path:
+    """
+    The path where the YAML data is stored. Is used to simulate the retrieval/processing of uncommonly
+    received YAML content from an academic response API.
+    """
     mock_academic_yaml_path = Path(__file__).resolve().parent.parent / "mocks" / "mock_article_response.yaml"
     return mock_academic_yaml_path
 
 
 @pytest.fixture
 def mock_academic_yaml(mock_academic_yaml_path) -> str:
+    """
+    The text data to return when simulating the creation of the raw text YAML from an academic response API.
+    """
     mock_academic_yaml = mock_academic_yaml_path.read_text(encoding="utf-8")
     return mock_academic_yaml
 
 
 @pytest.fixture
 def academic_yaml_response(mock_academic_yaml) -> Response:
-
+    """
+    The response to return when simulating the creation of a YAML response from an academic response API.
+    """
     # Create a mock object that behaves like a Response instance
     mock_response = Response()
 

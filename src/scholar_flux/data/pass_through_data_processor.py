@@ -68,6 +68,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
     ) -> list[dict]:
+        """Processes and returns each record as is if filtering the final list of records by key is not enabled."""
 
         keep_keys = keep_keys or self.keep_keys
         ignore_keys = ignore_keys or self.ignore_keys

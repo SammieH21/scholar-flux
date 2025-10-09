@@ -91,12 +91,13 @@ class SearchAPI(BaseAPI):
                 with an API. For convenience, an APIParameterMap can be provided in place of an APIParameterConfig,
                 and the conversion will take place under the hood.
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
+                                                  A new session is created if not specified.
             user_agent (Optional[str]): Optional user-agent string for the session.
             timeout: (Optional[int | float]): Identifies the number of seconds to wait before raising a TimeoutError
             masker (Optional[str]): Used for filtering potentially sensitive information from logs (API keys, auth
                                     bearers, emails, etc)
             use_cache (bool): Indicates whether or not to create a cached session. If a cached session is already
-                                   specified, this
+                                   specified, this setting will have no effect on the creation of a session.
             base_url (str): The base URL for the article API.
             api_key (Optional[str | SecretStr]): API key if required.
             records_per_page (int): Number of records to fetch per page (1-100).

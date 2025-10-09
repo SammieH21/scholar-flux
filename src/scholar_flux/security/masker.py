@@ -175,7 +175,7 @@ class SensitiveDataMasker:
             >>> registered = masker.register_secret_if_exists("normal_field", "normal_value")
             >>> print(registered)  # False
         """
-        if isinstance(value, SecretStr):
+        if self.is_secret(value):
             mask_pattern = StringMaskingPattern(
                 name=name or field,
                 pattern=value,
@@ -229,7 +229,15 @@ class SensitiveDataMasker:
             result = pattern.apply_masking(result)
         return result
 
-    def clear(self):
+    def clear(self) -> None:
+        """
+        Clears the `SensitiveDataMasker.patterns` set of all previously registered MaskingPatterns including
+        those that were registered by default.
+
+        The masker would otherwise use the available `patterns` set to determine what text strings would be
+        masked when the `mask_text` method is called. Calling `mask_text` after clearing all MaskingPatterns
+        from the current masker will leave all text unmasked and return the inputted text as is.
+        """
         self.patterns.clear()
 
     @staticmethod
@@ -258,6 +266,22 @@ class SensitiveDataMasker:
 
         """
         return SecretUtils.unmask_secret(obj)
+
+    @classmethod
+    def is_secret(cls, obj: Any) -> bool:
+        """
+        Utility method for verifying whether the current value is a secret. This method delegates
+        the verification of the value type to the `SecretUtils` helper class to abstract the
+        implementation details in cases where the implementation details might require modification
+        in the future for special cases.
+
+        Args:
+            obj (Any): The object to check
+
+        Returns:
+            bool: True if the object is a SecretStr, False otherwise
+        """
+        return SecretUtils.is_secret(obj)
 
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the SensitiveDataMasker in an easy to read manner."""

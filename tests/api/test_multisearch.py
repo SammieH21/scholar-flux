@@ -82,7 +82,7 @@ def test_last_response_page(mock_search, mock_successful_response, mock_unauthor
 def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
     """
     Tests whether exceptions are successfully captured and formatted as an ErrorResponse within a
-    ResponseResult when an error is encountered. The presence of a specific error should ideally
+    API Response when an error is encountered. The presence of a specific error should ideally
     halt the process, especially relevant when encountering `400` status codes.
     """
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")

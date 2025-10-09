@@ -62,6 +62,50 @@ def test_session_mod():
     assert api.cache is None
 
 
+@pytest.mark.parametrize("provider_name", ("plos", "pubmed", "springernature", "crossref", "core"))
+def test_parameter_build_successful(provider_name,original_config_test_api_key):
+    """
+    Verifies that the `build_parameters` method successfully prepares all required fields and, when required, API keys
+    and mailto addresses for each individual provider.
+
+    This method uses the pytest's `parametrize` feature to validate parameters generated automatically by
+    `SearchAPI.build_parameters()` against the configuration and parameter map required by each provider.
+
+    This test ensures that all required parameters and api keys (when required) are present in the final
+    dictionary of parameter key-value pairs and does not send requests to the api provider.
+    """
+
+    # first ensures that we're dealing with the intended provider
+    provider_config = provider_registry.get(provider_name)
+    assert provider_config is not None
+
+    api_parameter_map = provider_config.parameter_map
+
+    # retrieves the full list of parameters that are required and optional for a specific provider
+    required_provider_parameters = {api_parameter_map.query,
+                           api_parameter_map.start,
+                           api_parameter_map.records_per_page,
+                           *(key for key, parameter_info in api_parameter_map.api_specific_parameters.items()
+                             if parameter_info.required or key == 'mailto')}
+
+    if api_parameter_map.api_key_parameter:
+        required_provider_parameters.add(api_parameter_map.api_key_parameter)
+
+    # uses the default configuration under the hood for the current provider with a mocked API key to verify the result
+    crossref_user_email = 'avalid@email.com' if provider_name == 'crossref' else None
+    api = SearchAPI(query = 'test_query',
+                    provider_name = provider_name,
+                    api_key=original_config_test_api_key if api_parameter_map.api_key_parameter else None,
+                    mailto= crossref_user_email # for crossref, sufficiently important for feedback/usage
+                   )
+
+    # prepares the list of parameters to be sent to the current API based on the config and page/records per page
+    prepared_parameters = api.build_parameters(page = 1)
+
+    # verifies that no parameters from the `required_provider_parameters` set are missing from the prepared_parameters
+    assert not required_provider_parameters.difference(prepared_parameters)
+
+
 @pytest.mark.parametrize(
     "param_overrides",
     [
@@ -138,7 +182,7 @@ def test_default_params():
     """
     Test for whether the defaults are specified correctly:
         1. api key stays null
-        2. session defauls to a requests.Session object
+        2. session defaults to a requests.Session object
         3. records per page defaults to 20
         4. mailto defaults to None
         5. timeout is correctly set to the default 20 seconds
@@ -182,6 +226,7 @@ def test_api_specific_parameter_specification(caplog):
 
 
 def test_validate_url(caplog):
+    """Verifies that the underlying api validator for URLs correctly identifies missing schemas/protocols"""
     crossref = provider_registry.get("crossref")
     assert crossref is not None
     crossref_url = crossref.base_url
@@ -194,7 +239,8 @@ def test_validate_url(caplog):
     assert validate_and_process_url(crossref_url) == crossref_url
 
 
-def test_search_api_url_validation(caplog):
+def test_search_api_url_mailto_validation(caplog):
+    """Validates the URL of the SearchAPI to verify that both invalid and valid mailto/URLs are identified as such"""
     bad_mailto = "dsdn2#"
     crossref = provider_registry.get("crossref")
     assert crossref is not None
@@ -214,6 +260,10 @@ def test_search_api_url_validation(caplog):
 
 
 def test_basic_parameter_overrides(caplog):
+    """
+    Validates and verifies that basic parameters are overridden as needed when preparing the parameters needed to
+    retrieve data from each API
+    """
     mailto = "atestemail@anaddress.com"
     api = SearchAPI(query="test", provider_name="crossref", mailto=mailto, api_key=None)
     params = api.build_parameters(page=1, additional_parameters={"new_parameter": 1})
@@ -502,7 +552,7 @@ def test_api_key_exists_true_and_false():
     assert not SearchAPI._api_key_exists({"foo": "bar"})
 
 
-def test_with_config_parameters_temporary_override(original_config, original_param_config):
+def test_with_config_parameters_temporary_override(original_config, original_api_parameter_config):
     """
     Tests and verifies that the API's SearchAPIConfig can be temporarily overridden with a context manager and
     the `with_api_parameters` method and identically reverted back to the previous SearchAPIConfig after the
@@ -513,7 +563,7 @@ def test_with_config_parameters_temporary_override(original_config, original_par
         base_url=original_config.base_url,
         records_per_page=original_config.records_per_page,
         api_key=original_config.api_key,
-        parameter_config=original_param_config,
+        parameter_config=original_api_parameter_config,
     )
     original_config = api.config
 
@@ -525,7 +575,7 @@ def test_with_config_parameters_temporary_override(original_config, original_par
     assert api.config == original_config
 
 
-def test_with_config_parameters_invalid_field_ignored(original_config, original_param_config):
+def test_with_config_parameters_invalid_field_ignored(original_config, original_api_parameter_config):
     """
     Verifies that fields unknown to the APIParameterConfig are ignored when building parameters
     for a new request
@@ -535,7 +585,7 @@ def test_with_config_parameters_invalid_field_ignored(original_config, original_
         base_url=original_config.base_url,
         records_per_page=original_config.records_per_page,
         api_key=original_config.api_key,
-        parameter_config=original_param_config,
+        parameter_config=original_api_parameter_config,
     )
     # copy the current config
     original_config = deepcopy(api.config)
@@ -561,14 +611,14 @@ def test_with_config_parameters_invalid_field_ignored(original_config, original_
     assert "nonexistent_field" not in (api.config.api_specific_parameters or {})
 
 
-def test_with_config_parameters_exception_restores(original_config, original_param_config):
+def test_with_config_parameters_exception_restores(original_config, original_api_parameter_config):
     """Tests and verifies that the configuration can temporarily be modified and restored with the context maanger"""
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
         records_per_page=original_config.records_per_page,
         api_key=original_config.api_key,
-        parameter_config=original_param_config,
+        parameter_config=original_api_parameter_config,
     )
     original_config = api.config
 
@@ -578,7 +628,7 @@ def test_with_config_parameters_exception_restores(original_config, original_par
     assert api.config == original_config
 
 
-def test_with_config_precedence_over_provider(monkeypatch, new_config, original_param_config):
+def test_with_config_precedence_over_provider(monkeypatch, new_config, original_api_parameter_config):
     """
     Tests and verifies that the SearchAPIConfig.from_defaults factory method is overridden as intended
     when the `with_config` method is called as a context manager to temporarily change the config.
@@ -589,7 +639,7 @@ def test_with_config_precedence_over_provider(monkeypatch, new_config, original_
         base_url="https://original.com",
         records_per_page=10,
         api_key=new_config.api_key,
-        parameter_config=original_param_config,
+        parameter_config=original_api_parameter_config,
     )
 
     monkeypatch.setattr(
@@ -631,7 +681,7 @@ def test_updates():
 
 
 def test_nested_with_config_and_with_config_parameters(
-    original_config, new_config, original_param_config, new_param_config
+    original_config, new_config, original_api_parameter_config, new_api_parameter_config
 ):
     """
     Verifies that nested context managers modifies the current config with precedence given to the latest context
@@ -642,30 +692,30 @@ def test_nested_with_config_and_with_config_parameters(
         base_url=original_config.base_url,
         records_per_page=original_config.records_per_page,
         api_key=original_config.api_key,
-        parameter_config=original_param_config,
+        parameter_config=original_api_parameter_config,
     )
     original_config = api.config
-    orig_param_config = api.parameter_config
+    orig_api_parameter_config = api.parameter_config
 
-    with api.with_config(config=new_config, parameter_config=new_param_config):
+    with api.with_config(config=new_config, parameter_config=new_api_parameter_config):
         # Inside first context: config and parameter_config are swapped
         assert api.config == new_config
-        assert api.parameter_config == new_param_config
+        assert api.parameter_config == new_api_parameter_config
 
         with api.with_config_parameters(records_per_page=123, request_delay=99):
             # Inside nested context: config is a modified copy of new_config
             assert api.config.records_per_page == 123
             assert api.config.request_delay == 99
-            # parameter_config remains as new_param_config
-            assert api.parameter_config == new_param_config
+            # parameter_config remains as new_api_parameter_config
+            assert api.parameter_config == new_api_parameter_config
 
         # After inner context: config and parameter_config are as in outer context
         assert api.config == new_config
-        assert api.parameter_config == new_param_config
+        assert api.parameter_config == new_api_parameter_config
 
     # After both contexts: originals are restored
     assert api.config == original_config
-    assert api.parameter_config == orig_param_config
+    assert api.parameter_config == orig_api_parameter_config
 
 
 def test_missing_parameters():

@@ -34,7 +34,7 @@ class SecretUtils:
 
         """
 
-        return obj if isinstance(obj, SecretStr) else SecretStr(str(obj)) if obj is not None else obj
+        return obj if cls.is_secret(obj) else SecretStr(str(obj)) if obj is not None else obj
 
     @classmethod
     def unmask_secret(cls, obj: Any) -> Any:
@@ -58,4 +58,19 @@ class SecretUtils:
             # OUTPUT: True
         """
 
-        return obj.get_secret_value() if isinstance(obj, SecretStr) else obj
+        return obj.get_secret_value() if cls.is_secret(obj) else obj
+
+    @classmethod
+    def is_secret(cls, obj: Any) -> bool:
+        """
+        Utility class method used to verify whether the current variable is a secret string. 
+        This method abstracts the implementation details into a single method to aid further
+        extensibility.
+
+        Args:
+            obj (Any): The object to check
+
+        Returns:
+            bool: True if the object is a SecretStr, False otherwise
+        """
+        return isinstance(obj, SecretStr)

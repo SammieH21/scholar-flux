@@ -4,6 +4,7 @@ import os
 
 @pytest.fixture(scope="function")
 def cleanup(tmp_path):
+    """A helper utility that helps to clean out any temporary files previously created for file testing"""
     """Fixture to clean up temporary files and directories after each test."""
     yield
     # Remove all files and directories inside tmp_path

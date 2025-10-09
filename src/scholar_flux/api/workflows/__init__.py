@@ -26,7 +26,7 @@ Modules:
                             step by step, in a custom workflow
         2) WorkflowStep - Contains the core logic indicate what providers and default parameter overrides will be
                           used to perform the next search
-        3) StepContext - Basic wrapper holding the results of each step as well as its step number and WorfklowStep
+        3) StepContext - Basic wrapper holding the results of each step as well as its step number and WorkflowStep
         4) WorkflowResult - Will contain the history of each of the steps in the SearchWorkflow. Also stores the
                             result of each search in the `result` attribute
     pubmed_workflow: Contains the necessary steps for interacting with the Pubmed API. Note that this API generally
@@ -45,7 +45,7 @@ Modules:
        >>> from scholar_flux.sessions import CachedSessionManager
        >>> from scholar_flux.api.workflows import WORKFLOW_DEFAULTS, SearchWorkflow
        # PubMed requires an API key - Is read automatically from the user's environment variable list if available
-       >>> api = SearchAPI.from_defaults(query = 'Cardiovascular Health', provider_name='pubmed', session = CachedSessionManager(user_agent='sam_research', backend='redis').configure_session())
+       >>> api = SearchAPI.from_defaults(query = 'Machine Learning Hospitals', provider_name='pubmed', session = CachedSessionManager(user_agent='sam_research', backend='redis').configure_session())
         # THE WORKFLOW is read automatically from the WORKFLOW defaults
        >>> pubmed_search = SearchCoordinator(api)
        >>> isinstance(pubmed_search, SearchWorkflow)

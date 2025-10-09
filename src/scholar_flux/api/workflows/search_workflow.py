@@ -18,7 +18,16 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowStep(BaseWorkflowStep):
-    """Indicates the processing metadata and execution instructions for each step in a workflow"""
+    """
+    Defines a specific step in a workflow and indicates its processing metadata and execution instructions before,
+    during, and after the execution of the `search` procedure in this step of the `SearchWorkflow`.
+
+        Args:
+            provider_name: Optional[str]: Allows for the modification of the current provider for multifaceted searches
+            **search_parameters:  defines optional keyword arguments to pass to SearchCoordinator._search()
+            **config_parameters:  defines optional keyword arguments that modify the step's SearchAPIConfig
+            **description (str): An optional description explaining the execution and/or purpose of the current step
+    """
 
     provider_name: Optional[str] = Field(default=None, description="The provider to use for this step.")
     search_parameters: Dict[str, Any] = Field(default_factory=dict, description="API search parameters for this step.")
@@ -29,6 +38,7 @@ class WorkflowStep(BaseWorkflowStep):
 
     @field_validator("provider_name", mode="after")
     def format_provider_name(cls, v) -> str:
+        """Helper method used to format the inputted provider name after type checking"""
         if isinstance(v, str):
             v = ProviderConfig._normalize_name(v)
         return v
@@ -40,6 +50,21 @@ class WorkflowStep(BaseWorkflowStep):
         search_parameters: Optional[dict] = None,
         config_parameters: Optional[dict] = None,
     ) -> Self:
+        """
+        Overrides the `pre_transform of the base workflow step to allow for the modification of runtime search
+        behavior to modify the current search and its behavior.
+
+        Args:
+            ctx (Optional[StepContext]): Defines the inputs that are used by the current SearcWorkflowStep to modify
+                                         its function before execution.
+            provider_name: Optional[str]: Allows for the modification of the current provider for multifaceted searches
+            **search_parameters:  defines optional keyword arguments to pass to SearchCoordinator._search()
+            **config_parameters:  defines optional keyword arguments that modify the step's SearchAPIConfig
+
+        Returns:
+            SearchWorkflowStep: A modified or copied version of the current search workflow step
+        """
+
 
         if ctx is not None:
             self._verify_context(ctx)
@@ -61,7 +86,18 @@ class WorkflowStep(BaseWorkflowStep):
 
 
 class StepContext(BaseStepContext):
-    """Worker class that holds information on the Workflow step, step number, and its results after execution"""
+    """
+    Helper class that holds information on the Workflow step, step number, and its results after execution.
+    This StepContext is passed before and after the execution of a SearchWorkflowStep to dynamically aid in
+    the modification of the functioning of each step at runtime.
+
+    Args:
+        step_number (int): Indicate the order in which the step is executed for a particular step context
+        step (WorkflowStep): Defines the instructions for response retrieval, processing, and pre/post transforms for
+                             each step of a workflow. This value defines both the step taken to arrive at the result.
+        result (Optional[ProcessedResponse | ErrorResponse]): Indicates the result that was retrieved and processed in
+                                                              the current step
+    """
 
     step_number: int
     step: WorkflowStep
@@ -72,13 +108,29 @@ class StepContext(BaseStepContext):
 
 
 class WorkflowResult(BaseWorkflowResult):
-    """Helper class that encapsulates the result and history in an object"""
+    """
+    Helper class that encapsulates the result and history in an object
+
+    Args:
+        history (List[StepContext]): Defines the context of steps and results taken to arrive at a particular result
+        result (Any): The final result after the execution of a workflow
+    """
 
     history: List[StepContext]
     result: Any
 
 
 class SearchWorkflow(BaseWorkflow):
+    """
+    Front-end SearchWorkflow class that is further refined for particular providers base on subclassing.
+    This class defines the full workflow used to arrive at a result and records the history of each search
+    at any particular step.
+
+    Args:
+        steps (List[WorkflowStep]): Defines the steps to be iteratively executed to arrive at a result.
+        history (List[StepContext]): Defines the full context of all steps taken and results recorded to arrive at the
+                                     final result on the completion of an executed workflow.
+    """
     steps: List[WorkflowStep]
     _history: List[StepContext] = PrivateAttr(default_factory=lambda: [])
 
@@ -133,4 +185,15 @@ class SearchWorkflow(BaseWorkflow):
         return WorkflowResult(history=self._history, result=result)
 
     def __call__(self, *args, **kwargs) -> WorkflowResult:
+        """
+        Similarly enables the current workflow instance to executed like a function. This method calls the `_run`
+        private method under the hood to initiate the workflow.
+
+        Args:
+            *args: Positional input parameters used to modify the behavior of a workflow at runtime
+            *kwargs: keyword_parameters input parameters used to modify the behavior of a workflow at runtime
+
+        Returns:
+            WorkflowResult: The final result of a SearchWorkflow when its execution and retrieval is successful.
+        """
         return self._run(*args, **kwargs)

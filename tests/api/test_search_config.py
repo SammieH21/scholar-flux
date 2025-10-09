@@ -6,6 +6,7 @@ from scholar_flux.api import SearchAPIConfig, provider_registry
 from scholar_flux.api.models import APISpecificParameter
 from scholar_flux.security import SensitiveDataMasker
 import scholar_flux
+import os
 import scholar_flux.api.models.search
 
 
@@ -36,6 +37,39 @@ def test_non_provider_initialization(provider, basename):
     assert default_provider and default_provider.base_url == api_config.base_url
     assert api_config and api_config.url_basename == basename
     assert api_config.request_delay == api_config.DEFAULT_REQUEST_DELAY
+
+
+@pytest.mark.parametrize("api_key_dictionary", ({"plos": None}, {"pubmed": "pubmed_api_key"},
+                                                {"pubmed_efetch": "pubmed_api_key"},
+                                                {"springernature": "springer_nature_api_key"},
+                                                {"crossref": "crossref_api_key"}, {"core": "core_api_key"}))
+def test_api_key_format(api_key_dictionary, request):
+    """
+    Test that verifies whether all API keys, if available, are of the correct type (SecretStr or None).
+    This function uses parametrize to iteratively evaluate each individual provider config to ascertain whether there
+    are any inconsistencies preventing the correct API key from being loaded and used in the scholar_flux.config.
+    """
+
+    # first ensures that we're dealing with the intended provider
+    provider, api_key_parameter = next((provider, api_key) for provider, api_key in api_key_dictionary.items())
+    assert provider is not None
+    provider_config = provider_registry.get(provider)
+    assert provider_config is not None
+
+    # proceeds with API key format verification if the provider can an API key (whether optional or required)
+    if provider_config.api_key_env_var is not None:
+        # verifying format and type
+        api_key = request.getfixturevalue(api_key_parameter)
+        assert isinstance(api_key, SecretStr) or api_key is None
+
+        # ensure that the API keys are masked prior to use when read
+        env_api_key = SensitiveDataMasker.mask_secret(os.getenv(provider_config.api_key_env_var))
+        config_api_key = scholar_flux.config[provider_config.api_key_env_var]
+
+        # identifies any inconsistencies with the API key being applied based on the config and API key env var
+        # either both should be unavailable or should be exactly equal as secret strings
+        assert (api_key is None and env_api_key is None) or env_api_key == api_key == config_api_key
+
 
 
 @pytest.mark.parametrize("provider", ["plos", "pubmed_efetch", "pubmed", "springernature", "crossref", "core"])

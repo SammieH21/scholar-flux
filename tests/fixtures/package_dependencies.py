@@ -40,7 +40,7 @@ def mongodb_dependency() -> bool:
 
 @pytest.fixture(scope="session")
 def sqlalchemy_dependency() -> bool:
-    """Indicates whether the sqlachemy module is available"""
+    """Indicates whether the sqlalchemy module is available"""
     return bool(importlib.util.find_spec("sqlalchemy"))
 
 

@@ -1,4 +1,10 @@
-# api/models/workflows/workflow_defaults.py
+# api/workflows/workflow_defaults.py
+"""
+The scholar_flux.api.workflows.workflow_defaults defines the default workflows that are automatically used
+when setting up a new SearchCoordinator with a provider name registered in the `WORKFLOW_DEFAULTS` enumeration.
+
+At the present moment, only the PubMed API implements a workflow to consolidate two step article/metadata retrieval.
+"""
 
 from enum import Enum
 from typing import Optional
