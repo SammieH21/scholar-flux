@@ -1,3 +1,4 @@
+# /data
 """
 
 The scholar_flux.data module contains components that process the raw responses, enabling end users to interact with
@@ -69,7 +70,7 @@ from scholar_flux.data.data_processor import DataProcessor
 from scholar_flux.data.pass_through_data_processor import PassThroughDataProcessor
 from scholar_flux.data.recursive_data_processor import RecursiveDataProcessor
 from scholar_flux.data.path_data_processor import PathDataProcessor
-from scholar_flux.utils.json_processing_utils import RecursiveDictProcessor
+from scholar_flux.utils.json_processing_utils import RecursiveJsonProcessor
 
 __all__ = [
     "BaseDataExtractor",
@@ -81,5 +82,5 @@ __all__ = [
     "PassThroughDataProcessor",
     "RecursiveDataProcessor",
     "PathDataProcessor",
-    "RecursiveDictProcessor",
+    "RecursiveJsonProcessor",
 ]

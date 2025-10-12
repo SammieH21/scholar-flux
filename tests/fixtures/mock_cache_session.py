@@ -144,7 +144,7 @@ def default_encryption_cache_session_manager(
 ):
     """
     Creates a new CachedSessionManager factory instance that, in turn, is used to generate a new cached session that
-    encrypts cached requests. This fixture is used by the `default_encryption_cache_session` fixture in later testing 
+    encrypts cached requests. This fixture is used by the `default_encryption_cache_session` fixture in later testing
     to verify that cache encryption works as intended.
     """
     if not default_encryption_serializer_pipeline:
@@ -189,7 +189,7 @@ def incorrect_secret_salt_encryption_cache_session_manager(
     Creates a new cached session manager for testing access to a previously created encrypted cache when using the
     wrong secret key. Used to verify error handling when an incorrect secret key is used to access encrypted request
     cache.
-    
+
     Note that attempts to access a previously encrypted file cache/sqlite database with a different secret key than the
     original should then raise an error.
 
@@ -215,7 +215,7 @@ def incorrect_secret_salt_encryption_cache_session_manager(
 def default_encryption_cache_session(default_encryption_cache_session_manager):
     """
     Creates a new encrypted cache session to later validate the encryption capability of the encryption pipeline
-    serializer and deserializer.    
+    serializer and deserializer.
     """
 
     cached_session = default_encryption_cache_session_manager.configure_session()

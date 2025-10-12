@@ -1,8 +1,18 @@
+# /data/data_processor.py
+"""
+The scholar_flux.data.data_processor implements a DataProcessor based on the schema required of the ABCDataProcessor
+for processing the records and/or metadata extracted from a response. The data processor implements manual nested
+key retrieval by using the list of record_keys that point to the paths of fields to extract from the passed
+list of nested JSON dictionary records.
+
+The data processor can be used to filter records based on conditions and extract nested key-value pairs within each
+record to ensure that relevant records and fields from records are retained
+"""
 from typing import Any, Optional
 from scholar_flux.utils import get_nested_data, as_list_1d, unlist_1d, nested_key_exists
 
 from scholar_flux.data import ABCDataProcessor
-from scholar_flux.exceptions import DataProcessingException
+from scholar_flux.exceptions import DataProcessingException, DataValidationException
 
 import logging
 
@@ -11,7 +21,9 @@ logger = logging.getLogger(__name__)
 
 class DataProcessor(ABCDataProcessor):
     """
-    Initialize the DataProcessor with explicit extraction paths and options.
+    Initialize the DataProcessor with explicit extraction paths and options. The DataProcessor performs
+    the selective extraction os specific fields from each record within a page (list) of JSON (dictionary)
+    records and assumes that the paths to extract are known beforehand.
 
     Args:
         record_keys: Keys to extract, as a dict of output_key to path, or a list of paths.
@@ -54,29 +66,12 @@ class DataProcessor(ABCDataProcessor):
         """
         super().__init__()
 
-        self._validate_inputs(record_keys, ignore_keys, keep_keys, value_delimiter)
+        self._validate_inputs(ignore_keys, keep_keys, regex, record_keys=record_keys, value_delimiter=value_delimiter)
         self.record_keys: dict[str | int, list[str | int]] = self._prepare_record_keys(record_keys) or {}
         self.ignore_keys: list[str] = ignore_keys or []
         self.keep_keys: list[str] = keep_keys or []
         self.value_delimiter = value_delimiter
         self.regex: bool = regex if regex else False
-
-    @staticmethod
-    def _validate_inputs(
-        record_keys: Optional[dict[str | int, Any] | list[list[str | int]]],
-        ignore_keys: Optional[list[str]],
-        keep_keys: Optional[list[str]],
-        value_delimiter: Optional[str],
-    ):
-        """Helper class for ensuring that inputs to the data processor match the intended types"""
-        if record_keys is not None and not isinstance(record_keys, list) and not isinstance(record_keys, dict):
-            raise DataProcessingException(f"record_keys must be a list or dict, got {type(record_keys)}")
-        if ignore_keys is not None and not isinstance(ignore_keys, list):
-            raise DataProcessingException(f"ignore_keys must be a list, got {type(ignore_keys)}")
-        if keep_keys is not None and not isinstance(keep_keys, list):
-            raise DataProcessingException(f"keep_keys must be a list, got {type(keep_keys)}")
-        if value_delimiter is not None and not isinstance(value_delimiter, str):
-            raise DataProcessingException(f"value_delimiter must be a string, got {type(value_delimiter)}")
 
     @staticmethod
     def _prepare_record_keys(
@@ -120,7 +115,7 @@ class DataProcessor(ABCDataProcessor):
 
             return record_keys_dict
         except (TypeError, AttributeError, ValueError) as e:
-            raise DataProcessingException("The record_keys attribute could not be prepared. Check the inputs: ") from e
+            raise DataValidationException("The record_keys attribute could not be prepared. Check the inputs: ") from e
 
     @staticmethod
     def extract_key(
@@ -198,23 +193,42 @@ class DataProcessor(ABCDataProcessor):
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
     ) -> list[dict]:
+        """
+        Core method of the data processor that enables the processing of lists of dictionary records to filter
+        and process records based on the configuration of the current DataProcessor.
+
+        Args:
+            parsed_records (list[dict[str | int, Any]]): The records to process and/or filter
+            ignore_keys (Optional[list[str]]): Optional overrides identifying records to ignore based on matching keys
+                                                or absence of keys
+            keep_keys (Optional[list[str]]): Optional overrides identifying records to keep based based on matching keys
+            regex: (Optional[bool]): Used to determine whether or not to filter records using regular expressions
+
+        """
 
         keep_keys = keep_keys or self.keep_keys
         ignore_keys = ignore_keys or self.ignore_keys
         regex = regex if regex is not None else self.regex
 
+        self._validate_inputs(
+            ignore_keys, keep_keys, regex, record_keys=self.record_keys, value_delimiter=self.value_delimiter
+        )
+
         # processes each individual record dict
-        processed_record_dict_list = [
-            self.process_record(record_dict)
-            for record_dict in parsed_records
-            if self.record_filter(record_dict, keep_keys, regex) is not False
-            and self.record_filter(record_dict, ignore_keys, regex) is not True
-        ]
+        try:
+            processed_record_dict_list = [
+                self.process_record(record_dict)
+                for record_dict in parsed_records
+                if self.record_filter(record_dict, keep_keys, regex) is not False
+                and self.record_filter(record_dict, ignore_keys, regex) is not True
+            ]
 
-        logging.info(f"total included records - {len(processed_record_dict_list)}")
+            logging.info(f"total included records - {len(processed_record_dict_list)}")
 
-        # return the list of processed record dicts
-        return processed_record_dict_list
+            # return the list of processed record dicts
+            return processed_record_dict_list
+        except Exception as e:
+            raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
     def record_filter(
         self, record_dict: dict[str | int, Any], record_keys: Optional[list[str]] = None, regex: Optional[bool] = None

@@ -19,14 +19,14 @@ Modules:
 
     - helpers.py: Contains a variety of convenience and helper functions used throughout the scholar_flux package.
 
-    - file_utils.py: Implements a FileUtils class that contains several static methods for reading files
+    - file_utils.py: Implements a JsonFileUtils class that contains several static methods for reading files
 
     - encoder: Contains an implementation of a CacheDataEncoder and JsonDataEncoder that uses base64 and json utilities
                to recursively serialize, deserialize, encode and decode JSON dictionaries and lists for storage and retrieval
                by using base64. This method accounts for when direct serialization isn't possible and would otherwise
                result in a JSONDecodeError as a direct result of not accounting for nested structures and types.
 
-    - json_processing_utils: Contains a variety of utilities used in the creation of the RecursiveDictProcessor which
+    - json_processing_utils: Contains a variety of utilities used in the creation of the RecursiveJsonProcessor which
                              is used to streamline the process of filtering and flattening parsed record data
 
     - /paths: Contains custom implementations for processing JSON lists using path processing that abstracts
@@ -47,7 +47,7 @@ from scholar_flux.utils.logger import setup_logging
 from scholar_flux.utils.config_loader import ConfigLoader
 from scholar_flux.utils.initializer import config_settings, initialize_package
 
-from scholar_flux.utils.file_utils import FileUtils
+from scholar_flux.utils.json_file_utils import JsonFileUtils
 from scholar_flux.utils.encoder import CacheDataEncoder, JsonDataEncoder
 
 from scholar_flux.utils.helpers import (
@@ -77,10 +77,10 @@ from scholar_flux.utils.paths import (
     PathNode,
     PathSimplifier,
     PathNodeMap,
-    PathRecordMap,
-    PathChainMap,
+    RecordPathNodeMap,
+    RecordPathChainMap,
     PathNodeIndex,
-    ProcessingCache,
+    PathProcessingCache,
     PathDiscoverer,
 )
 
@@ -88,7 +88,7 @@ from scholar_flux.utils.json_processing_utils import (
     PathUtils,
     KeyDiscoverer,
     KeyFilter,
-    RecursiveDictProcessor,
+    RecursiveJsonProcessor,
     JsonRecordData,
     JsonNormalizer,
 )
@@ -109,7 +109,11 @@ import importlib
 _lazy_imports = {("scholar_flux.utils.provider_utils", "ProviderUtils")}
 
 
-def __getattr__(name):
+def __getattr__(name: str):
+    """
+    Enables the lazy retrieval of objects within the `scholar_flux.utils` module's namespace that are not loaded
+    until they are explicitly needed by a package resource or by user.
+    """
     try:
         module, object_name = next(
             ((module, object_name) for (module, object_name) in _lazy_imports if object_name == name)
@@ -144,20 +148,20 @@ __all__ = [
     "try_quote_numeric",
     "quote_numeric",
     "quote_if_string",
-    "FileUtils",
+    "JsonFileUtils",
     "ProcessingPath",
     "PathNode",
     "PathSimplifier",
     "PathNodeMap",
-    "PathRecordMap",
-    "PathChainMap",
+    "RecordPathNodeMap",
+    "RecordPathChainMap",
     "PathNodeIndex",
-    "ProcessingCache",
+    "PathProcessingCache",
     "PathDiscoverer",
     "PathUtils",
     "KeyDiscoverer",
     "KeyFilter",
-    "RecursiveDictProcessor",
+    "RecursiveJsonProcessor",
     "JsonNormalizer",
     "JsonRecordData",
     "generate_repr",
@@ -173,5 +177,9 @@ __all__ = [
 ]
 
 
-def __dir__():
+def __dir__() -> list[str]:
+    """
+    Implements a basic `dir` method for the current directory. Represents the available modules and objects that
+    are available for import and use within the current module.
+    """
     return list(globals().keys()) + [object_name for (_, object_name) in _lazy_imports]  # noqa: C417

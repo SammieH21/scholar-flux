@@ -1,3 +1,8 @@
+# /utils/provider_utils.py
+"""
+The scholar_flux.utils.provider_utils module implements the ProviderUtils class that is used to dynamically
+load the configuration for default providers stored in the scholar_flux.api.providers module.
+"""
 from __future__ import annotations
 from typing import Optional
 from scholar_flux.api.models.provider_config import ProviderConfig
@@ -8,6 +13,12 @@ import importlib
 
 
 class ProviderUtils:
+    """
+    Helper class used by the `scholar_flux` package to dynamically load the default ProviderConfig for each provider
+    within the `scholar_flux.api.providers` module on import. The ProviderUtils class uses `importlib` with exception
+    handling to account for possible errors that may occur when dynamically importing the ProviderConfig for each
+    provider.
+    """
 
     @classmethod
     @lru_cache(1)
@@ -46,7 +57,6 @@ class ProviderUtils:
             Optional[ProviderConfig]: The ProviderConfig associated with the module if one has been found,
                                       by the same variable name, `provider_config_variable`. Otherwise, the
                                       method will return `None` instead.
-
         """
 
         try:

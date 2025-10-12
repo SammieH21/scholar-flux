@@ -1,4 +1,8 @@
 # utils/logger.py
+"""
+The scholar_flux.utils.logger module implements a basic logger used to create an easy-to-re-initialize
+logger to be used for logging events and progress in the retrieval and processing of API responses.
+"""
 import logging
 from pathlib import Path
 from typing import Optional

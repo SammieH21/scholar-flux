@@ -1,4 +1,7 @@
-## util_exceptions.py
+# /exceptions/path_exceptions.py
+"""
+Implements exceptions for handling edge-cases when processing JSON files using custom path processing utilities.
+"""
 
 
 class LogDirectoryError(Exception):

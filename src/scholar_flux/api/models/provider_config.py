@@ -1,7 +1,13 @@
-from pydantic import BaseModel, field_validator, ConfigDict
+# /api/models/provider_config.py
+"""
+The scholar_flux.api.models.provider_config module implements the basic provider configuration necessary for
+interacting with APIs. It provides the foundational information necessary for the SearchAPI to resolve
+provider names to the URLs of the providers as well as basic defaults necessary for interaction.
+"""
+from pydantic import BaseModel, field_validator, ConfigDict, Field
 from typing import Optional, ClassVar, Any
 from scholar_flux.api.validators import validate_url, normalize_url
-from scholar_flux.api.models.base import BaseAPIParameterMap
+from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr
 
@@ -29,15 +35,39 @@ class ProviderConfig(BaseModel):
                                          accepts API keys.
         docs_url: (Optional[str]): An optional URL that indicates where documentation related to the use of the
                                    API can be found.
+    Example Usage:
+        >>> from scholar_flux.api import ProviderConfig, APIParameterMap, SearchAPI
+        >>> # Maps each of the individual parameters required to interact with the Guardian API
+        >>> parameters = APIParameterMap(query='q',
+        >>>                              start='page',
+        >>>                              records_per_page='page-size',
+        >>>                              api_key_parameter='api-key',
+        >>>                              auto_calculate_page=False,
+        >>>                              api_key_required=True)
+        >>> # creating the config object that holds the basic configuration necessary interact with the API
+        >>> guardian_config = ProviderConfig(provider_name = 'GUARDIAN',
+        >>>                                  parameter_map = parameters,
+        >>>                                  base_url = 'https://content.guardianapis.com//search',
+        >>>                                  records_per_page=10,
+        >>>                                  api_key_env_var='GUARDIAN_API_KEY',
+        >>>                                  request_delay=6)
+        >>> api = SearchAPI.from_provider_config(query = 'economic welfare',
+        >>>                                      provider_config = guardian_config,
+        >>>                                      use_cache = True)
+        >>> assert api.provider_name == 'guardian'
+        >>> response = api.search(page = 1) # assumes that you have the GUARDIAN_API_KEY stored as an env variable
+        >>> assert response.ok
     """
 
-    provider_name: str
-    base_url: str
-    parameter_map: BaseAPIParameterMap
-    records_per_page: int = 25
-    request_delay: float = 6.1
-    api_key_env_var: Optional[str] = None
-    docs_url: Optional[str] = None
+    provider_name: str = Field(min_length=1, description="Provider Name or Base URL for the article API")
+    base_url: str = Field(description="Base URL for the API")
+    parameter_map: BaseAPIParameterMap = Field(description="Map detailing the parameter names used by the API")
+    records_per_page: int = Field(default=20, ge=0, le=1000, description="Number of records per page (1-1000)")
+    request_delay: float = Field(default=6.1, ge=0, description="Minimum delay between requests in seconds")
+    api_key_env_var: Optional[str] = Field(
+        default=None, description="The API Key environment variable to read from the system environment, if specified"
+    )
+    docs_url: Optional[str] = Field(default=None, description="URL for the API's documentation")
     model_config: ClassVar[ConfigDict] = ConfigDict(str_strip_whitespace=True)
 
     @field_validator("provider_name", mode="after")

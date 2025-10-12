@@ -8,6 +8,6 @@ APIResponseType: Indicates the type of response received from a SearchCoordinato
     - NoResponse: Indicates that an error that prevented the retrieval of a response.
 """
 from typing import Union
-from scholar_flux.api.models.response import ProcessedResponse, ErrorResponse
+from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse
 
 APIResponseType = Union[ProcessedResponse, ErrorResponse]

@@ -1,3 +1,8 @@
+# /data_storage/null_storage.py
+"""
+The scholar_flux.data_storage.null_storage module implements a Null (No-Op) Storage that is used to ensure that
+responses are always reprocessed when implemented.
+"""
 from typing import Any, List, Dict, Optional
 from scholar_flux.data_storage.abc_storage import ABCStorage
 
@@ -23,38 +28,50 @@ class NullStorage(ABCStorage):
         >>> search_coordinator = SearchCoordinator(query='History of Data Caching', cache_manager=null_storage)
         # Otherwise the same can be performed with the following:
         >>> search_coordinator = SearchCoordinator(query='History of Data Caching', cache_results = False)
-        # The processing of responses will then be recomputed - useful for trying different processing methods
+        # The processing of responses will then be recomputed on the next search:
         >>> response = search_coordinator.search(page = 1)
     """
 
     def _initialize(self, *args, **kwargs) -> None:
+        """Method added for abstract class consistency - no-op"""
         pass
 
     def retrieve(self, *args, **kwargs) -> Optional[Any]:
+        """Method added for abstract class consistency - no-op"""
         return None
 
     def retrieve_all(self, *args, **kwargs) -> Optional[Dict[str, Any]]:
+        """Method added for abstract class consistency - returns a dictionary for type consistency"""
         return {}
 
     def retrieve_keys(self, *args, **kwargs) -> Optional[List[str]]:
+        """Method added for abstract class consistency - returns a list for type consistency"""
         return []
 
     def update(self, *args, **kwargs) -> None:
+        """Method added for abstract class consistency - no-op"""
         pass
 
     def delete(self, *args, **kwargs) -> None:
+        """Method added for abstract class consistency - no-op"""
         pass
 
     def delete_all(self, *args, **kwargs) -> None:
+        """Method added for abstract class consistency - no-op"""
         pass
 
     def verify_cache(self, *args, **kwargs) -> bool:
+        """Method added for abstract class consistency - returns None, indicating that no cache is ever stored"""
         return False
 
     @classmethod
     def is_available(cls, *args, **kwargs) -> bool:
-        """Helper method that returns False, indicating that this class does not cache data"""
-        return False
+        """
+        Method added for abstract class consistency - returns, True indicating that
+        the no-op storage is always available although no cache is ever stored.
+        """
+        return True
 
     def __bool__(self, *args, **kwargs) -> bool:
+        """The NullStorage is Falsy, indicating that no cache is ever stored"""
         return False

@@ -1,12 +1,27 @@
 from scholar_flux.utils.encoder import CacheDataEncoder, JsonDataEncoder
 from collections import OrderedDict, UserDict, deque
 from requests.utils import CaseInsensitiveDict
+from scholar_flux.utils import RecursiveJsonProcessor
 from typing import TypeVar
 from base64 import b64encode
 import pytest
 import json
 
 T = TypeVar("T")
+
+
+@pytest.fixture
+def turn_off_hash_prefix():
+    """Hash prefix modification for future tests that validate without a prefix"""
+    default_hash_prefix = CacheDataEncoder.DEFAULT_HASH_PREFIX
+    CacheDataEncoder.DEFAULT_HASH_PREFIX = ""
+    yield
+    CacheDataEncoder.DEFAULT_HASH_PREFIX = default_hash_prefix
+
+
+@pytest.fixture
+def default_hash_prefix():
+    return CacheDataEncoder.DEFAULT_HASH_PREFIX
 
 
 def round_trip_data_encoder(data: T) -> T:
@@ -131,15 +146,31 @@ def test_base64():
     assert not CacheDataEncoder.is_base64(b"")
 
 
+def test_large_nested_structure():
+    """Ensure encoder handles deeply nested structures"""
+    data = {"level": 0}
+    current: dict = data
+    for i in range(100):  # 100 levels deep
+        current["nested"] = {"level": i + 1, "data": b"bytes"}
+        current = current["nested"]
+
+    result = round_trip_data_encoder(data)
+    assert data == result
+
+
 def test_nonreadable_character_identification():
     """
-    Verifies that the classification of readable vs nonreadable characters also depends on `p` which is the proportion
-    of non-readable byte characters, defined as unicode characters not between the range of (32 <= c <= 126)
+    Tests the CacheDataEncoder.is_nonreadable class method to determine whether it correctly identifies non-readable
+    characters.
+
+    This test verifies that the classification of readable vs nonreadable characters also depends on `p`
+    which is the proportion of non-readable byte characters, defined as unicode characters not between
+    the range of (32 <= c <= 126)
     """
     nonreadable_character = b"\xc2\x80"
-    assert not CacheDataEncoder.is_nonreadable(b"readable characters" + nonreadable_character, p=0.1)
-    assert CacheDataEncoder.is_nonreadable(nonreadable_character, p=0.1)
-    assert not CacheDataEncoder.is_nonreadable(b"   ", p=1)
+    assert not CacheDataEncoder.is_nonreadable(b"readable characters" + nonreadable_character, prop=0.1)
+    assert CacheDataEncoder.is_nonreadable(nonreadable_character, prop=0.1)
+    assert not CacheDataEncoder.is_nonreadable(b"   ", prop=1.0)
 
 
 def test_json_roundtrip(mock_academic_json):
@@ -154,6 +185,47 @@ def test_json_roundtrip(mock_academic_json):
 
     json_encoder_result = JsonDataEncoder.deserialize(serialized)
     assert mock_academic_json == json_encoder_result
+
+
+def test_no_hash_prefix(default_hash_prefix, turn_off_hash_prefix, mock_academic_json):
+    """Validates whether hash prefixes are successfully omitted when `DEFAULT_HASH_PREFIX` is turned off"""
+    if not default_hash_prefix:
+        pytest.skip(
+            "A comparison of non hashed prefix behavior in the CacheDataEncoder must be performed only "
+            "if DEFAULT_HASH_PREFIX is non missing"
+        )
+
+    encoded_json = CacheDataEncoder.encode(mock_academic_json)
+    flattened_encoded_json = RecursiveJsonProcessor(encoded_json).process_and_flatten()
+    assert flattened_encoded_json
+    assert all(
+        default_hash_prefix not in key and default_hash_prefix not in value
+        for key, value in flattened_encoded_json.items()
+        if key and value
+    )
+
+
+def test_no_hash_prefix_roundtrip(turn_off_hash_prefix, mock_academic_json):
+    """
+    Validates whether the CacheDataEncoder successfully encodes and decodes the json as is without modificaation when
+    the CacheDataEncoder prefix is set to None
+    """
+    assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
+    result = round_trip_json_encoder(mock_academic_json)
+    assert mock_academic_json == result
+
+
+def test_plos_page_roundtrip(turn_off_hash_prefix, plos_page_1_data, plos_page_2_data):
+    """
+    Verifies that without the use of a hash prefix, the round trip data encoder successfully encodes and decodes text
+    to and from JSON serialized strings without data modification
+    """
+    assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
+    result = round_trip_json_encoder(plos_page_1_data)
+    assert plos_page_1_data == result
+
+    result = round_trip_json_encoder(plos_page_2_data)
+    assert plos_page_2_data == result
 
 
 @pytest.mark.parametrize(

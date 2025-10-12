@@ -1,4 +1,8 @@
-# api_exceptions.py
+# /exceptions/coordinator_exceptions.py
+"""
+Implements exceptions involving the creation of coordinators, the coordination of requests, response processing,
+and caching.
+"""
 
 
 class CoordinatorException(Exception):

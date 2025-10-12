@@ -1,7 +1,7 @@
 import pytest
 import re
 from scholar_flux.api import APIParameterMap, APIParameterConfig
-from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
+from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 
 

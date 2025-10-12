@@ -1,3 +1,9 @@
+# /api/rate_limiting/rate_limiter.py
+"""
+The scholar_flux.api.rate_limiting.threaded_rate_limiter module implements creates a ThreadedRateLimiter that extends
+the basic functionality of the original RateLimiter class. This class can be used in multithreaded scenarios to ensure
+that rate limits to a provider are not exceeded within the specified constant time interval.
+"""
 from __future__ import annotations
 from contextlib import contextmanager
 import time

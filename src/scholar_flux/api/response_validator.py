@@ -1,3 +1,10 @@
+# /api/response_validator.py
+"""
+The scholar_flux.api.response_validator module implements a basic ResponseValidator that is used for preliminary
+response validation to determine whether received responses are valid and successful.
+
+This class is used by default in SearchCoordinators to determine whether to proceed with response processing.
+"""
 import requests
 import logging
 from scholar_flux.exceptions.api_exceptions import InvalidResponseException, RequestFailedException

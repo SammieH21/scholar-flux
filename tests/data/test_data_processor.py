@@ -219,11 +219,20 @@ def test_prepare_record_keys_with_invalid_type():
 def test_validate_inputs_with_invalid_types():
     """Validates whether specifying invalid inputs for DataProcessor attributes will raise an error as intended"""
     with pytest.raises(DataProcessingException):
-        DataProcessor._validate_inputs("not a list or dict", "not a list or dict either", None, ";")  # type:ignore
+        DataProcessor._validate_inputs(
+            "not a list or dict either", None, ".*", record_keys="not a list or dict", value_delimiter=";" # type:ignore
+        )  
     with pytest.raises(DataProcessingException):
-        DataProcessor._validate_inputs([["a"]], "not a list", "not a list either", ";")  # type:ignore
+        DataProcessor._validate_inputs(
+            "not a list", # type:ignore
+            "not a list either" ".*", # type:ignore
+            record_keys=[["a"]],
+            value_delimiter=";",
+        ) 
     with pytest.raises(DataProcessingException):
-        DataProcessor._validate_inputs([["a"]], None, None, 123)  # type:ignore
+        DataProcessor._validate_inputs(None, None, ".*", record_keys=[["a"]], value_delimiter=123)  # type:ignore
+    with pytest.raises(DataProcessingException):
+        DataProcessor._validate_inputs(regex=".*")  # type:ignore
 
 
 def test_collapse_fields_behavior():

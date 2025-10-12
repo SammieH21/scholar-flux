@@ -1,3 +1,17 @@
+# /utils/encoder.py
+"""
+The scholar_flux.utils.encoder module contains implementations of encoder-decoder helper classes that help
+abstract the serialization and deserialization of JSON data sets for easier storage.
+
+Responses from APIs often contains non-serializable data types including non-traditional sequences and mappings
+that aren't directly serializable. The implementations directly aid in creating representations of these classes
+that can be used to reconstruct the original object after serialization with built-in types.
+
+Classes:
+    CacheDataEncoder: Helper class used to recursively encode and decode nested JSON data with mixed data types.
+    JsonDataEncoder: Helper class that builds on the CacheDataEncoder to provide built-in JSON loading/dumping
+                     support that aids in the creation of a simple Serialization-Deserialization pipeline.
+"""
 import base64
 import json
 import binascii
@@ -16,12 +30,22 @@ class CacheDataEncoder:
     such as dictionaries and lists by encoding their elements, preserving the original structure upon decoding.
 
     This class is used to serialize json structures when the structure isn't known and contains unpredictable
-    elements such as 1) None, 2) bytes, 3) nested lists, 4) Other unpredictable structures typically found in JSON
+    elements such as 1) None, 2) bytes, 3) nested lists, 4) Other unpredictable structures typically found in JSON.
+
+    Class Attributes:
+        DEFAULT_HASH_PREFIX: (Optional[str]):
+            An optional indicator of fields to mark fields as bytes for use when decoding. This field defaults to
+            <hashbytes> but can be optionally turned off by setting `CacheDataEncoder.DEFAULT_HASH_PREFIX=None`
+            or `CacheDataEncoder.DEFAULT_HASH_PREFIX=''`
+        DEFAULT_NONREADABLE_PROP (int):
+          A threshold used to identify previously encoded base64 fields. This proportion is used when a hash prefix that marks
+          encoded text is not applied. To test whether a string is an encoded_string, when decoded, a high percentage of
+          letters will be nonreadable when decoded. (i.e `CacheDataEncoder.decode('encoders')` ---> b'zw(u\xea\xec'
 
     Example:
         >>> from scholar_flux.utils import CacheDataEncoder
         >>> import json
-        >>> data = {'note': 'hello', 'another_note': b'a non-serializable string', 'list': ['a', True, 'series' 'of', None]}
+        >>> data = {'note': 'hello', 'another_note': b'a non-serializable string', 'list': ['a', True, 'series', 'of', None]}
         >>> try:
         >>>     json.dumps(data)
         >>> except TypeError:
@@ -32,20 +56,25 @@ class CacheDataEncoder:
         >>> assert data == CacheDataEncoder.decode(json.loads(serialized_data))
     """
 
+    DEFAULT_HASH_PREFIX: Optional[str] = "<hashbytes>"
+    DEFAULT_NONREADABLE_PROP: float = 0.2
+
     @classmethod
-    def is_base64(cls, s: str | bytes, hash_prefix: Optional[str] = "<hashbytes>") -> bool:
+    def is_base64(cls, s: str | bytes, hash_prefix: Optional[str] = None) -> bool:
         """
-        Check if a given string is a valid base64 encoded string. Encoded strings can optionally
+        Check if a string is a valid base64 encoded string. Encoded strings can optionally
         be identified with a hash_prefix to streamline checks to determine whether or not to
         later decode a base64 encoded string.
 
         As a general heuristic when encoding and decoding base 64 objects, a string should be equal
         to its original value after encoding and decoding the string. In this implementation,
-        we strip equals signs as minor differences in padding aren't relevant.
+        we strip equals signs, as minor differences in padding aren't relevant.
 
         Args:
             s (str | bytes): The string to check.
-            hash_prefix (Optional[str]): The prefix to identify hash bytes. Defaults to '<hashbytes>'.
+            hash_prefix (Optional[str]): The prefix to identify hash bytes. Uses the class default prefix <hashbytes>
+                                         but can be turned off if the CacheDataEncoder.DEFAULT_HASH_PREFIX  is modified
+                                         or hash_prefix is set to ''.
 
         Returns:
             bool: True if the string is base64 encoded, False otherwise.
@@ -55,7 +84,7 @@ class CacheDataEncoder:
 
         if isinstance(s, str):
             # removes the hash_prefix if it exists, then encodes the data
-            hash_prefix = hash_prefix or ""
+            hash_prefix = hash_prefix if hash_prefix is not None else cls.DEFAULT_HASH_PREFIX
             s_fmt = s.replace(hash_prefix, "", 1) if hash_prefix and s.startswith(hash_prefix) else s
             s_bytes = s_fmt.encode("utf-8")
         elif isinstance(s, bytes):
@@ -80,25 +109,27 @@ class CacheDataEncoder:
             return False
 
     @classmethod
-    def is_nonreadable(cls, s: bytes, p=0.5) -> bool:
+    def is_nonreadable(cls, s: bytes, prop: Optional[float] = None) -> bool:
         """
         Check if a decoded byte string contains a high percentage of non-printable characters.
         Non-printable characters are defined as those not within the unicode range of (32 <= c <= 126).
 
         Args:
             s (bytes): The byte string to check.
-            p (float): The threshold percentage of non-printable characters. Defaults to 0.5.
+            prop (float): The threshold percentage of non-printable characters.
+            Defaults to DEFAULT_NONREADABLE_PROP is not specified.
 
         Returns:
             bool: True if the string is likely gibberish, False otherwise.
         """
+        p = prop if prop is not None else cls.DEFAULT_NONREADABLE_PROP
         non_printable_count = sum(1 for c in s if not (32 <= c <= 126))
         return (
             non_printable_count > 1 and non_printable_count / len(s) > p
         )  # Threshold set at a proportion of p non-printable characters
 
     @classmethod
-    def encode(cls, data: Any, hash_prefix: Optional[str] = "<hashbytes>") -> Any:
+    def encode(cls, data: Any, hash_prefix: Optional[str] = None) -> Any:
         """
         Recursively encodes all items that contain elements that cannot be directly serialized into JSON into
         a format more suitable for serialization:
@@ -111,12 +142,16 @@ class CacheDataEncoder:
             data (Any): The input data. This can be:
                 * bytes: Encoded directly to a base64 string.
                 * Mappings/Sequences/Sets/Tuples: Recursively encodes elements if they are bytes.
-            hash_prefix (Optional[str]): The prefix to identify hash bytes. Defaults to '<hashbytes>'.
+            hash_prefix (Optional[str]): The prefix to identify hash bytes. Uses the class default prefix <hashbytes>
+                                         but can be turned off if the CacheDataEncoder.DEFAULT_HASH_PREFIX  is modified
+                                         or hash_prefix is set to ''.
 
         Returns:
             Any: Encoded string (for bytes) or a dictionary/list/tuple
                  with recursively encoded elements.
         """
+
+        hash_prefix = hash_prefix if hash_prefix is not None else cls.DEFAULT_HASH_PREFIX
 
         match data:
             case bytes():
@@ -131,7 +166,7 @@ class CacheDataEncoder:
                 return data
 
     @classmethod
-    def decode(cls, data: Any, hash_prefix: Optional[str] = "<hashbytes>") -> Any:
+    def decode(cls, data: Any, hash_prefix: Optional[str] = None) -> Any:
         """
         Recursively decodes base64 strings back to bytes or recursively decode elements within dictionaries and lists.
 
@@ -139,12 +174,17 @@ class CacheDataEncoder:
             data (Any): The input data that needs decoding from a base64 encoded format.
                         This could be a base64 string or nested structures like dictionaries
                         and lists containing base64 strings as values.
-            hash_prefix (Optional[str]): The prefix to identify hash bytes. Defaults to '<hashbytes>'.
+            hash_prefix (Optional[str]): The prefix to identify hash bytes. Uses the class default prefix <hashbytes>
+                                         but can be turned off if the CacheDataEncoder.DEFAULT_HASH_PREFIX is modified
+                                         or hash_prefix is set to ''.
 
         Returns:
             Any: Decoded bytes for byte-based representations or recursively decoded elements
                  within the dictionary/list/tuple if applicable.
         """
+
+        hash_prefix = hash_prefix if hash_prefix is not None else cls.DEFAULT_HASH_PREFIX
+
         match data:
             case None:
                 return None
@@ -197,6 +237,7 @@ class CacheDataEncoder:
         if type(data) is not dict:  # noqa: E721
             logger.warning("Non-dictionary mutable mappings are coerced into dictionaries when encoded")
         try:
+            hash_prefix = hash_prefix or ""
             return {key: cls.encode(value, hash_prefix) for key, value in data.items()}
         except Exception as e:
             err = f"Error encoding an element of type {type(data)} into a recursively encoded dictionary"
@@ -219,6 +260,7 @@ class CacheDataEncoder:
         if type(data) is not list:  # noqa: E721
             logger.warning("Non-list/tuple mutable sequences are coerced into lists when encoded")
         try:
+            hash_prefix = hash_prefix or ""
             return [cls.encode(item, hash_prefix) for item in data]
         except Exception as e:
             err = f"Error encoding an element of type {type(data)} into a recursively encoded list"
@@ -238,6 +280,7 @@ class CacheDataEncoder:
             tuple: A tuple containing the recursively encoded elements
         ."""
         try:
+            hash_prefix = hash_prefix or ""
             return tuple(cls.encode(item, hash_prefix) for item in data)
         except Exception as e:
             err = f"Error encoding an element of type {type(data)} into a recursively encoded tuple"
@@ -263,11 +306,13 @@ class CacheDataEncoder:
         try:
             data_string = data.decode("utf8") if isinstance(data, bytes) else data
             data_string = data_string.replace(hash_prefix, "", 1) if hash_prefix else data_string
-            if not cls.is_base64(data_string):
+            if not cls.is_base64(data_string) or data_string.isnumeric():
                 return data
 
-            decoded_bytes = base64.b64decode(data_string.encode("utf-8"))
-            if not hash_prefix and cls.is_nonreadable(decoded_bytes):
+            encoded_string = data_string.encode("utf-8")
+
+            decoded_bytes = base64.b64decode(encoded_string)
+            if not hash_prefix and cls.is_nonreadable(decoded_bytes) and not data_string.endswith("=="):
                 return data  # Return original if decoded data is likely gibberish
             return decoded_bytes
         except (ValueError, TypeError) as e:
@@ -287,6 +332,7 @@ class CacheDataEncoder:
             dict: A dictionary containing the recursively decoded elements
         """
         try:
+            hash_prefix = hash_prefix or ""
             return {key: cls.decode(value, hash_prefix) for key, value in data.items()}
         except Exception as e:
             err = f"Failed to decode an element of type {type(data)} into a recursively decoded dictionary"
@@ -306,6 +352,7 @@ class CacheDataEncoder:
             list: A list containing the recursively decoded elements
         """
         try:
+            hash_prefix = hash_prefix or ""
             return [cls.decode(item, hash_prefix) for item in data]
         except Exception as e:
             err = f"Failed to decode an element of type {type(data)} into a recursively decoded list"
@@ -325,6 +372,7 @@ class CacheDataEncoder:
             tuple: A tuple containing the recursively decoded elements
         """
         try:
+            hash_prefix = hash_prefix or ""
             return tuple(cls.decode(item, hash_prefix) for item in data)
         except Exception as e:
             err = f"Failed to decode an element of type {type(data)} into a recursively decoded tuple"
@@ -413,25 +461,3 @@ class JsonDataEncoder(CacheDataEncoder):
             Any: The loaded json data.
         """
         return json.loads(s, **json_kwargs)
-
-
-# if __name__ == "__main__":
-#     # Example usage of CacheDataEncoder class
-#     try:
-#         original_data = b"example data"
-#         encoded_data = CacheDataEncoder.encode(original_data)
-#         print(f"Encoded: {encoded_data}")
-#
-#         decoded_data = CacheDataEncoder.decode(encoded_data)
-#         print(f"Decoded: {decoded_data}")
-#
-#         # Test with a non-byte string
-#         original_string = "1728"
-#         encoded_string = CacheDataEncoder.encode(original_string)
-#         print(f"Encoded string: {encoded_string}")
-#
-#         decoded_string = CacheDataEncoder.decode(encoded_string)
-#         print(f"Decoded string: {decoded_string}")
-#
-#     except ValueError as e:
-#         logger.error(f"An error occurred: {e}")

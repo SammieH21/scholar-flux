@@ -1,4 +1,9 @@
 ## path_exceptions.py
+"""
+The scholar_flux.exceptions.path_exceptions module implements the fundamental exception types necessary
+to interact with various path processing utilities while accounting for any potential errors that are
+specific to path processing.
+"""
 
 
 class PathUtilsError(Exception):
@@ -44,8 +49,8 @@ class InvalidPathNodeError(PathUtilsError):
     pass
 
 
-class PathChainMapError(PathUtilsError):
-    """Exception raised for invalid operations on a PathChainMap."""
+class RecordPathChainMapError(PathUtilsError):
+    """Exception raised for invalid operations on a RecordPathChainMap."""
 
     pass
 
@@ -77,8 +82,8 @@ class PathNodeMapError(PathUtilsError):
     pass
 
 
-class PathRecordMapError(PathNodeMapError):
-    """Exception raised when attempting to perform an invalid operation a PathRecordMap"""
+class RecordPathNodeMapError(PathNodeMapError):
+    """Exception raised when attempting to perform an invalid operation a RecordPathNodeMap"""
 
     pass
 

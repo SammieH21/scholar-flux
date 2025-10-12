@@ -86,6 +86,7 @@ class BaseWorkflowStep(BaseModel):
 class BaseWorkflowResult(BaseModel):
     """Base class for returning the results from a Workflow"""
 
+
 class BaseWorkflow(BaseModel, ABC):
     """Base class for defining and fully executing a workflow"""
 

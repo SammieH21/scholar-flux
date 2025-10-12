@@ -1,4 +1,9 @@
-# import dependencies
+#  /utils/paths/path_nodes.py
+"""
+The scholar_flux.utils.paths.path_nodes module implements the basic PathNode data class necessary to represent
+a terminal path-value combination within a nested JSON structure. This data structure forms the basis of path processing
+that scholar_flux uses to process, filter, and flatten JSON data sets.
+"""
 from __future__ import annotations
 from typing import Union
 import logging
@@ -6,7 +11,7 @@ import copy
 from typing import Any, ClassVar
 from dataclasses import dataclass
 from typing_extensions import Self
-from scholar_flux.utils.paths.processing_paths import ProcessingPath
+from scholar_flux.utils.paths.processing_path import ProcessingPath
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
     InvalidPathNodeError,
@@ -32,6 +37,12 @@ class PathNode:
     DEFAULT_DELIMITER: ClassVar[str] = ProcessingPath.DEFAULT_DELIMITER
 
     def __post_init__(self):
+        """
+        This step validates that path passed to the PathNode after initialization.
+
+        Raises:
+            InvalidPathNodeError: If the value passed as a Path is not a valid ProcessingPath
+        """
         if not isinstance(self.path, ProcessingPath):
             raise InvalidPathNodeError(
                 f"Error creating PathNode: expected a ProcessingPath for path, received {type(self.path)}"
@@ -120,7 +131,14 @@ class PathNode:
         return self.path.record_index
 
     @classmethod
-    def is_valid_node(cls, node) -> bool:
+    def is_valid_node(cls, node: PathNode) -> bool:
+        """
+        Validates whether the current node is or is not a PathNode isinstance. If the current input is not a PathNode,
+        then this class will raise a InvalidPathNodeError.
+
+         Raises:
+            InvalidPathNodeError: If the current node is not a PathNode or if its path is not a valid ProcessingPath
+        """
         if not isinstance(node, PathNode):
             raise InvalidPathNodeError(
                 f"The current object is not a PathNode: expected 'PathNode', received {type(node)}"
@@ -208,9 +226,9 @@ class PathNode:
         return self.__copy__()
 
     def __copy__(self) -> PathNode:
-        """Helper method for deepcopying the current node"""
+        """Helper method for copying the current node"""
         return PathNode(path=self.path, value=copy.copy(self.value))
 
-    def __deepcopy__(self) -> PathNode:
-        """Helper method for deepcopying the current node"""
-        return PathNode(path=self.path, value=copy.deepcopy(self.value))
+    def __deepcopy__(self, memo) -> PathNode:
+        """Helper method for deeply copying the current node"""
+        return PathNode(path=self.path, value=copy.deepcopy(self.value, memo))

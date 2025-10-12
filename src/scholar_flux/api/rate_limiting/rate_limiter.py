@@ -1,3 +1,8 @@
+# /api/rate_limiting/rate_limiter.py
+"""
+The scholar_flux.api.rate_limiting.rate_limiter module implements a simple, general RateLimiter that scholar_flux
+uses to ensure that rate limits to a provider are not exceeded within the specified constant time interval.
+"""
 from __future__ import annotations
 from contextlib import contextmanager
 from typing_extensions import Self
@@ -124,10 +129,17 @@ class RateLimiter:
             @limiter
             def send_request(...):
                 ...
+
+            response = send_request(...)
         """
 
         @wraps(fn)
         def wrapped(*args, **kwargs):
+            """
+            Helper function that wraps a function with the RateLimiter decorator to rate limit how
+            frequently the decorated function can be called per `min_interval` seconds.
+            """
+
             self.wait()
             return fn(*args, **kwargs)
 
@@ -145,8 +157,7 @@ class RateLimiter:
 
     def __exit__(self, exc_type, exc, tb):
         """
-        Exits the context manager after the execution
-        of the wrapped function
+        Exits the context manager after the execution of the wrapped function.
         """
 
         return False

@@ -1,3 +1,12 @@
+# /api/models/provider_registry.py
+"""
+The scholar_flux.models.provider_registry module implements the ProviderRegistry class which extends
+a dictionary to map provider names to their scholar_flux ProviderConfig.
+
+When scholar_flux uses a provider_name to create a SearchAPI or SearchCoordinator, the package-level
+provider_registry is instantiated and referenced to retrieve the necessary configuration for easier
+interaction and specification of APIs.
+"""
 from __future__ import annotations
 from typing import Optional
 from scholar_flux.api.models.provider_config import ProviderConfig
@@ -5,10 +14,25 @@ from scholar_flux.api.validators import validate_and_process_url, normalize_url
 from scholar_flux.utils.provider_utils import ProviderUtils
 from scholar_flux.exceptions import APIParameterException
 from collections import UserDict
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderRegistry(UserDict[str, ProviderConfig]):
-    """Enumerated class specifying default API parameters for default providers"""
+    """
+    The ProviderRegistry implementation allows the smooth and efficient retrieval of API parameter maps and
+    default configuration settings to aid in the creation of a SearchAPI that is specific to the current
+    API.
+
+    Note that the ProviderRegistry uses the ProviderConfig._normalize_name to ignore underscores and case-sensitivity.
+
+    Methods:
+        - ProviderRegistry.from_defaults: Dynamically imports configurations stored within scholar_flux.api.providers,
+                                          and fails gracefully if a provider's module does not contain a ProviderConfig.
+        - ProviderRegistry.get: resolves a provider name to its ProviderConfig if it exists in the registry.
+        - ProviderRegistry.get_from_url: resolves a provider URL to its ProviderConfig if it exists in the registry.
+    """
 
     def __contains__(self, key: object) -> bool:
         """
@@ -73,6 +97,31 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
         # normalizing as insurance for name normalization in cases where a config is manually added:
         normalized_key = ProviderConfig._normalize_name(key)
         super().__setitem__(normalized_key, value)
+
+    def add(self, provider_config: ProviderConfig) -> None:
+        """Helper method for adding a new provider to the provider registry"""
+        if not isinstance(provider_config, ProviderConfig):
+            raise APIParameterException(
+                f"The value could not be added to the provider registry: "
+                f"Expected a ProviderConfig, received {type(provider_config)}"
+            )
+
+        provider_name = provider_config.provider_name
+
+        if provider_name in self.data:
+            logger.warning(f"Overwriting the previous ProviderConfig for the provider, '{provider_name}'")
+
+        self[provider_name] = provider_config
+
+    def remove(self, provider_name: str) -> None:
+        """Helper method for removing a provider configuration from the provider registry"""
+        provider_name = ProviderConfig._normalize_name(provider_name)
+        if config := self.data.pop(provider_name, None):
+            logger.info(
+                f"Removed the provider config for the provider, '{config.provider_name}' " "from the provider registry"
+            )
+        else:
+            logger.warning(f"A ProviderConfig with the provider name, '{provider_name}' was not found")
 
     def __delitem__(self, key: str) -> None:
         """

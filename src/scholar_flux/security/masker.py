@@ -1,3 +1,11 @@
+# /security/masker.py
+"""
+The scholar_flux.security.masker defines the SensitiveDataMasker that is used during API retrieval and processing
+to identify and mask potentially sensitive fields based on dictionary fields and string-based patterns.
+
+This class is used during initialization and the scholar_flux.SearchAPI class to mask API keys, emails, etc. to redact
+text from both console and file system logs.
+"""
 from typing import List, Optional, Set, Any, MutableSequence
 from pydantic import SecretStr
 from scholar_flux.security.patterns import (

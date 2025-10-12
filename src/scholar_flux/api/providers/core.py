@@ -3,7 +3,7 @@
 Defines the core configuration necessary to interact with the CORE API using the scholar_flux package.
 """
 from scholar_flux.api.models.provider_config import ProviderConfig
-from scholar_flux.api.models.base import BaseAPIParameterMap
+from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
 
 provider = ProviderConfig(
     parameter_map=BaseAPIParameterMap(

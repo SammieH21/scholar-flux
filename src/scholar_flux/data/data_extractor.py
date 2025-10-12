@@ -1,3 +1,9 @@
+# /data/data_extractor.py
+"""
+The scholar_flux.data.data_extractor builds on the BaseDataExtractor to implement automated extraction
+when the paths are not known beforehand. The extracted list of responses and metadata dictionaries are used in
+later steps prior to further response record processing.
+"""
 from typing import Any, Optional, Union
 from scholar_flux.exceptions import DataExtractionException
 
@@ -251,7 +257,7 @@ class DataExtractor(BaseDataExtractor):
 
     def __repr__(self):
         """
-        Method for indentifying the current implementation of the DataExtractor.
+        Method for identifying the current implementation of the DataExtractor.
         Useful for showing the options being used for extracting metadata and records from the parsed
         json/data dictionaries from the api response.
         """

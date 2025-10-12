@@ -1,3 +1,11 @@
+# /data_storage/data_cache_manager.py
+"""
+The scholar_flux.data_storage.data_cache_manager implements a DataCacheManager that allows the storage and cached
+retrieval of processed responses.
+
+This class is the user-interface that implements a unified interface for different cache storage devices that
+inherit from the ABCStorage class.
+"""
 from __future__ import annotations
 import hashlib
 import logging
@@ -35,13 +43,14 @@ class DataCacheManager:
     Methods:
     - generate_fallback_cache_key(response): Generates a unique fallback cache key based on the response URL and status code.
     - verify_cache(cache_key): Checks if the provided cache_key exists in the cache storage.
-    - cache_is_valid(cache_key, response): Determines whether the cached data for a given key is still valid.
+    - cache_is_valid(cache_key, response=None, cached_response=None): Determines whether the cached data for a given key is still valid.
     - update_cache(cache_key, response, store_raw=False, metadata=None, parsed_response=None, processed_records=None): Updates the cache storage with new data.
     - retrieve(cache_key): Retrieves data from the cache storage based on the cache key.
     - retrieve_from_response(response): Retrieves data from the cache storage based on the response if within cache.
     """
 
     def __init__(self, cache_storage: Optional[ABCStorage] = None) -> None:
+        """Initializes the DataCacheManager with the selected cache storage"""
         self.cache_storage: ABCStorage = cache_storage if cache_storage is not None else InMemoryStorage()
 
     def verify_cache(self, cache_key: Optional[str]) -> bool:
@@ -189,7 +198,7 @@ class DataCacheManager:
         logger.debug(f"deleting the record for cache key: {cache_key}")
         try:
             self.cache_storage.delete(cache_key)
-            logger.debug("Cache key deleted successfuly")
+            logger.debug("Cache key deleted successfully")
         except KeyError:
             logger.warning(f"A record for the cache key: '{cache_key}', did not exist...")
 

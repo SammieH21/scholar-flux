@@ -1,3 +1,16 @@
+# /api/workflows/search_workflow.py
+"""
+Implements the workflow steps, runner, and context necessary for orchestrating a workflow that retrieves and
+processes API responses using a sequential methodology. These classes form the base of how a workflow is designed
+and can be used directly to create a multi-step workflow or subclassed to further customize the functionality of
+the workflow.
+
+Classes:
+    StepContext: Defines the step context to be transferred to the next step in a workflow to modify its function
+    WorkflowStep: Contains the necessary logic and instructions for executing the current step of the SearchWorkflow
+    WorkflowResult: Class that holds the history and final result of a workflow after successful execution
+    SearchWorkflow: Defines and fully executes a workflow and the steps used to arrive at the final result
+"""
 from __future__ import annotations
 from pydantic import Field, PrivateAttr, field_validator
 from scholar_flux.api.models import ProviderConfig
@@ -38,7 +51,7 @@ class WorkflowStep(BaseWorkflowStep):
 
     @field_validator("provider_name", mode="after")
     def format_provider_name(cls, v) -> str:
-        """Helper method used to format the inputted provider name after type checking"""
+        """Helper method used to format the inputted provider name using name normalization after type checking"""
         if isinstance(v, str):
             v = ProviderConfig._normalize_name(v)
         return v
@@ -65,7 +78,6 @@ class WorkflowStep(BaseWorkflowStep):
             SearchWorkflowStep: A modified or copied version of the current search workflow step
         """
 
-
         if ctx is not None:
             self._verify_context(ctx)
             provider_name = provider_name if provider_name is not None else ctx.step.provider_name
@@ -81,6 +93,17 @@ class WorkflowStep(BaseWorkflowStep):
         )
 
     def post_transform(self, ctx: StepContext, *args, **kwargs) -> StepContext:
+        """
+        Helper method that validates whether the current `ctx` is a StepContext before returning the result
+
+        Args:
+            ctx (StepContext): The context to verify as a StepContext
+        Returns:
+            StepContext: The same step context to be passed to the next step of the current workflow
+
+        Raises:
+            TypeError: If the current `ctx` is not a StepContext
+        """
         self._verify_context(ctx)
         return ctx  # Identity: returns context unchanged
 
@@ -131,6 +154,7 @@ class SearchWorkflow(BaseWorkflow):
         history (List[StepContext]): Defines the full context of all steps taken and results recorded to arrive at the
                                      final result on the completion of an executed workflow.
     """
+
     steps: List[WorkflowStep]
     _history: List[StepContext] = PrivateAttr(default_factory=lambda: [])
 

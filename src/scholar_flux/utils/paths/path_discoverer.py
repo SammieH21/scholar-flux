@@ -1,3 +1,13 @@
+# /utils/paths/path_discoverer.py
+"""
+The scholar_flux.utils.paths.path_discoverer module contains an implementation of a PathDiscoverer dataclass that
+facilitates the discovery of nested values within JSON data structures and the terminal path where each value is
+located within the data structure.
+
+This implementation recursively explores the JSON data set and adds to a dictionary of path mappings until the
+JSON data set is fully represented as path-data combinations that facilitate further processing of JSON data structures
+using Trie-based implementations.
+"""
 from __future__ import annotations
 from typing import Optional, Union, Any, Set, ClassVar, MutableSequence, MutableMapping
 from dataclasses import dataclass, field

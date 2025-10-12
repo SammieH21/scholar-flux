@@ -1,3 +1,11 @@
+# /data_storage/mongo_storage.py
+"""
+The scholar_flux.data_storage.mongodb_storage module implements the MongoDBStorage class that implements the abstract
+methods required for compatibility with the DataCacheManager in the scholar_flux package.
+
+This class implements caching by using the prebuilt features available in MongoDB to store ProcessedResponse
+fields within the database for later CRUD operations.
+"""
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 
 from scholar_flux.exceptions import MongoDBImportError
@@ -271,7 +279,7 @@ class MongoDBStorage(ABCStorage):
         return found_data is not None
 
     @classmethod
-    def is_available(cls, host: str = "localhost", port: int = 6379, verbose: bool = True) -> bool:
+    def is_available(cls, host: str = "localhost", port: int = 27017, verbose: bool = True) -> bool:
         """
         Helper method that indicates whether the service is available or not. It attempts to establish
         a connection on the provided host and port and returns a boolean indicating if the connection

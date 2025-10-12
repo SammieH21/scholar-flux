@@ -1,3 +1,10 @@
+# /data_storage/in_memory_storage.py
+"""
+The scholar_flux.data_storage.in_memory_storage module implements an InMemoryStorage class that implements a basic
+cache storage with an in-memory dictionary. The InMemoryStorage class implements the basic CRUD operations and
+convenience methods used to perform operations.
+"""
+
 from typing import Any, List, Dict, Optional
 import logging
 

@@ -1,4 +1,14 @@
 # /utils/models/session.py
+"""
+The scholar_flux.utils.models.session module defines the pydantic-based configuration models and
+BaseSessionManager specification necessary to create new sessions
+
+Classes:
+    BaseSessionManager: Defines the core, abstract methods necessary to create a new session object from session
+                        manager subclasses
+                        CachedSessionConfig: Defines the underlying logic pessary to validate the configuration used
+                                             when creating CachedSession objects using a CachedSessionManager.
+"""
 import datetime
 import importlib.util
 import requests
@@ -22,6 +32,7 @@ class BaseSessionManager(ABC):
     """
 
     def __init__(self, *args, **kwargs) -> None:
+        """Initializes BaseSessionManager subclasses given the provided arguments"""
         pass
 
     @abstractmethod

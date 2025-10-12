@@ -1,4 +1,4 @@
-from typing import MutableMapping
+from typing import MutableMapping, Generator
 import pytest
 from scholar_flux.utils import PathNode, PathNodeMap, ProcessingPath
 
@@ -12,6 +12,12 @@ def default_mapping():
     x4 = PathNode.to_path_node("a.b.c.4", 4)
     default_mapping = PathNodeMap(x1, x2, x3, x4)
     return default_mapping
+
+
+@pytest.fixture
+def ref_test_nodes() -> Generator[PathNode, None, None]:
+    """Helper method for creating a generator of nodes for testing map capability and function in caching"""
+    return (PathNode(ProcessingPath(["0", "data", str(i), "title"]), f"title_{i}") for i in range(10))
 
 
 def test_map_initialization():
@@ -58,12 +64,12 @@ def test_retrieve(default_mapping):
     """Verifies that the retrieval of nodes can occur via the use of both ProcessingPaths and path strings"""
     (x1, _, _, x4) = default_mapping.nodes
 
-    assert default_mapping.retrieve(x1.path) == x1
-    assert default_mapping.retrieve(str(x1.path)) == x1
-    assert default_mapping.retrieve(x4.path) == x4
+    assert default_mapping.get_node(x1.path) == x1
+    assert default_mapping.get_node(str(x1.path)) == x1
+    assert default_mapping.get_node(x4.path) == x4
 
     assert default_mapping.get(None) is None
-    assert default_mapping.retrieve(None) is None
+    assert default_mapping.get_node(None) is None
 
 
 def test_pathnodemap_add_get_remove():
@@ -78,15 +84,43 @@ def test_pathnodemap_add_get_remove():
     assert m.get(path) is None
 
 
-def test_pathnodemap_filter_and_cache():
+def test_pathnodemap_filter_and_cache(ref_test_nodes):
     """Verifies whether filtering node maps will returns the intended result independent of the use of caching"""
-    m = PathNodeMap(cache=True)
-    nodes = [PathNode(ProcessingPath(["0", "data", str(i), "title"]), f"title_{i}") for i in range(3)]
+    m = PathNodeMap(use_cache=True)
+
+    nodes = list(ref_test_nodes)
     for node in nodes:
         m.add(node)
-    filtered = m.filter(ProcessingPath(["0", "data"]), min_depth=3)
+
+    filtered = m.filter(ProcessingPath(["0", "data"]), min_depth=3, from_cache=False)
     assert all(n.path in filtered for n in nodes)
     # Enable cache and test cache_filter
-    m.cache = True
+    m.use_cache = True
     filtered_cache = m.filter(ProcessingPath(["0", "data"]), from_cache=True)
     assert filtered_cache == filtered
+
+
+def test_cache_weakset_default_clear(ref_test_nodes):
+    """Verifies whether filtering node maps will returns the intended result independent of the use of caching"""
+    mapping = PathNodeMap(use_cache=True)
+    mapping.update(ref_test_nodes)
+
+    assert all(node_set for node_set in mapping._cache.path_cache.values())
+
+    assert mapping._cache.path_cache
+    # mapping.data.clear()
+    for node in mapping.nodes:
+        mapping._cache.lazy_remove(node.path)
+
+    assert mapping._cache.updates
+    mapping._cache.cache_update()
+    assert not mapping._cache._cache
+    assert not mapping._cache.updates
+    assert all(not node_set for node_set in mapping._cache.path_cache.values())
+
+
+def test_map_cache_autoclear(ref_test_nodes):
+    # direct clearing
+    mapping = PathNodeMap(ref_test_nodes)
+    mapping.clear()
+    assert not mapping._cache.path_cache and not mapping._cache.updates

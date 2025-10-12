@@ -134,6 +134,7 @@ def test_cache_retrieval_with_none_data(request, mock_response, storage_type, db
         pytest.skip()
 
     storage = request.getfixturevalue(storage_type)
+    assert storage.is_available()
     cache_key = DataCacheManager.generate_fallback_cache_key(mock_response)
 
     # Test retrieving non-existent key

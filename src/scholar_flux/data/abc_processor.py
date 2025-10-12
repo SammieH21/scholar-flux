@@ -1,6 +1,15 @@
-from typing import Optional, Tuple
+# /data/abc_processor.py
+"""
+The scholar_flux.data.abc_processor module defines the ABCDataProcessor, which in turn, defines the core, abstract logic
+that all scholar_flux data processor subclasses will implement.
+
+This module defines the abstract methods and types that each processor will use for compatibility with
+the SearchCoordinator in the processing step.
+"""
+from typing import Optional, Tuple, Any
 from abc import ABC, abstractmethod
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.exceptions import DataValidationException
 
 
 class ABCDataProcessor(ABC):
@@ -12,7 +21,7 @@ class ABCDataProcessor(ABC):
 
         Processing a specific key from record by joining non-None values into a string.
 
-        Processing a record dictionary to extract record and article content, creating a processed record dictionar
+        Processing a record dictionary to extract record and article content, creating a processed record dictionary
         with an abstract field.
 
         Processing a list of raw page record dict data from the API response based on record keys.
@@ -24,13 +33,14 @@ class ABCDataProcessor(ABC):
     def __init__(self, *args, **kwargs) -> None:
         """
         Initializes record keys and header/body paths in the object instance using defined methods.
-
-        Returns:
-        - None
         """
         pass
 
     def load_data(self, *args, **kwargs):
+        """
+        Helper method that is optionally implemented by subclasses to load JSON data into customized implementations
+        of processors.
+        """
         raise NotImplementedError
 
     def define_record_keys(self, *args, **kwargs) -> Optional[dict]:
@@ -100,6 +110,28 @@ class ABCDataProcessor(ABC):
             processor(extracted_records)
         """
         return self.process_page(*args, **kwargs)
+
+    @classmethod
+    def _validate_inputs(
+        cls,
+        ignore_keys: Optional[list[str]] = None,
+        keep_keys: Optional[list[str]] = None,
+        regex: Optional[bool] = None,
+        *,
+        record_keys: Optional[dict[str | int, Any] | list[list[str | int]]] = None,
+        value_delimiter: Optional[str] = None,
+    ):
+        """Helper class for ensuring that inputs to data processor subclasses match the intended types"""
+        if record_keys is not None and not isinstance(record_keys, list) and not isinstance(record_keys, dict):
+            raise DataValidationException(f"record_keys must be a list or dict, got {type(record_keys)}")
+        if ignore_keys is not None and not isinstance(ignore_keys, list):
+            raise DataValidationException(f"ignore_keys must be a list, got {type(ignore_keys)}")
+        if keep_keys is not None and not isinstance(keep_keys, list):
+            raise DataValidationException(f"keep_keys must be a list, got {type(keep_keys)}")
+        if regex is not None and not isinstance(regex, bool):
+            raise DataValidationException(f"regex must be a True/False value, got {type(regex)}")
+        if value_delimiter is not None and not isinstance(value_delimiter, str):
+            raise DataValidationException(f"value_delimiter must be a string, got {type(value_delimiter)}")
 
     def __repr__(self) -> str:
         """

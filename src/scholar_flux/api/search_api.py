@@ -1,3 +1,9 @@
+# /api/search_api.py
+"""
+Implements the SearchAPI that is the core interface used throughout the scholar_flux package to
+retrieve responses. The SearchAPI builds on the BaseAPI to simplify parameter handling into
+a universal interface where the specifics of parameter names and request formation are abstracted.
+"""
 from __future__ import annotations
 from typing import Dict, Optional, Any, Annotated, Union, cast, Iterator
 from contextlib import contextmanager
@@ -11,6 +17,7 @@ from scholar_flux import config, masker as default_masker
 from scholar_flux.api.models import BaseAPIParameterMap
 from scholar_flux.api import BaseAPI, APIParameterConfig, APIParameterMap, SearchAPIConfig, RateLimiter
 from scholar_flux.api.providers import provider_registry
+from scholar_flux.api.models import ProviderConfig
 from scholar_flux.exceptions.api_exceptions import (
     APIParameterException,
     QueryValidationException,
@@ -123,7 +130,7 @@ class SearchAPI(BaseAPI):
                 provider_name=provider_name or "",
                 records_per_page=records_per_page,
                 api_key=SecretUtils.mask_secret(api_key),
-                request_delay=request_delay or SearchAPIConfig.DEFAULT_REQUEST_DELAY,
+                request_delay=request_delay or -1,
                 api_specific_parameters=api_specific_parameters,
             )
 
@@ -223,17 +230,16 @@ class SearchAPI(BaseAPI):
         This method is called during the initialization of the class.
 
         Args:
-            query (str):
-                The query to send to the current API provider. Note, this must be non-missing
-            search_api_config (SearchAPIConfig):
-                Indicates the configuration settings to be used when sending requests to APIs
+            query (str): The query to send to the current API provider. Note, this must be non-missing
+            search_api_config (SearchAPIConfig): Configuration settings to used when sending requests to APIs.
             parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
-               Maps global scholar_flux parameters to those that are specific to the provider's API
-            masker: (Optional[SensitiveDataMasker]):
-                A masker used to filter logs of API keys and other sensitive data
-           rate_limiter (Optional[RateLimiter]):
-               An optional rate limiter to control the number of requests sent at. when the request_delay and
-               min_interval do not agree, `min_interval` is preferred
+                Maps global scholar_flux parameters to those that are specific to the provider's API.
+            masker: (Optional[SensitiveDataMasker]): A masker used to filter logs of API keys and other sensitive data
+                                                     that may flow through the SearchAPI during parameter building and
+                                                     response retrieval.
+           rate_limiter (Optional[RateLimiter]): An optional rate limiter to control the number of requests sent. When
+                                                 the request_delay and min_interval do not agree, `min_interval` is
+                                                 preferred
 
 
         """
@@ -245,7 +251,9 @@ class SearchAPI(BaseAPI):
 
         # prefer the rate limit derived from the RateLimiter if provided explicitly when neither matches
         if rate_limiter and self.config.request_delay != rate_limiter.min_interval:
-            self.config.request_delay = config.validate_request_delay(rate_limiter.min_interval)
+            self.config.request_delay = config.default_request_delay(
+                config.validate_request_delay(rate_limiter.min_interval), provider_name=self.config.provider_name
+            )
 
         # first attempt to retrieve a non-empty parameter_config. If unsuccessful,
         # then whether the provided namespace or url matches a default provider
@@ -403,7 +411,7 @@ class SearchAPI(BaseAPI):
         use_cache: Optional[bool] = None,
         masker=None,
         rate_limiter: Optional[RateLimiter] = None,
-    ) -> "SearchAPI":
+    ) -> SearchAPI:
         """
         Advanced constructor: instantiate directly from a SearchAPIConfig instance.
 
@@ -441,6 +449,73 @@ class SearchAPI(BaseAPI):
         return instance
 
     @classmethod
+    def from_provider_config(
+        cls,
+        query: str,
+        provider_config: ProviderConfig,
+        session: Optional[requests.Session] = None,
+        user_agent: Annotated[Optional[str], "An optional User-Agent to associate with each search"] = None,
+        use_cache: Optional[bool] = None,
+        timeout: Optional[int | float] = None,
+        masker: Optional[SensitiveDataMasker] = None,
+        rate_limiter: Optional[RateLimiter] = None,
+        **api_specific_parameters,
+    ) -> SearchAPI:
+        """
+        Factory method to create a new SearchAPI instance using a ProviderConfig. This method uses the default
+        settings associated with the provider config to temporarily make the configuration settings globally
+        available when creating the SearchAPIConfig and APIParameterConfig instances from the provider registry.
+
+        Args:
+            query (str): The search keyword or query string.
+            provider_config: ProviderConfig,
+            session (Optional[requests.Session]): A pre-configured session or None to create a new session.
+            user_agent (Optional[str]): Optional user-agent string for the session.
+            use_cache (Optional[bool]): Indicates whether or not to use cache if a cached session doesn't yet exist.
+            timeout: (Optional[int | float]): Identifies the number of seconds to wait before raising a TimeoutError
+            masker (Optional[str]): Used for filtering potentially sensitive information from logs
+            **api_specific_parameters: Additional api parameter-value pairs and overrides to be
+                                            provided to SearchAPIConfig class
+        Returns:
+            A new SearchAPI instance initialized with the config chosen
+        """
+        provider_name = getattr(provider_config, "provider_name", "")
+        original_provider_config = provider_registry.get(provider_name)
+
+        try:
+            provider_registry.add(provider_config)  # raises an error if the current object is not a provider config
+
+            search_api_config = SearchAPIConfig.from_defaults(provider_name=provider_name, **api_specific_parameters)
+
+            parameter_config = APIParameterConfig.from_defaults(provider_name)
+
+            return cls.from_settings(
+                query,
+                config=search_api_config,
+                parameter_config=parameter_config,
+                session=session,
+                timeout=timeout,
+                user_agent=user_agent,
+                use_cache=use_cache,
+                masker=masker,
+                rate_limiter=rate_limiter,
+            )
+
+        except (TypeError, AttributeError, NotImplementedError, ValidationError, APIParameterException) as e:
+            msg = f"The SearchAPI could not be created with the provided configuration: {e}"
+            logger.error(msg)
+            raise APIParameterException(msg) from e
+
+        finally:
+            if original_provider_config:
+                # replaces the temporary configuration with the original configuration if there is an original
+                provider_registry[provider_name] = original_provider_config
+
+            elif provider_name in provider_registry:
+                # otherwise removes the temporary configuration
+                provider_registry.remove(provider_name)
+
+    @classmethod
     def from_defaults(
         cls,
         query: str,
@@ -452,7 +527,7 @@ class SearchAPI(BaseAPI):
         masker: Optional[SensitiveDataMasker] = None,
         rate_limiter: Optional[RateLimiter] = None,
         **api_specific_parameters,
-    ) -> "SearchAPI":
+    ) -> SearchAPI:
         """
         Factory method to create SearchAPI instances with sensible defaults for known providers. PLOS is used by default
         unless the environment variable, `SCHOLAR_FLUX_DEFAULT_PROVIDER` is set to another provider.
@@ -466,7 +541,6 @@ class SearchAPI(BaseAPI):
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
             user_agent (Optional[str]): Optional user-agent string for the session.
             use_cache (Optional[bool]): Indicates whether or not to use cache if a cached session doesn't yet exist.
-            namespace (Optional[str]): Used for identifying batches of requests,
             masker (Optional[str]): Used for filtering potentially sensitive information from logs
             **api_specific_parameters: Additional api parameter-value pairs and overrides to be
                                             provided to SearchAPIConfig class
@@ -760,7 +834,7 @@ class SearchAPI(BaseAPI):
         parameter_config: Optional[APIParameterConfig] = None,
         provider_name: Optional[str] = None,
         query: Optional[str] = None,
-    ) -> Iterator["SearchAPI"]:
+    ) -> Iterator[SearchAPI]:
         """
         Temporarily modifies the SearchAPI's SearchAPIConfig and/or APIParameterConfig and namespace.
         You can provide a config, a parameter_config, or a provider_name to fetch defaults.

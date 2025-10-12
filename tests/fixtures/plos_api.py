@@ -1,5 +1,5 @@
 from scholar_flux.api import SearchCoordinator, SearchAPI
-from scholar_flux.utils import FileUtils
+from scholar_flux.utils import JsonFileUtils
 import requests_mock
 import pytest
 from pathlib import Path
@@ -41,7 +41,7 @@ def plos_page_1_data() -> list | dict:
     query and requests_mock.
     """
     json_path = Path(__file__).parent.parent / "mocks/plos_page_1_data.json"
-    plos_page_1_data = FileUtils.load_data(json_path)
+    plos_page_1_data = JsonFileUtils.load_data(json_path)
     assert isinstance(plos_page_1_data, (list, dict))
     return plos_page_1_data
 
@@ -63,7 +63,7 @@ def plos_page_2_data() -> list | dict:
     query and requests_mock.
     """
     json_path = Path(__file__).parent.parent / "mocks/plos_page_2_data.json"
-    plos_page_2_data = FileUtils.load_data(json_path)
+    plos_page_2_data = JsonFileUtils.load_data(json_path)
     assert isinstance(plos_page_2_data, (list, dict))
     return plos_page_2_data
 

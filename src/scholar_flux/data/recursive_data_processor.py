@@ -1,7 +1,17 @@
+# /data/recursive_data_processor.py
+"""
+The scholar_flux.data.recursive_data_processor implements the RecursiveDataProcessor that implements the dynamic,
+and automatic recursive retrieval of nested key-data pairs from listed dictionary records.
+
+The data processor can be used to flatten and filter records based on conditions and extract nested data
+for each record in the response.
+"""
 from typing import Any, Optional
-from scholar_flux.utils import KeyDiscoverer, RecursiveDictProcessor, KeyFilter
+from scholar_flux.utils import KeyDiscoverer, RecursiveJsonProcessor, KeyFilter
 from scholar_flux.utils import nested_key_exists
 from scholar_flux.data.abc_processor import ABCDataProcessor
+
+from scholar_flux.exceptions import DataProcessingException, DataValidationException
 
 import logging
 
@@ -38,7 +48,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         ignore_keys: Optional[list[str]] = None,
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = True,
-        use_full_path: Optional[bool] = False,
+        use_full_path: Optional[bool] = True,
     ) -> None:
         """
         Initializes the data processor with JSON data and optional parameters for processing.
@@ -47,7 +57,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
             json_data (list[dict]): The json data set to process and flatten - a list of dictionaries is expected
             value_delimiter (Optional[str]): Indicates whether or not to join values found at terminal paths
             ignore_keys (Optional[list[str]]): Determines records that should be omitted based on whether each
-                                               record contains a key orsubstring. (off by default)
+                                               record contains a key or substring. (off by default)
             keep_keys (Optional[list[str]]): Indicates whether or not to keep a record if the key is present.
                                              (off by default)
             regex (Optional[bool]): Determines whether to use regex filtering for filtering records based on the
@@ -58,6 +68,8 @@ class RecursiveDataProcessor(ABCDataProcessor):
         """
 
         super().__init__()
+        self._validate_inputs(ignore_keys, keep_keys, regex)
+
         self.value_delimiter = value_delimiter
         self.ignore_keys = ignore_keys
         self.keep_keys = keep_keys
@@ -65,7 +77,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         self.use_full_path = use_full_path
 
         self.key_discoverer: KeyDiscoverer = KeyDiscoverer([])
-        self.recursive_processor = RecursiveDictProcessor(
+        self.recursive_processor = RecursiveJsonProcessor(
             normalizing_delimiter=self.value_delimiter,
             object_delimiter=self.value_delimiter,
             use_full_path=use_full_path,
@@ -85,11 +97,16 @@ class RecursiveDataProcessor(ABCDataProcessor):
         Returns:
             bool: Indicates whether the data was successfully loaded (True) or not (False)
         """
-        json_data = json_data if json_data is not None else self.json_data
-        if json_data:
-            self.json_data = json_data
-            self.key_discoverer = KeyDiscoverer(json_data)
-        logger.debug("JSON data loaded")
+        try:
+            json_data = json_data if json_data is not None else self.json_data
+            if json_data:
+                self.json_data = json_data
+                self.key_discoverer = KeyDiscoverer(json_data)
+            logger.debug("JSON data loaded")
+        except Exception as e:
+            raise DataValidationException(
+                f"The JSON data of type {type(self.json_data)} could not be successfully " f"processed and loaded: {e}"
+            )
 
     def discover_keys(self) -> Optional[dict[str, list[str]]]:
         """
@@ -124,28 +141,33 @@ class RecursiveDataProcessor(ABCDataProcessor):
         elif self.json_data:
             logger.debug("Reprocessing last page..")
         else:
-            raise ValueError("JSON Data has not been loaded successfully")
+            raise DataValidationException(f"JSON Data has not been loaded successfully: {self.json_data}")
 
         if not self.json_data:
-            raise ValueError(f"JSON Data has not been loaded successfully: {self.json_data}")
+            raise DataValidationException(f"JSON Data has not been loaded successfully: {self.json_data}")
 
         keep_keys = keep_keys or self.keep_keys
         ignore_keys = ignore_keys or self.ignore_keys
         regex = regex if regex is not None else self.regex
 
-        processed_json = (
-            self.process_record(record_dict, exclude_keys=ignore_keys)
-            for record_dict in self.json_data
-            if (not keep_keys or self.record_filter(record_dict, keep_keys, regex))
-            and not self.record_filter(record_dict, ignore_keys, regex)
-        )
+        self._validate_inputs(ignore_keys, keep_keys, regex)
 
-        processed_data = [record_dict for record_dict in processed_json if record_dict is not None]
+        try:
+            processed_json = (
+                self.process_record(record_dict, exclude_keys=ignore_keys)
+                for record_dict in self.json_data
+                if (not keep_keys or self.record_filter(record_dict, keep_keys, regex))
+                and not self.record_filter(record_dict, ignore_keys, regex)
+            )
 
-        logging.info(f"Total included records - {len(processed_data)}")
+            processed_data = [record_dict for record_dict in processed_json if record_dict is not None]
 
-        # Return the list of processed record dicts
-        return processed_data
+            logging.info(f"Total included records - {len(processed_data)}")
+
+            # Return the list of processed record dicts
+            return processed_data
+        except Exception as e:
+            raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
     def record_filter(
         self,
@@ -170,6 +192,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         substring: Optional[str] = None,
         pattern: Optional[str] = None,
         include: bool = True,
+        **kwargs,
     ) -> dict[str, list[str]]:
         """
         Filters discovered keys based on specified criteria.
@@ -182,6 +205,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
             substring=substring,
             pattern=pattern,
             include_matches=include,
+            **kwargs,
         )
 
 
@@ -209,5 +233,5 @@ class RecursiveDataProcessor(ABCDataProcessor):
 #     ]
 #     processor = RecursiveDataProcessor(value_delimiter="; ", use_full_path=True)
 #     processed = processor.process_page(record_test_json)
-# 
+#
 #     assert processed

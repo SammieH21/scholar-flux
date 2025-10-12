@@ -1,3 +1,17 @@
+# /api/models/search_results.py
+"""
+The scholar_flux.api.models.search_results module defines the SearchResult and SearchResultList
+implementations that aid in the retrieval of multi-page and multi-coordinated searches.
+
+These implementations allow increased organization for the API output of multiple searches
+by defining the provider, page, query, and response result retrieved from multi-page searches
+from the SearchCoordinator and multi-provider/page searches using the MultiSearchCoordinator.
+
+Classes:
+    SearchResult: Pydantic Base class that stores the search result as well as the query, provider name, and page.
+    SearchResultList: Inherits from a basic list to constrain the output to a list of SearchResults while providing
+                      data preparation convenience functions for downstream frameworks.
+"""
 from __future__ import annotations
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.utils.response_protocol import ResponseProtocol
@@ -28,6 +42,9 @@ class SearchResult(BaseModel):
         response_result (Optional[ProcessedResponse | ErrorResponse]):
             The response result containing the specifics of the data retrieved from the response
             or the error messages recorded if the request is not successful.
+
+    For convenience, the properties of the `response_result` are referenced as properties of
+    the SearchResult, including: `response`, `parsed_response`, `processed_records`, etc.
     """
 
     query: str
@@ -130,6 +147,17 @@ class SearchResult(BaseModel):
         """
         return self.response_result.message if isinstance(self.response_result, ErrorResponse) else None
 
+    @property
+    def created_at(self) -> Optional[str]:
+        """
+        Extracts the time in which the ErrorResponse or ProcessedResponse was created, if available.
+        """
+        return (
+            self.response_result.created_at
+            if isinstance(self.response_result, (ErrorResponse, ProcessedResponse))
+            else None
+        )
+
     def __eq__(self, other: Any) -> bool:
         """
         Helper method for determining whether two search results are equal. The equality check operates
@@ -148,6 +176,21 @@ class SearchResult(BaseModel):
 
 
 class SearchResultList(list[SearchResult]):
+    """
+    A helper class used to store the results of multiple SearchResult instances for enhanced type safety.
+    This class inherits from a list and extends its functionality to tailor its functionality to APIResponses
+    received from SearchCoordinators and MultiSearchCoordinators.
+
+    Methods:
+        - SearchResultList.append: Basic `list.append` implementation extended to accept only SearchResults
+        - SearchResultList.extend: Basic `list.extend` implementation extended to accept only iterables of SearchResults
+        - SearchResultList.filter: Removes NonResponses and ErrorResponses from the list of SearchResults
+        - SearchResultList.filter: Removes NonResponses and ErrorResponses from the list of SearchResults
+        - SearchResultList.join: Combines all records from ProcessedResponses into a list of dictionary-based records
+
+    Note Attempts to add other classes to the SearchResultList other than SearchResults will raise a TypeError.
+    """
+
     def __setitem__(self, index, item):
         """
         Overwrites the default __setitem__ method to ensure that only SearchResult objects can

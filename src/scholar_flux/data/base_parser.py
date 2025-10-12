@@ -1,3 +1,9 @@
+# /data/base_parser.py
+"""
+The scholar_flux.data.base_parser module contains the core logic for parsing data structures received from
+APIs. This module implements the BaseDataParser that is used to prepare and parse JSON, XML, and YAML
+into dictionary-based nested structures prior to record extraction and processing.
+"""
 from typing import Callable, TYPE_CHECKING
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
 from scholar_flux.exceptions import DataParsingException
@@ -25,7 +31,7 @@ else:
 
 class BaseDataParser:
     """
-    Base class reponsible for parsing typical formats seen in APIs
+    Base class responsible for parsing typical formats seen in APIs
     that send news and academic articles in XML, JSON, and YAML formats.
     """
 
@@ -33,7 +39,7 @@ class BaseDataParser:
         """
         On initialization, the data parser is set to use built-in class methods to
         parse json, xml, and yaml-based response content by default and the parse
-        halper class to determine which parser to use based on the Content-Type.
+        helper class to determine which parser to use based on the Content-Type.
 
         Args:
             additional_parsers (Optional[dict[str, Callable]]): Allows for the addition of
@@ -55,7 +61,7 @@ class BaseDataParser:
         elif "yaml" in content_type or "yml" in content_type:
             return "yaml"
         else:
-            logger.warning("Unsupported content type: %s", content_type)
+            logger.warning("Unsupported content type: '%s'", content_type)
             return "unknown"
 
     @classmethod
@@ -79,7 +85,7 @@ class BaseDataParser:
         if parser is not None:
             return parser(response.content)
         else:
-            logger.error("Unsupported format: %s", format)
+            logger.error("Unsupported format: '%s'", use_format)
             return None
 
     @classmethod
@@ -103,6 +109,13 @@ class BaseDataParser:
 
     @classmethod
     def get_default_parsers(cls) -> dict[str, Callable]:
+        """
+        Helper method used to retrieve the default parsers to parse XML, JSON, and YAML response data.
+
+        Returns:
+            dict[str, Callable]: A dictionary of data parsers that can be used to parse response data
+                                 into usable json format
+        """
         format_parsers = {
             "xml": cls.parse_xml,
             "json": cls.parse_json,
@@ -119,7 +132,7 @@ class BaseDataParser:
 
     def __call__(self, response: requests.Response | ResponseProtocol, *args, **kwargs) -> dict | list[dict] | None:
         """
-        Helper method for Parsing API response content intto dictionary (json) structure.
+        Helper method for Parsing API response content into dictionary (json) structure.
 
         Args:
             response (response type): The response object from the API request.
@@ -131,7 +144,7 @@ class BaseDataParser:
 
     def __repr__(self):
         """
-        Base method for indentifying the current implementation of the BaseDataParser. Subclasses can
+        Base method for identifying the current implementation of the BaseDataParser. Subclasses can
         override this for more specific descriptions of attributes and defaults.
         Useful for showing the options being used for parsing response content into dictionary objects.
         """

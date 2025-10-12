@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
-    PathRecordMapError,
+    RecordPathNodeMapError,
     PathNodeMapError,
-    PathChainMapError,
+    RecordPathChainMapError,
     InvalidPathNodeError,
 )
 import pytest
 
 
-from scholar_flux.utils.paths import ProcessingPath, PathNode, PathNodeMap, PathRecordMap, PathChainMap
+from scholar_flux.utils.paths import ProcessingPath, PathNode, PathNodeMap, RecordPathNodeMap, RecordPathChainMap
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def all_path_nodes():
         idx = i
         path_nodes = [PathNode.to_path_node(f"{i}.a.{x}", i) for x in ("a", "b", "c", "d")]
 
-        path_records = PathRecordMap(*path_nodes, record_index=idx)
+        path_records = RecordPathNodeMap(*path_nodes, record_index=idx)
         all_path_nodes.append(path_records)
     return all_path_nodes
 
@@ -29,25 +29,25 @@ def all_path_nodes():
 @pytest.fixture
 def default_mapping(all_path_nodes):
     """Creates a ChainMap from the previously created fixture"""
-    default_mapping = PathChainMap(*all_path_nodes)
+    default_mapping = RecordPathChainMap(*all_path_nodes)
     return default_mapping
 
 
 def test_blank_initialization():
     """Testing the initialization of a chainmap without arguments"""
-    mapping = PathChainMap()
-    assert mapping == PathChainMap({})  # type: ignore
-    assert mapping == PathChainMap(set())  # type: ignore
-    assert mapping == PathChainMap([])  # type: ignore
-    assert mapping == PathChainMap(tuple())  # type: ignore
+    mapping = RecordPathChainMap()
+    assert mapping == RecordPathChainMap({})  # type: ignore
+    assert mapping == RecordPathChainMap(set())  # type: ignore
+    assert mapping == RecordPathChainMap([])  # type: ignore
+    assert mapping == RecordPathChainMap(tuple())  # type: ignore
 
 
 def test_initialization(all_path_nodes):
     """
-    Verifies whether the PathChainMap will correctly initialize with the assigned records with the
+    Verifies whether the RecordPathChainMap will correctly initialize with the assigned records with the
     different configurations used to assign records to the mapping.
     """
-    mapping = PathChainMap()
+    mapping = RecordPathChainMap()
     assert len(mapping) == 0
 
     for record_map in all_path_nodes:
@@ -56,24 +56,24 @@ def test_initialization(all_path_nodes):
     assert len(mapping) == 10
     assert len(mapping.nodes) == 40
 
-    mapping_two = PathChainMap(*all_path_nodes)
+    mapping_two = RecordPathChainMap(*all_path_nodes)
     assert mapping == mapping_two
 
-    mapping_three = PathChainMap()
+    mapping_three = RecordPathChainMap()
     mapping_three.update(*all_path_nodes)
 
     assert mapping_three == mapping
 
-    mapping_four = PathChainMap()
+    mapping_four = RecordPathChainMap()
     nodes = [node for node_map in all_path_nodes for node in node_map.values()]
     assert len({node.path for node in nodes}) == 40
     mapping_four.update(*(node for node_map in all_path_nodes for node in node_map.values()))
 
     assert len(mapping_four) == 10
-    assert all(isinstance(path, PathRecordMap) for path in mapping_four.data.values())
+    assert all(isinstance(path, RecordPathNodeMap) for path in mapping_four.data.values())
     assert len(mapping_four.nodes) == 40
 
-    mapping_five = PathChainMap()
+    mapping_five = RecordPathChainMap()
     for node in nodes:
         mapping_five.add(node)
     assert mapping_five == mapping
@@ -83,31 +83,31 @@ def test_inferred_record_index():
     """
     Verifies whether not directly specifying a record_index throws an error or infers from the input nodes.
 
-    Whenever a PathRecordMap is specified with defaults, the index should be inferred from the first element
+    Whenever a RecordPathNodeMap is specified with defaults, the index should be inferred from the first element
     of each path. An error is raised when encountering zero or more than one record_index.
     """
     a1 = PathNode.to_path_node("1.a", value=1)
     a2 = PathNode.to_path_node("1.b", value=2)
     a3 = PathNode.to_path_node("1.c", value=3)
 
-    record_map = PathRecordMap(a1, a2, a3)
+    record_map = RecordPathNodeMap(a1, a2, a3)
 
     assert record_map.record_index == 1
 
     record_dict: dict = {str(a.path): a for a in (a1, a2, a3)}
     mapping = PathNodeMap()
     mapping.format_mapping(record_dict)
-    record_map_two = PathRecordMap(**record_dict)
+    record_map_two = RecordPathNodeMap(**record_dict)
 
     assert record_map_two.record_index == 1
     assert record_map_two == record_map
 
-    with pytest.raises(PathRecordMapError) as excinfo:
-        _ = PathRecordMap()
+    with pytest.raises(RecordPathNodeMapError) as excinfo:
+        _ = RecordPathNodeMap()
     assert "A numeric record index is missing and could not be inferred from the input nodes" in str(excinfo.value)
 
     with pytest.raises(InvalidPathNodeError) as excinfo:  # type: ignore
-        _ = PathRecordMap(" ")  # type: ignore
+        _ = RecordPathNodeMap(" ")  # type: ignore
     assert f"The current object is not a PathNode: expected 'PathNode', received {type(' ')}" in str(excinfo.value)
 
 
@@ -121,7 +121,7 @@ def test_formatting(all_path_nodes):
 
     assert positional_params
     assert keyword_params
-    mapping = PathChainMap()
+    mapping = RecordPathChainMap()
 
     formatted_mappings = PathNodeMap._format_nodes_as_dict(*positional_params, **keyword_params)
     assert len(formatted_mappings) == 40
@@ -138,7 +138,7 @@ def test_invalid_formatting():
 
     This test identifies whether non-nodes are successfully flagged and the appropriate exception raised.
     """
-    new_path_node = PathRecordMap(record_index=1)
+    new_path_node = RecordPathNodeMap(record_index=1)
     invalid_path_node = {"a": " "}
     with pytest.raises(PathNodeMapError) as excinfo:
         _ = new_path_node._format_nodes_as_dict(invalid_path_node)
@@ -164,34 +164,34 @@ def test_record_map_creation():
     mapping: dict = {a1.path: a1, a2.path: a2, a3.path: a3}
 
     # using a sequence
-    record_map = PathRecordMap.from_mapping(seq)
+    record_map = RecordPathNodeMap.from_mapping(seq)
 
     # with a dictionary
-    record_map_two = PathRecordMap.from_mapping(mapping)
+    record_map_two = RecordPathNodeMap.from_mapping(mapping)
     assert len(record_map) == 3
     assert record_map == record_map_two
-    record_map_three = PathRecordMap.from_mapping(record_map_two)
+    record_map_three = RecordPathNodeMap.from_mapping(record_map_two)
     assert record_map_three == record_map_two
 
     # with a dictionary of length 1
-    record_map_single = PathRecordMap({a1.path: a1})
+    record_map_single = RecordPathNodeMap({a1.path: a1})
     assert len(record_map_single) == 1
 
     # with a single node
-    assert record_map_single == PathRecordMap(a1)
+    assert record_map_single == RecordPathNodeMap(a1)
 
     # with a tuple containing a single node
-    record_map_single_two = PathRecordMap((a1,))
+    record_map_single_two = RecordPathNodeMap((a1,))
 
     # verifies whether the two methods are equal
     assert record_map_single == record_map_single_two
 
     # with a list containing a node
-    record_map_single_three = PathRecordMap([a1])
+    record_map_single_three = RecordPathNodeMap([a1])
     assert record_map_single_three == record_map_single
 
     # with a set containing  node
-    record_map_single_four = PathRecordMap({a1})
+    record_map_single_four = RecordPathNodeMap({a1})
     assert record_map_single_four == record_map_single
 
 
@@ -204,27 +204,28 @@ def test_chain_input_preparation():
     a2 = PathNode.to_path_node("2.b", value=2)
     a3 = PathNode.to_path_node("2.c", value=3)
 
-    prepped_inputs = PathRecordMap._prepare_inputs([a1, a2, a3])
+    prepped_inputs = RecordPathNodeMap._prepare_inputs([a1, a2, a3])
     assert prepped_inputs == (2, [a1, a2, a3])
 
-    prepped_inputs_two = PathRecordMap._prepare_inputs([a1])
+    prepped_inputs_two = RecordPathNodeMap._prepare_inputs([a1])
     assert prepped_inputs_two == (2, [a1])
 
-    prepped_inputs_three = PathRecordMap._prepare_inputs(a1)
+    prepped_inputs_three = RecordPathNodeMap._prepare_inputs(a1)
     assert prepped_inputs_two == prepped_inputs_three
 
     bad_node = "not a node"
 
-    with pytest.raises(PathRecordMapError) as excinfo:
-        _ = PathRecordMap._prepare_inputs(bad_node)  # type: ignore
+    with pytest.raises(RecordPathNodeMapError) as excinfo:
+        _ = RecordPathNodeMap._prepare_inputs(bad_node)  # type: ignore
     assert (
-        "Encountered an error on the preparation of inputs for a PathRecordMap: " "The current object is not a PathNode"
+        "Encountered an error on the preparation of inputs for a RecordPathNodeMap: "
+        "The current object is not a PathNode"
     ) in str(excinfo.value)
 
     another_bad_node = 1100
 
-    with pytest.raises(PathRecordMapError) as excinfo:
-        _ = PathRecordMap._prepare_inputs(another_bad_node)  # type: ignore
+    with pytest.raises(RecordPathNodeMapError) as excinfo:
+        _ = RecordPathNodeMap._prepare_inputs(another_bad_node)  # type: ignore
     assert ("Expected a sequence of nodes, but at least one value is of a different type") in str(excinfo.value)
 
 
@@ -233,30 +234,30 @@ def test_invalid_record_indices():
     a1 = PathNode.to_path_node("1.a", value=1)
     b1 = PathNode.to_path_node("2.g", value=3)
 
-    with pytest.raises(PathRecordMapError) as excinfo:
-        _ = PathRecordMap._prepare_inputs([a1, b1])
+    with pytest.raises(RecordPathNodeMapError) as excinfo:
+        _ = RecordPathNodeMap._prepare_inputs([a1, b1])
     assert ("Expected a mapping or sequence with exactly 1 record_index, " "Received: [1, 2]") in str(excinfo.value)
 
 
 def test_record_map_resolution(all_path_nodes):
     """
     Validates whether each of the following methods produces the same output when generating record maps from
-    mappings and lists using the `PathChainMap._resolve_record_maps` method.
+    mappings and lists using the `RecordPathChainMap._resolve_record_maps` method.
     """
-    record_map_one = PathChainMap._resolve_record_maps(*all_path_nodes)
-    record_map_two = PathChainMap._resolve_record_maps(
+    record_map_one = RecordPathChainMap._resolve_record_maps(*all_path_nodes)
+    record_map_two = RecordPathChainMap._resolve_record_maps(
         *(node for node_map in all_path_nodes for node in node_map.values())
     )
 
-    record_map_three = PathChainMap._resolve_record_maps(*(PathNodeMap(node_map) for node_map in all_path_nodes))
+    record_map_three = RecordPathChainMap._resolve_record_maps(*(PathNodeMap(node_map) for node_map in all_path_nodes))
 
     assert record_map_one == record_map_two == record_map_three
 
-    with pytest.raises(PathChainMapError) as excinfo:
-        _ = PathChainMap._resolve_record_maps(1)  # type: ignore
+    with pytest.raises(RecordPathChainMapError) as excinfo:
+        _ = RecordPathChainMap._resolve_record_maps(1)  # type: ignore
 
     assert (
-        "Expected either a PathRecordMap or a list of nodes to resolve into "
+        "Expected either a RecordPathNodeMap or a list of nodes to resolve into "
         f"a record map, Received element of type {type(1)}"
     ) in str(excinfo.value)
 
@@ -269,12 +270,12 @@ def test_extract_record_index():
     """
     path_string = "1.2.3"
     path = ProcessingPath(path_string)
-    assert PathChainMap._extract_record_index(path_string) == path.record_index
-    assert PathChainMap._extract_record_index(path) == path.record_index
+    assert RecordPathChainMap._extract_record_index(path_string) == path.record_index
+    assert RecordPathChainMap._extract_record_index(path) == path.record_index
 
     invalid_path: dict = {}
     with pytest.raises(InvalidProcessingPathError) as excinfo:
-        _ = PathChainMap._extract_record_index(invalid_path)  # type: ignore
+        _ = RecordPathChainMap._extract_record_index(invalid_path)  # type: ignore
 
     assert (
         f"Could not extract a record path for value of class {type(invalid_path)}, "
@@ -289,7 +290,7 @@ def test_filtering(all_path_nodes):
 
     Also verifies edge cases concerning invalid inputs and exceptions that can result with invalid inputs.
     """
-    mapping = PathChainMap()
+    mapping = RecordPathChainMap()
 
     for record_map in all_path_nodes:
         mapping.update(record_map)
@@ -306,7 +307,7 @@ def test_filtering(all_path_nodes):
     assert sample_node.path in mapping
 
     assert len(mapping.nodes) == 40
-    record_index = PathChainMap._extract_record_index(sample_node.path)
+    record_index = RecordPathChainMap._extract_record_index(sample_node.path)
     mapping.remove(sample_node.path)
     assert record_index in mapping and sample_node.path and sample_node.path not in mapping
     assert len(mapping.nodes) == 39
@@ -323,7 +324,7 @@ def test_retrieval(all_path_nodes, default_mapping):
 
     In contrast, a non-node/path should raise an error.
     """
-    assert all(default_mapping.retrieve(path) for record in all_path_nodes for path in record)
+    assert all(default_mapping.get_node(path) for record in all_path_nodes for path in record)
     assert all(default_mapping.node_exists(node) for record in all_path_nodes for node in record.values())
     assert all(default_mapping.node_exists(node.path) for record in all_path_nodes for node in record.values())
 
@@ -339,14 +340,14 @@ def test_node_validation(all_path_nodes):
     the incorrect leading path component/record_index.
     """
 
-    record_map_two = PathRecordMap(record_index=2)
+    record_map_two = RecordPathNodeMap(record_index=2)
 
     with pytest.raises(PathNodeMapError) as excinfo:
         record_map_two.update(*(node for record in all_path_nodes for node in record.values()))
 
     assert (
         "Expected the first element in the path of the node to be the same type as the record index "
-        "of the current PathRecordMap"
+        "of the current RecordPathNodeMap"
     ) in str(excinfo.value)
 
 

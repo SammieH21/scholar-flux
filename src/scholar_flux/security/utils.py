@@ -1,3 +1,11 @@
+# /security/utils.py
+"""
+The scholar_flux.security.utils module defines the SecretUtils class that implements the basic set of tools for both
+masking and unmasking text, and identifying if a field is masked.
+
+This class uses the pydantic.SecretStr class to mask and unmask fields and can be further extended to encrypt and
+decrypt text as needed before and after conversion to a secret string, respectively.
+"""
 from typing import Any, Optional
 from pydantic import SecretStr
 
@@ -18,7 +26,7 @@ class SecretUtils:
             obj (Any | SecretStr): An object to attempt to unmask if it is a secret string
 
         Returns:
-            obj (SecretStr): A SecretStr representation of the oiginal object
+            obj (SecretStr): A SecretStr representation of the original object
 
         Examples:
             >>> from scholar_flux.security import SecretUtils
@@ -63,7 +71,7 @@ class SecretUtils:
     @classmethod
     def is_secret(cls, obj: Any) -> bool:
         """
-        Utility class method used to verify whether the current variable is a secret string. 
+        Utility class method used to verify whether the current variable is a secret string.
         This method abstracts the implementation details into a single method to aid further
         extensibility.
 

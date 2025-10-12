@@ -1,9 +1,20 @@
 import pytest
+from copy import deepcopy
 from scholar_flux.exceptions import InvalidPathNodeError
 from scholar_flux.utils.paths import (
     ProcessingPath,
     PathNode,
 )
+
+
+def test_node_deep_copy():
+    """Testing the deep copying method for the PathNode"""
+    test_value = [1, 2, 3]
+    node = PathNode.to_path_node(path="a.b.c", value=test_value)
+    new_node = deepcopy(node)
+
+    node.value.append(4)
+    assert node.value != new_node.value
 
 
 def test_pathnode_creation_and_properties():

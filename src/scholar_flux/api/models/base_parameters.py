@@ -1,3 +1,13 @@
+# /api/models/base_parameters.py
+"""
+The scholar_flux.api.models.base_parameters module implements the foundational BaseAPIParameterMap
+and APISpecificParameters required to interact with and create requests to API providers.
+
+Classes:
+    BaseAPIParameterMap: Defines the parameters and required settings to successfully interact with
+                         a provider's API specification.
+    APISpecificParameters:  Defines the optional and required parameters that are specific to the current API provider
+"""
 from __future__ import annotations
 from typing import Optional, Dict, Any, Callable
 from pydantic import BaseModel, Field
@@ -68,7 +78,7 @@ class BaseAPIParameterMap(BaseModel):
         page_required (bool): If True, indicates that a page is required for the current API
         auto_calculate_page (bool): If True, calculates start index from page; if False, passes page number directly.
         zero_indexed_pagination (bool): If True, treats 0 as an allowed page value when retrieving data from APIs
-        api_specific_parameters (Dict[str, str]): Additional universal to API-specific parameter mappings.
+        api_specific_parameters (Dict[str, APISpecificParameter]): Additional universal to API-specific parameter mappings.
         additional_parameter_validators (Dict[str, str]): Additional universal to API-specific parameter mappings.
     """
 
@@ -107,7 +117,7 @@ class BaseAPIParameterMap(BaseModel):
         Returns:
             BaseAPIParameterMap: A new instance created from the given dictionary.
         """
-        return cls(**obj)
+        return cls.model_validate(obj)
 
     def to_dict(self) -> Dict[str, Any]:
         """

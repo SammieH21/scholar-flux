@@ -1,3 +1,15 @@
+# /sessions/encryption.py
+"""
+The scholar_flux.sessions.encryption module is tasked with the implementation of an EncryptionPipelineFactory
+that can be used to easily and efficiently create a serializer that is accepted by CachedSession objects
+to store requests cache.
+
+This encryption factory uses encryption and a safer_serializer for two steps:
+    1) To sign the requests storage cache for invalidation on unexpected data changes/tampering
+    2) To encrypt request cache for storage after serialization and decrypt it before deserialization during retrieval
+
+If a key does not exist and is not provided, the EncryptionPipelineFactory will create a new Fernet key. for these steps
+"""
 from scholar_flux.exceptions import (
     ItsDangerousImportError,
     CryptographyImportError,

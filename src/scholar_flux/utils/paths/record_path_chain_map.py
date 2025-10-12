@@ -1,3 +1,12 @@
+# /utils/paths/path_chain_map
+"""
+The scholar_flux.utils.paths.path_node_map module builds on top of the original PathNodeMap to further
+specialize the map implementation toward the nested dictionary records that can be found within paginated data.
+
+This module implements the RecordPathNodeMap and RecordPathChainMap, respectively to process batches of nodes at a time
+that all apply to a single record while allowing speedups to cache when retaining only terminal nodes via set/dictionary
+operations.
+"""
 from __future__ import annotations
 
 from typing import Optional, Union, Generator, Sequence, Mapping
@@ -6,8 +15,8 @@ from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
     InvalidPathNodeError,
     PathNodeMapError,
-    PathRecordMapError,
-    PathChainMapError,
+    RecordPathNodeMapError,
+    RecordPathChainMapError,
 )
 
 from scholar_flux.utils.paths import ProcessingPath, PathNode, PathNodeMap
@@ -18,9 +27,13 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 
-class PathRecordMap(PathNodeMap):
+class RecordPathNodeMap(PathNodeMap):
     """
-    A dictionary-like class that maps Processing paths to PathNode objects.
+    A dictionary-like class that maps Processing paths to PathNode objects using record indexes.
+
+    This implementation inherits from the PathNodeMap class and constrains the allowed nodes to
+    those that begin with a numeric record index. Where each index indicates a record and nodes
+    represent values associated with the record.
     """
 
     def __init__(
@@ -33,24 +46,33 @@ class PathRecordMap(PathNodeMap):
             Mapping[str | ProcessingPath, PathNode],
         ],
         record_index: Optional[int | str] = None,
-        cache: Optional[bool] = None,
+        use_cache: Optional[bool] = None,
         allow_terminal: Optional[bool] = False,
         overwrite: Optional[bool] = True,
         **path_nodes: Mapping[str | ProcessingPath, PathNode],
     ) -> None:
+        """
+        Initializes the RecordPathNodeMap using a similar set of inputs as the original PathNodeMap. This implementation
+        constraints the inputted nodes to a singular numeric key index that all nodes must begin with.
+        If nodes are provided without the key, then the `record_index` is inferred for the inputs.
+
+        """
         prepared_nodes = self._format_nodes_as_dict(*nodes, **path_nodes)
         if not record_index and prepared_nodes:
             record_index, _ = self._prepare_inputs(list(prepared_nodes.values()))
 
         if record_index is None or not isinstance(record_index, int):
-            raise PathRecordMapError("A numeric record index is missing and could not be inferred from the input nodes")
+            raise RecordPathNodeMapError(
+                "A numeric record index is missing and could not be inferred from the input nodes"
+            )
 
         self.record_index: int = int(record_index)
-        super().__init__(cache=cache, allow_terminal=allow_terminal, overwrite=overwrite)
+        super().__init__(use_cache=use_cache, allow_terminal=allow_terminal, overwrite=overwrite)
         self.update(prepared_nodes)
 
     @classmethod
     def _extract_record_index(cls, path: Union[str, int, ProcessingPath] | PathNode) -> int:
+        """Helper method that retrieves a numeric record index that corresponds to the inputted node, path, or string"""
         try:
             if isinstance(path, int):
                 return path
@@ -73,6 +95,19 @@ class PathRecordMap(PathNodeMap):
     def _prepare_inputs(
         cls, mapping: PathNode | dict[str | ProcessingPath, PathNode] | PathNodeMap | Sequence[PathNode] | set[PathNode]
     ) -> tuple[int, set[PathNode] | Sequence[PathNode]]:
+        """
+        Helper method that processes a mapping or sequence of nodes to prepare the record index and nodes used
+        to create a RecordPathNodeMap structure.
+
+        Args:
+            mapping (PathNode | dict[str | ProcessingPath, PathNode] | PathNodeMap | Sequence[PathNode] | set[PathNode]):
+                A path node, sequence of path nodes, or dictionary-like mapping of path-node combinations. This
+                input is parsed and prepared to use as direct input to create a new RecordPathNodeMap.
+
+        Returns:
+            tuple[int, set[PathNode] | Sequence[PathNode]]: A record path index associated with the path-node mappings
+                                                            and the sequence of nodes extracted from the input
+        """
 
         try:
             if isinstance(mapping, (dict, PathNodeMap)):
@@ -84,33 +119,37 @@ class PathRecordMap(PathNodeMap):
                 nodes = mapping
 
             if not (isinstance(nodes, (Sequence, set)) and all(PathNode.is_valid_node(node) for node in nodes)):
-                raise PathRecordMapError("Expected a sequence of nodes, but at least one value is of a different type")
+                raise RecordPathNodeMapError(
+                    "Expected a sequence of nodes, but at least one value is of a different type"
+                )
 
             record_indices = list({node.record_index for node in nodes})
 
             if len(record_indices) != 1:
-                raise PathRecordMapError(
+                raise RecordPathNodeMapError(
                     "Expected a mapping or sequence with exactly 1 record_index, " f"Received: {record_indices}"
                 )
             return record_indices[0], nodes
         except (PathNodeMapError, InvalidPathNodeError, InvalidProcessingPathError) as e:
-            raise PathRecordMapError(f"Encountered an error on the preparation of inputs for a PathRecordMap: {e}")
+            raise RecordPathNodeMapError(
+                f"Encountered an error on the preparation of inputs for a RecordPathNodeMap: {e}"
+            )
 
     @classmethod
     def from_mapping(
         cls,
         mapping: (
-            dict[str | ProcessingPath, PathNode] | PathNodeMap | Sequence[PathNode] | set[PathNode] | PathRecordMap
+            dict[str | ProcessingPath, PathNode] | PathNodeMap | Sequence[PathNode] | set[PathNode] | RecordPathNodeMap
         ),
-        cache: Optional[bool] = None,
-    ) -> PathRecordMap:
-        """Helper method for coercing types into a PathRecordMap"""
+        use_cache: Optional[bool] = None,
+    ) -> RecordPathNodeMap:
+        """Helper method for coercing types into a RecordPathNodeMap"""
 
-        if isinstance(mapping, PathRecordMap):
+        if isinstance(mapping, RecordPathNodeMap):
             return mapping
 
         record_index, nodes = cls._prepare_inputs(mapping)
-        return cls(*nodes, record_index=record_index, cache=cache)
+        return cls(*nodes, record_index=record_index, use_cache=use_cache)
 
     def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None):
         """
@@ -127,9 +166,9 @@ class PathRecordMap(PathNodeMap):
 
             PathNode.is_valid_node(node)
             if self._extract_record_index(node) != self.record_index:
-                raise PathRecordMapError(
+                raise RecordPathNodeMapError(
                     "Expected the first element in the path of the node to be the same type as the "
-                    f"record index of the current PathRecordMap. Received: {node.path}"
+                    f"record index of the current RecordPathNodeMap. Received: {node.path}"
                 )
 
             self._validate_new_node_path(node, overwrite=overwrite)
@@ -137,20 +176,20 @@ class PathRecordMap(PathNodeMap):
             logger.debug(f"Validated node: {node}")
 
         except Exception as e:
-            raise PathRecordMapError(f"Error validating constraints on node insertion: {e}") from e
+            raise RecordPathNodeMapError(f"Error validating constraints on node insertion: {e}") from e
 
 
-class PathChainMap(UserDict[int, PathRecordMap]):
+class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
     """
     A dictionary-like class that maps Processing paths to PathNode objects.
     """
 
-    DEFAULT_USE_CACHE = PathRecordMap.DEFAULT_USE_CACHE
+    DEFAULT_USE_CACHE = RecordPathNodeMap.DEFAULT_USE_CACHE
 
     def __init__(
         self,
         *record_maps: Union[
-            PathRecordMap,
+            RecordPathNodeMap,
             PathNodeMap,
             PathNode,
             Generator[PathNode, None, None],
@@ -158,9 +197,9 @@ class PathChainMap(UserDict[int, PathRecordMap]):
             Mapping[int | str | ProcessingPath, PathNode],
             Mapping[int, PathNodeMap],
         ],
-        cache: Optional[bool] = None,
+        use_cache: Optional[bool] = None,
         **path_record_maps: Union[
-            PathRecordMap,
+            RecordPathNodeMap,
             PathNodeMap,
             PathNode,
             Generator[PathNode, None, None],
@@ -170,16 +209,16 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         ],
     ) -> None:
         """
-        Initializes the PathRecordMap instance.
+        Initializes the RecordPathNodeMap instance.
         """
-        self.cache = cache if cache is not None else PathRecordMap.DEFAULT_USE_CACHE
-        self.data: dict[int, PathRecordMap] = self._resolve_record_maps(
-            *record_maps, *path_record_maps.values(), use_cache=self.cache
+        self.use_cache = use_cache if use_cache is not None else RecordPathNodeMap.DEFAULT_USE_CACHE
+        self.data: dict[int, RecordPathNodeMap] = self._resolve_record_maps(
+            *record_maps, *path_record_maps.values(), use_cache=self.use_cache
         )
 
-    def __getitem__(self, key: Union[int, ProcessingPath]) -> PathRecordMap:
+    def __getitem__(self, key: Union[int, ProcessingPath]) -> RecordPathNodeMap:
         """
-        Retrieve a path record map from the PathChainMap if the key exists.
+        Retrieve a path record map from the RecordPathChainMap if the key exists.
 
         Args:
             key (Union[int, ProcessingPath]): The key (Processing path) If string, coerces to a ProcessingPath.
@@ -192,7 +231,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
 
     def __contains__(self, key: object) -> bool:
         """
-        Checks whether the key prefix exists in the PathChainMap instance.
+        Checks whether the key prefix exists in the RecordPathChainMap instance.
 
         If a full processing path is passed, check for whether the path exists within the mapping
         under the same prefix
@@ -227,7 +266,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         # if we have a full path, check whether the mapping contains the path
         return path in mapping
 
-    def retrieve(self, key: Union[str, ProcessingPath], default: Optional[PathNode] = None) -> Optional[PathNode]:
+    def get_node(self, key: Union[str, ProcessingPath], default: Optional[PathNode] = None) -> Optional[PathNode]:
         """Helper method for retrieving a path node in a standardized way across PathNodeMaps"""
         mapping = self.get(key)
         return mapping.get(key, default) if mapping is not None else None
@@ -245,13 +284,13 @@ class PathChainMap(UserDict[int, PathRecordMap]):
     @classmethod
     def _extract_record_index(cls, path: Union[str, int, ProcessingPath]) -> int:
         """Helper method for extracting the path record index for a path"""
-        return PathRecordMap._extract_record_index(path)
+        return RecordPathNodeMap._extract_record_index(path)
 
     @property
     def record_indices(self) -> list[int]:
         """
         Helper property for retrieving the full list of all record indices across all paths for the current map
-        Note: A core requirement of the ChainMap is that each PathRecordMap indicates the position of a record
+        Note: A core requirement of the ChainMap is that each RecordPathNodeMap indicates the position of a record
         in a nested JSON structure. This property is a helper method to quickly retrieve the full list of sorted
         record_indices.
 
@@ -265,9 +304,10 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         prefix: ProcessingPath | str | int,
         min_depth: Optional[int] = None,
         max_depth: Optional[int] = None,
+        from_cache: Optional[bool] = None,
     ) -> dict[ProcessingPath, PathNode]:
         """
-        Filter the PathChainMap for paths with the given prefix.
+        Filter the RecordPathChainMap for paths with the given prefix.
         Args:
             prefix (ProcessingPath): The prefix to search for.
             min_depth (Optional[int]): The minimum depth to search for. Default is None.
@@ -277,7 +317,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
             dict[Optional[ProcessingPath], Optional[PathNode]]: A dictionary of paths with the given prefix and their corresponding
             terminal_nodes
         Raises:
-            PathRecordMapError: If an error occurs while filtering the PathNodeMap.
+            RecordPathNodeMapError: If an error occurs while filtering the PathNodeMap.
         """
         try:
             record_index = self._extract_record_index(prefix)
@@ -285,7 +325,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
             mapping = self.data.get(record_index)
 
             if mapping:
-                return mapping.filter(prefix=prefix, min_depth=min_depth, max_depth=max_depth)
+                return mapping.filter(prefix=prefix, min_depth=min_depth, max_depth=max_depth, from_cache=from_cache)
 
             return {}
 
@@ -306,10 +346,10 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         return mapping is not None and mapping.get(node) is not None
 
     @classmethod
-    def _resolve_record_maps(cls, *args, use_cache: Optional[bool] = None) -> dict[int, PathRecordMap]:
+    def _resolve_record_maps(cls, *args, use_cache: Optional[bool] = None) -> dict[int, RecordPathNodeMap]:
         """Helper method for resolving groups of nodes and record maps into an integrated structure"""
 
-        mapped_groups: dict[int, PathRecordMap] = {}
+        mapped_groups: dict[int, RecordPathNodeMap] = {}
 
         if len(args) == 0:
             return mapped_groups
@@ -320,33 +360,33 @@ class PathChainMap(UserDict[int, PathRecordMap]):
             if (isinstance(data, (set, Sequence, Mapping)) and not data) or data is None:
                 return mapped_groups
 
-        if isinstance(args, PathNodeMap) and not isinstance(args, PathRecordMap):
+        if isinstance(args, PathNodeMap) and not isinstance(args, RecordPathNodeMap):
             args = list(args.values())
             logger.warning(f"Encountered a path node map, parsed args {args}")
 
         for value in args:
 
             if isinstance(value, (PathNodeMap, dict, Sequence, set)):
-                value = PathRecordMap.from_mapping(value, cache=use_cache)
+                value = RecordPathNodeMap.from_mapping(value, use_cache=use_cache)
 
-            if isinstance(value, PathRecordMap):
+            if isinstance(value, RecordPathNodeMap):
                 record_index = value.record_index
 
                 if record_index not in mapped_groups:
-                    mapped_groups[record_index] = PathRecordMap(record_index=record_index, cache=use_cache)
+                    mapped_groups[record_index] = RecordPathNodeMap(record_index=record_index, use_cache=use_cache)
                 mapped_groups[record_index] |= value
 
             elif isinstance(value, PathNode):
                 record_index = cls._extract_record_index(value.path)
                 (
                     mapped_groups.setdefault(
-                        record_index, PathRecordMap(record_index=record_index, cache=use_cache)
+                        record_index, RecordPathNodeMap(record_index=record_index, use_cache=use_cache)
                     ).add(value)
                 )
 
             else:
-                raise PathChainMapError(
-                    "Expected either a PathRecordMap or a list of nodes to resolve into "
+                raise RecordPathChainMapError(
+                    "Expected either a RecordPathNodeMap or a list of nodes to resolve into "
                     f"a record map, Received element of type {type(value)}"
                 )
         return mapped_groups
@@ -355,7 +395,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         self,
         *args,
         overwrite: Optional[bool] = None,
-        **kwargs: dict[str, PathNode] | dict[Union[str, ProcessingPath], PathRecordMap],
+        **kwargs: dict[str, PathNode] | dict[Union[str, ProcessingPath], RecordPathNodeMap],
     ) -> None:
         """
         Updates the PathNodeMap instance with new key-value pairs.
@@ -373,7 +413,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
             record_index = record_map.record_index
 
             (
-                self.data.setdefault(record_index, PathRecordMap(record_index=record_index)).update(
+                self.data.setdefault(record_index, RecordPathNodeMap(record_index=record_index)).update(
                     dict(record_map), overwrite=overwrite
                 )
             )
@@ -381,17 +421,17 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         logger.debug("Updated successfully")
 
     def get(  # type: ignore[override]
-        self, key: Union[str, ProcessingPath], default: Optional[PathRecordMap] = None
-    ) -> Optional[PathRecordMap]:
+        self, key: Union[str, ProcessingPath], default: Optional[RecordPathNodeMap] = None
+    ) -> Optional[RecordPathNodeMap]:
         """
-        Gets an item from the PathRecordMap instance. If the value isn't available,
+        Gets an item from the RecordPathNodeMap instance. If the value isn't available,
         this method will return the value specified in default
 
         Args:
             key (Union[str,ProcessingPath]): The key (Processing path) If string, coerces to a ProcessingPath.
 
         Returns:
-            PathRecordMap: A record map instance
+            RecordPathNodeMap: A record map instance
         """
 
         key = PathNodeMap._validate_path(key)
@@ -399,7 +439,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
 
         return self.data.get(record_index, default)
 
-    def add(self, node: PathNode | PathRecordMap, overwrite: Optional[bool] = None):
+    def add(self, node: PathNode | RecordPathNodeMap, overwrite: Optional[bool] = None):
         """
         Add a node to the PathNodeMap instance.
 
@@ -414,7 +454,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         try:
             self.update(node, overwrite=overwrite)
         except Exception as e:
-            raise PathNodeMapError(f"Error adding nodes to PathChainMap: {e}") from e
+            raise PathNodeMapError(f"Error adding nodes to RecordPathChainMap: {e}") from e
 
     def remove(self, node: Union[ProcessingPath, "PathNode", str]):
         """
@@ -431,7 +471,7 @@ class PathChainMap(UserDict[int, PathRecordMap]):
         """
         try:
             path = node.path if isinstance(node, PathNode) else ProcessingPath.to_processing_path(node)
-            mapping: PathRecordMap | dict[ProcessingPath, PathNode] = self.get(path) or {}
+            mapping: RecordPathNodeMap | dict[ProcessingPath, PathNode] = self.get(path) or {}
             if removed_node := mapping.pop(path, None):
                 logger.debug(f"Removing node: '{removed_node}'")
 

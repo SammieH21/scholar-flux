@@ -1,3 +1,9 @@
+# /utils/helpers.py
+"""
+The scholar_flux.utils.helpers module contains several helper functions to aid in common data data manipulation
+scenarios including character conversions, date-time parsing and formatting, and nesting and unnesting common
+python data structures.
+"""
 import re
 import hashlib
 import requests

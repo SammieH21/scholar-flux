@@ -12,7 +12,7 @@ from math import ceil
 from time import time, sleep
 
 from scholar_flux.api.validators import validate_and_process_url, validate_url
-from scholar_flux.api import SearchAPI, SearchAPIConfig, APIParameterConfig, provider_registry
+from scholar_flux.api import SearchAPI, APIParameterMap, SearchAPIConfig, APIParameterConfig, provider_registry
 from scholar_flux.security import SecretUtils
 
 from scholar_flux.exceptions import QueryValidationException, APIParameterException, RequestCreationException
@@ -63,7 +63,7 @@ def test_session_mod():
 
 
 @pytest.mark.parametrize("provider_name", ("plos", "pubmed", "springernature", "crossref", "core"))
-def test_parameter_build_successful(provider_name,original_config_test_api_key):
+def test_parameter_build_successful(provider_name, original_config_test_api_key):
     """
     Verifies that the `build_parameters` method successfully prepares all required fields and, when required, API keys
     and mailto addresses for each individual provider.
@@ -82,25 +82,31 @@ def test_parameter_build_successful(provider_name,original_config_test_api_key):
     api_parameter_map = provider_config.parameter_map
 
     # retrieves the full list of parameters that are required and optional for a specific provider
-    required_provider_parameters = {api_parameter_map.query,
-                           api_parameter_map.start,
-                           api_parameter_map.records_per_page,
-                           *(key for key, parameter_info in api_parameter_map.api_specific_parameters.items()
-                             if parameter_info.required or key == 'mailto')}
+    required_provider_parameters = {
+        api_parameter_map.query,
+        api_parameter_map.start,
+        api_parameter_map.records_per_page,
+        *(
+            key
+            for key, parameter_info in api_parameter_map.api_specific_parameters.items()
+            if parameter_info.required or key == "mailto"
+        ),
+    }
 
     if api_parameter_map.api_key_parameter:
         required_provider_parameters.add(api_parameter_map.api_key_parameter)
 
     # uses the default configuration under the hood for the current provider with a mocked API key to verify the result
-    crossref_user_email = 'avalid@email.com' if provider_name == 'crossref' else None
-    api = SearchAPI(query = 'test_query',
-                    provider_name = provider_name,
-                    api_key=original_config_test_api_key if api_parameter_map.api_key_parameter else None,
-                    mailto= crossref_user_email # for crossref, sufficiently important for feedback/usage
-                   )
+    crossref_user_email = "avalid@email.com" if provider_name == "crossref" else None
+    api = SearchAPI(
+        query="test_query",
+        provider_name=provider_name,
+        api_key=original_config_test_api_key if api_parameter_map.api_key_parameter else None,
+        mailto=crossref_user_email,  # for crossref, sufficiently important for feedback/usage
+    )
 
     # prepares the list of parameters to be sent to the current API based on the config and page/records per page
-    prepared_parameters = api.build_parameters(page = 1)
+    prepared_parameters = api.build_parameters(page=1)
 
     # verifies that no parameters from the `required_provider_parameters` set are missing from the prepared_parameters
     assert not required_provider_parameters.difference(prepared_parameters)
@@ -650,7 +656,9 @@ def test_with_config_precedence_over_provider(monkeypatch, new_config, original_
         ),
     )
     monkeypatch.setattr(
-        APIParameterConfig, "from_defaults", lambda provider_name: APIParameterConfig(parameter_map=MagicMock())
+        APIParameterConfig,
+        "from_defaults",
+        lambda provider_name: APIParameterConfig(parameter_map=MagicMock(spec=APIParameterMap)),
     )
 
     # Explicit config should take precedence over provider_name
@@ -716,6 +724,54 @@ def test_nested_with_config_and_with_config_parameters(
     # After both contexts: originals are restored
     assert api.config == original_config
     assert api.parameter_config == orig_api_parameter_config
+
+
+def test_from_provider_config(caplog):
+    """
+    Helper method for validating the functionality of the `from_provider_config` method.
+    This method should allow the creation of a SearchAPI instance with a provider configuration
+    by temporarily adding it to the registry.
+
+    If the provider already exists, then this method will temporarily replace the current config
+    while conserving the previous configuration until the SearchAPI is created.
+    """
+    provider_name = "plos"
+    query = "q"
+    plos = provider_registry[provider_name]
+    plos_api_one = SearchAPI.from_defaults(query=query, provider_name=provider_name)
+    plos_api_two = SearchAPI.from_provider_config(query=query, provider_config=plos)
+
+    assert repr(plos_api_one) == repr(plos_api_two)
+    assert provider_name in provider_registry  # ensure that the temporary addition does not change
+
+    assert plos is provider_registry["plos"]
+
+    # ensure even minor changes to parameters do not temporarily replaced configurations
+    plos_10_records = plos.model_copy()
+    plos_10_records.records_per_page = plos.records_per_page + 10
+
+    plos_api_three = SearchAPI.from_provider_config(query=query, provider_config=plos_10_records)
+    assert plos_api_three.records_per_page == plos_10_records.records_per_page
+
+    # the updated config should still be configured to retrieve 10 more records than the original
+    assert (
+        plos_10_records.records_per_page == provider_registry[provider_name].records_per_page + 10
+        and provider_registry[provider_name] is plos
+    )
+
+    plosser = plos.model_copy()
+    plosser.provider_name = "plosser"
+    plosser.base_url = plosser.base_url.replace("plos", "plosser")
+    plos_api_two = SearchAPI.from_provider_config(query=query, provider_config=plosser)
+    assert plos_api_two.provider_name == "plosser" and "plosser" not in provider_registry
+
+    with pytest.raises(APIParameterException) as excinfo:
+        _ = SearchAPI.from_provider_config(query=query, provider_config=provider_name)  # type: ignore
+
+    assert "The SearchAPI could not be created with the provided configuration" in caplog.text
+    assert "The SearchAPI could not be created with the provided configuration" in str(excinfo.value)
+
+    assert provider_name in provider_registry
 
 
 def test_missing_parameters():

@@ -49,16 +49,37 @@ def test_unknown_provider_retrieval():
     assert provider_registry.get("non-existent-provider") is None
 
 
-def test_unknown_provider_deletion():
+def test_unknown_provider_deletion(caplog):
     """Verifies that the deletion of an unknown provider will raise a KeyError"""
     provider_registry = ProviderRegistry.from_defaults()
     n = len(provider_registry)
+
+    provider_name = "non-existent-provider"
+
     with pytest.raises(KeyError):
-        del provider_registry["non-existent-provider"]
+        del provider_registry[provider_name]
+
+    provider_registry.remove(provider_name)
+    assert f"A ProviderConfig with the provider name, '{provider_name}' was not found" in caplog.text
     assert len(provider_registry) == n
 
 
-def test_provider_addition():
+def test_provider_removal(caplog):
+    """Tests the ProviderConfig.remove option to determine whether its functionality is as expected"""
+
+    provider_registry = ProviderRegistry.from_defaults()
+    provider_name = "plos"
+    n = len(provider_registry)
+
+    provider_registry.remove(provider_name)
+    assert len(provider_registry) == n - 1
+
+    assert (
+        f"Removed the provider config for the provider, '{provider_name}' " "from the provider registry"
+    ) in caplog.text
+
+
+def test_provider_addition(caplog):
     """
     Tests whether the addition of a new provider occurs as intended when initialized with
     a string (key) and a ProviderConfig (value).
@@ -72,15 +93,16 @@ def test_provider_addition():
         query="query", start="pagestart", records_per_page="pagesize", api_key_parameter=None, api_key_required=False
     )
 
+    provider_name = "new_provider"
     provider_config = ProviderConfig(
-        provider_name="new_provider", base_url="https://www.new_provider.com", parameter_map=parameter_map
+        provider_name=provider_name, base_url="https://www.new_provider.com", parameter_map=parameter_map
     )
 
-    provider_registry["new_provider"] = provider_config
+    provider_registry[provider_name] = provider_config
     assert len(provider_registry) == n + 1
-    assert provider_registry["new_provider"] == provider_config
-    assert "new_provider" in provider_registry
-    assert re.search(r"^ProviderConfig\(.*'newprovider'.*\)$", repr(provider_registry["new_provider"]), re.DOTALL)
+    assert provider_registry[provider_name] == provider_config
+    assert provider_name in provider_registry
+    assert re.search(r"^ProviderConfig\(.*'newprovider'.*\)$", repr(provider_registry[provider_name]), re.DOTALL)
 
     update_config = deepcopy(provider_config)
     update_config.docs_url = "https://the-docs-can-be-found-here.com"
@@ -88,9 +110,15 @@ def test_provider_addition():
     assert provider_registry.get_from_url("http://www.new_provider.com") is not None
     assert provider_registry.get_from_url("https://www.new_provider.com") is not None
 
-    provider_registry["new_provider"] = update_config
+    provider_registry[provider_name] = update_config
 
-    assert provider_registry["new_provider"].docs_url == update_config.docs_url
+    provider_registry.add(update_config)
+    assert (
+        f"Overwriting the previous ProviderConfig for the provider, '{ProviderConfig._normalize_name(provider_name)}'"
+        in caplog.text
+    )
+
+    assert provider_registry[provider_name].docs_url == update_config.docs_url
 
 
 def test_invalid_provider_addition():
@@ -111,6 +139,13 @@ def test_invalid_provider_addition():
     assert (
         f"The value provided to the ProviderRegistry is invalid. "
         f"Expected a ProviderConfig, received {type(ProviderConfig)}"
+    ) in str(excinfo.value)
+
+    with pytest.raises(APIParameterException) as excinfo:
+        provider_registry.add(empty_provider_config)  # type: ignore
+    assert (
+        f"The value could not be added to the provider registry: "
+        f"Expected a ProviderConfig, received {type(empty_provider_config)}"
     ) in str(excinfo.value)
 
     invalid_key: set = set()

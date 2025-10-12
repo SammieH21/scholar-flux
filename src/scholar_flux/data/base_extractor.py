@@ -1,3 +1,8 @@
+# /data/base_extractor
+"""
+The scholar_flux.data.base_extractor implements the core processes used to extract data from parsed responses
+when the structure and the locations of records and metadata are already known.
+"""
 from typing import Any, Optional, Union
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import get_nested_data, try_int, try_dict, as_list_1d, unlist_1d
@@ -9,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 class BaseDataExtractor:
+    """
+    Base DataExtractor implementing the minimum components necessary to extract records and metadata from
+    parsed responses when the location of records and metadata is known beforehand"""
 
     def __init__(
         self,
@@ -226,7 +234,7 @@ class BaseDataExtractor:
 
     def __repr__(self) -> str:
         """
-        Base method for indentifying the current implementation of the BaseDataExtractor. Subclasses can
+        Base method for identifying the current implementation of the BaseDataExtractor. Subclasses can
         override this for more specific descriptions of attributes and defaults.
         Useful for showing the options being used for extracting metadata and records from the parsed
         json/data dictionaries from the api response.

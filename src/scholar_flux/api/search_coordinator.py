@@ -1,3 +1,8 @@
+# /api/search_coordinator.py
+"""
+Defines the SearchCoordinator that provides enhanced customization and single/multi-page response retrieval and
+processing of record data from APIs.
+"""
 from __future__ import annotations
 from typing import List, Dict, Optional, Any, Sequence, cast, Generator
 from requests import PreparedRequest, Response

@@ -1,3 +1,11 @@
+# /utils/initializer.py
+"""
+The scholar_flux.utils.initializer.py module is used within the scholar_flux package to kickstart the initialization
+of the scholar_flux package on import. Several key steps are performed via the use of the initializer:
+    1) Environment variables are imported using the ConfigLoader
+    2) The Logger is subsequently set up for the scholar_flux API package
+    3) The package level masker is subsequently set up to enable sensitive data to be redacted from logs
+"""
 from typing import Optional, Any
 import logging
 import scholar_flux.security as security

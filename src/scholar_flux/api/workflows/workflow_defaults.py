@@ -1,4 +1,4 @@
-# api/workflows/workflow_defaults.py
+# /api/workflows/workflow_defaults.py
 """
 The scholar_flux.api.workflows.workflow_defaults defines the default workflows that are automatically used
 when setting up a new SearchCoordinator with a provider name registered in the `WORKFLOW_DEFAULTS` enumeration.

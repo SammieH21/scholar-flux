@@ -3,6 +3,8 @@ from scholar_flux.api import SearchAPI, SearchCoordinator, APIParameterMap, Mult
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
 from scholar_flux.utils import parse_iso_timestamp
 from scholar_flux.api.models import SearchResultList, ProcessedResponse, ErrorResponse, PageListInput
+from unittest.mock import patch
+from warnings import warn
 from typing import Any
 from pathlib import Path
 import requests_mock
@@ -10,6 +12,7 @@ import pytest
 from time import time
 from datetime import datetime
 import re
+from time import sleep
 
 
 @pytest.fixture
@@ -165,6 +168,31 @@ def coordinator_dict_rate_new_query(path_component_dict_rate, parameter_map) -> 
     return create_coordinators(path_component_dict_rate, query="new-query", parameter_config=parameter_map)
 
 
+def patch_provider_url(
+    coordinator_dict: dict[str, "SearchCoordinator"],
+    base_url: str,
+    page_number: int,
+    content: bytes,
+    mocker: requests_mock.Mocker,
+) -> None:
+    """Helper function for patching coordinators to ensure that only mocked results are retrieved"""
+
+    if coordinator := coordinator_dict.get(base_url):
+        parameters = coordinator.api.build_parameters(page=page_number)
+        prepared_page = coordinator.api.prepare_request(parameters=parameters)
+
+        assert prepared_page.url and f"&page={page_number}" in str(prepared_page.url)
+
+        mocker.get(
+            prepared_page.url,
+            content=content,
+            headers={"Content-Type": "application/json; charset=UTF-8"},
+            status_code=200,
+        )
+    else:
+        warn(f"Couldn't find a coordinator with the URL, {base_url} in the dictionary of coordinators")
+
+
 @pytest.fixture
 def initialize_mocker(
     coordinator_dict,
@@ -186,6 +214,10 @@ def initialize_mocker(
         5) `https://example.rate-api-two.com`
         6) `https://example.rate-api-three.com`
 
+    The `patch_provider_url` helper function is used to patch requests sent by each coordinator within a dictionary of
+    coordinators. This helper function uses requests_mock to simulate responses to requests for validation of the
+    functionality of the MultiSearchCoordinator.
+
     It can be used as follows:
         >>> with initialize_mocker() as _:
         >>>     response = coordinator_dict['https://example.api-one.com'].search(page = 1)
@@ -196,29 +228,22 @@ def initialize_mocker(
     def with_mocker():
         """Nested function for creating a reusable mocker without redefining each individual URL across tests"""
         all_path_component_dicts = list(path_component_dict.values()) + list(path_component_dict_rate.values())
-        with requests_mock.Mocker() as m:
+
+        all_coordinator_dicts = (
+            coordinator_dict | coordinator_dict_rate,
+            coordinator_dict_new_query | coordinator_dict_rate_new_query,
+        )
+
+        with requests_mock.Mocker(real_http=False) as m:
             for component_dict in all_path_component_dicts:
 
-                base_url = component_dict["base_url"]
-                page_number = component_dict["page"]
-                content = component_dict["content"]
-
-                for current_coordinator_dict in (
-                    coordinator_dict | coordinator_dict_rate,
-                    coordinator_dict_new_query | coordinator_dict_rate_new_query,
-                ):
-
-                    coordinator = current_coordinator_dict[base_url]
-                    parameters = coordinator.api.build_parameters(page=page_number)
-                    prepared_page = coordinator.api.prepare_request(parameters=parameters)
-
-                    assert f"&page={page_number}" in str(prepared_page.url)
-
-                    m.get(
-                        prepared_page.url,
-                        content=content,
-                        headers={"Content-Type": "application/json; charset=UTF-8"},
-                        status_code=200,
+                for current_coordinator_dict in all_coordinator_dicts:
+                    patch_provider_url(
+                        coordinator_dict=current_coordinator_dict,
+                        base_url=component_dict["base_url"],
+                        page_number=component_dict["page"],
+                        content=component_dict["content"],
+                        mocker=m,
                     )
             yield m
 
@@ -476,7 +501,16 @@ def test_rate_limiter_normalization(
     ]
     assert len(set(map(id, all_rate_limiters))) == len(multisearch_coordinator.current_providers())
 
-    with initialize_mocker() as _:
+    original_sleep_fn = sleep
+    sleep_args = []
+
+    def sleep_and_record(arg):
+        """Helper class used to both sleep and verify the arguments passed to sleep during request rate limiting"""
+        sleep_args.append(arg)
+        original_sleep_fn(arg)
+
+    # patch the endpoints to use requests_mock instead of actually sending requests, and patch with `sleep_and_record`
+    with initialize_mocker() as _, patch("time.sleep", side_effect=sleep_and_record):
         max_pages = max(component_dict["page"] for component_dict in path_component_dict.values())
         page_range = range(1, max_pages + 1)
         start = time()
@@ -500,24 +534,35 @@ def test_rate_limiter_normalization(
 
         intervals = {
             provider_name: sorted(
-                parse_iso_timestamp(search.response_result.created_at)  # type: ignore
+                parse_iso_timestamp(search.created_at)  # type: ignore
                 for search in all_searches
-                if search.response_result
-                and search.response_result.created_at
-                and search.provider_name == provider_name
+                if search.response_result and search.created_at and search.provider_name == provider_name
             )
             for provider_name in unique_providers
         }
 
+        time_betweeen_requests = []
         for provider_name in unique_providers:
             prev_timestamp = None
             for timestamp in intervals[provider_name]:
-                assert timestamp is not None
-                assert (
-                    isinstance(prev_timestamp, datetime)
-                    and abs(timestamp - prev_timestamp).total_seconds() >= MIN_REQUEST_DELAY_INTERVAL * TOLERANCE
-                ) or prev_timestamp is None
+                assert timestamp is not None and (isinstance(prev_timestamp, datetime) or prev_timestamp is None)
+                # ignore first requests that aren't rate limited
+                if prev_timestamp is not None:
+                    time_elapsed = abs(timestamp - prev_timestamp).total_seconds()
+                    time_betweeen_requests.append(time_elapsed)
+
+                # record the current as the previous for the next addition
                 prev_timestamp = timestamp
+
+        assert time_betweeen_requests
+
+        # sometimes sleep is flaky and sleeps for too little time due to machine-related precision randomness
+        # The second condition verifies the time.sleep arguments in case the first step fails due to this.
+        assert all(
+            time_elapsed >= MIN_REQUEST_DELAY_INTERVAL * TOLERANCE for time_elapsed in time_betweeen_requests
+        ) or min(arg for arg in sleep_args) <= min(
+            coordinator.api.request_delay for coordinator in multisearch_coordinator.coordinators
+        )
 
 
 def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplog):

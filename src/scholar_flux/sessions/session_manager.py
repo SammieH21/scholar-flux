@@ -1,4 +1,16 @@
 # /utils/session_manager.py
+"""
+The scholar_flux.utils.session_manager module implements the SessionManager and CachedSessionManager
+classes that each serve as factory methods in the creation of requests.Session objects and
+requests_cache.CachedSession objects.
+
+By calling the `configure_session` manager class, a new session can be created that implements basic
+or cached sessions depending on which SessionManager was created.
+
+Classes:
+    SessionManager: Base class holding the configuration for non-cached sessions
+    CachedSessionManager: Extensible factory class allowing users to define cached sessions with the selected backend
+"""
 import datetime
 import requests
 import requests_cache
@@ -47,6 +59,7 @@ class SessionManager(session_models.BaseSessionManager):
     """
 
     def __init__(self, user_agent: Optional[str] = None) -> None:
+        """Initializes a basic session manager that sets the user agent if provided"""
         if user_agent is not None and not (isinstance(user_agent, str) and len(user_agent) > 0):
             raise SessionCreationError(
                 "Error creating the session manager: The provided user_agent parameter is not a string"

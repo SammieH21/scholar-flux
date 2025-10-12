@@ -1,3 +1,8 @@
+# /api/base_api.py
+"""
+Defines the BaseAPI that implements minimal features such as caching, request building, and response retrieval for
+later subclassing.
+"""
 from typing import Optional, Dict, Any
 import requests
 from requests_cache import CachedSession
@@ -49,6 +54,7 @@ class BaseAPI:
         # OUTPUT: {'response': {'numFound': '...', 'start': 21, 'docs': ['...']}} # redacted
 
     """
+
     DEFAULT_TIMEOUT: int = 20
     DEFAULT_USE_CACHE: bool = False
 
@@ -77,6 +83,7 @@ class BaseAPI:
 
     @staticmethod
     def _validate_timeout(timeout: int | float) -> int | float:
+        """Helper method used to ensure that timeout values received are non-negative numeric values"""
         if not isinstance(timeout, (int, float)) or timeout <= 0:
             raise APIParameterException(f"Invalid timeout value: {timeout}")
         return timeout

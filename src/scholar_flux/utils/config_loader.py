@@ -1,5 +1,15 @@
+# /api/utils/config_loader.py
+"""
+The scholar_flux.api.utils.config_loader is the primary configuration loader used by the scholar_flux package to
+ensure that user-specified package default settings are registered via the use of environment variables.
+
+The ConfigLoader is used alongside the scholar_flux.utils.initializer to fully initialize the scholar_flux
+package with the chosen configuration. This includes the initialization of importing API keys as secret
+strings, defining log levels, default API providers, etc.
+"""
 import os
 import logging
+from scholar_flux.package_metadata import get_default_writable_directory
 from dotenv import set_key, load_dotenv, dotenv_values
 import re
 from pydantic import SecretStr
@@ -39,7 +49,7 @@ class ConfigLoader:
     """
 
     DEFAULT_ENV_PATH: Path = (
-        Path(__file__).resolve().parent.parent / ".env"
+        get_default_writable_directory(directory_type="env", default=Path(__file__).resolve().parent.parent) / ".env"
     )  # Default directory for the package env file
 
     # Values already present within the environment before loading
@@ -115,8 +125,8 @@ class ConfigLoader:
         them into secret strings if they are non-missing
 
         Args:
-            value (Any): The value to convert to a string if its key contaains any match
-            key (str): The value to verify if it contains any matach to keys containing API/SECRET/MAIL
+            value (Any): The value to convert to a string if its key contains any match
+            key (str): The value to verify if it contains any match to keys containing API/SECRET/MAIL
             matches (str): The substrings used to indicate whether a secret should be guarded
         Returns:
             Any | SecretStr: The original type if the value is likely not a secret. otherwise returns a SecretStr

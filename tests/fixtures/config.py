@@ -3,7 +3,6 @@ from scholar_flux import config
 from scholar_flux import logger
 from scholar_flux.api import SearchAPIConfig, APIParameterConfig
 from scholar_flux.security import SecretUtils
-from unittest.mock import MagicMock
 from pydantic import SecretStr
 from typing import Optional
 import logging
@@ -43,6 +42,7 @@ def pubmed_api_key() -> Optional[SecretStr]:
 
     return SecretUtils.mask_secret(config["PUBMED_API_KEY"])
 
+
 @pytest.fixture
 def springer_nature_api_key() -> Optional[SecretStr]:
     """
@@ -59,6 +59,7 @@ def springer_nature_api_key() -> Optional[SecretStr]:
 
     return SecretUtils.mask_secret(config["SPRINGER_NATURE_API_KEY"])
 
+
 @pytest.fixture
 def crossref_api_key() -> Optional[SecretStr]:
     """
@@ -74,7 +75,6 @@ def crossref_api_key() -> Optional[SecretStr]:
         pytest.skip()
 
     return SecretUtils.mask_secret(config["CROSSREF_API_KEY"])
-
 
 
 @pytest.fixture
@@ -136,9 +136,7 @@ def original_api_parameter_config():
     Helper configuration used to mock the creation of api parameter configurations without requiring explicit settings.
     This parameter configuration is used to mock the APIParameterConfig for the mocked `https://original.com` API.
     """
-    return APIParameterConfig(parameter_map=MagicMock())
-
-
+    return APIParameterConfig.from_defaults("crossref")
 
 
 @pytest.fixture
@@ -147,7 +145,7 @@ def new_api_parameter_config():
     Helper configuration used to mock the creation of a new configuration without requiring explicit settings
     This parameter configuration is used to mock the APIParameterConfig for the mocked `https://new.com` API.
     """
-    return APIParameterConfig(parameter_map=MagicMock())
+    return APIParameterConfig.from_defaults("plos")
 
 
 __all__ = [
@@ -161,5 +159,5 @@ __all__ = [
     "core_api_key",
     "pubmed_api_key",
     "springer_nature_api_key",
-    "crossref_api_key"
+    "crossref_api_key",
 ]

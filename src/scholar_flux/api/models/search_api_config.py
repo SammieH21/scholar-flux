@@ -1,3 +1,14 @@
+# api/models/search_api_config.py
+"""
+The scholar_flux.api.models.search_api_config module implements the core SearchAPIConfig class that is used by the
+SearchAPI to interact with APIProviders with a unified configuration interface.
+
+This configuration defines the settings such as rate limiting, the number of records retrieved per request, API keys,
+and the API provider/URL where requests will be sent.
+
+Under the hood, the SearchAPIConfig can reference both pre-created and custom defaults to create a new configuration
+with minimal code.
+"""
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, SecretStr, model_validator
 from typing import Optional, Any, ClassVar
@@ -5,7 +16,7 @@ from urllib.parse import urlparse
 from scholar_flux.api.validators import validate_url
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.providers import provider_registry
-from scholar_flux.api.models.base import APISpecificParameter
+from scholar_flux.api.models.base_parameters import APISpecificParameter
 from scholar_flux.utils.repr_utils import generate_repr
 from scholar_flux.exceptions import (
     MissingAPIKeyException,
@@ -38,12 +49,30 @@ class SearchAPIConfig(BaseModel):
         mailto: (Optional[str| SecretStr]) An optional email for receiving feedback on usage from providers,
              if applicable. if provided, the email is converted to an email under the hood
 
+    Examples:
+        >>> from scholar_flux.api import SearchAPIConfig, SearchAPI, provider_registry
+        # to create a CROSSREF configuration with minimal defaults and provide an `api_specific_parameter`:
+        >>> config = SearchAPIConfig.from_defaults(provider_name = 'crossref', mailto = 'your_email_here@example.com')
+        # the configuration automatically retrieves the configuration for the "Crossref" API
+        >>> assert config.provider_name == 'crossref' and config.base_url == provider_registry['crossref'].base_url
+        >>> api = SearchAPI.from_settings(query = 'q', config = config)
+        >>> assert api.config == config
+        # to retrieve all defaults associated with a provider and automatically read an API key if needed
+        >>> config = SearchAPIConfig.from_defaults(provider_name = 'pubmed', api_key = 'your api key goes here') 
+        # the api key is retrieved automatically if you have the API key specified as an environment variable
+        >>> assert config.api_key is not None 
+        # default provider api specifications are already pre-populated if they are set with defaults
+        >>> assert config.api_specific_parameters['db'] == 'pubmed' # required by pubmed and defaults to pubmed
+        # update a provider and automatically retrieve its API key - the previous API key will apply no longer
+        >>> updated_config = SearchAPIConfig.update(config, provider_name = 'core')
+        >>> assert updated_config.provider_name  == 'core' and updated_config.api_key and \
+        >>>     updated_config.api_key != config.api_key
     """
 
     provider_name: str = Field(default="", description="Provider Name or Base URL for the article API")
     base_url: str = Field(default="", description="Base URL for the article API")
     records_per_page: int = Field(20, ge=0, le=1000, description="Number of records per page (1-1000)")
-    request_delay: float = Field(6.1, ge=0, description="Minimum delay between requests in seconds")
+    request_delay: float = Field(-1, description="Minimum delay between requests in seconds")
     api_key: Optional[SecretStr] = Field(None, description="API key if required")
     api_specific_parameters: Optional[dict[str, Any]] = Field(
         default=None,
@@ -86,18 +115,22 @@ class SearchAPIConfig(BaseModel):
         return v
 
     @field_validator("request_delay", mode="before")
-    def validate_request_delay(cls, v: Optional[int | float]):
+    def validate_request_delay(cls, v: Optional[int | float]) -> Optional[int | float]:
         """
-        Sets the request_delay (delay between each request):
-        Triggers a validation error when request delay is an invalid type.
-        Otherwise uses the DEFAULT_REQUEST_DELAY class attribute  if the supplied value is missing or is a negative number
+        Sets the request_delay (delay between each request) for valid `request delays`.
+        This validator triggers a validation error when the request delay is an invalid type.
+
+        If a request delay is left None or is a negative number, this class method returns -1, and further
+        validation is performed by `cls.default_request_delay` to retrieve the provider's default_request_delay.
+
+        If not available, SearchAPIConfig.DEFAULT_REQUEST_DELAY is used.
         """
         if v is not None and not isinstance(v, (int, float)):
             raise ValueError(
                 f"Incorrect type received for the request delay parameter. Expected integer or float, received ({type(v)})"
             )
         if v is None or v < 0:
-            return cls.DEFAULT_REQUEST_DELAY
+            return -1
 
         if v == 0:
             logger.warning(
@@ -105,6 +138,29 @@ class SearchAPIConfig(BaseModel):
                 "if several requests are sent in succession"
             )
         return v
+
+    @classmethod
+    def default_request_delay(cls, v: Optional[int | float], provider_name: Optional[str] = None) -> float:
+        """
+        Helper method enabling the retrieval of the most appropriate rate limit for the current provider.
+        Defaults to the SearchAPIConfig default rate limit when the current provider is unknown and a valid
+        rate limit has not yet been provided.
+
+        Args:
+            v (Optional[int | float]): the value received for the current request_delay
+            provider_name (Optional[str]): the name of the provider to retrieve a rate limit for
+
+        Returns:
+            float: The inputted non-negative request delay, the retrieved rate limit for the current provider
+                   if available, or the SearchAPIConfig.DEFAULT_REQUEST_DELAY - all in order of priority
+        """
+
+        if isinstance(v, (int, float)) and v >= 0:
+            return v
+
+        if provider_config := provider_registry.get(provider_name or ""):
+            return provider_config.request_delay
+        return cls.DEFAULT_REQUEST_DELAY
 
     @field_validator("records_per_page", mode="before")
     def set_records_per_page(cls, v: Optional[int]):
@@ -163,6 +219,8 @@ class SearchAPIConfig(BaseModel):
 
         # identify the provider's parameter map - used for identifying parameters specific to the api
         parameter_map = provider_info.parameter_map if provider_info else None
+        provider_name = provider_info.provider_name if provider_info else None
+        values.request_delay = cls.default_request_delay(values.request_delay, provider_name)
 
         if not parameter_map:
             return values
@@ -448,14 +506,15 @@ class SearchAPIConfig(BaseModel):
             # if a previous api key is not needed, remove the previous configuration's key
             if (
                 cls._extract_url_basename(provider_info.base_url) != previous_config_url
-                and provider_info.parameter_map.api_key_parameter is None
                 and config_dict.get("api_key") is not None
             ):
-
-                logger.debug(f"An API key is not required for the provider, {provider_info.provider_name}. Omitting..")
+                if provider_info.parameter_map.api_key_parameter is None:
+                    logger.debug(
+                        f"An API key is not required for the provider, {provider_info.provider_name}. Omitting.."
+                    )
                 config_dict.pop("api_key")
 
-            # use the previous base url and provider info if the current options are associated with a providere
+            # use the previous base url and provider info if the current options are associated with a provider
             overrides["base_url"] = base_url or provider_info.base_url
             overrides["provider_name"] = provider_name or provider_info.provider_name
 

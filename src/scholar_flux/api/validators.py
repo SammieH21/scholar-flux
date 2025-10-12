@@ -1,3 +1,16 @@
+# /api/validators.py
+"""
+The scholar_flux.api.validators module implements methods that are used within the validation
+of scholar_flux API configurations to ensure that valid and invalid inputs are received as such.
+
+Functions:
+    validate_email: Used to verify whether an email matches the expected pattern
+    validate_and_validate_and_process_email: Attempts to masks valid emails and raises an error on invalid input
+    validate_url: Used to verify whether an url is a valid string
+    normalize_url: Uses regular expressions to format the URL in a consistent format for string comparisons
+    validate_and_process_url: validates URLs to ensure that it matches the expected format and normalizes the
+                              URL for later use
+"""
 import re
 from urllib.parse import urlparse
 from typing import Optional
@@ -60,7 +73,7 @@ def validate_url(url: str) -> bool:
 
         if not result.netloc:
             raise ValueError(
-                "Expected a domain in the URL after the http/https protocol. " f"Only the scheme was received: {url}"
+                f"Expected a domain in the URL after the http/https protocol. Only the scheme was received: {url}"
             )
         return True
 

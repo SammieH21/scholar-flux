@@ -1,3 +1,11 @@
+# /data/pass_through_data_processor.py
+"""
+The scholar_flux.data.pass_through_data_processor implements a PassThroughDataProcessor based on the schema required
+of the ABCDataProcessor for processing the records and/or metadata extracted from a response.
+
+The pass through data processor is designed for simplicity, allowing end-users to return extracted records as is
+and also filter records based on conditions and extract nested key-value pairs within each record if specified.
+"""
 from typing import Any, Optional
 from scholar_flux.utils import nested_key_exists
 
@@ -39,16 +47,6 @@ class PassThroughDataProcessor(ABCDataProcessor):
         self.keep_keys: list[str] = keep_keys or []
         self.regex: bool = regex if regex is not None else False
 
-    @staticmethod
-    def _validate_inputs(ignore_keys: Optional[list[str]], keep_keys: Optional[list[str]], regex: Optional[bool]):
-        """Helper class for ensuring that inputs to the data processor match the intended types"""
-        if ignore_keys is not None and not isinstance(ignore_keys, list):
-            raise DataProcessingException(f"ignore_keys must be a list, got {type(ignore_keys)}")
-        if keep_keys is not None and not isinstance(keep_keys, list):
-            raise DataProcessingException(f"keep_keys must be a list, got {type(keep_keys)}")
-        if regex is not None and not isinstance(regex, bool):
-            raise DataProcessingException(f"regex must be a True/False value, got {type(regex)}")
-
     def process_record(self, record_dict: dict[str | int, Any]) -> dict[str | int, Any]:
         """
         A no-op method retained for to maintain a similar interface as other DataProcessor implementations.
@@ -76,18 +74,21 @@ class PassThroughDataProcessor(ABCDataProcessor):
 
         self._validate_inputs(ignore_keys, keep_keys, regex)
 
-        # processes each individual record dict
-        processed_record_dict_list = [
-            self.process_record(record_dict)
-            for record_dict in parsed_records
-            if self.record_filter(record_dict, keep_keys, regex) is not False
-            and self.record_filter(record_dict, ignore_keys, regex) is not True
-        ]
+        try:
+            # processes each individual record dict
+            processed_record_dict_list = [
+                self.process_record(record_dict)
+                for record_dict in parsed_records
+                if self.record_filter(record_dict, keep_keys, regex) is not False
+                and self.record_filter(record_dict, ignore_keys, regex) is not True
+            ]
 
-        logging.info(f"total included records - {len(processed_record_dict_list)}")
+            logging.info(f"total included records - {len(processed_record_dict_list)}")
 
-        # return the list of processed record dicts
-        return processed_record_dict_list
+            # return the list of processed record dicts
+            return processed_record_dict_list
+        except Exception as e:
+            raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
     def record_filter(
         self, record_dict: dict[str | int, Any], record_keys: Optional[list[str]] = None, regex: Optional[bool] = None

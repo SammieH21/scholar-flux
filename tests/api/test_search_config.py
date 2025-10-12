@@ -7,7 +7,7 @@ from scholar_flux.api.models import APISpecificParameter
 from scholar_flux.security import SensitiveDataMasker
 import scholar_flux
 import os
-import scholar_flux.api.models.search
+import scholar_flux.api.models.search_api_config
 
 
 @pytest.mark.parametrize(
@@ -36,13 +36,20 @@ def test_non_provider_initialization(provider, basename):
     assert api_config.provider_name == default_provider.provider_name
     assert default_provider and default_provider.base_url == api_config.base_url
     assert api_config and api_config.url_basename == basename
-    assert api_config.request_delay == api_config.DEFAULT_REQUEST_DELAY
+    assert api_config.request_delay == api_config.default_request_delay(v=None, provider_name=provider)
 
 
-@pytest.mark.parametrize("api_key_dictionary", ({"plos": None}, {"pubmed": "pubmed_api_key"},
-                                                {"pubmed_efetch": "pubmed_api_key"},
-                                                {"springernature": "springer_nature_api_key"},
-                                                {"crossref": "crossref_api_key"}, {"core": "core_api_key"}))
+@pytest.mark.parametrize(
+    "api_key_dictionary",
+    (
+        {"plos": None},
+        {"pubmed": "pubmed_api_key"},
+        {"pubmed_efetch": "pubmed_api_key"},
+        {"springernature": "springer_nature_api_key"},
+        {"crossref": "crossref_api_key"},
+        {"core": "core_api_key"},
+    ),
+)
 def test_api_key_format(api_key_dictionary, request):
     """
     Test that verifies whether all API keys, if available, are of the correct type (SecretStr or None).
@@ -71,7 +78,6 @@ def test_api_key_format(api_key_dictionary, request):
         assert (api_key is None and env_api_key is None) or env_api_key == api_key == config_api_key
 
 
-
 @pytest.mark.parametrize("provider", ["plos", "pubmed_efetch", "pubmed", "springernature", "crossref", "core"])
 def test_api_key_additions(provider):
     """
@@ -87,7 +93,7 @@ def test_api_key_additions(provider):
     api_key = SensitiveDataMasker.mask_secret("A Secret")
     assert provider_info
 
-    with patch.dict(scholar_flux.api.models.search.config, {provider_info.api_key_env_var: api_key}):
+    with patch.dict(scholar_flux.api.models.search_api_config.config, {provider_info.api_key_env_var: api_key}):
         config = SearchAPIConfig.from_defaults(provider)
         if provider_info.api_key_env_var:
             assert config.api_key == api_key
@@ -202,15 +208,23 @@ def test_api_key_modification(caplog):
     """
     api_key = SensitiveDataMasker.mask_secret("A Secret")
     another_api_key = SensitiveDataMasker.mask_secret("Another Secret")
+    another_api_key_two = SensitiveDataMasker.mask_secret("Another Secret Two")
 
     # retrieving the configuration for PLOS and PUBMED
-    plos_provider_info = provider_registry.get("PLOS")
-    pubmed_provider_info = provider_registry.get("PUBMED")
+    plos_provider_info = provider_registry["PLOS"]
+    pubmed_provider_info = provider_registry["PUBMED"]
+    crossref_provider_info = provider_registry["CROSSREF"]
 
     assert plos_provider_info and pubmed_provider_info
 
     # ensure that the config holds the appropriate API key for its associated environment variable name
-    with patch.dict(scholar_flux.api.models.search.config, {pubmed_provider_info.api_key_env_var: another_api_key}):
+    with patch.dict(
+        scholar_flux.api.models.search_api_config.config,
+        {
+            pubmed_provider_info.api_key_env_var: another_api_key,
+            crossref_provider_info.api_key_env_var: another_api_key_two,
+        },
+    ):
 
         # plos is used by default when not specified
         plos_config = SearchAPIConfig()  # type: ignore
@@ -229,6 +243,9 @@ def test_api_key_modification(caplog):
         pubmed_config_two = SearchAPIConfig.update(plos_config, provider_name="pubmed")
         assert pubmed_config.provider_name == pubmed_config_two.provider_name
         assert pubmed_config_two.api_key == another_api_key
+
+        crossref_three = SearchAPIConfig.update(pubmed_config_two, provider_name="crossref")
+        assert crossref_three.api_key == another_api_key_two
 
         # changing from PUBMED->PLOS, the API key should no longer apply and be removed
         plos_config_two = SearchAPIConfig.update(pubmed_config_two, provider_name="plos")
@@ -310,7 +327,7 @@ def test_search_api_config_dynamic_provider_override(caplog):
     api_key = SensitiveDataMasker.mask_secret("A Secret")
     assert provider_info
 
-    with patch.dict(scholar_flux.api.models.search.config, {provider_info.api_key_env_var: api_key}):
+    with patch.dict(scholar_flux.api.models.search_api_config.config, {provider_info.api_key_env_var: api_key}):
         pubmed_config = SearchAPIConfig.update(plos_api_config, provider_name="pubmed")
         assert (
             pubmed_config.base_url == provider_info.base_url

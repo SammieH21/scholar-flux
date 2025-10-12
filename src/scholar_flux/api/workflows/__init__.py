@@ -1,8 +1,8 @@
-# api/workflows/init.py
+# api/workflows
 """
 
 The scholar_flux.api.workflows module contains the core logic for integrating workflows into the SearchCoordinator,
-and, in doing so, allows for customizable, integrated, workflows that allow extraeneous steps to occur throughout
+and, in doing so, allows for customizable, integrated, workflows that allow extraneous steps to occur throughout
 the process.
 
 Examples include:
@@ -35,7 +35,7 @@ Modules:
 
                      To account for this, the PubMedSearchStep and PubmedFetchStep are each created two encompass
                      these two steps in a reusable format and is later defined in a pre-created workflow for later use
-    WORKFLOW_DEFAULTS: Currently contains the pubmed worfklow for retrieving data from articles from PubMed.
+    WORKFLOW_DEFAULTS: Currently contains the pubmed workflow for retrieving data from articles from PubMed.
                        This implementation will also contain future workflows that allow searches via
                        SearchCoordinator.search to be further customized.
 
@@ -45,7 +45,7 @@ Modules:
        >>> from scholar_flux.sessions import CachedSessionManager
        >>> from scholar_flux.api.workflows import WORKFLOW_DEFAULTS, SearchWorkflow
        # PubMed requires an API key - Is read automatically from the user's environment variable list if available
-       >>> api = SearchAPI.from_defaults(query = 'Machine Learning Hospitals', provider_name='pubmed', session = CachedSessionManager(user_agent='sam_research', backend='redis').configure_session())
+       >>> api = SearchAPI.from_defaults(query = 'Machine Learning in Hospitals', provider_name='pubmed', session = CachedSessionManager(user_agent='sam_research', backend='redis').configure_session())
         # THE WORKFLOW is read automatically from the WORKFLOW defaults
        >>> pubmed_search = SearchCoordinator(api)
        >>> isinstance(pubmed_search, SearchWorkflow)
@@ -54,8 +54,7 @@ Modules:
        >>> pubmed_search_with_workflow = SearchCoordinator(api, workflow = pubmed_workflow)
        # Each comparison is identical given how the workflows are read
        >>> assert pubmed_search.workflow == pubmed_workflow == pubmed_search_with_workflow.workflow
-       >>> #if pubmed_search.api.api_key:
-       >>> #    response = pubmed_search.search(page = 1, use_workflow = False) # The workflow is used automatically
+       # assuming that an API key is available:
        >>> response = pubmed_search.search(page = 1, use_workflow = True) # The workflow is used automatically
 
 

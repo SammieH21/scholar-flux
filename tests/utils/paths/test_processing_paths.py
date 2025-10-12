@@ -85,6 +85,10 @@ def test_components():
 
 
 def test_equality():
+    """
+    Verifies whether paths use alphanumeric sorting to determine order and whether values are recognized as
+    equal when components match.
+    """
     path_one = ProcessingPath(components=["1", "2", "30"])
     path_two = ProcessingPath(components=["1", "2", "9"])
 
@@ -99,6 +103,10 @@ def test_equality():
 
 
 def test_indices():
+    """
+    Verifies whether a path can be considered a subset of itself both with numeric keys and when each
+    numeric key is replaced with a constant.
+    """
     original_keys = ("key1", "1", "key2", "2", "key3")
     replaced_keys = ("key1", "i", "key2", "i", "key3")
     path_one = ProcessingPath(components=original_keys)
@@ -108,13 +116,7 @@ def test_indices():
 
 
 def test_update_delimiter():
-    path_one = ProcessingPath(components=["1", "2", "30"])
-    path_two = path_one.update_delimiter("%")
-    assert path_two.delimiter == "%"
-    assert path_two.delimiter != path_one
-
-
-def test_update_values():
+    """Validates whether delimiters can successfully be updated"""
     path_one = ProcessingPath(components=["1", "2", "30"])
     path_two = path_one.update_delimiter("%")
     assert path_two.delimiter == "%"
@@ -123,6 +125,7 @@ def test_update_values():
 
 @pytest.mark.parametrize("delimiter", ["<>", "//", "/", ">", "<", "\\", "%", "."])
 def test_delimiters(delimiter):
+    """Verifies whether delimiters are successfully inferred when using `with_inferred_delimiter`"""
     components = ["1", "2", "3"]
     basic_path = ProcessingPath(components)
     component_str = delimiter.join(components)
@@ -133,6 +136,7 @@ def test_delimiters(delimiter):
 
 
 def test_root():
+    """Verifies whether the `depth` method and `is_root` property indicates an empty path"""
     root_path = ProcessingPath([""])
     basic_path = ProcessingPath(["1", "2", "3"])
 
@@ -146,6 +150,7 @@ def test_root():
 
 
 def test_getitem():
+    """Tests and validates the equality of indexed paths"""
     basic_path = ProcessingPath(["0", "1", "2", "3", "4", "5", "6"])
 
     assert basic_path.components[0:2] == basic_path[0:2].components
@@ -153,6 +158,7 @@ def test_getitem():
 
 
 def test_replace_path():
+    """Verifies whether path replacement occurs as intended"""
     final_path = ProcessingPath(["3", "4", "5", "6", "3", "4", "5", "6"])
     initial_path = ProcessingPath(["0", "1", "2", "3", "4", "5", "6"])
 
@@ -168,11 +174,12 @@ def test_replace_path():
     assert initial_path.replace(initial_path[-1].to_string(), "i") == initial_path[:-1] / "i"
 
     with pytest.raises(InvalidProcessingPathError):
-        # implausable substitution
+        # implausible substitution
         _ = initial_path.replace(6, "i")  # type:ignore
 
 
 def test_hash():
+    """Validates whether hashing via the __hash__ method works as intended"""
     path_one = ProcessingPath(["1", "2"], delimiter=".")
     path_two = ProcessingPath(["2", "3"], delimiter="/")
     path_three = ProcessingPath(["3", "4"], delimiter="%")
@@ -193,6 +200,7 @@ def test_hash():
 
 
 def test_ancestors():
+    """Verifies whether the ancestors of a processing path are recognized as such"""
     path_one = ProcessingPath(["1", "2", "0"], component_types=["one", "two", "zero"])
 
     ancestors = path_one.get_ancestors()
@@ -205,6 +213,7 @@ def test_ancestors():
 
 
 def test_remove():
+    """Validates whether the removal of a path occurs as intended while impacting component type"""
     path_one = ProcessingPath(["1", "2", "0"], component_types=["one", "two", "zero"])
     path_two = path_one.remove(["0"])
     assert len(path_one) == 3
@@ -216,6 +225,7 @@ def test_remove():
 
 
 def test_remove_by_type():
+    """Verifies whether the removal of a path based on a component type occurs as intended"""
     path_one = ProcessingPath(["1", "2", "0"], component_types=["one", "two", "zero"])
     path_two = path_one.remove_by_type(["zero"])
     assert len(path_one) == 3
@@ -228,21 +238,30 @@ def test_remove_by_type():
     assert path_two.component_types and "zero" not in path_two.component_types
 
 
+def test_reverse():
+    """Verifies that reversed paths contain expected values"""
+    path = ProcessingPath("1.2.3.4.6.8", ["one", "two", "three", "four", "six", "eight"])
+    assert path.component_types
+    reversed_path = ProcessingPath(path.components[::-1], component_types=path.component_types[::-1])
+    assert path.reversed() == reversed_path == reversed(path)
+
+
 def test_info_content():
+    """Test whether the removal of non-informative components (adds no value to interpretation) occurs as intended"""
     path_one = ProcessingPath(["1", "2", "NA", "3", "NA", "5"])
     path_not_null = path_one.remove(["NA"])
     assert path_one.info_content(["NA"]) == 4 == path_not_null.depth
 
 
 def test_append():
+    """Verifies that the `append` method adds a component to the path as intended"""
     final_path = ProcessingPath(["1", "2", "3", "4", "5"])
     path = ProcessingPath(["1"])
     assert path == final_path[:1]
     path = path.append("2").append("3").append("4").append("5")
     assert path == final_path
 
-    with pytest.raises(InvalidProcessingPathError):
-        path = path.append(6)  # type:ignore
+    path = path.append(6)
 
     with pytest.raises(InvalidProcessingPathError):
         path = path.append("")
@@ -254,6 +273,7 @@ def test_append():
 
 
 def test_pipe():
+    """Verifies whether the pipe delimiter works in its intended use and in edge cases"""
     final_path = ProcessingPath(["0", "1", "2", "3", "4", "5", "6"])
     path_one = ProcessingPath(["0", "1", "2"])
     path_two = ProcessingPath(["3", "4", "5", "6"])
@@ -267,6 +287,7 @@ def test_pipe():
 
 
 def test_keep_descendants():
+    """Verifies whether only descendant (terminal) nodes are retained"""
     initial_paths = [
         ProcessingPath("a<>b", delimiter="<>"),
         ProcessingPath("b<>b", delimiter="<>"),

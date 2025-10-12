@@ -1,3 +1,21 @@
+# /utils/repr_utils.py
+"""
+The scholar_flux.utils.repr_utils module includes several methods used in the creation of descriptive
+representations of custom objects such as custom classes, dataclasses, and base models. This module
+can be used to generate a representation from a string to show nested attributes and customize the
+representation if needed.
+
+Functions:
+    - generate_repr: The core representation generating function that uses the class type and attributes
+                     to create a representation of the object
+    - generate_repr_from_string: Takes a class name and dictionary of attribute name-value pairs to create
+                                 a representation from scratch
+    - adjust_repr_padding: Helper function that adjusts the padding of the representation to ensure all
+                           attributes are shown in-line
+   - format_repr_value: Formats the value of a nested attribute regarding padding and appearance with
+                        the selected options
+   - normalize_repr: Formats the value of a nested attribute, cleaning memory locations and stripping whitespace
+"""
 from typing import Any, Optional
 from pydantic import BaseModel
 import re

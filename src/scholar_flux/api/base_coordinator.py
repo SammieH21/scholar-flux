@@ -1,3 +1,8 @@
+# /api/base_coordinator.py
+"""
+Defines the BaseCoordinator that implements the most basic orchestration components used to request, process,
+and optional cache processed record data from APIs.
+"""
 from typing import Optional
 from typing_extensions import Self
 import logging

@@ -1,3 +1,13 @@
+# /data_storage/abc_storage.py
+"""
+The scholar_flux.data_storage.abc_storage module implements the ABCStorage that defines the abstractions that
+are to be implemented to create a scholar_flux compatible storage. The ABCStorage defines basic CRUD operations
+and convenience methods used to perform operations on the entire range of cached records, or optionally, cached
+records specific to a namespace.
+
+scholar_flux implements the ABCStorage with subclasses for SQLite (through SQLAlchemy), Redis, MongoDB, and In-Memory
+cache and can be further extended to duckdb and other abstractions supported by SQLAlchemy.
+"""
 from typing import Any, List, Dict, Optional
 from abc import ABC, abstractmethod
 from scholar_flux.utils.repr_utils import generate_repr
@@ -17,6 +27,7 @@ class ABCStorage(ABC):
     """
 
     def __init__(self, *args, **kwargs) -> None:
+        """Initializes the current storage implementation"""
         self.namespace: Optional[str] = None
 
     def _initialize(self, *args, **kwargs) -> None:

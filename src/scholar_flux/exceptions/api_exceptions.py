@@ -1,4 +1,7 @@
-# api_exceptions.py
+# /exceptions/api_exceptions.py
+"""
+Implements exceptions involving the creation of requests and retrieval of responses from API Providers
+"""
 import requests
 from json import JSONDecodeError
 from typing import Optional
@@ -112,6 +115,7 @@ class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""
 
     def __init__(self, response: Optional[requests.Response | ResponseProtocol] = None, *args, **kwargs):
+        """Initializes the `InvalidResponseException` class with a response or response-like parameter for logging"""
 
         self.response: Optional[requests.Response | ResponseProtocol] = (
             response if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)) else None

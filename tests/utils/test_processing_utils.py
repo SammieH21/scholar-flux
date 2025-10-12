@@ -1,6 +1,6 @@
 import pytest
 from scholar_flux.utils.json_processing_utils import (
-    RecursiveDictProcessor,
+    RecursiveJsonProcessor,
     KeyDiscoverer,
     KeyFilter,
     PathUtils,
@@ -214,12 +214,12 @@ def test_key_discoverer_filter_keys(sample_json):
     assert filtered == {"name": ["name"]}
 
 
-################# RecursiveDictProcessor Tests ##################
+################# RecursiveJsonProcessor Tests ##################
 
 
 def test_flatten_json(sample_json):
     """
-    Verifies whether the RecursiveDictProcessor, created fromm each of the above tested classes, will successfully
+    Verifies whether the RecursiveJsonProcessor, created fromm each of the above tested classes, will successfully
     parse and flatten the sample json data as intended.
 
     `process_dictionary` is used to take a dictionary (or a single nested dictionary in a list of dictionaries))
@@ -233,7 +233,7 @@ def test_flatten_json(sample_json):
         "type": ["home", "work"],
         "number": ["123-456-7890", "098-765-4321"],
     }
-    processor = RecursiveDictProcessor(sample_json)
+    processor = RecursiveJsonProcessor(sample_json)
     flattened_json = processor.process_dictionary().flatten()
     assert flattened_json == expected_flattened
 
@@ -249,7 +249,7 @@ def test_combine_normalized():
         "bio": ["Developer", "Pythonista", "OpenAI enthusiast"],
         "experience": {"testing": None},
     }
-    processor = RecursiveDictProcessor(sample_json, normalizing_delimiter=None, object_delimiter="; ")
+    processor = RecursiveJsonProcessor(sample_json, normalizing_delimiter=None, object_delimiter="; ")
     flattened_json = processor.process_dictionary().flatten()
     expected_flattened = {"name": "John", "bio": "Developer; Pythonista; OpenAI enthusiast", "testing": None}
     assert flattened_json == expected_flattened
@@ -266,7 +266,7 @@ def test_combine_normalized():
 def test_filter_extracted():
     """Validates whether the processed and flattened components of the dictionary can be successfully filtered"""
     sample_json = {"name": "John", "age": 30, "city": "Springfield"}
-    processor = RecursiveDictProcessor(sample_json)
+    processor = RecursiveJsonProcessor(sample_json)
     processor.process_dictionary()
     processor.filter_extracted(exclude_keys=["age"])
     flattened = processor.flatten()
@@ -275,13 +275,13 @@ def test_filter_extracted():
 
 def test_process_and_flatten():
     """
-    Validates the capability and output of the RecursiveDictProcessor when processing and flattening a sample JSON.
+    Validates the capability and output of the RecursiveJsonProcessor when processing and flattening a sample JSON.
 
     The final result should be a list of keys that contains all items other than `age` which should be excluded
     from the final output.
     """
     sample_json = {"name": "John", "age": 30, "city": "Springfield"}
-    processor = RecursiveDictProcessor()
+    processor = RecursiveJsonProcessor()
     result = processor.process_and_flatten(sample_json, exclude_keys=["age"])
     assert isinstance(result, dict)
     # all keys/values found in the sample json should be available unless the checked key is age which was removed
@@ -290,9 +290,9 @@ def test_process_and_flatten():
 
 def test_unlist():
     """Verifies that unlisting a list containing an singular element of any type extracts that element"""
-    assert RecursiveDictProcessor.unlist([{"a": 1}]) == {"a": 1}
-    assert RecursiveDictProcessor.unlist([1, 2]) == [1, 2]
-    assert RecursiveDictProcessor.unlist({"a": 1}) == {"a": 1}
+    assert RecursiveJsonProcessor.unlist([{"a": 1}]) == {"a": 1}
+    assert RecursiveJsonProcessor.unlist([1, 2]) == [1, 2]
+    assert RecursiveJsonProcessor.unlist({"a": 1}) == {"a": 1}
 
 
 def test_process_dictionary_raises():
@@ -300,7 +300,7 @@ def test_process_dictionary_raises():
     Verifies that attempting to process a dictionary without input will raise a value error if
     data was neither specified on instantiation nor when calling `process_dictionary`
     """
-    processor = RecursiveDictProcessor()
+    processor = RecursiveJsonProcessor()
     with pytest.raises(ValueError):
         processor.process_dictionary()
 
@@ -310,7 +310,7 @@ def test_process_dictionary_raises():
 
 def test_json_normalizer_with_nested_dicts():
     """
-    Validates that processing dictionaries with nested components with the RecursiveDictProcessor
+    Validates that processing dictionaries with nested components with the RecursiveJsonProcessor
     will return the processed result that maps the names of terminal to the paths where the unique terminal path
     keys can be located.
     """
@@ -319,8 +319,8 @@ def test_json_normalizer_with_nested_dicts():
         "meta": {"count": 2},
     }
 
-    # Simulate RecursiveDictProcessor extraction
-    processor = RecursiveDictProcessor(sample_json)
+    # Simulate RecursiveJsonProcessor extraction
+    processor = RecursiveJsonProcessor(sample_json)
     processor.process_dictionary()
 
     # manually extracts the data at the end of the path and the path where the data can be found
@@ -364,15 +364,15 @@ def test_recursive_dict_with_path_collisions():
         "count": 2,
     }
 
-    # Simulate RecursiveDictProcessor extraction
-    processor = RecursiveDictProcessor(sample_json)
+    # Simulate RecursiveJsonProcessor extraction
+    processor = RecursiveJsonProcessor(sample_json)
     flattened_dict = processor.process_and_flatten()
 
     # Expected: keys are 'users.name', 'users.email', 'meta.count'
     # Values are lists of corresponding data
     assert flattened_dict == expected
 
-    processor_two = RecursiveDictProcessor(sample_json)
+    processor_two = RecursiveJsonProcessor(sample_json)
 
     # Validating whether manual use of the path processor and JsonNormalizer results in the same output
     processor_two.process_dictionary()

@@ -1,3 +1,17 @@
+# /exceptions
+"""
+The scholar_flux.exceptions module implements different types of exceptions used within the scholar_flux package
+with customized exceptions with applications to client setup, API retrieval, API processing, and caching.
+
+Modules:
+    api_exceptions: Exceptions crafted for unforeseen issues in API client creation and errors in response retrieval
+    data_exceptions: Exceptions that could occur during the parsing, extraction, and processing of response data
+    util_exceptions: Exceptions used in the creation of utilities used throughout the module
+    coordinator_exceptions: Exceptions revolving around the coordination of requests, response processing and caching
+    storage_exceptions: Exceptions involving potential and common issues involving storage
+    path_exceptions: Exceptions for edge-cases when processing JSON files using custom path processing utilities
+    import_exceptions: Exceptions for handling missing dependencies
+"""
 from scholar_flux.exceptions.api_exceptions import (
     APIException,
     MissingAPIKeyException,
@@ -39,7 +53,6 @@ from scholar_flux.exceptions.data_exceptions import (
     ResponseProcessingException,
     DataParsingException,
     InvalidDataFormatException,
-    RequiredFieldMissingException,
     DataExtractionException,
     FieldNotFoundException,
     DataProcessingException,
@@ -68,8 +81,8 @@ from scholar_flux.exceptions.path_exceptions import (
     InvalidPathDelimiterError,
     PathIndexingError,
     InvalidPathNodeError,
-    PathRecordMapError,
-    PathChainMapError,
+    RecordPathNodeMapError,
+    RecordPathChainMapError,
     PathNodeIndexError,
     PathCombinationError,
     PathCacheError,
@@ -109,7 +122,6 @@ __all__ = [
     "ResponseProcessingException",
     "DataParsingException",
     "InvalidDataFormatException",
-    "RequiredFieldMissingException",
     "DataExtractionException",
     "FieldNotFoundException",
     "DataProcessingException",
@@ -131,8 +143,8 @@ __all__ = [
     "InvalidPathDelimiterError",
     "PathIndexingError",
     "InvalidPathNodeError",
-    "PathRecordMapError",
-    "PathChainMapError",
+    "RecordPathNodeMapError",
+    "RecordPathChainMapError",
     "PathNodeIndexError",
     "PathCombinationError",
     "PathCacheError",

@@ -1,3 +1,9 @@
+# /api/search_coordinator.py
+"""
+Defines the MultiSearchCoordinator that builds on the features implemented by the SearchCoordinator to create multiple
+queries to different providers either sequentially or by using multithreading. This implementation uses shared
+rate limiting to ensure that rate limits to different providers are not exceeded.
+"""
 from __future__ import annotations
 from typing import Optional, Generator, Sequence, Iterable
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class MultiSearchCoordinator(UserDict):
     """
-    The MultiSearchCoordinator is a utility method for orchestrating searchs for multiple providers, pages, and
+    The MultiSearchCoordinator is a utility method for orchestrating searches for multiple providers, pages, and
     queries in sequence. This coordinator uses the overall structure of the SearchCoordinator in order to orchestrate
     searches for articles from APIs in a consistently rate-limited manner.
 
@@ -209,7 +215,7 @@ class MultiSearchCoordinator(UserDict):
         records from each combination of queries, pages, and providers in sequence.
         This implementation uses the SearchCoordinator.iter_pages to dynamically identify when page retrieval
         should halt for each API provider, accounting for errors, timeouts, and less than the expected amount of
-        records before filtering records with prespecified criteria.
+        records before filtering records with pre-specified criteria.
 
         Args:
             pages (Sequence[int]): A sequence of page numbers to iteratively request from the API Provider.
@@ -495,7 +501,7 @@ class MultiSearchCoordinator(UserDict):
 #     from scholar_flux.api import MultiSearchCoordinator, SearchCoordinator
 #     from scholar_flux.api.models import SearchResultList, SearchResult, APIResponse
 #     from scholar_flux.data_storage import DataCacheManager
-#     from scholar_flux.utils import FileUtils
+#     from scholar_flux.utils import JsonFileUtils
 #
 #     multisearch_coordinator = MultiSearchCoordinator()
 #
@@ -552,4 +558,4 @@ class MultiSearchCoordinator(UserDict):
 #     assert isinstance(results_dict, list) and all(isinstance(result, dict) for result in results_dict)
 #
 #     # saving for later browsing
-#     FileUtils.save_as(results_dict, "~/Downloads/ai-data-engineering-search-9-25-2025")
+#     JsonFileUtils.save_as(results_dict, "~/Downloads/ai-data-engineering-search-9-25-2025")

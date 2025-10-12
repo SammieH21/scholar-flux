@@ -1,7 +1,7 @@
 from scholar_flux import ResponseCoordinator, DataCacheManager
 from scholar_flux.api import ResponseValidator
 from scholar_flux.data_storage import InMemoryStorage
-from scholar_flux.api.models import ErrorResponse
+from scholar_flux.api.models import ErrorResponse, ReconstructedResponse
 from scholar_flux.exceptions import StorageCacheException, InvalidResponseException
 import pytest
 import requests
@@ -128,6 +128,34 @@ def test_empty_data_parsing_exception(plos_page_1_response, monkeypatch, caplog)
         response_coordinator._process_response(plos_page_1_response)
 
     assert "The parsed response contained no parsable content" in str(excinfo.value)
+
+
+def test_inccorrect_data_parsing_exception(plos_page_1_response, monkeypatch, caplog):
+    """
+    Ensures that upon receiving a None value from the `parse` method of the response_coordinator.parser,
+    the `handle_response` method will raise a DataParsingException.
+    """
+
+    response_coordinator = ResponseCoordinator.build(cache_results=True)
+
+    dictionary_response = plos_page_1_response.__dict__
+
+    with pytest.raises(DataParsingException) as excinfo:
+        response_coordinator._process_response(dictionary_response)
+    assert f"Expected a response or response-like object, received type {type(dictionary_response)}" in str(
+        excinfo.value
+    )
+
+    updated_response = ReconstructedResponse.build(plos_page_1_response)
+    updated_response.headers = {}
+
+    with pytest.raises(DataParsingException) as excinfo:
+        response_coordinator._process_response(updated_response)
+    assert "Unsupported content type: ''" in caplog.text
+
+    result = response_coordinator.parser.parse_from_defaults(updated_response)
+    assert result is None
+    assert "Unsupported format: 'unknown'" in caplog.text
 
 
 def test_response_validator_representation():

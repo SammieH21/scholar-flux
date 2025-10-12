@@ -1,3 +1,10 @@
+# /api/rate_limiting/retry_handler.py
+"""
+The scholar_flux.api.rate_limiting.retry_handler implements a basic RetryHandler that defines a variable period of
+time to wait in between successive unsuccessful requests to the same provider. This class is implemented by default
+within the `SearchCoordinator` class to verify and retry each request until successful or the maximum retry limit
+has been reached.
+"""
 from email.utils import parsedate_to_datetime
 import time
 import requests
@@ -131,6 +138,13 @@ class RetryHandler:
 
     @classmethod
     def _default_validator_func(cls, response: requests.Response | ResponseProtocol) -> bool:
+        """
+        Defines a basic default validator that verifies type and status code.
+        It evaluates:
+            1) Whether the `response` is a requests.Response object or a (duck-typed) response-like object based
+               on whether it evaluates as a ResponseProtocol.
+            2) Whether the response status code is in the list of valid statuses: `RetryHandler.DEFAULT_VALID_STATUSES`
+        """
         return (
             isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)
         ) and response.status_code in cls.DEFAULT_VALID_STATUSES

@@ -1,11 +1,11 @@
-## storage_exceptions.py
-import logging
-
-logger = logging.getLogger(__name__)
+# /exceptions/storage_exceptions.py
+"""
+Implements exceptions involving both potential edge-cases and common issues involving data and cache storage.
+"""
 
 
 class StorageCacheException(Exception):
-    """Base exception for Storage Issuse Issues"""
+    """Base exception for Storage Issues"""
 
     pass
 

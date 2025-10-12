@@ -6,14 +6,14 @@ Classes:
     PathUtils: Utility class used to prepare path strings and lists of path components consistently for processing.
     KeyDiscoverer: Helper class for identifying JSON paths and terminal keys containing nested data elements.
     KeyFilter: Helper class used to identify and filter nested dictionaries based on path length and pattern matching.
-    RecursiveDictProcessor: Front-end facing utility function used by the `scholar_flux.data.RecursiveDataProcessor`
+    RecursiveJsonProcessor: Front-end facing utility function used by the `scholar_flux.data.RecursiveDataProcessor`
                             to process, filter, and flatten JSON formatted data.
     JsonRecordData: Helper class used as a container to hold extracted path/data components for further processing.
-    JsonNormalizer: Helper class used by the `RecursiveDictProcessor` to flatten the inputted JSON record into a
+    JsonNormalizer: Helper class used by the `RecursiveJsonProcessor` to flatten the inputted JSON record into a
                     non-nested dictionary
 
 Example Use:
-    >>> from scholar_flux.utils import RecursiveDictProcessor
+    >>> from scholar_flux.utils import RecursiveJsonProcessor
     >>> from pprint import pp
     >>> data = {
             "authors": {"principle_investigator": "Dr. Smith", "assistant": "Jane Doe"},
@@ -24,7 +24,7 @@ Example Use:
             "journal": {"topic": "Sleep Research"},
         }
     # joins fields with nested components using a newline character - retains full paths leading to each value
-    >>> processor = RecursiveDictProcessor(object_delimiter = '   ', use_full_path = True)
+    >>> processor = RecursiveJsonProcessor(object_delimiter = '   ', use_full_path = True)
     # processes and flattens the JSON dict using the defined helper classes under the hood
     >>> result = processor.process_and_flatten(data)
     # prints the result in a format that is easier to view from the CLI
@@ -33,8 +33,7 @@ Example Use:
                'authors.assistant': 'Jane Doe',
                'doi': '10.1234/example.doi',
                'title': 'Sample Study',
-               'abstract': "This is a sample abstract.   keywords: 'sample', 'ab
-              stract'",
+               'abstract': "This is a sample abstract.   keywords: 'sample', 'abstract'",
                'genre.subspecialty': 'Neuroscience',
                'journal.topic': 'Sleep Research'}
 """
@@ -155,6 +154,7 @@ class KeyFilter:
         substring: Optional[str] = None,
         pattern: Optional[str] = None,
         include_matches: bool = True,
+        match_any: bool = True,
     ) -> Dict[str, List[str]]:
         """
         A method used to create a function that matches key-value pairs based on the specified criteria.
@@ -167,25 +167,33 @@ class KeyFilter:
             Helper function that, when configured via `filter_keys` allows for the identification
             of keys and paths that match a specific criteria
             """
-            if prefix and key.startswith(prefix):
-                return True
-            if min_length is not None and any(len(path.split(".")) >= min_length for path in paths):
-                return True
-            if substring and any(substring in path for path in paths):
-                return True
+            matches = []
+            if prefix:
+                matches.append(key.startswith(prefix))
+            if min_length is not None:
+                matches.append(any(len(path.split(".")) >= min_length for path in paths))
+            if substring:
+                matches.append(any(substring in path for path in paths))
             if pattern:
                 regex_pattern = re.compile(pattern)
-                if any(regex_pattern.fullmatch(node) for path in paths for node in path.split(".")):
-                    return True
-            return False
+                matches.append(any(regex_pattern.fullmatch(node) for path in paths for node in path.split(".")))
+            fn = any if match_any else all
 
-        return {key: paths for key, paths in discovered_keys.items() if matches_criteria(key, paths) == include_matches}
+            return fn(matches)
+
+        return {key: paths for key, paths in discovered_keys.items() if matches_criteria(key, paths) is include_matches}
 
 
 class KeyDiscoverer:
     """
     Helper class used to discover terminal keys containing data within nested JSON data structures and
     identify the paths used to arrive at each key.
+
+    Attributes:
+        _discovered_keys (dict[str, list]): Defines the complete list of all keys that can be found in a dictionary
+                                            and the path that needs to be traversed to arrive at that key
+        _terminal_paths (dict[str, bool]): Creates a dictionary that indicates whether the currently added path is
+                                           terminal within the JSON data structure
     """
 
     def __init__(self, records: Optional[List[Dict]] = None):
@@ -195,8 +203,8 @@ class KeyDiscoverer:
 
     def _discover_keys(self) -> Tuple[Dict[str, List[str]], Dict[str, bool]]:
         """Discovers all keys within the provided records recursively."""
-        discovered_keys: dict = defaultdict(list)
-        terminal_paths: dict = {}
+        discovered_keys: dict[str, list] = defaultdict(list)
+        terminal_paths: dict[str, bool] = {}
         for record in self.records:
             self._discover_keys_recursive(record, discovered_keys, terminal_paths, [])
         return discovered_keys, terminal_paths
@@ -258,6 +266,7 @@ class KeyDiscoverer:
         min_length: Optional[int] = None,
         substring: Optional[str] = None,
     ) -> Dict[str, List[str]]:
+        """Helper method that filters a range of keys based on the specified criteria"""
         return KeyFilter.filter_keys(self._discovered_keys, prefix, min_length, substring)
 
     def __repr__(self) -> str:
@@ -286,13 +295,13 @@ class JsonRecordData:
     data: Dict[str, Any]
 
 
-class RecursiveDictProcessor:
+class RecursiveJsonProcessor:
     """
     An implementation of a recursive JSON dictionary processor that is used
     to process and identify nested components such as paths, terminal key names, and
     the data at each terminal path.
 
-    This utility of the RecursiveDictProcessor is for flattening dictionary records
+    This utility of the RecursiveJsonProcessor is for flattening dictionary records
     into flattened representations where its keys represent the terminal paths at each
     node and its values represent the data found at each terminal path.
     """
@@ -305,7 +314,7 @@ class RecursiveDictProcessor:
         use_full_path: Optional[bool] = False,
     ):
         """
-        Initialize the RecursiveDictProcessor with a JSON dictionary and a delimiter for joining list elements.
+        Initialize the RecursiveJsonProcessor with a JSON dictionary and a delimiter for joining list elements.
 
         Args:
             json_dict (Dict): The input JSON dictionary to be parsed.
@@ -437,7 +446,7 @@ class RecursiveDictProcessor:
         return self.flatten()
 
     def __repr__(self) -> str:
-        """Helper method for displaying a human-readable representation of the RecursiveDictProcessor"""
+        """Helper method for displaying a human-readable representation of the RecursiveJsonProcessor"""
         class_name = self.__class__.__name__
 
         return f"{class_name}(object_delimiter={self.object_delimiter}, simplifier={self.normalizing_delimiter}, use_full_path={self.use_full_path})"

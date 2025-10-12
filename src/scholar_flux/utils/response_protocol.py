@@ -1,3 +1,19 @@
+# /utils/response_protocol.py
+"""
+The scholar_flux.utils.response_protocol module is used to ensure that responses can be successfully
+duck-typed and implemented without favoring a specific client such as `requests` (or by extension, `requests_cache`),
+`httpx`, or `asyncio`.
+
+An object is then seen as response-like if it passes the preliminary check of having all of the following attributes:
+    - url
+    - status_code
+    - raise_for_status
+    - headers
+
+To ensure compatibility, the scholar_flux.api.ReconstructedResponse class is used for as an adapter throughout the
+request retrieval, response processing, and caching processes to ensure that the ResponseProtocol generalizes to
+other implementations when not directly using the default `requests` client.
+"""
 from __future__ import annotations
 from typing import Any, MutableMapping, runtime_checkable, Protocol
 

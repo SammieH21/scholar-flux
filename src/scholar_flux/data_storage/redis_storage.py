@@ -1,10 +1,17 @@
-import json
+# /data_storage/redis_storage.py
+"""
+The scholar_flux.data_storage.redis_storage module implements the RedisStorage class that implements the abstract
+methods required for compatibility with the DataCacheManager in the scholar_flux package.
+
+This class implements caching by using the serialization-deserialization and caching features available in Redis
+to store ProcessedResponse fields within the database for later CRUD operations.
+"""
 
 from scholar_flux.exceptions import RedisImportError
 from scholar_flux.data_storage.abc_storage import ABCStorage
+from scholar_flux.utils.encoder import JsonDataEncoder
 from typing import Any, Dict, List, Optional, cast, TYPE_CHECKING
 
-from scholar_flux.utils.encoder import CacheDataEncoder
 import logging
 
 logger = logging.getLogger(__name__)
@@ -118,7 +125,7 @@ class RedisStorage(ABCStorage):
 
             if isinstance(cache_data, bytes):
                 cache_data = cache_data.decode()
-            return CacheDataEncoder.decode(json.loads(cache_data))
+            return JsonDataEncoder.deserialize(cache_data)
 
         except RedisError as e:
             logger.error(f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}): {e}'")
@@ -178,7 +185,7 @@ class RedisStorage(ABCStorage):
         """
         try:
             namespace_key = self._prefix(key)
-            self.client.set(namespace_key, json.dumps(CacheDataEncoder.encode(data)))
+            self.client.set(namespace_key, JsonDataEncoder.serialize(data))
             if self.ttl is not None:
                 self.client.expire(namespace_key, self.ttl)
             logger.debug(f"Cache updated for key: {namespace_key}")

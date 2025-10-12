@@ -1,4 +1,9 @@
-# import dependencies
+# /utils/paths/processing_path.py
+"""
+Implements the ProcessingPath that is the most fundamental component in the scholar_flux JSON path processing trie
+implementation. The ProcessingPath is used to store a path processing representation that allows for extensive
+flexibility in the creation, filtering, and discovery of nested keys in JSON structures.
+"""
 from __future__ import annotations
 from typing import Union
 import re
@@ -38,6 +43,16 @@ class ProcessingPath:
     Attributes:
         components (Tuple[str, ...]): A tuple of path components.
         delimiter (str): The delimiter used to separate components in the path.
+
+    Examples:
+
+        >>> from scholar_flux.utils import ProcessingPath
+        >>> abc_path = ProcessingPath(['a', 'b', 'c'], delimiter ='//')
+        >>> updated_path = abc_path / 'd'
+        >>> assert updated_path.depth > 3 and updated_path[-1] == 'd'
+        # OUTPUT: True
+        >>> assert str(updated_path) == 'a//b//c//d'
+        >>> assert updated_path.has_ancestor(abc_path)
     """
 
     components: Tuple[str, ...] = field(init=False)
@@ -51,6 +66,19 @@ class ProcessingPath:
         component_types: Optional[Union[Tuple[str, ...], List[str]]] = None,
         delimiter: Optional[str] = None,
     ):
+        """
+        Initializes the ProcessingPath. The inputs are first validated to ensure that the path components and
+        delimiters are valid.
+
+        Args:
+            components: (Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]):
+                 The current path keys describing the path where each key represents a nested key in a JSON structure
+            component_types: (Optional[Union[Tuple[str, ...], List[str]]]):
+                An iterable of component types (used to annotate the components)
+            delimiter: (Optional[str]):
+                The separator used to indicate separate nested keys in a JSON structure. Defaults to the class default
+                if not directly specified.
+        """
         # Use object.__setattr__ to bypass immutability restrictions
         object.__setattr__(
             self,
@@ -179,7 +207,7 @@ class ProcessingPath:
 
             raise InvalidComponentTypeError(
                 "When specified, the length of component_type must match the "
-                f"dpeth of the Path:\n Component Type Length = {len(component_types)}, "
+                f"depth of the Path:\n Component Type Length = {len(component_types)}, "
                 f"Length of Components received: {len(component_types)}. "
             )
 
@@ -344,7 +372,7 @@ class ProcessingPath:
         else:
             raise IndexError(f"Invalid index for ProcessingPath: received {index}")
 
-    def append(self, component: str, component_type: Optional[str] = None) -> ProcessingPath:
+    def append(self, component: int | str, component_type: Optional[str] = None) -> ProcessingPath:
         """Append a component to the path and return a new ProcessingPath object.
 
         Args:
@@ -356,14 +384,14 @@ class ProcessingPath:
         Raises:
             InvalidProcessingPathError: If the component is not a non-empty string.
         """
-        if not isinstance(component, str) or not component:
+        if not isinstance(component, (int, str)) or component is None or component == "":
             raise InvalidProcessingPathError("Component must be a non-empty string.")
         if self.component_types and (not isinstance(component_type, str) or not component_type):
             raise InvalidProcessingPathError(
                 "Component Type must be a non-empty string/type when a pre-existing component type is not None"
             )
         return ProcessingPath(
-            self.components + (component,),
+            self.components + (str(component),),
             (
                 self.component_types + (component_type,)
                 if self.component_types is not None and component_type is not None
@@ -627,14 +655,6 @@ class ProcessingPath:
         """
         return self.depth
 
-    def __repr__(self) -> str:
-        """Get the string representation of the ProcessingPath object.
-
-        Returns:
-            str: The string representation of the ProcessingPath.
-        """
-        return f"ProcessingPath(components={self.delimiter.join(self.components)}, component_types={self.delimiter.join(self.component_types) if self.component_types else None})"
-
     def __truediv__(self, other: Union[ProcessingPath, str]) -> ProcessingPath:
         """Concatenate the ProcessingPath with another path using the '/' operator.
 
@@ -821,21 +841,6 @@ class ProcessingPath:
         new_components = tuple(placeholder if component.isdigit() else component for component in self.components)
         return ProcessingPath(new_components, self.component_types, self.delimiter)
 
-    def modify_parent(
-        self,
-        new_parent_path: Union[str, ProcessingPath, List],
-        new_component_types: Optional[Union[List[str], Tuple[str]]] = None,
-    ):
-        """
-        Change the ancestor path of the current ProcessingPath using the provided path as the new parent path
-        Args:
-           new_parent_path
-        """
-        new_parent_path = ProcessingPath.to_processing_path(new_parent_path, new_component_types, self.delimiter)
-        # if not new_parent_path.is_ancestor_of(self):
-        #    raise InvalidProcessingPathError(f"The provided path: {new_parent_path} is not a subset of the current path: {self}. Check the provided path")
-        return new_parent_path / self.get_name(1)
-
     def get_parent(self, step: int = 1) -> Optional[ProcessingPath]:
         """
         Get the ancestor path of the current ProcessingPath by the specified number of steps.
@@ -977,7 +982,7 @@ class ProcessingPath:
         in order to consolidate record fields.
 
         Args:
-            last_only (bool): Determines wether or not to replae all list indices vs removing only the lst
+            last_only (bool): Determines wether or not to replace all list indices vs removing only the lst
 
         Returns:
             ProcessingPath: A ProcessingPath instance with the last numeric component removed and indices replaced.
@@ -996,6 +1001,14 @@ class ProcessingPath:
             return self.remove_indices(num=1, reverse=True).replace_indices()
 
         return self.replace_indices()
+
+    def __repr__(self) -> str:
+        """Get the string representation of the ProcessingPath object.
+
+        Returns:
+            str: The string representation of the ProcessingPath.
+        """
+        return f"ProcessingPath(components={self.delimiter.join(self.components)}, component_types={self.delimiter.join(self.component_types) if self.component_types else None})"
 
 
 # if __name__ == '__main__':

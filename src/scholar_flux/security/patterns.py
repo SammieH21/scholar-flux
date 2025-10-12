@@ -1,3 +1,18 @@
+# /security/patterns.py
+"""
+The scholar_flux.security.patterns module implements the foundational patterns required to implement
+a light-weight fixed/regex pattern matching utility that determines keys to mask in both text
+and json-formatted parameter dictionaries.
+
+Classes:
+    MaskingPattern: Implements the abstract base class that defines how MaskingPatterns are created and formatted.
+    MaskingPatternSet: Defines a subclass of a set that excepts only subclasses of MaskingPatterns for robustness.
+    KeyMaskingPattern: Defines the class and methods necessary to mask text based on the presence or absence of
+                       a specific field name when determining what patterns to mask.
+    StringMaskingPattern: Defines the class and methods necessary to mask text based on the presence or absence of
+                          specific patterns. These patterns can either be fixed or regular expressions,
+                          and accept both case-sensitive and case-insensitive pattern matching settings.
+"""
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pydantic import Field
@@ -92,7 +107,7 @@ class KeyMaskingPattern(MaskingPattern):
         """
         Uses the defined settings in order to remove sensitive fields from text
         based on the attributes specified for field, pattern, replacement, and
-        iginore case.
+        ignore case.
 
         Args:
             text (str): The text to clean of sensitive fields
@@ -167,15 +182,24 @@ class StringMaskingPattern(MaskingPattern):
 
 
 class MaskingPatternSet(set[MaskingPattern]):
+    """
+    Defines the subclass of a set that implements type safety to ensure that only subclasses of
+    MaskingPatterns can be added. As a result, robustness is increased, and the likelihood of
+    unsuspecting errors decreases at runtime when using the scholar_flux API for response retrieval.
+    """
+
     def __init__(self):
+        """Initializes the MaskingPatternSet as an empty set"""
         super().__init__()
 
     def add(self, item: MaskingPattern) -> None:
+        """Overrides the basic `add` method to ensure that each `item` is typed checked prior to entering the set"""
         if not isinstance(item, MaskingPattern):
             raise TypeError(f"Expected a MaskingPattern, got {type(item)}")
         super().add(item)
 
     def update(self, *others: Iterable[MaskingPattern]) -> None:
+        """Overrides the basic `update` method to ensure that all `items` are typed checked prior to entering the set"""
         for patterns in others:
             if isinstance(patterns, MaskingPattern):
                 super().add(patterns)

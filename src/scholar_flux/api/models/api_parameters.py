@@ -1,10 +1,23 @@
+# /api/models/api_parameters.py
+"""
+The scholar_flux.api.models.api_parameters module implements an APIParameterMap and APIParameterConfig
+classes and is designed for flexibility in the creation and handling of API Responses given provider
+specific differences in request parameters and configuration.
+
+Classes:
+    APIParameterMap:    Extends the BaseAPIParameterMap to provide factory functions and utilities to more
+                        efficiently retrieve and use default parameter maps.
+    APIParameterConfig: Uses or creates an APIParameterMap to prepare request parameters according to
+                        the specifications of the current provider's API.
+"""
 from __future__ import annotations
 from pydantic import model_validator, ValidationError
 from typing import Optional, Dict, Any
-from scholar_flux.api.models.base import BaseAPIParameterMap, APISpecificParameter
+from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
 from scholar_flux.api.providers import provider_registry
+from pydantic.dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)
@@ -133,26 +146,17 @@ class APIParameterMap(BaseAPIParameterMap):
         return cls.model_validate(class_vars)
 
 
+@dataclass
 class APIParameterConfig:
     """
     Uses an APIParameterMap instance and runtime parameter values to build
     request parameter dictionaries for API calls.
 
-    Attributes:
+    Args:
         parameter_map (APIParameterMap): The mapping of universal to API-specific parameter names.
     """
 
-    def __init__(
-        self,
-        parameter_map: APIParameterMap,
-    ):
-        """
-        Initializes the APIParameterConfig.
-
-        Args:
-            parameter_map (APIParameterMap): The parameter mapping configuration.
-        """
-        self.parameter_map = parameter_map
+    parameter_map: APIParameterMap
 
     @property
     def map(self) -> APIParameterMap:
@@ -290,7 +294,7 @@ class APIParameterConfig:
             if api_specific_parameters.get(api_parameter_name) is not None
         }
 
-        parameters = parameters | extra_parameters  # so extractions don't modify the original obeject
+        parameters = parameters | extra_parameters  # so extractions don't modify the original object
 
         return parameters
 

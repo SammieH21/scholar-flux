@@ -1,3 +1,11 @@
+# /api/response_coordinator.py
+"""
+The scholar_flux.api.response_coordinator module implements the ResponseCoordinator that is used to coordinate
+the processing of successfully and unsuccessfully retrieved responses. This class is used by the SearchCoordinator
+to orchestrate the response parsing, processing and caching of responses.
+
+The ResponseCoordinator relies on dependency injection to modify the processing methods used at each step.
+"""
 from __future__ import annotations
 from scholar_flux.data_storage import DataCacheManager
 
@@ -36,7 +44,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from scholar_flux.api.models.response import ProcessedResponse, ErrorResponse, APIResponse
+from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse, APIResponse
 
 
 class ResponseCoordinator:

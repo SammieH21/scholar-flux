@@ -1,4 +1,12 @@
-# scholar_flux.utils.path_index
+# /utils/paths/path_node_index.py
+"""
+The scholar_flux.utils.paths.path_node_index module implements the PathNodeIndex class that uses trie-based logic
+to facilitate the processing of JSON data structures.
+
+The PathNodeIndex is responsible for orchestrating JSON data discovery, processing, and flattening to abstract JSON
+data into path-node pairs indicate the location of terminal values and the path location of the terminal-values within
+within a nested JSON data structure.
+"""
 from __future__ import annotations
 import re
 from typing import Optional, Union, Any, ClassVar
@@ -16,7 +24,7 @@ from multiprocessing import cpu_count, get_context
 from scholar_flux.utils.paths import ProcessingPath, PathNode
 from scholar_flux.utils.paths.path_discoverer import PathDiscoverer
 from scholar_flux.utils.paths.path_node_map import PathNodeMap
-from scholar_flux.utils.paths.path_chain_map import PathChainMap
+from scholar_flux.utils.paths.record_path_chain_map import RecordPathChainMap
 from scholar_flux.utils import try_quote_numeric, try_call
 
 import logging
@@ -44,7 +52,7 @@ class PathNodeIndex:
         DEFAULT_DELIMITER (str): A delimiter to use by default when reading JSON structures and transforming the
                                  list of keys used to retrieve a terminal path into a simplified string. Each
                                  individual key is separated by this delimiter.
-        MAX_PROCESSES (int): An optional maximum on the total number of processses to use when simplifying multiple
+        MAX_PROCESSES (int): An optional maximum on the total number of processes to use when simplifying multiple
                              records into a singular structure in parallel. This can be configured directly
                              or turned off altogether by setting this class variable to None.
     Example Usage:
@@ -87,7 +95,7 @@ class PathNodeIndex:
 
     DEFAULT_DELIMITER: ClassVar[str] = ProcessingPath.DEFAULT_DELIMITER
     MAX_PROCESSES: ClassVar[Optional[int]] = 8
-    index: PathNodeMap | PathChainMap = field(default_factory=PathNodeMap)
+    node_map: PathNodeMap | RecordPathChainMap = field(default_factory=PathNodeMap)
     simplifier: PathSimplifier = field(
         default_factory=lambda: PathSimplifier(
             delimiter=PathNodeIndex.DEFAULT_DELIMITER, non_informative=["i", "value"]
@@ -103,7 +111,7 @@ class PathNodeIndex:
         of path-node mappings whereas the validated simplifier is then used to flatten the the
         index into a list of dictionaries.
         """
-        object.__setattr__(self, "index", self._validate_index(self.index, self.use_cache))
+        object.__setattr__(self, "index", self._validate_index(self.node_map, self.use_cache))
         object.__setattr__(self, "simplifier", self._validate_simplifier(self.simplifier))
 
     @classmethod
@@ -124,23 +132,25 @@ class PathNodeIndex:
 
     @classmethod
     def _validate_index(
-        cls, index: Union[PathNodeMap, PathChainMap, dict[ProcessingPath, PathNode]], use_cache: Optional[bool] = None
-    ) -> PathNodeMap | PathChainMap:
+        cls,
+        node_map: Union[PathNodeMap, RecordPathChainMap, dict[ProcessingPath, PathNode]],
+        use_cache: Optional[bool] = None,
+    ) -> PathNodeMap | RecordPathChainMap:
         """
         Determine whether the current path is an index of paths and nodes.
         Args:
-            index (dict[ProcessingPath, PathNode])
+            node_map (dict[ProcessingPath, PathNode])
         Raises:
             PathNodeIndexError in the event that the expected type is not a dictionary of paths
         """
-        if not index:
-            return PathNodeMap(cache=use_cache)  # set directly if empty
-        if isinstance(index, (PathNodeMap, PathChainMap)):
-            return index
-        if isinstance(index, dict):
-            return PathNodeMap(index, cache=use_cache)
+        if not node_map:
+            return PathNodeMap(use_cache=use_cache)  # set directly if empty
+        if isinstance(node_map, (PathNodeMap, RecordPathChainMap)):
+            return node_map
+        if isinstance(node_map, dict):
+            return PathNodeMap(node_map, use_cache=use_cache)
         else:
-            raise PathNodeIndexError(f"The argument, index, expected a PathNodeMap. Recieved {type(index)}")
+            raise PathNodeIndexError(f"The argument, node_map, expected a PathNodeMap. Recieved {type(node_map)}")
 
     @classmethod
     def from_path_mappings(
@@ -158,16 +168,16 @@ class PathNodeIndex:
             PathNodeIndex: An index of PathNodes created from a dictionary
         """
 
-        Map = PathChainMap if chain_map else PathNodeMap
+        Map = RecordPathChainMap if chain_map else PathNodeMap
         nodes = (PathNode(path, value) for path, value in path_mappings.items())
-        return cls(Map(*nodes, cache=use_cache), use_cache=use_cache)
+        return cls(Map(*nodes, use_cache=use_cache), use_cache=use_cache)
 
     def __repr__(self) -> str:
-        """Helper method for simply returning the name of the current class and the count of elemnts in the index"""
+        """Helper method for simply returning the name of the current class and the count of elements in the index"""
         class_name = self.__class__.__name__
-        return f"{class_name}(index(len={len(self.index)}))"
+        return f"{class_name}(index(len={len(self.node_map)}))"
 
-    def retrieve(self, path: Union[ProcessingPath, str]) -> Optional[PathNode]:
+    def get_node(self, path: Union[ProcessingPath, str]) -> Optional[PathNode]:
         """
         Try to retrieve a path node with the given path.
 
@@ -177,7 +187,7 @@ class PathNodeIndex:
             Optional[PathNode]: The exact node that matches the provided path.
                                 Returns None if a match is not found
         """
-        return self.index.retrieve(path)
+        return self.node_map.get_node(path)
 
     def search(self, path: ProcessingPath) -> list[PathNode]:
         """
@@ -191,7 +201,7 @@ class PathNodeIndex:
             dict[ProcessingPath, PathNode]: All paths equal to or containing sub-paths
                                             exactly matching the specified path
         """
-        return list(self.index.filter(path).values())
+        return list(self.node_map.filter(path).values())
 
     def pattern_search(self, pattern: Union[str, re.Pattern]) -> list[PathNode]:
         """Attempt to find all values containing the specified pattern using regular expressions
@@ -206,7 +216,7 @@ class PathNodeIndex:
                 "Invalid Value passed to PathIndex: expected " f"string/re.Pattern, received ({type(pattern)})"
             )
         pattern = re.compile(pattern) if not isinstance(pattern, re.Pattern) else pattern
-        return [node for node in self.index.nodes if pattern.search(node.path.to_string()) is not None]
+        return [node for node in self.node_map.nodes if pattern.search(node.path.to_string()) is not None]
 
     def simplify_to_rows(
         self,
@@ -223,7 +233,7 @@ class PathNodeIndex:
         Returns:
             list[dict[str, Any]]: A list of dictionaries representing the paginated data structure.
         """
-        sorted_nodes = sorted(self.index.nodes, key=lambda node: (node.path_keys, node.path))
+        sorted_nodes = sorted(self.node_map.nodes, key=lambda node: (node.path_keys, node.path))
 
         self.simplifier.simplify_paths(
             [node.path_group for node in sorted_nodes],
@@ -236,17 +246,17 @@ class PathNodeIndex:
         for node in sorted_nodes:
             indexed_nodes[node.record_index].add(node)
 
+        node_chunks = ((node_chunk, object_delimiter) for node_chunk in indexed_nodes.values())
+
         if not parallel:
-            return [
-                self.simplifier.simplify_to_row(indexed_nodes[idx], collapse=object_delimiter) for idx in indexed_nodes
-            ]
+            return [self.simplifier.simplify_to_row(*node_chunk) for node_chunk in node_chunks]
 
         # Prepare data for multiprocessing
-        node_chunks = [(node_chunk, object_delimiter) for node_chunk in indexed_nodes.values()]
 
         # Use multiprocessing to process nodes in parallel
         ctx = get_context("spawn")
-        with ctx.Pool(processes=min(cpu_count(), self.MAX_PROCESSES or len(node_chunks))) as pool:
+        max_processes = self.MAX_PROCESSES or len(list(node_chunks))
+        with ctx.Pool(processes=min(cpu_count(), max_processes)) as pool:
             normalized_rows = pool.starmap(self.simplifier.simplify_to_row, node_chunks)
         return normalized_rows
 
@@ -305,16 +315,16 @@ class PathNodeIndex:
 
                     # Update the count node path
                     updated_count_node = count_node.update(path=updated_count_path)
-                    self.index.add(updated_count_node, overwrite=True)
+                    self.node_map.add(updated_count_node, overwrite=True)
                     try_call(
-                        self.index.remove,
+                        self.node_map.remove,
                         args=(value_node,),
                         suppress=(PathNodeMapError,),
                         log_level=logging.INFO,
                     )
 
                     try_call(
-                        self.index.remove,
+                        self.node_map.remove,
                         args=(count_node,),
                         suppress=(PathNodeMapError,),
                         log_level=logging.INFO,
@@ -384,6 +394,26 @@ class PathNodeIndex:
         return normalized_records
 
     @property
+    def nodes(self) -> list[PathNode]:
+        """
+        Returns a list of PathNodes stored within the index
+
+        Returns:
+            list[PathNode]: The complete list of all PathNodes that have been registered in the PathIndex
+        """
+        return self.node_map.nodes
+
+    @property
+    def paths(self) -> list[ProcessingPath]:
+        """
+        Returns a list of Paths stored within the index
+
+        Returns:
+            list[ProcessingPath]: The complete list of all paths that have been registered in the PathIndex
+        """
+        return self.node_map.paths
+
+    @property
     def record_indices(self) -> list[int]:
         """
         Helper property for retrieving the full list of all record indices across the current
@@ -396,4 +426,4 @@ class PathNodeIndex:
         Returns:
             list[int]: A list containing integers denoting individual records found in each path.
         """
-        return self.index.record_indices
+        return self.node_map.record_indices

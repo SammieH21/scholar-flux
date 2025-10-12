@@ -5,8 +5,9 @@ from scholar_flux.utils import (
     PathDiscoverer,
     PathNode,
     PathNodeMap,
+    RecordPathNodeMap,
     PathNodeIndex,
-    PathChainMap,
+    RecordPathChainMap,
     ProcessingPath,
 )
 import pytest
@@ -32,7 +33,7 @@ def path_nodes(extracted_records):
 def test_index_mapping_validation(extracted_records):
     """
     Tests whether the method that creates and/or validates node mappings in a PathNodeIndex
-    correctly prepares both PathChainMap and PathNodeMaps.
+    correctly prepares both RecordPathChainMap and PathNodeMaps.
 
     Independent of the modality that prepares the mappings, each should contain the same
     range of nodes when comparing the list of nodes within each mapping.
@@ -49,36 +50,40 @@ def test_index_mapping_validation(extracted_records):
     assert isinstance(index2, PathNodeMap)
     assert index1 == index2
 
-    chain_map = PathChainMap(*path_node_dict.values())
+    chain_map = RecordPathChainMap(*path_node_dict.values())
     index3 = PathNodeIndex._validate_index(chain_map)
+
     assert index1.nodes == index2.nodes == index3.nodes
 
 
 def test_chain_map_creation(path_nodes):
     """
     Validates whether the creation of a chain map with an iterable of nodes correctly
-    instantiates a new PathChainMap.
+    instantiates a new RecordPathChainMap.
 
     The final chain map should include the full range of nodes from the `path_nodes` fixture.
     """
     assert path_nodes
-    chain_map = PathChainMap(*path_nodes)
+    chain_map = RecordPathChainMap(*path_nodes)
 
     path_node_index = PathNodeIndex(chain_map)
-    assert isinstance(path_node_index, PathNodeIndex) and isinstance(path_node_index.index, PathChainMap)
-    assert path_node_index.index == chain_map
-    assert len(path_node_index.index.nodes) == len(path_nodes) and all(
-        node in path_nodes for node in path_node_index.index.nodes
+    assert isinstance(path_node_index, PathNodeIndex) and isinstance(path_node_index.node_map, RecordPathChainMap)
+    assert path_node_index.node_map == chain_map
+
+    assert all(isinstance(record_mapping, RecordPathNodeMap) for record_mapping in path_node_index.node_map.values())
+
+    assert len(path_node_index.node_map.nodes) == len(path_nodes) and all(
+        node in path_nodes for node in path_node_index.node_map.nodes
     )
 
 
 def test_map_method_equality(path_nodes):
     """
-    Tests whether the instantiation and processing of PathNodeMaps and PathChainMaps correctly
-    processes and flattens both PathNodeMaps and PathChainMaps in an identical manner.
+    Tests whether the instantiation and processing of PathNodeMaps and RecordPathChainMaps correctly
+    processes and flattens both PathNodeMaps and RecordPathChainMaps in an identical manner.
     """
     map1 = PathNodeMap(*path_nodes)
-    map2 = PathChainMap(*path_nodes)
+    map2 = RecordPathChainMap(*path_nodes)
     assert sorted(map1.nodes) == sorted(map2.nodes)
 
     index1 = PathNodeIndex(map1)
@@ -91,7 +96,7 @@ def test_path_node_index_from_path_mappings_and_search():
     """validates whether the use of path node indices correctly retrieves and searches relevant nodes"""
     mappings = {ProcessingPath(["0", "data", "0", "title"]): "A"}
     path_node_index = PathNodeIndex.from_path_mappings(mappings)
-    retrieved_index = path_node_index.retrieve(ProcessingPath(["0", "data", "0", "title"]))
+    retrieved_index = path_node_index.get_node(ProcessingPath(["0", "data", "0", "title"]))
     assert retrieved_index and retrieved_index.value == "A"
     searched_index = path_node_index.search(ProcessingPath(["0", "data"]))[0]
     assert searched_index and searched_index.value == "A"
@@ -113,9 +118,9 @@ def test_path_node_index_pattern_search_and_combine_keys():
     found = path_node_index.pattern_search(r".*value$")
     assert any(n.value == "X" for n in found)
     path_node_index.combine_keys()
-    assert len(path_node_index.index) == 1
+    assert len(path_node_index.node_map) == 1
 
-    result = path_node_index.index.nodes[0]
+    result = path_node_index.node_map.nodes[0]
 
     expected = PathNode.to_path_node(path="0.data.0.values.value.X.count", value=5)
     assert result == expected

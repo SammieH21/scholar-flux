@@ -35,6 +35,7 @@ class PubMedSearchStep(WorkflowStep):
     Args:
         provider_name (Optional[str]): Defines the `pubmed` eSearch API as the location where the request will be sent.
     """
+
     provider_name: Optional[str] = "pubmed"
 
 
@@ -48,6 +49,7 @@ class PubMedFetchStep(WorkflowStep):
         provider_name (Optional[str]): Defines the `pubmed` eFetch API as the location where the next/final request
                                        will be sent.
     """
+
     provider_name: Optional[str] = "pubmedefetch"
 
     def pre_transform(

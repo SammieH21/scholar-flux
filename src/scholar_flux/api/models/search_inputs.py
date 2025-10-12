@@ -1,3 +1,9 @@
+# /api/models/search_inputs.py
+"""
+The scholar_flux.api.models.search_inputs module implements the PageListInput pydantic RootModel used for both
+validating and preparing lists and iterables of page numbers for the iterative multi-page retrieval when using
+the `SearchCoordinator.search_pages` method.
+"""
 from typing import Sequence
 from pydantic import RootModel, field_validator
 import logging

@@ -12,7 +12,7 @@ Sub-modules:
     providers: Defines the default provider specifications to easily create a new client for a specific
                provider with minimal code. (e.g, plos.py contains the necessary config settings for the PLOS API)
     workflows: Defines custom workflows for APIs requiring API-specific logic modifications for easier record retrieval.
-               This includes the PubMed Wokflow which searches IDs and then fetches the records
+               This includes the PubMed Workflow which searches IDs and then fetches the records
     rate_limiting: Defines the methods and classes used to ensure that the rate limits associated with each API
                    are not exceeded. The SearchAPI implements rate limiting using the `RateLimiter` and, optionally,
                    ThreadedRateLimiter class to wait a specified interval of time before sending the next request.
@@ -42,7 +42,7 @@ from scholar_flux.api.models import APIParameterMap, APIParameterConfig
 from scholar_flux.api.models import ProviderConfig, ProviderRegistry
 from scholar_flux.api.providers import PROVIDER_DEFAULTS, provider_registry
 
-from scholar_flux.api.models.response import APIResponse, ErrorResponse, ProcessedResponse, NonResponse
+from scholar_flux.api.models.responses import APIResponse, ErrorResponse, ProcessedResponse, NonResponse
 from scholar_flux.api.models import SearchAPIConfig
 
 from scholar_flux.api.rate_limiting.rate_limiter import RateLimiter

@@ -1,3 +1,21 @@
+# /api/models/responses.py
+"""
+The scholar_flux.api.models.responses module contains the core response types used to indicate whether the retrieval
+and processing of API responses was successful or unsuccessful. Each class uses pydantic to ensure type validated
+responses while ensuring flexibility in how responses can be used and applied.
+
+Classes:
+    ProcessedResponse:
+        Indicates whether an API was successfully retrieved, parsed, and processed. This model is designed to
+        facilitate the inspection of intermediate results and retrieval of extracted response records.
+    ErrorResponse:
+        Indicates that an error occurred somewhere in the retrieval or processing of an API response. This
+        class is designed to allow inspection of error messages and failure results to aid in debugging in case
+        of unexpected scenarios.
+    NonResponse:
+        Inherits from ErrorResponse and is designed to indicate that an error occurred in the preparation of a
+        request or the sending/retrieval of a response.
+"""
 from typing import Optional, Dict, List, Any, MutableMapping
 from scholar_flux.exceptions import InvalidResponseReconstructionException
 from typing_extensions import Self

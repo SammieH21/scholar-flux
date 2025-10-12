@@ -1,9 +1,17 @@
+# /data/path_data_processor.py
+"""
+The scholar_flux.data.recursive_data_processor implements the PathDataProcessor that uses a custom path processing
+implementation to dynamically flatten and format JSON records to retrieve nested-key value pairs.
+
+Similar to the RecursiveDataProcessor, the PathDataProcessor can be used to dynamically filter, process, and flatten
+nested paths while formatting the output based on its specification.
+"""
+
 from typing import Any, Optional, Union
 from scholar_flux.utils import PathNodeIndex, ProcessingPath, PathDiscoverer, as_list_1d, generate_repr
 from scholar_flux.data.abc_processor import ABCDataProcessor
+from scholar_flux.exceptions import DataProcessingException, DataValidationException
 
-# from scholar_flux.data.recursive_data_processor import RecursiveDataProcessor
-# from scholar_flux.data.dynamic_data_processor import DynamicDataProcessor
 import re
 import logging
 
@@ -13,8 +21,12 @@ logger = logging.getLogger(__name__)
 
 class PathDataProcessor(ABCDataProcessor):
     """
-    Uses a custom implementation of a sparse trie base structure that uses terminal paths and indexed_nodes
-    to processing to process a list of raw page record dict data from the API response based on discovered record keys.
+    The PathDataProcessor uses a custom implementation of Trie-based processing to abstract nested key-value
+    combinations into path-node pairs where the path defines the full range of nested keys that need to be
+    traversed to arrive at each terminal field within each individual record.
+
+    This implementation automatically and dynamically flattens and filters a single page of records (a list
+    of dictionary-based records) extracted from a response at a time to return the processed record data.
 
     Example:
         >>> from scholar_flux.data import PathDataProcessor
@@ -39,6 +51,7 @@ class PathDataProcessor(ABCDataProcessor):
         Initializes the data processor with JSON data and optional parameters for processing.
         """
         super().__init__()
+        self._validate_inputs(ignore_keys, keep_keys, regex, value_delimiter=value_delimiter)
         self.value_delimiter = value_delimiter
         self.regex = regex
         self.ignore_keys = ignore_keys or None
@@ -50,9 +63,9 @@ class PathDataProcessor(ABCDataProcessor):
         self.load_data(json_data)
 
     @property
-    def cache(self) -> bool:
+    def cached(self) -> bool:
         """Property indicating whether the underlying path node index uses a cache of weakreferences to nodes"""
-        return self.path_node_index.index.cache
+        return self.path_node_index.node_map.use_cache
 
     def load_data(self, json_data: Optional[dict | list[dict]] = None) -> bool:
         """
@@ -69,19 +82,25 @@ class PathDataProcessor(ABCDataProcessor):
         if not json_data and not self.json_data:
             return False
 
-        if json_data and json_data != self.json_data:
-            logger.debug("Updating JSON data")
-            self.json_data = json_data
+        try:
+            if json_data and json_data != self.json_data:
+                logger.debug("Updating JSON data")
+                self.json_data = json_data
 
-        logger.debug("Discovering paths")
-        discovered_paths = PathDiscoverer(self.json_data).discover_path_elements(inplace=False)
-        logger.debug("Creating a node index")
+            logger.debug("Discovering paths")
+            discovered_paths = PathDiscoverer(self.json_data).discover_path_elements(inplace=False)
+            logger.debug("Creating a node index")
 
-        self.path_node_index = PathNodeIndex.from_path_mappings(
-            discovered_paths or {}, chain_map=True, use_cache=self.use_cache
-        )
-        logger.debug("JSON data loaded")
-        return True
+            self.path_node_index = PathNodeIndex.from_path_mappings(
+                discovered_paths or {}, chain_map=True, use_cache=self.use_cache
+            )
+            logger.debug("JSON data loaded")
+            return True
+        except DataValidationException as e:
+            raise DataValidationException(
+                f"The JSON data of type {type(self.json_data)} could not be successfully "
+                f"processed and loaded into an index: {e}"
+            )
 
     def process_record(
         self,
@@ -96,8 +115,9 @@ class PathDataProcessor(ABCDataProcessor):
         at the index.
         """
         logger.debug("Processing next record...")
+
         record_idx_prefix = ProcessingPath(str(record_index))
-        indexed_nodes = self.path_node_index.index.filter(record_idx_prefix)
+        indexed_nodes = self.path_node_index.node_map.filter(record_idx_prefix)
 
         if not indexed_nodes:
             logger.warning(f"A record is not associated with the following index: {record_index}")
@@ -110,7 +130,7 @@ class PathDataProcessor(ABCDataProcessor):
             ]
         ):
             for path in indexed_nodes:
-                self.path_node_index.index.remove(path)
+                self.path_node_index.node_map.remove(path)
         return None
 
     def process_page(
@@ -124,35 +144,39 @@ class PathDataProcessor(ABCDataProcessor):
         """
         Processes each individual record dict from the JSON data.
         """
+        self._validate_inputs(ignore_keys, keep_keys, regex, value_delimiter=self.value_delimiter)
 
-        if parsed_records is not None:
-            logger.debug("Processing next page..")
-            self.load_data(parsed_records)
-        elif self.json_data:
-            logger.debug("Processing existing page..")
-        else:
-            raise ValueError("JSON Data has not been loaded successfully")
+        try:
+            if parsed_records is not None:
+                logger.debug("Processing next page..")
+                self.load_data(parsed_records)
+            elif self.json_data:
+                logger.debug("Processing existing page..")
+            else:
+                raise ValueError("JSON Data has not been loaded successfully")
 
-        if self.path_node_index is None:
-            raise ValueError("JSON data could not be loaded into the processing path index successfully")
+            if self.path_node_index is None:
+                raise ValueError("JSON data could not be loaded into the processing path index successfully")
 
-        keep_keys = keep_keys or self.keep_keys
-        ignore_keys = ignore_keys or self.ignore_keys
+            keep_keys = keep_keys or self.keep_keys
+            ignore_keys = ignore_keys or self.ignore_keys
 
-        for record_index in self.path_node_index.record_indices:
-            self.process_record(
-                record_index,
-                keep_keys=keep_keys,
-                ignore_keys=ignore_keys,
-                regex=regex,
-            )
+            for record_index in self.path_node_index.record_indices:
+                self.process_record(
+                    record_index,
+                    keep_keys=keep_keys,
+                    ignore_keys=ignore_keys,
+                    regex=regex,
+                )
 
-        if combine_keys:
-            self.path_node_index.combine_keys()
-        # Process each record in the JSON data
-        processed_data = self.path_node_index.simplify_to_rows(object_delimiter=self.value_delimiter)
+            if combine_keys:
+                self.path_node_index.combine_keys()
+            # Process each record in the JSON data
+            processed_data = self.path_node_index.simplify_to_rows(object_delimiter=self.value_delimiter)
 
-        return processed_data
+            return processed_data
+        except DataProcessingException as e:
+            raise DataProcessingException(f"An error occurred during th data processing: {e}")
 
     def record_filter(
         self,
@@ -161,7 +185,7 @@ class PathDataProcessor(ABCDataProcessor):
         regex: Optional[bool] = None,
     ) -> bool:
         """
-        Indicates whether a record contains a path (key) indicating whether the record as a whole should be retained or droppd.
+        Indicates whether a record contains a path (key) indicating whether the record as a whole should be retained or dropped.
         """
 
         if not record_keys:
@@ -177,11 +201,11 @@ class PathDataProcessor(ABCDataProcessor):
         )
         return bool(contains_record_pattern)
 
-    def discover_keys(self) -> Optional[dict]:
+    def discover_keys(self) -> Optional[dict[str, Any]]:
         """
         Discovers all keys within the JSON data.
         """
-        return self.path_node_index.index.data
+        return {str(node.path): node for node in self.path_node_index.nodes}
 
     def __repr__(self) -> str:
         """

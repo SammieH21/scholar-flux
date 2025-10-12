@@ -1,3 +1,19 @@
+# /data_storage/sql_storage.py
+"""
+The scholar_flux.data_storage.sql_storage module implements the SQLAlchemyStorage class that
+implements the abstract methods required for compatibility with the DataCacheManager in the
+scholar_flux package.
+
+This class implements caching by recording each of the fields of a ProcessedResponse into and parsed fields into a
+recursively encoded and serialized JSON data structure. When retrieving the data, the data is then decoded and
+deserialized to return the original object.
+
+Classes:
+    CacheTable: Defines the internal specification of the SQLAlchemy table that is used under the hood. This class
+                inherits from Base/DeclarativeBase subclass to define its structure and function as a SQLAlchemy table
+    SQLCacheStorage: Inherits from the scholar_flux.data_storage.abc_storage subclass and Defines the mechanisms by
+                     which the storage uses SQLAlchemy to load, retrieve, and update, and delete data.
+"""
 import logging
 from typing import Any, List, Dict, Optional, TYPE_CHECKING
 
@@ -29,7 +45,8 @@ else:
         create_engine = None
 
         def Column(*args, **kwargs):
-            None  # type: ignore
+            """Placeholder function that returned when the sqlalchemy package is not available"""
+            pass
 
         String = Integer = JSON = exc = func = None
         DeclarativeBase = object  # type: ignore

@@ -1,6 +1,14 @@
-# scholar_flux.utils.path_cache
+# /utils/paths/processing_cache
+"""
+The scholar_flux.utils.paths.path_cache class implements the PathProcessingCache to facilitate the faster,
+more efficient processing of nested JSON data structures.
+
+For the duration that a path-node combination is active, the cache uses uses weakly-referenced dictionaries
+and sets to facilitate the efficient retrieval and filtering of path-node combinations.
+
+"""
 from __future__ import annotations
-from typing import Optional, Set
+from typing import Optional, Set, Literal
 from collections import defaultdict
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
@@ -9,7 +17,7 @@ from scholar_flux.exceptions.path_exceptions import (
 
 
 from scholar_flux.utils.paths import ProcessingPath
-from weakref import WeakSet
+from weakref import WeakSet, WeakKeyDictionary
 
 import logging
 
@@ -17,18 +25,53 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 
-class ProcessingCache:
+class PathProcessingCache:
     """
-    A cache for storing Processing paths for faster prefix searches.
+    The PathProcessingCache class implements a method of path caching that enables faster prefix searches. and
+    retrieval of terminal paths associated with a path to node mapping. This class is used within PathNodeMaps
+    and RecordPathNodeMaps to increase the speed and efficiency of path discovery, processing, and filtering
+    path-node mappings.
+
+    Because the primary purpose of the scholar_flux Trie-based path-node-processing implementation is the processing and
+    preparation of highly nested JSON structures from API responses, the PathProcessingCache was created
+    to efficiently keep track of all descendants of a terminal node with weak references and facilitate of filtering
+    and flattening path-node combinations.
+
+    Stale data is automatically removed to reduce the number of comparisons needed to retrieve terminal paths only,
+    and, as a result, later steps can more efficiently filter the complete list of terminal paths with faster path
+    prefix searches to facilitate processing using Path-Node Maps and Indexes when processing JSON data structures.
     """
 
     def __init__(self) -> None:
         """
-        Initializes the ProcessingCache instance
+        Initializes the ProcessingCache instance.
+
+        Attributes:
+            _cache (defaultdict[str, WeakSet[ProcessingPath]]):
+                Underlying cache data structure that keeps track of all descendants that begin with the current prefix
+                by mapping path strings to WeakSets that automatically remove ProcessingPaths when garbage collected
+            _updates (WeakKeyDictionary[ProcessingPath, Literal['add', 'remove']]):
+                Implements a lazy caching system that only adds elements to the `_cache` when filtering and node
+                retrieval is explicitly required. The implementation uses weakly referenced keys to remove cached paths
+                to ensure that references are deleted when a lazy operation is no longer needed.
+
         """
 
         self._cache: defaultdict[str, WeakSet[ProcessingPath]] = defaultdict(WeakSet)  # Initialize the cache
-        self.updates: dict[ProcessingPath, str] = {}
+        self.updates: WeakKeyDictionary[ProcessingPath, Literal["add", "remove"]] = WeakKeyDictionary()
+
+    @property
+    def path_cache(self) -> defaultdict[str, WeakSet[ProcessingPath]]:
+        """
+        Helper method that allows for inspection of the ProcessingCache and automatically updates the node cache
+        prior to retrieval.
+
+        Returns:
+            defaultdict[str, WeakSet[ProcessingPath]]: The underlying cache used within the ProcessingCache to
+                retrieve a list all currently active terminal nodes.
+        """
+        self.cache_update()
+        return self._cache
 
     def lazy_add(self, path: ProcessingPath) -> None:
         """
@@ -71,7 +114,10 @@ class ProcessingCache:
 
     def _remove_from_cache(self, path: ProcessingPath) -> None:
         """
-        Remove a path from the cache.
+        Removes paths from the cache explicitly. Note that the weak-reference
+        automatically removes no-longer-referenced paths. As a result, this
+        method is provided when elsewhere, keys are still referenced.
+
         Args:
             path (ProcessingPath): The path to remove from the cache.
         """
@@ -83,11 +129,27 @@ class ProcessingCache:
             if path_prefix is None:
                 raise ValueError(f"Invalid path prefix of type {type(path_prefix)}")
             try:
-                self._cache[str(path_prefix)].remove(path)
+                path_string = str(path_prefix)
+                self._cache[path_string].remove(path)
+
             except KeyError:
                 logger.debug(f"Path not found in cache: {path}")
+                break
             else:
                 logger.debug(f"Removed path from cache: {path}")
+
+    def _prune_cache(self) -> None:
+        """
+        Prunes empty weak-key referenced dictionary key entries from the cache. As the set
+        is cleared.
+
+        Args:
+            path (ProcessingPath): The path to remove from the cache.
+        """
+        for path in list(self._cache.keys()):
+            descendants = self._cache.get(path)
+            if not descendants:
+                self._cache.pop(path, None)
 
     def cache_update(self) -> None:
         """
@@ -98,6 +160,7 @@ class ProcessingCache:
                 self._add_to_cache(path)
             elif operation == "remove":
                 self._remove_from_cache(path)
+        self._prune_cache()
         self.updates.clear()
 
     def filter(
@@ -113,7 +176,7 @@ class ProcessingCache:
             min_depth (Optional[int]): The minimum depth to search for. Default is None.
             max_depth (Optional[int]): The maximum depth to search for. Default is None.
         Returns:
-            list[Optional[ProcessingPath]]: A list of paths with the given prefix.
+            Set[ProcessingPath]: A list of paths with the given prefix.
         """
         self.cache_update()
 

@@ -1,3 +1,12 @@
+# /data/data_parser.py
+"""
+The scholar_flux.data.data_parser module defines the DataParser used within the scholar_flux API
+to parse JSON as well as uncommon response formats.
+
+This module implements the DataParser which allows for custom overrides to JSON, XML, and YAML files to prepare and
+parse dictionary-based nested structures prior to record extraction and processing.
+"""
+
 from typing import Optional, Callable
 from scholar_flux.data.base_parser import BaseDataParser
 from scholar_flux.exceptions import DataParsingException

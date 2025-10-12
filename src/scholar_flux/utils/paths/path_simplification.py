@@ -1,4 +1,12 @@
-# import dependencies)
+# /utils/paths/path_simplification.py
+"""
+The scholar_flux.utils.paths.path_simplification module implements the PathSimplifier that is used in the latter path
+processing steps to coerce a nested JSON structure into a singular list of dictionaries.
+
+The PathSimplifier will return the full paths to arrive at each path if allowed. Otherwise, the PathSimplifier will
+attempt to shorten the names in the final dictionary of paths up to the user-specified nested key (component) length
+while preventing name collisions from occurring.
+"""
 from __future__ import annotations
 import logging
 from typing import Optional, List, Dict, Union, Any, Set
@@ -7,14 +15,16 @@ from collections import defaultdict
 from scholar_flux.exceptions.path_exceptions import PathSimplificationError
 from scholar_flux.utils import unlist_1d
 from scholar_flux.utils.paths import ProcessingPath, PathNode
+from dataclasses import dataclass, field
 
 # configure logging
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class PathSimplifier:
     """
-    A utility class for simplifying and managing  Processing Paths.
+    A utility class for simplifying and managing Processing Paths.
 
     Args:
         delimiter (str): The delimiter to use when splitting paths.
@@ -26,12 +36,9 @@ class PathSimplifier:
         name_mappings (Dict[ProcessingPath, str]): A dictionary for tracking unique names to avoid collisions.
     """
 
-    def __init__(self, delimiter: str = ".", non_informative: Optional[List[str]] = None):
-        self.delimiter = delimiter
-        self.non_informative = non_informative or []
-        self.name_mappings: Dict[ProcessingPath, str] = (
-            {}
-        )  # To track used names and avoid collisions  # To track used names and avoid collisions
+    delimiter: str = ProcessingPath.DEFAULT_DELIMITER
+    non_informative: list[str] = field(default_factory=list)
+    name_mappings: Dict[ProcessingPath, str] = field(default_factory=dict)
 
     def _generate_base_name(self, path: ProcessingPath, max_components: int) -> ProcessingPath:
         """
@@ -185,7 +192,7 @@ class PathSimplifier:
 
         Args:
             terminal_nodes (List[PathNode]): A list of PathNode objects representing the terminal nodes.
-            collapse (str): The separator to use when collapsing multiple values into a single string.
+            collapse (Optional[str]): The separator to use when collapsing multiple values into a single string.
 
         Returns:
             Dict[str, Union[List[str], str]]: A dictionary mapping unique names to their corresponding values or collapsed strings.
@@ -213,9 +220,25 @@ class PathSimplifier:
 
                 row_dict[unique_name].append(node.value)
 
-            return {k: (collapse.join(map(str, v)) if collapse else unlist_1d(v)) for k, v in row_dict.items()}
+            return {k: (self._collapse(v, collapse) if collapse else unlist_1d(v)) for k, v in row_dict.items()}
         except Exception as e:
             raise PathSimplificationError(f"Error simplifying terminal nodes {terminal_nodes}: {e}")
+
+    @classmethod
+    def _collapse(cls, obj: Any, delimiter: str) -> Any:
+        """
+        Helper method for collapsing an item or list of items into a joined string if possible.
+        If an object that is an empty string or list is received, this function will return None instead.
+
+        Args:
+            obj (Any): The object to flatten and collapse into a string
+        Returns:
+            Any: A flattened representation if possible, otherwise a joined string representation of the object
+        """
+        unnested_obj = unlist_1d(obj)
+        if unnested_obj in ([], "") or unnested_obj is None:
+            return None
+        return delimiter.join(map(str, obj))
 
     def get_mapped_paths(self) -> Dict[ProcessingPath, str]:
         """
