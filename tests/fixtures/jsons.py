@@ -7,13 +7,14 @@ def sample_json():
     A JSON fixture used to mock a simple json data set to validate the JSON processing utilities that filter, process,
     and flatten JSON files.
     """
-    return [
+    sample_json = [
         {
             "name": "John",
             "address": {"street": "123 Maple Street", "city": "Springfield", "state": "IL"},
             "phones": [{"type": "home", "number": "123-456-7890"}, {"type": "work", "number": "098-765-4321"}],
         }
     ]
+    return sample_json
 
 
 @pytest.fixture

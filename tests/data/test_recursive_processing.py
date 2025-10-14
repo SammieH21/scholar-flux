@@ -1,7 +1,7 @@
 from scholar_flux.data import RecursiveDataProcessor
 
 
-def test_recursive_processor(sample_json):
+def test_recursive_processor(sample_json, mock_api_parsed_json_records):
     """
     Verifies that the recursive data processor correctly filters keys as needed a custom KeyFilter
     and ensures that the processed data, when flattened, returns the expected, flattened records.
@@ -29,3 +29,8 @@ def test_recursive_processor(sample_json):
     assert filtered_keys_by_length
     assert filtered_keys_by_substring
     assert len(processed_records) == 1
+
+    processed_records2 = processor.process_page(mock_api_parsed_json_records)
+    assert processed_records2
+    discovered_keys2 = processor.discover_keys()
+    assert discovered_keys2 and discovered_keys != discovered_keys2

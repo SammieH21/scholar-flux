@@ -11,6 +11,7 @@ from typing import Any, Optional, Union
 from scholar_flux.utils import PathNodeIndex, ProcessingPath, PathDiscoverer, as_list_1d, generate_repr
 from scholar_flux.data.abc_processor import ABCDataProcessor
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
+import threading
 
 import re
 import logging
@@ -60,6 +61,7 @@ class PathDataProcessor(ABCDataProcessor):
         self.path_node_index = PathNodeIndex(use_cache=self.use_cache)
 
         self.json_data = json_data
+        self.lock = threading.Lock()
         self.load_data(json_data)
 
     @property
@@ -207,12 +209,24 @@ class PathDataProcessor(ABCDataProcessor):
         """
         return {str(node.path): node for node in self.path_node_index.nodes}
 
-    def __repr__(self) -> str:
+    def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
         """
-        Method for identifying the current implementation of the PathDataProcessor
-        Useful for showing the options being used to process the api response records
+        Method for showing the structure of the current PathDataProcessor and identifying the current
+        configuration. Useful for showing the options being used to process the api response records
         """
-        return generate_repr(self, show_value_attributes=False, exclude=["json_data", "use_cache"])
+        return generate_repr(self,
+                             flatten = flatten,
+                             show_value_attributes=show_value_attributes,
+                             exclude={"json_data", "use_cache"})
+
+    def __call__(self, *args, **kwargs) -> list[dict]:
+        """
+        Convenience method that calls process_page while also locking the class for
+        processing while a single page is processed. Useful in a threading context
+        where multiple SearchCoordinators may be using the same PathDataProcessor.
+        """
+        with self.lock:
+            return self.process_page(*args, **kwargs)
 
 
 # if __name__ == "__main__":

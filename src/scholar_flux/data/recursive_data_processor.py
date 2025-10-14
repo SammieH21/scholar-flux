@@ -13,6 +13,7 @@ from scholar_flux.data.abc_processor import ABCDataProcessor
 
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
 
+import threading
 import logging
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
 
         self.json_data: Optional[list[dict]] = json_data
         self.load_data(json_data)
+        self.lock = threading.Lock()
 
     def load_data(self, json_data: Optional[list[dict]] = None):
         """
@@ -207,6 +209,16 @@ class RecursiveDataProcessor(ABCDataProcessor):
             include_matches=include,
             **kwargs,
         )
+
+    def __call__(self, *args, **kwargs) -> list[dict]:
+        """
+        Convenience method that calls process_page while also locking the class for
+        processing while a single page is processed. Useful in a threading context
+        where multiple SearchCoordinators may be using the same RecursiveDataProcessor.
+        """
+        with self.lock:
+            return self.process_page(*args, **kwargs)
+
 
 
 # if __name__ == "__main__":

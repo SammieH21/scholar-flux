@@ -192,15 +192,6 @@ class BaseCoordinator:
             logger.error(f"Failed to get a valid response from the {self.search_api.provider_name} API: {e}")
         return None
 
-    def __repr__(self) -> str:
-        """
-        Method for identifying the current implementation and subclasses of the BaseCoordinator.
-        Useful for showing the options being used to coordinate requests.
-        """
-        class_name = self.__class__.__name__
-        attribute_dict = dict(api=repr(self.search_api), response_coordinator=self.response_coordinator)
-        return generate_repr_from_string(class_name, attribute_dict)
-
     @classmethod
     def as_coordinator(cls, search_api: SearchAPI, response_coordinator: ResponseCoordinator, *args, **kwargs) -> Self:
         """
@@ -227,3 +218,30 @@ class BaseCoordinator:
         attributes = {"search_api": self.api.summary(), "response_coordinator": self.response_coordinator.summary()}
 
         return generate_repr_from_string(class_name, attributes)
+
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """
+        Helper method for quickly showing a representation of the overall structure of the SearchCoordinator.
+        The helper function, generate_repr_from_string helps produce human-readable representations
+        of the core structure of the Coordinator.
+
+        flatten (bool): Whether to flatten the coordinator's structural representation into a single line. Default=False
+        show_value_attributes (bool): Whether to show nested attributes of the components of the BaseCoordinatoror its
+                                      subclass.
+
+        Returns:
+            str: The structure of the current SearchCoordinator as a string.
+        """
+        class_name = self.__class__.__name__
+        attribute_dict = dict(api=repr(self.search_api), response_coordinator=self.response_coordinator)
+        return generate_repr_from_string(class_name, attribute_dict,
+                                         flatten=flatten,
+                                         show_value_attributes=show_value_attributes)
+
+
+    def __repr__(self) -> str:
+        """
+        Method for identifying the current implementation and subclasses of the BaseCoordinator.
+        Useful for showing the options being used to coordinate requests.
+        """
+        return self.structure()

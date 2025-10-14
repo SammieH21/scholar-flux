@@ -6,7 +6,7 @@ when the structure and the locations of records and metadata are already known.
 from typing import Any, Optional, Union
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import get_nested_data, try_int, try_dict, as_list_1d, unlist_1d
-from scholar_flux.utils.repr_utils import generate_repr_from_string
+from scholar_flux.utils.repr_utils import generate_repr
 
 import logging
 
@@ -232,16 +232,25 @@ class BaseDataExtractor:
         """
         return self.extract(parsed_page)
 
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """
+        Base method for showing the structure of the current Data Extractor. This  method reveals the configuration
+        settings of the extractor config that will be used to extract records and metadata.
+
+        Returns:
+            str: The current structure of the BaseDataExtractor or its subclass.
+        """
+
+        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+
     def __repr__(self) -> str:
         """
         Base method for identifying the current implementation of the BaseDataExtractor. Subclasses can
         override this for more specific descriptions of attributes and defaults.
         Useful for showing the options being used for extracting metadata and records from the parsed
         json/data dictionaries from the api response.
+
+        Returns:
+            str: The representation of the current object
         """
-        class_name = self.__class__.__name__
-        attribute_dict = {
-            "record_path": self.record_path,
-            "metadata_path": self.metadata_path,
-        }
-        return generate_repr_from_string(class_name, attribute_dict)
+        return self.structure()

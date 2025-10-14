@@ -30,6 +30,7 @@ parsing = ["xmltodict", "pyyaml"]
 pytest = "^8.4.1"
 pytest-cov = "*"
 requests-mock = "*"
+interrogate = "*"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.3.0"

@@ -484,78 +484,13 @@ class MultiSearchCoordinator(UserDict):
         key = f"{provider_name}_{query}:{hash_value}"
         return key
 
-    def __repr__(self) -> str:
-        """Helper method for generating a string representation of the current list of coordinators"""
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """Helper method that shows the current structure of the MultiSearchCoordinator"""
         class_name = self.__class__.__name__
         attributes = {key: coordinator.summary() for key, coordinator in self.data.items()}
         return generate_repr_from_string(class_name, attributes)
 
 
-# if __name__ == "__main__":
-#     """
-#     Testing and debugging the functionality of the multisearch_coordinator: Determine first whether rate limiters
-#     were normalized as intended (Yes), and whether a single generator could be produced successfully (yes).
-#     The SearchResultList consumes the generator directly although iteration for each result may be more preferable
-#     in case of run-time errors.
-#     """
-#     from scholar_flux.api import MultiSearchCoordinator, SearchCoordinator
-#     from scholar_flux.api.models import SearchResultList, SearchResult, APIResponse
-#     from scholar_flux.data_storage import DataCacheManager
-#     from scholar_flux.utils import JsonFileUtils
-#
-#     multisearch_coordinator = MultiSearchCoordinator()
-#
-#     coordinators: list[SearchCoordinator] = [
-#         SearchCoordinator(
-#             query=query,
-#             user_agent="scholar_flux",
-#             provider_name=provider,
-#             cache_requests=True,
-#             cache_manager=DataCacheManager.with_storage("redis"),
-#         )
-#         for query in [
-#             "depth psychology",
-#             "occupational psychology",
-#         ]  # ['AI ML', 'data engineering innovation', 'distributed databases']
-#         for provider in ["plos", "springernature", "core"]
-#     ]
-#
-#     multisearch_coordinator.add_coordinators(coordinators)
-#
-#     # all coordinators should be added at this point
-#     assert len(multisearch_coordinator) == len(coordinators)
-#     print(repr(multisearch_coordinator))
-#
-#     grouped_provider_dict = multisearch_coordinator.group_by_provider()
-#
-#     # test to ensure all providers use one rate limiter each
-#     for provider in grouped_provider_dict:
-#         rate_limiters = [
-#             coordinator.api._rate_limiter  # type: ignore
-#             for current_provider_group, provider_coordinators in grouped_provider_dict.items()
-#             for coordinator in provider_coordinators.values()
-#             if current_provider_group == provider
-#         ]
-#         assert len(set(map(id, rate_limiters))) == 1
-#
-#     # ensures there are 3 distinct rate limiters (by provider)
-#     all_rate_limiters = [
-#         coordinator.api._rate_limiter  # type: ignore
-#         for current_provider_group, provider_coordinators in grouped_provider_dict.items()
-#         for coordinator in provider_coordinators.values()
-#     ]
-#     assert len(set(map(id, all_rate_limiters))) == len(multisearch_coordinator.current_providers())
-#
-#     # caches on the second run with requests-cache on the backend
-#     page_search_generator = multisearch_coordinator.iter_pages(pages=range(1, 3), iterate_by_group=True)
-#     search_results = SearchResultList()
-#     for page in page_search_generator:
-#         search_results.append(page)
-#     assert len(search_results) >= 3  # at the very least, assuming worst case an error stops processing
-#     results_dict = search_results.filter().join()
-#
-#     # list of dictionaries
-#     assert isinstance(results_dict, list) and all(isinstance(result, dict) for result in results_dict)
-#
-#     # saving for later browsing
-#     JsonFileUtils.save_as(results_dict, "~/Downloads/ai-data-engineering-search-9-25-2025")
+    def __repr__(self) -> str:
+        """Helper method for generating a string representation of the current list of coordinators"""
+        return self.structure()

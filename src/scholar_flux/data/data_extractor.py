@@ -255,21 +255,6 @@ class DataExtractor(BaseDataExtractor):
 
         return records, metadata
 
-    def __repr__(self):
-        """
-        Method for identifying the current implementation of the DataExtractor.
-        Useful for showing the options being used for extracting metadata and records from the parsed
-        json/data dictionaries from the api response.
-        """
-        class_name = self.__class__.__name__
-        pad = "\n" + " " * (len(class_name) + 1)
-        return (
-            f"{class_name}(record_path={self.record_path},"
-            f"{pad}metadata_path={self.metadata_path},"
-            f"{pad}dynamic_record_identifiers={self.dynamic_record_identifiers}),"
-            f"{pad}dynamic_metadata_identifiers={self.dynamic_metadata_identifiers})"
-        )
-
 
 # # Example of using DataExtractor with default paths
 # if __name__ == "__main__":

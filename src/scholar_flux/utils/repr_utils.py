@@ -18,9 +18,12 @@ Functions:
 """
 from typing import Any, Optional
 from pydantic import BaseModel
+import threading
 import re
 from scholar_flux.utils.helpers import as_tuple
 
+
+_LOCK_TYPE = type(threading.Lock())
 
 def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Optional[bool] = None) -> str:
     """
@@ -85,7 +88,7 @@ def format_repr_value(
 
     Args:
         value (Any): The value containing the repr to format
-        pad_length (Optional[int]): Indicates the total additional padding to add for each indiviual line
+        pad_length (Optional[int]): Indicates the total additional padding to add for each individual line
         show_value_attributes (Optional[bool]): If False, all attributes within the current object
                                                  will be replaced with '...'. As an example: e.g. StorageDevice(...)
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
@@ -124,7 +127,7 @@ def generate_repr_from_string(
     the attributes of the object
 
     Args:
-        class_name: The class name of theobject whose attributes are to be represented.
+        class_name: The class name of the object whose attributes are to be represented.
         attribute_dict (dict): The dictionary containing the full list of attributes to
                                format into the components of a repr
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
@@ -161,6 +164,8 @@ def generate_repr(
     the code will raise an AttributeError and fall back to
     using the basic string representation of the object.
 
+    Note that `threading.Lock` objects are excluded from the final representation. 
+
     Args:
         obj: The object whose attributes are to be represented.
         exclude: Attributes to exclude from the representation (default is None).
@@ -179,7 +184,9 @@ def generate_repr(
         attribute_dict = {
             attribute: value
             for attribute, value in obj.__dict__.items()
-            if attribute in attribute_keys and not callable(value) and attribute not in exclude
+            if attribute in attribute_keys and not callable(value)
+            and attribute not in exclude
+            and not isinstance(value, _LOCK_TYPE)
         }
 
         return generate_repr_from_string(

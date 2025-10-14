@@ -598,6 +598,12 @@ class SearchAPIConfig(BaseModel):
 
         return cls.model_validate(config_dict)
 
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """
+        Helper method for retrieving a string representation of the overall structure of the current SearchAPIConfig.
+        """
+        return generate_repr(self, flatten = flatten, show_value_attributes=show_value_attributes)
+
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner"""
-        return generate_repr(self)
+        return self.structure()

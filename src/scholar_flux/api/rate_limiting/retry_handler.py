@@ -205,6 +205,8 @@ class RetryHandler:
         """Log a warning when retries are exhausted or an error occurs."""
         logger.warning(message)
 
+
+
     def __repr__(self) -> str:
         """
         Helper method to generate a summary of the RetryHandler instance. This method

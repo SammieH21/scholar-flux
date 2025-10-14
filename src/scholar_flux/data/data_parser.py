@@ -74,11 +74,3 @@ class DataParser(BaseDataParser):
                 return None
         except Exception as e:
             raise DataParsingException(f"An error occurred during response content parsing: {e}")
-
-    def __repr__(self):
-        """
-        Helper method for identifying the current implementation of the DataParser.
-        Useful for showing the options being used for parsing response content into dictionary objects
-        """
-        class_name = self.__class__.__name__
-        return f"{class_name}(format_parsers={self.format_parsers.keys()})"

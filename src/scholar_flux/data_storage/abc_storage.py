@@ -9,6 +9,7 @@ scholar_flux implements the ABCStorage with subclasses for SQLite (through SQLAl
 cache and can be further extended to duckdb and other abstractions supported by SQLAlchemy.
 """
 from typing import Any, List, Dict, Optional
+from typing_extensions import Self
 from abc import ABC, abstractmethod
 from scholar_flux.utils.repr_utils import generate_repr
 
@@ -33,6 +34,17 @@ class ABCStorage(ABC):
     def _initialize(self, *args, **kwargs) -> None:
         """Optional base method to implement for initializing/reinitializing connections"""
         pass
+
+    def __deepcopy__(self, memo) -> Self:
+        """
+        Future implementations of ABCStorage devices are unlikely to be deep-copied. This method
+        defines the error message that will be used by default upon failures.
+        """
+        class_name = self.__class__.__name__
+        raise NotImplementedError(
+            f"{class_name} cannot be deep-copied. Use the .clone() method to create a new instance with "
+            "the same configuration."
+        )
 
     @abstractmethod
     def retrieve(self, *args, **kwargs) -> Optional[Any]:
@@ -75,6 +87,11 @@ class ABCStorage(ABC):
         """Core method for verifying whether a storage/service is available"""
         raise NotImplementedError
 
+    @abstractmethod
+    def clone(self) -> Self:
+        """Helper method for cloning the structure and configuration of future implementations"""
+        raise NotImplementedError
+
     def _prefix(self, key: str) -> str:
         """
         prefixes a namespace to the given `key`:
@@ -91,9 +108,37 @@ class ABCStorage(ABC):
             return key
         return f"{self.namespace}:{key}" if not key.startswith(f"{self.namespace}:") else key
 
+    @classmethod
+    def _validate_prefix(cls, key: Optional[str], required: bool = False) -> bool:
+        """Helper method for validating the current namespace key. Raises a KeyError if the key is not a string"""
+        if (key is None or key == '') and not required:
+            return  True
+
+        if key and isinstance(key, str):
+            return True
+
+        msg = (f"A non-empty namespace string must be provided for the {cls.__name__}. "
+               f"Received {type(key)}")
+        logger.error(msg)
+
+        raise KeyError(msg)
+
+
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """
+        Helper method for quickly showing a representation of the overall structure of the current storage
+        subclass. The instance uses the generate_repr helper function to produce human-readable
+        representations of the core structure of the storage subclass with its defaults.
+
+        Returns:
+            str: The structure of the current storage subclass as a string.
+        """
+
+        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+
     def __repr__(self) -> str:
         """
         Method for identifying the current implementation and subclasses of the BaseStorage.
         Useful for showing the options being used to store and retrieve data stored as cache.
         """
-        return generate_repr(self)
+        return self.structure()

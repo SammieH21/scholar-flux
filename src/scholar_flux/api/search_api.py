@@ -144,6 +144,54 @@ class SearchAPI(BaseAPI):
             masker=masker,
         )
 
+    def _initialize(
+        self,
+        query: str,
+        config: SearchAPIConfig,
+        parameter_config: Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig] = None,
+        masker: Optional[SensitiveDataMasker] = None,
+        rate_limiter: Optional[RateLimiter] = None,
+    ):
+        """
+        Initializes the API session with the provided base URL and API key.
+        This method is called during the initialization of the class.
+
+        Args:
+            query (str): The query to send to the current API provider. Note, this must be non-missing
+            search_api_config (SearchAPIConfig): Configuration settings to used when sending requests to APIs.
+            parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
+                Maps global scholar_flux parameters to those that are specific to the provider's API.
+            masker: (Optional[SensitiveDataMasker]): A masker used to filter logs of API keys and other sensitive data
+                                                     that may flow through the SearchAPI during parameter building and
+                                                     response retrieval.
+           rate_limiter (Optional[RateLimiter]): An optional rate limiter to control the number of requests sent. When
+                                                 the request_delay and min_interval do not agree, `min_interval` is
+                                                 preferred
+
+
+        """
+        self.config = config
+        self.query = query
+        self.last_request: Optional[float] = None
+        self._rate_limiter: RateLimiter = rate_limiter or RateLimiter(min_interval=self.config.request_delay)
+        self.masker: SensitiveDataMasker = masker or default_masker
+
+        # prefer the rate limit derived from the RateLimiter if provided explicitly when neither matches
+        if rate_limiter and self.config.request_delay != rate_limiter.min_interval:
+            self.config.request_delay = config.default_request_delay(
+                config.validate_request_delay(rate_limiter.min_interval), provider_name=self.config.provider_name
+            )
+
+        # first attempt to retrieve a non-empty parameter_config. If unsuccessful,
+        # then whether the provided namespace or url matches a default provider
+
+        parameter_config = APIParameterConfig.as_config(parameter_config) if parameter_config else None
+        self.parameter_config = parameter_config or APIParameterConfig.from_defaults(self.provider_name)
+
+        if self.parameter_config.map.api_key_required and not self.config.api_key:
+            logger.warning("An API key is required but was not provided")
+        logger.debug("Initialized a new SearchAPI Session Successfully.")
+
     @classmethod
     def update(
         cls,
@@ -216,54 +264,6 @@ class SearchAPI(BaseAPI):
             rate_limiter=update_rate_limiter,
             user_agent=user_agent,  # is pulled from the original API if not provided
         )
-
-    def _initialize(
-        self,
-        query: str,
-        config: SearchAPIConfig,
-        parameter_config: Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig] = None,
-        masker: Optional[SensitiveDataMasker] = None,
-        rate_limiter: Optional[RateLimiter] = None,
-    ):
-        """
-        Initializes the API session with the provided base URL and API key.
-        This method is called during the initialization of the class.
-
-        Args:
-            query (str): The query to send to the current API provider. Note, this must be non-missing
-            search_api_config (SearchAPIConfig): Configuration settings to used when sending requests to APIs.
-            parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
-                Maps global scholar_flux parameters to those that are specific to the provider's API.
-            masker: (Optional[SensitiveDataMasker]): A masker used to filter logs of API keys and other sensitive data
-                                                     that may flow through the SearchAPI during parameter building and
-                                                     response retrieval.
-           rate_limiter (Optional[RateLimiter]): An optional rate limiter to control the number of requests sent. When
-                                                 the request_delay and min_interval do not agree, `min_interval` is
-                                                 preferred
-
-
-        """
-        self.config = config
-        self.query = query
-        self.last_request: Optional[float] = None
-        self._rate_limiter: RateLimiter = rate_limiter or RateLimiter(min_interval=self.config.request_delay)
-        self.masker: SensitiveDataMasker = masker or default_masker
-
-        # prefer the rate limit derived from the RateLimiter if provided explicitly when neither matches
-        if rate_limiter and self.config.request_delay != rate_limiter.min_interval:
-            self.config.request_delay = config.default_request_delay(
-                config.validate_request_delay(rate_limiter.min_interval), provider_name=self.config.provider_name
-            )
-
-        # first attempt to retrieve a non-empty parameter_config. If unsuccessful,
-        # then whether the provided namespace or url matches a default provider
-
-        parameter_config = APIParameterConfig.as_config(parameter_config) if parameter_config else None
-        self.parameter_config = parameter_config or APIParameterConfig.from_defaults(self.provider_name)
-
-        if self.parameter_config.map.api_key_required and not self.config.api_key:
-            logger.warning("An API key is required but was not provided")
-        logger.debug("Initialized a new SearchAPI Session Successfully.")
 
     @property
     def config(self) -> SearchAPIConfig:
@@ -961,11 +961,18 @@ class SearchAPI(BaseAPI):
 
         return generate_repr_from_string(class_name, attribute_dict, flatten=True)
 
-    def __repr__(self) -> str:
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """
         Helper method for quickly showing a representation of the overall structure of the SearchAPI.
         The helper function, generate_repr_from_string helps produce human-readable representations
         of the core structure of the SearchAPI.
+
+        Args:
+            flatten (bool): Whether to flatten the SearchAPI's structural representation into a single line.
+            show_value_attributes (bool): Whether to show nested attributes of the components of the SearchAPI.
+
+        Returns:
+            str: The structure of the current SearchAPI as a string.
         """
 
         class_name = self.__class__.__name__
@@ -977,14 +984,6 @@ class SearchAPI(BaseAPI):
             "timeout": self.timeout,
         }
 
-        return generate_repr_from_string(class_name, attribute_dict)
-
-
-# if __name__ == '__main__':
-#     import os
-#     core_search_config=SearchAPIConfig.from_defaults('core')
-#     core_search_config=SearchAPIConfig(base_url='https://api.core.ac.uk/v3/search/works',
-#                                        records_per_page = 2,
-#                                        request_delay=6)
-#     api=SearchAPI.from_defaults(query='covariate shift',provider_name='core')
-#     api.api_key
+        return generate_repr_from_string(class_name, attribute_dict,
+                                         flatten=flatten,
+                                         show_value_attributes=show_value_attributes)

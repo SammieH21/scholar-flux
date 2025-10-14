@@ -480,7 +480,7 @@ class APIResponse(BaseModel):
 
     def __repr__(self) -> str:
         """Helper method for generating a simple representation of the current API Response"""
-        return generate_repr(self, exclude=("created_at",))
+        return generate_repr(self, exclude={"created_at",})
 
 
 class ErrorResponse(APIResponse):
@@ -548,7 +548,7 @@ class ErrorResponse(APIResponse):
 
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the underlying ErrorResponse"""
-        return f"<ErrorResponse(status_code={self.status_code}, error={self.error}, " f"message={self.message!r})>"
+        return f"ErrorResponse(status_code={self.status_code}, error={self.error}, " f"message={self.message!r})"
 
     def __len__(self) -> int:
         """
@@ -573,7 +573,7 @@ class NonResponse(ErrorResponse):
 
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the underlying ErrorResponse"""
-        return f"<NonResponse(error={self.error}, " f"message={self.message!r})>"
+        return f"NonResponse(error={self.error}, " f"message={self.message!r})"
 
 
 class ProcessedResponse(APIResponse):
@@ -608,9 +608,9 @@ class ProcessedResponse(APIResponse):
     def __repr__(self) -> str:
         """Helper method for creating a simple representation of the ProcessedResponse"""
         return (
-            f"<ProcessedResponse(len={len(self.processed_records or [])}, "
+            f"ProcessedResponse(len={len(self.processed_records or [])}, "
             f"cache_key={self.cache_key!r}, "
-            f"metadata={'{'+str(self.metadata)[1:40]+'...'+'}' if isinstance(self.metadata, (dict, list, str)) and self.metadata else self.metadata!r})>"
+            f"metadata={'{'+str(self.metadata)[1:40]+'...'+'}' if isinstance(self.metadata, (dict, list, str)) and self.metadata else self.metadata!r})"
         )
 
     def __len__(self) -> int:

@@ -5,8 +5,10 @@ cache storage with an in-memory dictionary. The InMemoryStorage class implements
 convenience methods used to perform operations.
 """
 
+from __future__ import annotations
 from typing import Any, List, Dict, Optional
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 from scholar_flux.data_storage.abc_storage import ABCStorage
@@ -65,8 +67,21 @@ class InMemoryStorage(ABCStorage):
         if ttl is not None:
             logger.warning("TTL is not enforced in InMemoryStorage. Skipping.")
         self.ttl = None
+        self.lock = threading.Lock()
 
+        self._validate_prefix(namespace, required=False)
         self._initialize()
+
+    def clone(self) -> InMemoryStorage:
+        """
+        Helper method for creating a new InMemoryStorage with the same configuration.
+        """
+        cls = self.__class__
+        storage = cls(namespace = self.namespace)
+        with self.lock:
+            storage.memory_cache = self.memory_cache.copy()
+        return storage
+        
 
     def _initialize(self, **kwargs) -> None:
         """
@@ -74,7 +89,8 @@ class InMemoryStorage(ABCStorage):
         Starting from the key-value mappings specified as key-value pairs
         """
         logger.debug("Initializing in-memory cache...")
-        self.memory_cache: dict = {} | kwargs
+        with self.lock:
+            self.memory_cache: dict = {} | kwargs
 
     def retrieve(self, key: str) -> Optional[Any]:
         """
@@ -87,7 +103,8 @@ class InMemoryStorage(ABCStorage):
             Any: The value returned is deserialized JSON object if successful. Returns None if the key does not exist.
         """
         namespace_key = self._prefix(key)
-        return self.memory_cache.get(namespace_key)
+        with self.lock:
+            return self.memory_cache.get(namespace_key)
 
     def retrieve_all(self) -> Optional[Dict[str, Any]]:
         """
@@ -96,7 +113,8 @@ class InMemoryStorage(ABCStorage):
         Returns:
             A dictionary containing each key-value mapping for all cached data within the same namespace
         """
-        return {k: v for k, v in self.memory_cache.items() if not self.namespace or k.startswith(self.namespace)}
+        with self.lock:
+            return {k: v for k, v in self.memory_cache.items() if not self.namespace or k.startswith(self.namespace)}
 
     def retrieve_keys(self) -> Optional[List[str]]:
         """
@@ -105,7 +123,8 @@ class InMemoryStorage(ABCStorage):
         Returns:
             List[str]: The full list of all keys that are currently mapped within the storage
         """
-        return [key for key in self.memory_cache if not self.namespace or key.startswith(self.namespace)] or []
+        with self.lock:
+            return [key for key in self.memory_cache if not self.namespace or key.startswith(self.namespace)] or []
 
     def update(self, key: str, data: Any) -> None:
         """
@@ -116,7 +135,8 @@ class InMemoryStorage(ABCStorage):
             data (Any): The data to be associated with the key
         """
         namespace_key = self._prefix(key)
-        self.memory_cache[namespace_key] = data
+        with self.lock:
+            self.memory_cache[namespace_key] = data
 
     def delete(self, key: str) -> None:
         """
@@ -126,7 +146,11 @@ class InMemoryStorage(ABCStorage):
             key (str): The key used associated with the stored data from the dictionary cache.
         """
         namespace_key = self._prefix(key)
-        if self.memory_cache.pop(namespace_key, None) is not None:
+
+        with self.lock:
+            key = self.memory_cache.pop(namespace_key, None)
+
+        if key is not None:
             logger.debug(f"Key: {key} deleted successfully")
         else:
             logger.info(f"Key: {key}  (namespace = '{self.namespace}') does not exist in cache.")
@@ -135,15 +159,16 @@ class InMemoryStorage(ABCStorage):
         """Attempts to delete all cache keys found within the current namespace"""
         logger.debug("deleting all record within cache...")
         try:
-            n = len(self.memory_cache)
-            if not self.namespace:
-                self.memory_cache.clear()
-            else:
-                filtered_cache = {k: v for k, v in self.memory_cache.items() if not k.startswith(self.namespace)}
-                self.memory_cache.clear()
-                self.memory_cache.update(filtered_cache)
+            with self.lock:
+                n = len(self.memory_cache)
+                if not self.namespace:
+                    self.memory_cache.clear()
+                else:
+                    filtered_cache = {k: v for k, v in self.memory_cache.items() if not k.startswith(self.namespace)}
+                    self.memory_cache.clear()
+                    self.memory_cache.update(filtered_cache)
 
-                n -= len(filtered_cache)
+                    n -= len(filtered_cache)
 
             logger.debug(f"Deleted {n} records.")
 
@@ -163,7 +188,8 @@ class InMemoryStorage(ABCStorage):
         namespace_key = self._prefix(key)
         if not namespace_key:
             raise ValueError(f"Key invalid. Received {key}")
-        return namespace_key in self.memory_cache
+        with self.lock:
+            return namespace_key in self.memory_cache
 
     @classmethod
     def is_available(cls, *args, **kwargs) -> bool:
@@ -175,12 +201,14 @@ class InMemoryStorage(ABCStorage):
         """
         return True
 
-    def __repr__(self) -> str:
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """
-        Helper method for creating an in-memory cache without overloading the repr with the specifics of
-        what is being cached.
+        Helper method for creating an in-memory cache without overloading the representation with the
+        specifics of what is being cached.
         """
         class_name = self.__class__.__name__
         str_memory_cache = f"dict(n={len(self.memory_cache)})"
         class_attribute_dict = dict(namespace=self.namespace, memory_cache=str_memory_cache)
-        return generate_repr_from_string(class_name, attribute_dict=class_attribute_dict)
+        return generate_repr_from_string(class_name, attribute_dict=class_attribute_dict,
+                                        flatten = flatten,
+                                         show_value_attributes = show_value_attributes)

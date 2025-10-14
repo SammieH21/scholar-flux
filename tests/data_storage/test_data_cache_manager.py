@@ -4,6 +4,7 @@ from requests import Response
 from scholar_flux.data_storage.null_storage import NullStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage import DataCacheManager
+import copy
 
 
 @pytest.mark.parametrize(
@@ -161,3 +162,45 @@ def test_delete_nonexistent_key(mock_response):
         cache_manager.delete(cache_key)
     except Exception as e:
         pytest.fail(f"Delete should not raise exception for non-existent key: {e}")
+
+
+@pytest.mark.parametrize(
+    "storage_type",
+    [
+        "redis_test_storage",
+        "mongo_test_storage",
+        "sqlite_test_storage",
+        "in_memory_test_storage",
+    ],
+)
+def test_copy(request, mock_response, storage_type, db_dependency_unavailable):
+    """Test deleting a key that doesn't exist."""
+
+    dependency_name = storage_type.split("_")[0] if not storage_type.startswith("sql") else "sqlalchemy"
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+
+    storage = request.getfixturevalue(storage_type)
+    cache_manager = DataCacheManager(storage)
+    new_cache_manager = copy.copy(cache_manager)
+    assert id(new_cache_manager) != id(cache_manager)
+
+
+    storage = request.getfixturevalue(storage_type)
+    cache_manager = DataCacheManager(storage)
+    new_cache_manager = cache_manager.clone()
+    assert id(new_cache_manager) != id(cache_manager)
+
+    assert id(new_cache_manager.cache_storage) != id(cache_manager.cache_storage)
+    if client := getattr(cache_manager.cache_storage, 'client', None):
+        new_client = getattr(new_cache_manager.cache_storage, 'client', None)
+        config = getattr(cache_manager.cache_storage, 'config', None)
+        new_config = getattr(new_cache_manager.cache_storage, 'config', None)
+        assert id(client) != new_client
+        assert config and new_config and id(config) != id(new_config) and config == config
+
+
+    if memory_cache := getattr(cache_manager.cache_storage, 'memory_cache', None):
+        new_memory_cache = getattr(new_cache_manager.cache_storage, 'memory_cache', None)
+        assert id(memory_cache) != id(new_cache_manager.cache_storage.memory_cache) # type: ignore
+        assert memory_cache == new_memory_cache

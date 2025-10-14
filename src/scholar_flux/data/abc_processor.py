@@ -7,9 +7,12 @@ This module defines the abstract methods and types that each processor will use 
 the SearchCoordinator in the processing step.
 """
 from typing import Optional, Tuple, Any
+from typing_extensions import Self
 from abc import ABC, abstractmethod
 from scholar_flux.utils.repr_utils import generate_repr
 from scholar_flux.exceptions import DataValidationException
+import copy
+import threading
 
 
 class ABCDataProcessor(ABC):
@@ -133,10 +136,52 @@ class ABCDataProcessor(ABC):
         if value_delimiter is not None and not isinstance(value_delimiter, str):
             raise DataValidationException(f"value_delimiter must be a string, got {type(value_delimiter)}")
 
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """
+        Helper method for quickly showing a representation of the overall structure of the current Processor
+        subclass. The instance uses the generate_repr helper function to produce human-readable
+        representations of the core structure of the processing configuration along with its defaults.
+
+        Returns:
+            str: The structure of the current Processor subclass as a string.
+        """
+        return generate_repr(self, exclude={"json_data"},
+                             flatten = flatten,
+                             show_value_attributes = show_value_attributes)
+
+    def __copy__(self) -> Self:
+        """
+        Helper method for copying the current implementation of a class minus a lock
+        if used
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        for k, v in self.__dict__.items():
+            if isinstance(v, type(threading.Lock())):
+                setattr(result, k, threading.Lock())
+            else:
+                setattr(result, k, v)
+        return result
+
+    def __deepcopy__(self, memo) -> Self:
+        """
+        Helper method for deep copying the current implementation of a class minus
+        the lock
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if isinstance(v, type(threading.Lock())):
+                setattr(result, k, threading.Lock())
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+        return result
+
     def __repr__(self) -> str:
         """
         Method for identifying the current implementation and subclasses of the ABCDataProcessor.
         Useful for showing the options being used to process the records that originate
         from the parsed api response.
         """
-        return generate_repr(self, exclude=["json_data"])
+        return self.structure()

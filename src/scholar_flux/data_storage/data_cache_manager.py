@@ -26,7 +26,7 @@ from scholar_flux.exceptions import (
     InvalidResponseStructureException,
 )
 from scholar_flux.package_metadata import __version__
-
+import copy
 logger = logging.getLogger(__name__)
 
 
@@ -383,12 +383,51 @@ class DataCacheManager:
         # Prepend human-readable object representation with the package version or manual versioning, if provided
         return f"{package_version}:{obj_repr}" if package_version is not None else obj_repr
 
+    def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
+        """
+        Helper method for quickly showing a representation of the overall structure of the current DataCacheManager.
+        The instance uses the generate_repr helper function to produce human-readable representations of the core
+        structure of the storage subclass with its defaults.
+
+        Returns:
+            str: The structure of the current DataCacheManager as a string.
+        """
+
+        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
+
+    def __copy__(self) -> DataCacheManager:
+        """
+        Helper method for creating a new instance of the the current DataCacheManager
+        """
+        cls = self.__class__
+        storage = copy.copy(self.cache_storage)
+        return cls(cache_storage=storage)
+
+    def clone(self) -> DataCacheManager:
+        """
+        Helper method for creating a newly cloned instance of the the current DataCacheManager
+        """
+        cls = self.__class__
+        storage_cls = self.cache_storage
+        return cls(storage_cls.clone())
+
+    def __deepcopy__(self, memo) -> DataCacheManager:
+        """
+        Helper method for creating a new DataCacheManager with the same configuration
+        as the original DataCacheManager. Note that many clients cannot be directly
+        deep-copied, and as a result, this implementation uses `clone` instead to
+        create a new instance with a similar configuration. For easier API compatibility
+        """
+        return self.clone()
+
+
+
     def __repr__(self) -> str:
         """
         Helper for showing a representation of the current Cache Manager in the form of a string.
         This class will indicate the current cache storage device that is being used for data caching.
         """
-        return generate_repr(self, show_value_attributes=False)
+        return self.structure()
 
 
 # if __name__ == '__main__':

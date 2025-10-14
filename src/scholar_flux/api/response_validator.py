@@ -113,9 +113,17 @@ class ResponseValidator:
 
         return False
 
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """
+        Helper method that shows the current structure of the ResponseValidator class in a string format.
+        This method will show the name of the current class along with its attributes
+        (`ResponseValidator()`)
+
+        Returns:
+            str: A string representation of the current structure of the ResponseValidator
+        """
+        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+
     def __repr__(self) -> str:
-        """
-        Helper method to generate a summary of the ResponseValidator class. This method will show the
-        name of the current class along with its attributes (`ResponseValidator()`)
-        """
-        return generate_repr(self)
+        """Helper method that uses the `structure` method to create a string representation of the ResponseValidator"""
+        return self.structure()

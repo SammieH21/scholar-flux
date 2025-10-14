@@ -266,6 +266,16 @@ class BaseAPI:
         """Create a summary representation of the current structure of the API: Returns the original representation"""
         return repr(self)
 
+    def structure(self, flatten: bool = True, show_value_attributes: bool = False) -> str:
+        """
+        Base method for showing the structure of the current BaseAPI. This method reveals the configuration
+        settings of the API client that will be used to send requests.
+
+        Returns:
+            str: The current structure of the BaseAPI or its subclass.
+        """
+        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
+
     def __repr__(self) -> str:
         """Helper method for identifying the configuration for the BaseAPI"""
-        return generate_repr(self, flatten=True, show_value_attributes=False)
+        return self.structure()

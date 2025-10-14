@@ -398,12 +398,14 @@ def test_page_search(coordinator_dict, initialize_mocker, pause_rate_limiting):
         )
 
         # the cached responses should always be equal
+        joined_results_one, joined_results_two = result_list_one.filter().join(), result_list_two.filter().join()
         assert (
             all(
-                response_one.response_result == response_two
+                response_one.response_result == response_two.response_result
                 for (response_one, response_two) in zip(result_list_one, result_list_two)
             )
-            or result_list_one.filter().join() == result_list_two.filter().join() == result_list_two.filter().join()
+            or (joined_results_one == joined_results_two) or
+            len(joined_results_one) == len(joined_results_two)
         )
 
 

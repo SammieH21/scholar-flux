@@ -49,8 +49,8 @@ class APISpecificParameter:
         validator_type = type(self.validator).__name__
         return f"{name} ({validator_type})"
 
-    def __repr__(self) -> str:
-        """Helper method for displaying parameter information in a user-friendly manner"""
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """Helper method for showing the structure of the current APISpecificParameter"""
         class_name = self.__class__.__name__
         # the representation will include all attributes in the current dataclass
         attribute_dict = dict(
@@ -61,8 +61,13 @@ class APISpecificParameter:
             default=self.default,
             required=self.required,
         )
-        return generate_repr_from_string(class_name, attribute_dict)
+        return generate_repr_from_string(class_name, attribute_dict, flatten = flatten,
+                                         show_value_attributes = show_value_attributes)
 
+
+    def __repr__(self) -> str:
+        """Helper method for displaying parameter information in a user-friendly manner"""
+        return self.structure() 
 
 class BaseAPIParameterMap(BaseModel):
     """
@@ -145,6 +150,10 @@ class BaseAPIParameterMap(BaseModel):
         parameters += list(self.api_specific_parameters.keys())
         return parameters
 
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """Helper method that shows the current structure of the BaseAPIParameterMap"""
+        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner"""
-        return generate_repr(self)
+        return self.structure()

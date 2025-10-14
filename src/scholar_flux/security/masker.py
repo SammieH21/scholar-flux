@@ -291,6 +291,13 @@ class SensitiveDataMasker:
         """
         return SecretUtils.is_secret(obj)
 
+    def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
+        """
+        Helper method for creating an in-memory cache without overloading the representation with the
+        specifics of what is being cached. By default, nested MaskingPatterns will not be shown.
+        """
+        return generate_repr(self, flatten = flatten, show_value_attributes=show_value_attributes)
+
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the SensitiveDataMasker in an easy to read manner."""
-        return generate_repr(self, show_value_attributes=False)
+        return self.structure()

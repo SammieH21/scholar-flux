@@ -54,7 +54,7 @@ def test_error_response(mock_unauthorized_response):
     """Verifies the representation of the ErrorResponse as defined by its original parent class __repr__"""
     error_response = ErrorResponse(cache_key="key", response=mock_unauthorized_response)
     assert (
-        repr(error_response) == f"<ErrorResponse(status_code={error_response.status_code}, error=None, message=None)>"
+        repr(error_response) == f"ErrorResponse(status_code={error_response.status_code}, error=None, message=None)"
     )
     assert not error_response
 

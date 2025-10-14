@@ -8,6 +8,7 @@ from typing import Callable, TYPE_CHECKING
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
 from scholar_flux.exceptions import DataParsingException
 from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.repr_utils import generate_repr_from_string
 import json
 import requests
 
@@ -142,11 +143,25 @@ class BaseDataParser:
         """
         return self.parse(response, *args, **kwargs)
 
-    def __repr__(self):
+
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """
-        Base method for identifying the current implementation of the BaseDataParser. Subclasses can
-        override this for more specific descriptions of attributes and defaults.
+        Helper method for retrieving a string representation of the structure of the current BaseDataParser
+        or subclass of the BaseDataParser.
+
+        Override this for more specific descriptions of attributes and defaults.
         Useful for showing the options being used for parsing response content into dictionary objects.
+
+        Returns:
+            str: A string representation of the base parser indicating all registered or default parsers
         """
         class_name = self.__class__.__name__
-        return f"{class_name}(format_parsers={self.get_default_parsers().keys()})"
+        format_parsers = getattr(self, "format_parsers", self.get_default_parsers()).keys()
+        return generate_repr_from_string(class_name, dict(format_parsers=format_parsers),
+                                         flatten=flatten, show_value_attributes=show_value_attributes)
+
+    def __repr__(self):
+        """
+        Helper method for identifying the current implementation of the BaseDataParser and its configuration.
+        """
+        return self.structure()

@@ -14,10 +14,11 @@ Classes:
     SQLCacheStorage: Inherits from the scholar_flux.data_storage.abc_storage subclass and Defines the mechanisms by
                      which the storage uses SQLAlchemy to load, retrieve, and update, and delete data.
 """
+from __future__ import annotations
 import logging
 from typing import Any, List, Dict, Optional, TYPE_CHECKING
 
-from scholar_flux.utils.encoder import CacheDataEncoder
+from scholar_flux.utils.encoder import JsonDataEncoder
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions import (
@@ -25,6 +26,7 @@ from scholar_flux.exceptions import (
 )  # Custom exception for missing SQLAlchemy
 
 import cattrs
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -156,10 +158,22 @@ class SQLAlchemyStorage(ABCStorage):
         self.Session = sessionmaker(bind=self.engine)
         self.converter = cattrs.Converter()
         self.namespace = namespace or self.DEFAULT_NAMESPACE
+        self.lock = threading.Lock()
 
         if ttl:
             logger.warning("TTL is not enabled for SQLAlchemyStorage. Skipping")
         self.ttl = None
+
+        self._validate_prefix(self.namespace, required=False)
+
+    def clone(self) -> SQLAlchemyStorage:
+        """
+        Helper method for creating a new SQLAlchemyStorage with the same parameters. Note that
+        the implementation of the MongoClient is not able to be deep copied, and this method
+        is provided for convenience in reinstantiation with the same configuration.
+        """
+        cls = self.__class__
+        return cls(namespace = self.namespace, ttl = self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
         """
@@ -172,7 +186,7 @@ class SQLAlchemyStorage(ABCStorage):
             Any: The value returned is deserialized JSON object if successful. Returns None
                 if the key does not exist.
         """
-        with self.Session() as session:
+        with self.Session() as session, self.lock:
             try:
                 namespace_key = self._prefix(key)
                 record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
@@ -192,7 +206,7 @@ class SQLAlchemyStorage(ABCStorage):
             dict: Dictionary of key-value pairs. Keys are original keys,
                 values are JSON deserialized objects.
         """
-        with self.Session() as session:
+        with self.Session() as session, self.lock:
             cache = {}
             try:
                 records = session.query(CacheTable).all()
@@ -213,7 +227,7 @@ class SQLAlchemyStorage(ABCStorage):
             list: A list of all keys saved via SQL.
         """
 
-        with self.Session() as session:
+        with self.Session() as session, self.lock:
             try:
                 keys = [
                     str(record.key)
@@ -235,7 +249,7 @@ class SQLAlchemyStorage(ABCStorage):
                 This includes standard data types like strings, numbers, lists, dictionaries,
                 etc.
         """
-        with self.Session() as session:
+        with self.Session() as session, self.lock:
             try:
                 namespace_key = self._prefix(key)
                 unstructured_data = self._serialize_data(data)
@@ -259,7 +273,7 @@ class SQLAlchemyStorage(ABCStorage):
             key (str): The key used associated with the stored data from cache.
 
         """
-        with self.Session() as session:
+        with self.Session() as session, self.lock:
             try:
                 namespace_key = self._prefix(key)
                 record = session.query(CacheTable).filter(CacheTable.key == namespace_key).first()
@@ -274,7 +288,7 @@ class SQLAlchemyStorage(ABCStorage):
         """
         Delete all records from cache that match the current namespace prefix.
         """
-        with self.Session() as session:
+        with self.Session() as session, self.lock:
             try:
                 if self.namespace:
                     num_deleted = session.query(CacheTable).filter(CacheTable.key.startswith(self.namespace)).delete()
@@ -297,7 +311,7 @@ class SQLAlchemyStorage(ABCStorage):
         Returns:
             The serialized version of the input data
         """
-        encoded_record_data = CacheDataEncoder.encode(record_data)
+        encoded_record_data = JsonDataEncoder.encode(record_data)
         serialized_data = self.converter.unstructure(encoded_record_data)
         return serialized_data
 
@@ -320,7 +334,7 @@ class SQLAlchemyStorage(ABCStorage):
 
         structured_record_data = self.converter.structure(record_data, record_type) if record_type else record_data
 
-        deserialized_data = CacheDataEncoder.decode(structured_record_data)
+        deserialized_data = JsonDataEncoder.decode(structured_record_data)
         return deserialized_data
 
     def verify_cache(self, key: str) -> bool:

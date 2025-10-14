@@ -3,6 +3,7 @@
 The scholar_flux.data_storage.null_storage module implements a Null (No-Op) Storage that is used to ensure that
 responses are always reprocessed when implemented.
 """
+from __future__ import annotations
 from typing import Any, List, Dict, Optional
 from scholar_flux.data_storage.abc_storage import ABCStorage
 
@@ -35,6 +36,11 @@ class NullStorage(ABCStorage):
     def _initialize(self, *args, **kwargs) -> None:
         """Method added for abstract class consistency - no-op"""
         pass
+
+    def clone(self) -> NullStorage:
+        """Helper method for creating a new implementation of the current NullStorage"""
+        cls = self.__class__
+        return cls()
 
     def retrieve(self, *args, **kwargs) -> Optional[Any]:
         """Method added for abstract class consistency - no-op"""

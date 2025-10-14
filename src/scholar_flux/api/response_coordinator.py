@@ -678,8 +678,20 @@ class ResponseCoordinator:
 
         return generate_repr_from_string(class_name, components, flatten=True)
 
-    def __repr__(self) -> str:
-        """Helper class for representing the structure of the Response Coordinator"""
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """
+        Helper method for retrieving a string representation of the overall structure of the current
+        ResponseCoordinator. The helper function, generate_repr_from_string helps produce human-readable
+        representations of the core structure of the ResponseCoordinator.
+
+        Args:
+            flatten (bool): Whether to flatten the ResponseCoordinator's structural representation into a single line.
+            show_value_attributes (bool): Whether to show nested attributes of the components in the structure of the
+                                          current ResponseCoordinator instantce.
+
+        Returns:
+            str: The structure of the current ResponseCoordinator as a string.
+        """
         class_name = self.__class__.__name__
 
         components = dict(
@@ -689,4 +701,11 @@ class ResponseCoordinator:
             cache_manager=self.cache_manager,
         )
 
-        return generate_repr_from_string(class_name, components)
+        return generate_repr_from_string(class_name, components,
+                                         flatten=flatten,
+                                         show_value_attributes=show_value_attributes)
+
+    def __repr__(self) -> str:
+        """Helper class for representing the structure of the Response Coordinator"""
+        return self.structure()
+

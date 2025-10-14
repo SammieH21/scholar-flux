@@ -149,7 +149,6 @@ def test_cache_retrieval_with_none_data(request, mock_response, storage_type, db
     assert retrieved["parsed_response"] is None
     assert retrieved["processed_records"] == {}
 
-
 @pytest.mark.parametrize(
     "storage_type",
     [

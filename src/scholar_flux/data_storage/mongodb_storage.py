@@ -6,11 +6,13 @@ methods required for compatibility with the DataCacheManager in the scholar_flux
 This class implements caching by using the prebuilt features available in MongoDB to store ProcessedResponse
 fields within the database for later CRUD operations.
 """
+from __future__ import annotations
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 
 from scholar_flux.exceptions import MongoDBImportError
 from scholar_flux.data_storage.abc_storage import ABCStorage
 
+import threading
 import logging
 
 logger = logging.getLogger(__name__)
@@ -118,7 +120,19 @@ class MongoDBStorage(ABCStorage):
             expireAfterSeconds=0,  # Use value in each document to determine whether or not to remove record
         )
 
+        self._validate_prefix(namespace, required=False)
+
         self.ttl = ttl
+        self.lock = threading.Lock()
+
+    def clone(self) -> MongoDBStorage:
+        """
+        Helper method for creating a new MongoDBStorage with the same parameters. Note that
+        the implementation of the MongoClient is not able to be deep copied. This method
+        is provided for convenience for reinstantiation with the same configuration.
+        """
+        cls = self.__class__
+        return cls(namespace = self.namespace, ttl = self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
         """
@@ -136,7 +150,8 @@ class MongoDBStorage(ABCStorage):
         """
         try:
             namespace_key = self._prefix(key)
-            cache_data = self.collection.find_one({"key": namespace_key})
+            with self.lock:
+                cache_data = self.collection.find_one({"key": namespace_key})
 
             if cache_data:
                 return {k: v for k, v in cache_data["data"].items() if k not in ("_id", "key")}
@@ -160,7 +175,8 @@ class MongoDBStorage(ABCStorage):
         """
         cache = {}
         try:
-            cache_data = self.collection.find({}, {"key": 1, "data": 1, "_id": 0})
+            with self.lock:
+                cache_data = self.collection.find({}, {"key": 1, "data": 1, "_id": 0})
             if not cache_data:
                 logger.info("Records not found...")
             else:
@@ -186,7 +202,8 @@ class MongoDBStorage(ABCStorage):
         """
         keys = []
         try:
-            keys = self.collection.distinct("key")
+            with self.lock:
+                keys = self.collection.distinct("key")
 
             if self.namespace:
                 keys = [key for key in keys if key.startswith(f"{self.namespace}:")]
@@ -212,10 +229,13 @@ class MongoDBStorage(ABCStorage):
             data_dict = {"key": namespace_key, "data": data}
             if self.ttl is not None:
                 data_dict["expireAt"] = datetime.now(timezone.utc) + timedelta(seconds=self.ttl)
-            if not self.verify_cache(namespace_key):
-                self.collection.update_one({"key": namespace_key}, {"$set": data_dict}, upsert=True)
-            else:
-                self.collection.replace_one({"key": namespace_key}, data_dict, upsert=True)
+
+            is_cached = self.verify_cache(namespace_key)
+            with self.lock:
+                if not is_cached:
+                    self.collection.update_one({"key": namespace_key}, {"$set": data_dict}, upsert=True)
+                else:
+                    self.collection.replace_one({"key": namespace_key}, data_dict, upsert=True)
             logger.debug(f"Cache updated for key: {key} (namespace = '{self.namespace}')")
 
         except DuplicateKeyError as e:
@@ -235,7 +255,8 @@ class MongoDBStorage(ABCStorage):
         """
         try:
             namespace_key = self._prefix(key)
-            result = self.collection.delete_one({"key": namespace_key})
+            with self.lock:
+                result = self.collection.delete_one({"key": namespace_key})
             if result.deleted_count > 0:
                 logger.debug(f"Key: {key}  (namespace = '{self.namespace}') successfully deleted")
             else:
@@ -251,7 +272,8 @@ class MongoDBStorage(ABCStorage):
             PyMongoError: If there an error occurred when deleting records from the collection
         """
         try:
-            result = self.collection.delete_many({})
+            with self.lock:
+                result = self.collection.delete_many({})
             if result.deleted_count > 0:
                 logger.debug("Deleted all records.")
             else:
