@@ -12,6 +12,7 @@ with minimal code.
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, SecretStr, model_validator
 from typing import Optional, Any, ClassVar
+from typing_extensions import Self
 from urllib.parse import urlparse
 from scholar_flux.api.validators import validate_url
 from scholar_flux.api.models.provider_config import ProviderConfig
@@ -205,7 +206,7 @@ class SearchAPIConfig(BaseModel):
         return SecretStr(v) if not isinstance(v, SecretStr) else v
 
     @model_validator(mode="after")
-    def validate_search_api_config_parameters(self):
+    def validate_search_api_config_parameters(self) -> Self:
         """
         Validation method that resolves URLs and/or provider names to provider_info when
         one or the other is not explicitly provided. Occurs as the last step in the validation process

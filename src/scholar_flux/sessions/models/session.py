@@ -14,6 +14,7 @@ import importlib.util
 import requests
 import requests_cache
 from typing import Optional, ClassVar, Literal
+from typing_extensions import Self
 from pathlib import Path
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -168,7 +169,7 @@ class CachedSessionConfig(BaseModel):
         return backend
 
     @model_validator(mode="after")
-    def validate_backend_filepath(self):
+    def validate_backend_filepath(self) -> Self:
         """
         Helper method for validating when file storage is a necessity vs when it's not required
         """
