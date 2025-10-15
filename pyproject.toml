@@ -29,6 +29,7 @@ parsing = ["xmltodict", "pyyaml"]
 [tool.poetry.group.testing.dependencies]
 pytest = "^8.4.1"
 pytest-cov = "*"
+coverage = {extras = ["toml"], version = "*"}
 requests-mock = "*"
 interrogate = "*"
 
