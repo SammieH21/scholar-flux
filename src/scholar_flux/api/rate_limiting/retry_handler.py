@@ -132,7 +132,7 @@ class RetryHandler:
         except InvalidResponseException:
             raise
         except Exception as e:
-            msg = "A valid response could not be retrieved after {attempts} attempts"
+            msg = f"A valid response could not be retrieved after {attempts} attempts"
             err = f"{msg}: {e}" if str(e) else f"{msg}."
             raise RequestFailedException(err) from e
 

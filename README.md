@@ -115,4 +115,4 @@ The Apache License 2.0 applies only to the code only and gives no rights to the 
 
 ### Contact
 
-Questions or suggestions? Open an issue or email sammiehstat@gmail.com.
+Questions or suggestions? Open an issue or email scholar.flux@gmail.com.

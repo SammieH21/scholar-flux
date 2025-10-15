@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
 from base64 import b64encode, b64decode
 
+@pytest.fixture(scope='session')
+def skip_missing_encryption_dependency(session_encryption_dependency):
+    if not session_encryption_dependency:
+        pytest.skip("Missing encryption optional dependencies")
 
 def test_validate_key_error():
     """
@@ -24,7 +28,7 @@ def test_validate_key_error():
         EncryptionPipelineFactory._validate_key(key.encode())
 
 
-def test_generate_secret_key():
+def test_generate_secret_key(skip_missing_encryption_dependency):
     """
     Tests the generation of a new Fernet key and verifies the type.
     Fernet keys should be URL encoded bytes with a of a length `len(fernet) == 44`
@@ -33,7 +37,7 @@ def test_generate_secret_key():
     assert isinstance(fernet, bytes) and len(fernet) == 44
 
 
-def test_env_key_loader(caplog):
+def test_env_key_loader(skip_missing_encryption_dependency, caplog):
     """
     Validates whether the use of a SCHOLAR_FLUX_CACHE_SECRET_KEY will be successfully when generating a new
     encryption pipeline factory class

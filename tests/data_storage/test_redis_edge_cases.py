@@ -4,8 +4,8 @@ from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.exceptions import RedisImportError
 
 
-@pytest.fixture(autouse=True)
-def redis_is_available(db_dependency_unavailable):
+@pytest.fixture(scope='session', autouse=True)
+def skip_missing_redis_dependency(db_dependency_unavailable):
     """Helper fixture for only performing tests for redis when the client and dependency are available"""
 
     if db_dependency_unavailable("redis"):
