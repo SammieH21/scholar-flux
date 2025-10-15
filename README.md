@@ -1,5 +1,3 @@
-# ScholarFlux
-
 ![ScholarFluxBanner](assets/Banner.png)
 
 [![codecov](https://codecov.io/gh/sammieh21/scholar-flux/graph/badge.svg?token=D06ZSHP5GF)](https://codecov.io/gh/sammieh21/scholar-flux)
