@@ -220,15 +220,19 @@ def test_validate_inputs_with_invalid_types():
     """Validates whether specifying invalid inputs for DataProcessor attributes will raise an error as intended"""
     with pytest.raises(DataProcessingException):
         DataProcessor._validate_inputs(
-            "not a list or dict either", None, ".*", record_keys="not a list or dict", value_delimiter=";" # type:ignore
-        )  
+            "not a list or dict either",  # type:ignore
+            None,
+            ".*",  # type:ignore
+            record_keys="not a list or dict",  # type:ignore
+            value_delimiter=";",
+        )
     with pytest.raises(DataProcessingException):
         DataProcessor._validate_inputs(
-            "not a list", # type:ignore
-            "not a list either" ".*", # type:ignore
+            "not a list",  # type:ignore
+            "not a list either" ".*",  # type:ignore
             record_keys=[["a"]],
             value_delimiter=";",
-        ) 
+        )
     with pytest.raises(DataProcessingException):
         DataProcessor._validate_inputs(None, None, ".*", record_keys=[["a"]], value_delimiter=123)  # type:ignore
     with pytest.raises(DataProcessingException):

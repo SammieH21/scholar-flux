@@ -3,11 +3,12 @@ from unittest.mock import patch
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.exceptions import RedisImportError
 
+
 @pytest.fixture(autouse=True)
 def redis_is_available(db_dependency_unavailable):
     """Helper fixture for only performing tests for redis when the client and dependency are available"""
-    
-    if db_dependency_unavailable('redis'):
+
+    if db_dependency_unavailable("redis"):
         pytest.skip()
 
 
@@ -16,65 +17,93 @@ def test_redis_retrieval_failure(redis_test_storage, monkeypatch, caplog):
     from redis import RedisError
 
     e = "Directly raised exception"
-    key = 'non-existent-key'
+    key = "non-existent-key"
     monkeypatch.setattr(redis_test_storage.client, "get", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e)))
 
     retrieved = redis_test_storage.retrieve(key)
 
     assert retrieved is None
-    assert f"Error during attempted retrieval of key {key} (namespace = '{redis_test_storage.namespace}'): {e}" in caplog.text
+    assert (
+        f"Error during attempted retrieval of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
+        in caplog.text
+    )
 
-    monkeypatch.setattr(redis_test_storage.client, "scan_iter", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e)))
+    monkeypatch.setattr(
+        redis_test_storage.client, "scan_iter", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e))
+    )
 
     all_retrieved_keys = redis_test_storage.retrieve_keys()
     assert not all_retrieved_keys
     assert f"Error during attempted retrieval of all keys from namespace '{redis_test_storage.namespace}" in caplog.text
 
     caplog.clear()
-    monkeypatch.setattr(redis_test_storage, "retrieve_keys", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e)))
+    monkeypatch.setattr(
+        redis_test_storage, "retrieve_keys", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e))
+    )
     all_retrieved = redis_test_storage.retrieve_all()
     assert not all_retrieved
     assert "Error during attempted retrieval of records from namespace" in caplog.text
+
 
 def test_redis_update_failure(redis_test_storage, monkeypatch, caplog):
     """Helper method to test update edge cases with data retrieval in redis"""
     from redis import RedisError
 
     e = "Directly raised exception"
-    key = 'non-existent-key'
+    key = "non-existent-key"
     monkeypatch.setattr(redis_test_storage.client, "set", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e)))
-    redis_test_storage.update('non-existent-key', {'data': 1})
-    assert f"Error during attempted update of key {key} (namespace = '{redis_test_storage.namespace}': {e}" in caplog.text
+    redis_test_storage.update("non-existent-key", {"data": 1})
+    assert (
+        f"Error during attempted update of key {key} (namespace = '{redis_test_storage.namespace}': {e}" in caplog.text
+    )
+
 
 def test_redis_delete_failure(redis_test_storage, monkeypatch, caplog):
     """Helper method to test deletion edge cases with data retrieval in redis"""
     from redis import RedisError
 
     e = "Directly raised exception"
-    key = 'non-existent-key'
-    monkeypatch.setattr(redis_test_storage, "verify_cache", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e)))
-    redis_test_storage.delete('non-existent-key')
+    key = "non-existent-key"
+    monkeypatch.setattr(
+        redis_test_storage, "verify_cache", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e))
+    )
+    redis_test_storage.delete("non-existent-key")
     assert (f"Error during attempted deletion of key {key}") in caplog.text
-    assert f"Error during attempted deletion of key {key} (namespace = '{redis_test_storage.namespace}'): {e}" in caplog.text
+    assert (
+        f"Error during attempted deletion of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
+        in caplog.text
+    )
 
-    monkeypatch.setattr(redis_test_storage.client, "scan_iter", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e)))
+    monkeypatch.setattr(
+        redis_test_storage.client, "scan_iter", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e))
+    )
     redis_test_storage.delete_all()
-    assert f"Error during attempted deletion of all keys from namespace '{redis_test_storage.namespace}': {e}" in caplog.text
+    assert (
+        f"Error during attempted deletion of all keys from namespace '{redis_test_storage.namespace}': {e}"
+        in caplog.text
+    )
+
 
 def test_redis_verify_cache_failure(redis_test_storage, monkeypatch, caplog):
     """Helper method to test cache verification edge cases with data retrieval in redis"""
     from redis import RedisError
 
-    intkey=271
+    intkey = 271
     with pytest.raises(ValueError) as excinfo:
         _ = redis_test_storage.verify_cache(intkey)
     assert f"Key invalid. Received {intkey} (namespace = '{redis_test_storage.namespace}')" in str(excinfo.value)
 
     e = "Directly raised exception"
-    key = 'non-existent-key'
-    monkeypatch.setattr(redis_test_storage.client, "exists", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e)))
+    key = "non-existent-key"
+    monkeypatch.setattr(
+        redis_test_storage.client, "exists", lambda *args, **kwargs: (_ for _ in ()).throw(RedisError(e))
+    )
     redis_test_storage.verify_cache(key)
-    assert f"Error during the verification of the existence of key {key} (namespace = '{redis_test_storage.namespace}'): {e}" in caplog.text
+    assert (
+        f"Error during the verification of the existence of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
+        in caplog.text
+    )
+
 
 def test_redis_unavailable(redis_test_storage, caplog):
     """Validates that, when the redis package is not installed, an error will be raised"""
@@ -94,7 +123,7 @@ def test_redis_server_unavailable(redis_test_storage, monkeypatch, caplog):
     from redis import ConnectionError
 
     msg = "Won't connect"
-    host, port = RedisStorage.DEFAULT_REDIS_CONFIG['host'], RedisStorage.DEFAULT_REDIS_CONFIG['port']
+    host, port = RedisStorage.DEFAULT_REDIS_CONFIG["host"], RedisStorage.DEFAULT_REDIS_CONFIG["port"]
 
     monkeypatch.setattr(redis, "Redis", lambda *args, **kwargs: (_ for _ in ()).throw(ConnectionError(msg)))
 
@@ -113,14 +142,18 @@ def test_missing_namespace(redis_test_storage, monkeypatch, caplog):
     default_namespace = RedisStorage.DEFAULT_NAMESPACE
     try:
         redis_test_storage.namespace = None
-        RedisStorage.DEFAULT_NAMESPACE = None # type: ignore
-        monkeypatch.setattr(redis_test_storage.client, "scan_iter", lambda *args, **kwargs: (_ for _ in ()).throw(ValueError()))
+        RedisStorage.DEFAULT_NAMESPACE = None  # type: ignore
+        monkeypatch.setattr(
+            redis_test_storage.client, "scan_iter", lambda *args, **kwargs: (_ for _ in ()).throw(ValueError())
+        )
         redis_test_storage.delete_all()
-        assert ("For safety purposes, the RedisStorage will not delete any records in the absence "
-                "of a namespace. Skipping...") in caplog.text
+        assert (
+            "For safety purposes, the RedisStorage will not delete any records in the absence "
+            "of a namespace. Skipping..."
+        ) in caplog.text
 
         with pytest.raises(KeyError) as excinfo:
-            _ = RedisStorage(namespace = 23) # type: ignore
+            _ = RedisStorage(namespace=23)  # type: ignore
         msg = f"A non-empty namespace string must be provided for the RedisStorage. Received {type(23)}"
 
         assert msg in caplog.text
@@ -128,7 +161,7 @@ def test_missing_namespace(redis_test_storage, monkeypatch, caplog):
 
         caplog.clear()
         with pytest.raises(KeyError) as excinfo:
-            _ = RedisStorage(namespace = '') # type: ignore
+            _ = RedisStorage(namespace="")  # type: ignore
         msg = f"A non-empty namespace string must be provided for the RedisStorage. Received {type('')}"
 
         assert msg in caplog.text
@@ -137,4 +170,3 @@ def test_missing_namespace(redis_test_storage, monkeypatch, caplog):
     finally:
         redis_test_storage.namespace = current_namespace
         RedisStorage.DEFAULT_NAMESPACE = default_namespace
-

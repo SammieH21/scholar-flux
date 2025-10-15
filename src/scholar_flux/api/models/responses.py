@@ -480,7 +480,12 @@ class APIResponse(BaseModel):
 
     def __repr__(self) -> str:
         """Helper method for generating a simple representation of the current API Response"""
-        return generate_repr(self, exclude={"created_at",})
+        return generate_repr(
+            self,
+            exclude={
+                "created_at",
+            },
+        )
 
 
 class ErrorResponse(APIResponse):

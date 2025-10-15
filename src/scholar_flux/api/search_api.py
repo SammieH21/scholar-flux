@@ -984,6 +984,6 @@ class SearchAPI(BaseAPI):
             "timeout": self.timeout,
         }
 
-        return generate_repr_from_string(class_name, attribute_dict,
-                                         flatten=flatten,
-                                         show_value_attributes=show_value_attributes)
+        return generate_repr_from_string(
+            class_name, attribute_dict, flatten=flatten, show_value_attributes=show_value_attributes
+        )

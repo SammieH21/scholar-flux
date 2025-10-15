@@ -145,9 +145,7 @@ class ABCDataProcessor(ABC):
         Returns:
             str: The structure of the current Processor subclass as a string.
         """
-        return generate_repr(self, exclude={"json_data"},
-                             flatten = flatten,
-                             show_value_attributes = show_value_attributes)
+        return generate_repr(self, exclude={"json_data"}, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __copy__(self) -> Self:
         """

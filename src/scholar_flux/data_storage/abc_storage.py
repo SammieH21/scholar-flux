@@ -111,18 +111,16 @@ class ABCStorage(ABC):
     @classmethod
     def _validate_prefix(cls, key: Optional[str], required: bool = False) -> bool:
         """Helper method for validating the current namespace key. Raises a KeyError if the key is not a string"""
-        if (key is None or key == '') and not required:
-            return  True
+        if (key is None or key == "") and not required:
+            return True
 
         if key and isinstance(key, str):
             return True
 
-        msg = (f"A non-empty namespace string must be provided for the {cls.__name__}. "
-               f"Received {type(key)}")
+        msg = f"A non-empty namespace string must be provided for the {cls.__name__}. " f"Received {type(key)}"
         logger.error(msg)
 
         raise KeyError(msg)
-
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """
@@ -134,7 +132,7 @@ class ABCStorage(ABC):
             str: The structure of the current storage subclass as a string.
         """
 
-        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
         """

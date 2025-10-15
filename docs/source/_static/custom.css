@@ -1,0 +1,322 @@
+/* ===== Search Results Fixes ===== */
+.search-results {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.search-results li {
+    margin-bottom: 1em;
+    padding-right: 1em;
+}
+
+.search-results .context {
+    margin-left: 1em;
+    padding: 0.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-results .highlighted {
+    background-color: #ffc;
+    padding: 0 0.2em;
+}
+
+.search-results pre,
+.search-results code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-width: 100%;
+}
+
+.search ul {
+    padding-left: 0;
+}
+
+.search ul li {
+    list-style: none;
+    margin-bottom: 1.5em;
+    padding: 1em;
+    border-left: 3px solid #e1e4e5;
+}
+
+#search-results {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+#search-results li {
+    max-width: 100%;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+#search-results .context {
+    display: block;
+    margin: 10px 0;
+    padding: 10px;
+    background: #f8f8f8;
+    border-radius: 3px;
+    overflow-wrap: anywhere;
+}
+
+/* ===== General Content Spacing ===== */
+.rst-content {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.rst-content p {
+    line-height: 1.6;
+    margin-bottom: 1em;
+}
+
+.rst-content dl {
+    margin-bottom: 24px;
+}
+
+.rst-content dl dt {
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #404040;
+}
+
+.rst-content dl dd {
+    margin-left: 2em;
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+.rst-content .class,
+.rst-content .method,
+.rst-content .function {
+    margin-bottom: 2em;
+}
+
+.rst-content .section {
+    margin-bottom: 2em;
+    margin-top: 2em;
+}
+
+/* ===== Docstring-Specific Spacing ===== */
+.rst-content .docstring {
+    white-space: pre-wrap;
+    line-height: 1.8;
+}
+
+.rst-content dd p,
+.rst-content .docstring p {
+    margin-bottom: 1.2em;
+    line-height: 1.7;
+}
+
+/* Improve indented text blocks */
+.rst-content blockquote {
+    margin: 1em 0 1em 2em;
+    padding: 0;
+    border-left: 3px solid #e1e4e5;
+    padding-left: 1em;
+}
+
+/* Better spacing for field lists (Parameters, Returns, etc.) */
+.rst-content .field-list {
+    margin-bottom: 1.5em;
+}
+
+.rst-content .field-list dt {
+    padding-top: 0.5em;
+}
+
+.rst-content .field-list dd {
+    padding-left: 2em;
+    margin-left: 3em;
+    margin-bottom: 1.5em;
+    padding-top: 0.3em;
+    line-height: 1.6;
+}
+
+/* ===== Code Block Spacing ===== */
+.rst-content pre {
+    margin: 1.5em 0;
+    padding: 12px;
+}
+
+/* ===== List Spacing ===== */
+.rst-content ul li,
+.rst-content ol li {
+    margin-bottom: 0.5em;
+    line-height: 1.6;
+}
+
+/* ===== Container Fixes ===== */
+* {
+    box-sizing: border-box;
+}
+
+.document {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+
+/* ===== General Index (genindex) Improvements ===== */
+
+/* Better spacing for index entries */
+.genindex-section {
+    margin-bottom: 2em;
+}
+
+/* Space out individual index entries */
+.genindex-section li {
+    margin-bottom: 0.8em;
+    line-height: 1.8;
+}
+
+/* Add padding to nested index items */
+.genindex-section ul ul {
+    margin-top: 0.5em;
+    margin-left: 1.5em;
+}
+
+/* Improve spacing between links in index entries */
+.genindex-section a {
+    margin-right: 0.5em;
+}
+
+/* Add breathing room around bracketed numbers like [1], [2] */
+.genindex-section .reference .brackets {
+    margin: 0 0.3em;
+}
+
+/* Better spacing for "main" entry links */
+.genindex-section .main {
+    font-weight: bold;
+    margin-right: 0.8em;
+}
+
+/* Space out the subentries */
+.genindex-section dd {
+    margin-left: 2em;
+    margin-bottom: 0.5em;
+    line-height: 1.6;
+}
+
+/* Improve definition list spacing in index */
+.genindex-section dl {
+    margin-bottom: 1.5em;
+}
+
+.genindex-section dt {
+    margin-bottom: 0.5em;
+    font-weight: 600;
+}
+
+/* Add subtle separator between different letters */
+.genindex-jumpbox {
+    padding: 1em 0;
+    margin-bottom: 2em;
+    border-bottom: 2px solid #e1e4e5;
+}
+
+/* Space out the letter jump links at the top */
+.genindex-jumpbox a {
+    margin: 0 0.8em;
+    font-size: 1.1em;
+}
+
+/* Improve the section headers (A, B, C, etc.) */
+h2.genindex-title {
+    margin-top: 2em;
+    margin-bottom: 1em;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid #e1e4e5;
+}
+
+/* Better formatting for cross-reference links */
+.genindex-section code {
+    background-color: #f8f8f8;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    margin: 0 0.2em;
+}
+
+/* Prevent long module names from cramming together */
+.genindex-section .pre {
+    word-break: break-word;
+}
+
+
+/* ===== Prevent Text Overflow Beyond White Boundary ===== */
+
+/* Force content to stay within boundaries */
+.document {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.rst-content {
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Force long words/module names to break */
+.genindex-section {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* Specifically target long module paths */
+.genindex-section code,
+.genindex-section .pre,
+.genindex-section span.pre {
+    max-width: 100%;
+    white-space: normal !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    display: inline-block;
+}
+
+/* Force links to wrap */
+.genindex-section a {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    display: inline-block;
+}
+
+/* Prevent horizontal scrolling */
+body {
+    overflow-x: hidden;
+}
+
+.wy-nav-content {
+    max-width: 100% !important;
+    overflow-x: hidden;
+}
+
+/* Make sure nested lists don't push content too far right */
+.genindex-section ul ul {
+    max-width: calc(100% - 2em);
+}
+
+/* Long code literals should wrap */
+code.docutils.literal.notranslate {
+    white-space: pre-wrap !important;
+    word-break: break-all;
+    max-width: 100%;
+}
+
+/* Ensure dd elements don't overflow */
+.genindex-section dd {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Target really long scholar_flux.api.models... paths */
+.genindex-section a[href*="scholar_flux"] {
+    max-width: 95%;
+    overflow-wrap: anywhere;
+    hyphens: auto;
+}

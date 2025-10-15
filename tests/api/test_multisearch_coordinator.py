@@ -404,8 +404,8 @@ def test_page_search(coordinator_dict, initialize_mocker, pause_rate_limiting):
                 response_one.response_result == response_two.response_result
                 for (response_one, response_two) in zip(result_list_one, result_list_two)
             )
-            or (joined_results_one == joined_results_two) or
-            len(joined_results_one) == len(joined_results_two)
+            or (joined_results_one == joined_results_two)
+            or len(joined_results_one) == len(joined_results_two)
         )
 
 

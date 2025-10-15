@@ -214,10 +214,9 @@ class PathDataProcessor(ABCDataProcessor):
         Method for showing the structure of the current PathDataProcessor and identifying the current
         configuration. Useful for showing the options being used to process the api response records
         """
-        return generate_repr(self,
-                             flatten = flatten,
-                             show_value_attributes=show_value_attributes,
-                             exclude={"json_data", "use_cache"})
+        return generate_repr(
+            self, flatten=flatten, show_value_attributes=show_value_attributes, exclude={"json_data", "use_cache"}
+        )
 
     def __call__(self, *args, **kwargs) -> list[dict]:
         """

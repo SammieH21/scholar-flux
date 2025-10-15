@@ -173,7 +173,7 @@ class SQLAlchemyStorage(ABCStorage):
         is provided for convenience in reinstantiation with the same configuration.
         """
         cls = self.__class__
-        return cls(namespace = self.namespace, ttl = self.ttl, **self.config)
+        return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
         """

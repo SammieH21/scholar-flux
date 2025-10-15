@@ -35,6 +35,7 @@ class BaseAPI:
         use_cache (bool): Indicates whether or not to create a cached session. If a cached session is already
                           specified, this setting will have no effect on the creation of a session.
 
+    Examples:
         >>> from scholar_flux.api import BaseAPI
         # creating a basic API that uses the PLOS as the default while caching data in-memory:
         >>> base_api = BaseAPI(use_cache = True)

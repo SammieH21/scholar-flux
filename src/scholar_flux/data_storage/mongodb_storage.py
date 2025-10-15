@@ -43,8 +43,8 @@ class MongoDBStorage(ABCStorage):
     This implementation is designed to use a key-value store as a cache by which data can be stored and retrieved
     in a relatively straightforward manner similar to the In-Memory Storage.
 
-    Example:
-        ### Import the package and initialize the storage in a dedicated package directory :
+    Examples:
+
         >>> from scholar_flux.data_storage import MongoDBStorage
         # defaults to connecting to locally (mongodb://127.0.0.1) on the default port for MongoDB (27017)
         >>> mongo_storage = MongoDBStorage(namespace='testing_functionality')
@@ -132,7 +132,7 @@ class MongoDBStorage(ABCStorage):
         is provided for convenience for reinstantiation with the same configuration.
         """
         cls = self.__class__
-        return cls(namespace = self.namespace, ttl = self.ttl, **self.config)
+        return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
         """

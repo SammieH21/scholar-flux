@@ -241,7 +241,7 @@ class BaseDataExtractor:
             str: The current structure of the BaseDataExtractor or its subclass.
         """
 
-        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
         """

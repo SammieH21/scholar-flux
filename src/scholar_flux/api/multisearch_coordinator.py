@@ -490,7 +490,6 @@ class MultiSearchCoordinator(UserDict):
         attributes = {key: coordinator.summary() for key, coordinator in self.data.items()}
         return generate_repr_from_string(class_name, attributes)
 
-
     def __repr__(self) -> str:
         """Helper method for generating a string representation of the current list of coordinators"""
         return self.structure()

@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "scholar_flux"
+name = "scholar-flux"
 authors = ["Sammie L. Haskin <44345113+SammieH21@users.noreply.github.com>"]
-description = "The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications."
+description = "The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms for discovery and analyses. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications."
 version = "0.1.0b.1"
 readme = "README.md"
 license = "Apache-2.0"
@@ -35,6 +35,12 @@ interrogate = "*"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.3.0"
 flake8 = "^7.3.0"
+tox = "^4.31.0"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = ">=5.0,<8.0"
+sphinx-autobuild = ">=2021.3.14,<2024.0.0"
+sphinx-rtd-theme = ">=1.2.0,<4.0.0"
 
 
 
@@ -63,6 +69,7 @@ convention = "pep257"
     "PT004",  # fixture without value
     "ARG001", # unused function args (pytest fixtures often look unused)
 ]
+
 
 [tool.black]
 line-length = 120

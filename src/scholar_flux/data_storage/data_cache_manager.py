@@ -27,6 +27,7 @@ from scholar_flux.exceptions import (
 )
 from scholar_flux.package_metadata import __version__
 import copy
+
 logger = logging.getLogger(__name__)
 
 
@@ -419,8 +420,6 @@ class DataCacheManager:
         create a new instance with a similar configuration. For easier API compatibility
         """
         return self.clone()
-
-
 
     def __repr__(self) -> str:
         """

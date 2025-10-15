@@ -29,9 +29,16 @@ jobs:
       - name: Install dependencies
         run: poetry install --with testing --extras "database cryptography parsing"
       
-      - name: Install tox
-        run: poetry add --group dev tox
+      - name: Install development deps
+        run: poetry add --group dev
       
       # Run all tox environments
       - name: Run tests
         run: poetry run tox
+
+      - name: Combine coverage and generate report
+        run: tox -e coverage
+
+
+     - name: Upload coverage to Codecov
+       uses: codecov/codecov-action@v4

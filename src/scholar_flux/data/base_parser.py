@@ -143,7 +143,6 @@ class BaseDataParser:
         """
         return self.parse(response, *args, **kwargs)
 
-
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """
         Helper method for retrieving a string representation of the structure of the current BaseDataParser
@@ -157,8 +156,12 @@ class BaseDataParser:
         """
         class_name = self.__class__.__name__
         format_parsers = getattr(self, "format_parsers", self.get_default_parsers()).keys()
-        return generate_repr_from_string(class_name, dict(format_parsers=format_parsers),
-                                         flatten=flatten, show_value_attributes=show_value_attributes)
+        return generate_repr_from_string(
+            class_name,
+            dict(format_parsers=format_parsers),
+            flatten=flatten,
+            show_value_attributes=show_value_attributes,
+        )
 
     def __repr__(self):
         """

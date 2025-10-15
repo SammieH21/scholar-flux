@@ -42,8 +42,9 @@ class RedisStorage(ABCStorage):
     This implementation is designed to use a key-value store as a cache by which data can be stored and retrieved
     in a relatively straightforward manner similar to the In-Memory Storage.
 
-    Example:
-        ### Import the package and initialize the storage in a dedicated package directory :
+    Examples:
+
+
         >>> from scholar_flux.data_storage import RedisStorage
         ### defaults to connecting to locally (localhost) on the default port for Redis (27017)
         >>> redis_storage = RedisStorage(namespace='testing_functionality')
@@ -84,7 +85,7 @@ class RedisStorage(ABCStorage):
         Args:
             host (Optional[str]): Redis server host. Can be provided positionally or as a keyword argument.
                                   Defaults to 'localhost' if not specified.
-            namespace Optional[str]: The prefix associated with each cache key. Defaults to DEFAULT_NAMESPACE 
+            namespace Optional[str]: The prefix associated with each cache key. Defaults to DEFAULT_NAMESPACE
                                      if left `None`.
             ttl Optional[int]: The total number of seconds that must elapse for a cache record
                     to expire. If not provided, ttl defaults to None.
@@ -109,7 +110,7 @@ class RedisStorage(ABCStorage):
         # Only override the default if its available and the namespace is not directly provided
         self.namespace = self.DEFAULT_NAMESPACE if self.DEFAULT_NAMESPACE and not namespace else namespace
 
-        # catches all None and non-empty strings 
+        # catches all None and non-empty strings
         self._validate_prefix(self.namespace, required=True)
 
         self.ttl = ttl
@@ -123,7 +124,7 @@ class RedisStorage(ABCStorage):
         is provided for convenience in reinstantiation with the same configuration.
         """
         cls = self.__class__
-        return cls(namespace = self.namespace, ttl = self.ttl, **self.config)
+        return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
         """
@@ -185,7 +186,8 @@ class RedisStorage(ABCStorage):
         try:
             with self.lock:
                 keys = [
-                    key.decode() if isinstance(key, bytes) else key for key in self.client.scan_iter(f"{self.namespace}:*")
+                    key.decode() if isinstance(key, bytes) else key
+                    for key in self.client.scan_iter(f"{self.namespace}:*")
                 ]
         except RedisError as e:
             logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}")
@@ -249,8 +251,10 @@ class RedisStorage(ABCStorage):
         # this function requires a namespace to avoid deleting unrelated data
         try:
             if not self.namespace:
-                logger.warning("For safety purposes, the RedisStorage will not delete any records in the absence "
-                               "of a namespace. Skipping...")
+                logger.warning(
+                    "For safety purposes, the RedisStorage will not delete any records in the absence "
+                    "of a namespace. Skipping..."
+                )
                 return None
 
             with self.lock:

@@ -234,10 +234,9 @@ class BaseCoordinator:
         """
         class_name = self.__class__.__name__
         attribute_dict = dict(api=repr(self.search_api), response_coordinator=self.response_coordinator)
-        return generate_repr_from_string(class_name, attribute_dict,
-                                         flatten=flatten,
-                                         show_value_attributes=show_value_attributes)
-
+        return generate_repr_from_string(
+            class_name, attribute_dict, flatten=flatten, show_value_attributes=show_value_attributes
+        )
 
     def __repr__(self) -> str:
         """

@@ -1,5 +1,11 @@
 # ScholarFlux
 
+[![codecov](https://codecov.io/gh/SammieH21/scholar-flux/branch/main/graph/badge.svg)](https://codecov.io/gh/SammieH21/scholar-flux)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Beta](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/SammieH21/scholar-flux)
+
+
 The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications.
 In addition, this API has built in extension capabilities for applications in News retrieval and other domains.
 

@@ -122,7 +122,7 @@ class ResponseValidator:
         Returns:
             str: A string representation of the current structure of the ResponseValidator
         """
-        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
         """Helper method that uses the `structure` method to create a string representation of the ResponseValidator"""

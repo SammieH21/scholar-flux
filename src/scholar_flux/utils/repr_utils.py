@@ -25,6 +25,7 @@ from scholar_flux.utils.helpers import as_tuple
 
 _LOCK_TYPE = type(threading.Lock())
 
+
 def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Optional[bool] = None) -> str:
     """
     Helper method for adjusting the padding for representations of objects
@@ -164,7 +165,7 @@ def generate_repr(
     the code will raise an AttributeError and fall back to
     using the basic string representation of the object.
 
-    Note that `threading.Lock` objects are excluded from the final representation. 
+    Note that `threading.Lock` objects are excluded from the final representation.
 
     Args:
         obj: The object whose attributes are to be represented.
@@ -184,7 +185,8 @@ def generate_repr(
         attribute_dict = {
             attribute: value
             for attribute, value in obj.__dict__.items()
-            if attribute in attribute_keys and not callable(value)
+            if attribute in attribute_keys
+            and not callable(value)
             and attribute not in exclude
             and not isinstance(value, _LOCK_TYPE)
         }

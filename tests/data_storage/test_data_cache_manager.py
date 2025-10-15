@@ -185,22 +185,20 @@ def test_copy(request, mock_response, storage_type, db_dependency_unavailable):
     new_cache_manager = copy.copy(cache_manager)
     assert id(new_cache_manager) != id(cache_manager)
 
-
     storage = request.getfixturevalue(storage_type)
     cache_manager = DataCacheManager(storage)
     new_cache_manager = cache_manager.clone()
     assert id(new_cache_manager) != id(cache_manager)
 
     assert id(new_cache_manager.cache_storage) != id(cache_manager.cache_storage)
-    if client := getattr(cache_manager.cache_storage, 'client', None):
-        new_client = getattr(new_cache_manager.cache_storage, 'client', None)
-        config = getattr(cache_manager.cache_storage, 'config', None)
-        new_config = getattr(new_cache_manager.cache_storage, 'config', None)
+    if client := getattr(cache_manager.cache_storage, "client", None):
+        new_client = getattr(new_cache_manager.cache_storage, "client", None)
+        config = getattr(cache_manager.cache_storage, "config", None)
+        new_config = getattr(new_cache_manager.cache_storage, "config", None)
         assert id(client) != new_client
         assert config and new_config and id(config) != id(new_config) and config == config
 
-
-    if memory_cache := getattr(cache_manager.cache_storage, 'memory_cache', None):
-        new_memory_cache = getattr(new_cache_manager.cache_storage, 'memory_cache', None)
-        assert id(memory_cache) != id(new_cache_manager.cache_storage.memory_cache) # type: ignore
+    if memory_cache := getattr(cache_manager.cache_storage, "memory_cache", None):
+        new_memory_cache = getattr(new_cache_manager.cache_storage, "memory_cache", None)
+        assert id(memory_cache) != id(new_cache_manager.cache_storage.memory_cache)  # type: ignore
         assert memory_cache == new_memory_cache

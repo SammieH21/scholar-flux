@@ -467,8 +467,12 @@ class APIParameterConfig:
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the APIParameterConfig"""
         class_name = self.__class__.__name__
-        return generate_repr_from_string(class_name, dict(parameter_map=repr(self.parameter_map)),
-                                        flatten=flatten, show_value_attributes=show_value_attributes)
+        return generate_repr_from_string(
+            class_name,
+            dict(parameter_map=repr(self.parameter_map)),
+            flatten=flatten,
+            show_value_attributes=show_value_attributes,
+        )
 
     def __repr__(self) -> str:
         """Helper method for displaying the config and parameter mappings for the api in a user-friendly manner"""

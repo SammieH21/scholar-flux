@@ -220,7 +220,6 @@ class RecursiveDataProcessor(ABCDataProcessor):
             return self.process_page(*args, **kwargs)
 
 
-
 # if __name__ == "__main__":
 #     record_test_json: list[dict] = [
 #         {

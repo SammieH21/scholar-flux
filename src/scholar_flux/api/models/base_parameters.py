@@ -61,13 +61,14 @@ class APISpecificParameter:
             default=self.default,
             required=self.required,
         )
-        return generate_repr_from_string(class_name, attribute_dict, flatten = flatten,
-                                         show_value_attributes = show_value_attributes)
-
+        return generate_repr_from_string(
+            class_name, attribute_dict, flatten=flatten, show_value_attributes=show_value_attributes
+        )
 
     def __repr__(self) -> str:
         """Helper method for displaying parameter information in a user-friendly manner"""
-        return self.structure() 
+        return self.structure()
+
 
 class BaseAPIParameterMap(BaseModel):
     """
@@ -152,7 +153,7 @@ class BaseAPIParameterMap(BaseModel):
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the BaseAPIParameterMap"""
-        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner"""

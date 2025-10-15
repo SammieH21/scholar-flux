@@ -77,11 +77,10 @@ class InMemoryStorage(ABCStorage):
         Helper method for creating a new InMemoryStorage with the same configuration.
         """
         cls = self.__class__
-        storage = cls(namespace = self.namespace)
+        storage = cls(namespace=self.namespace)
         with self.lock:
             storage.memory_cache = self.memory_cache.copy()
         return storage
-        
 
     def _initialize(self, **kwargs) -> None:
         """
@@ -209,6 +208,9 @@ class InMemoryStorage(ABCStorage):
         class_name = self.__class__.__name__
         str_memory_cache = f"dict(n={len(self.memory_cache)})"
         class_attribute_dict = dict(namespace=self.namespace, memory_cache=str_memory_cache)
-        return generate_repr_from_string(class_name, attribute_dict=class_attribute_dict,
-                                        flatten = flatten,
-                                         show_value_attributes = show_value_attributes)
+        return generate_repr_from_string(
+            class_name,
+            attribute_dict=class_attribute_dict,
+            flatten=flatten,
+            show_value_attributes=show_value_attributes,
+        )

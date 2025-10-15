@@ -76,10 +76,10 @@ class ResponseCoordinator:
         >>> processed_response = response_coordinator.handle_response(response, cache_key='tech-innovation-cache-key-page-1')
         # the ProcessedResponse (or ErrorResponse) stores critical fields from the original and processed response
         >>> processed_response
-        # OUTPUT: <ProcessedResponse(len=20, cache_key='tech-innovation-cache-key-page-1', metadata=...>
+        # OUTPUT: ProcessedResponse(len=20, cache_key='tech-innovation-cache-key-page-1', metadata=...)
         >>> new_processed_response = response_coordinator.handle_response(processed_response, cache_key='tech-innovation-cache-key-page-1')
         >>> new_processed_response
-        # OUTPUT: <ProcessedResponse(len=20, cache_key='tech-innovation-cache-key-page-1', metadata=...>
+        # OUTPUT: ProcessedResponse(len=20, cache_key='tech-innovation-cache-key-page-1', metadata=...)
 
     Note that the entire process can be orchestrated via the SearchCoordinator that uses the SearchAPI and
     ResponseCoordinator as core dependency injected components:
@@ -88,7 +88,7 @@ class ResponseCoordinator:
         >>> search_coordinator = SearchCoordinator(api, response_coordinator, cache_requests=True)
         # uses a default cache key constructed from the response internally
         >>> processed_response = search_coordinator.search(page = 1)
-        # OUTPUT: <ProcessedResponse(len=20, cache_key='crossref_technological innovation_1_20', metadata=...>
+        # OUTPUT: ProcessedResponse(len=20, cache_key='crossref_technological innovation_1_20', metadata=...)
         >>> processed_response.content == new_processed_response.content
 
 
@@ -701,11 +701,10 @@ class ResponseCoordinator:
             cache_manager=self.cache_manager,
         )
 
-        return generate_repr_from_string(class_name, components,
-                                         flatten=flatten,
-                                         show_value_attributes=show_value_attributes)
+        return generate_repr_from_string(
+            class_name, components, flatten=flatten, show_value_attributes=show_value_attributes
+        )
 
     def __repr__(self) -> str:
         """Helper class for representing the structure of the Response Coordinator"""
         return self.structure()
-

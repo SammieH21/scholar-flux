@@ -132,7 +132,7 @@ class ProviderConfig(BaseModel):
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the ProviderConfig"""
-        return generate_repr(self, flatten = flatten, show_value_attributes = show_value_attributes)
+        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
         """Utility method for creating an easy to view representation of the current configuration"""
