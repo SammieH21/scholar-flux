@@ -12,6 +12,7 @@ with minimal code.
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, SecretStr, model_validator
 from typing import Optional, Any, ClassVar
+from typing_extensions import Self
 from urllib.parse import urlparse
 from scholar_flux.api.validators import validate_url
 from scholar_flux.api.models.provider_config import ProviderConfig
@@ -205,38 +206,39 @@ class SearchAPIConfig(BaseModel):
         return SecretStr(v) if not isinstance(v, SecretStr) else v
 
     @model_validator(mode="after")
-    def validate_search_api_config_parameters(cls, values):
+    def validate_search_api_config_parameters(self) -> Self:
         """
         Validation method that resolves URLs and/or provider names to provider_info when
         one or the other is not explicitly provided. Occurs as the last step in the validation process
         """
 
-        values.base_url, values.provider_name, provider_info = cls._prepare_provider_info(
-            values.base_url, values.provider_name
+        self.base_url, self.provider_name, provider_info = self._prepare_provider_info(
+            self.base_url, self.provider_name
         )
 
-        logger.info(f"Initializing SearchAPIConfig with provider_name: {values.provider_name}")
+        logger.info(f"Initializing SearchAPIConfig with provider_name: {self.provider_name}")
 
         # identify the provider's parameter map - used for identifying parameters specific to the api
         parameter_map = provider_info.parameter_map if provider_info else None
         provider_name = provider_info.provider_name if provider_info else None
-        values.request_delay = cls.default_request_delay(values.request_delay, provider_name)
+        self.request_delay = self.default_request_delay(self.request_delay, provider_name)
 
         if not parameter_map:
-            return values
+            return self
 
-        if not values.api_key:
+        if not self.api_key:
             # attempts to load an API key if the provider config is required and contains an API key that can be read
-            values.api_key = cls._load_api_key(provider_info)
+            self.api_key = self._load_api_key(provider_info)
 
         # Remaining steps involve preparing api specific parameters based on the identified api mappings
         api_specific_parameter_mappings = parameter_map.api_specific_parameters or {}
-        api_specific_parameter_values = values.api_specific_parameters or {}
-        values.api_specific_parameters = cls._prepare_api_specific_parameters(
+        api_specific_parameter_values = self.api_specific_parameters or {}
+
+        self.api_specific_parameters = self._prepare_api_specific_parameters(
             api_specific_parameter_mappings, api_specific_parameter_values
         )
 
-        return values
+        return self
 
     @classmethod
     def _prepare_api_specific_parameters(

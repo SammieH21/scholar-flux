@@ -262,9 +262,8 @@ We follow a coordinated disclosure policy adapted for beta software:
 ## Security Resources
 
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [Python Security Best Practices](https://python.readthedocs.io/en/stable/library/security_warnings.html)
+- [Python Security Best Practices](https://python-security.readthedocs.io/vulnerabilities.html)
 - [Requests Security](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification)
-- [SQLAlchemy Security](https://docs.sqlalchemy.org/en/14/faq/security.html)
 
 ## Contact
 

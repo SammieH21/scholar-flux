@@ -14,6 +14,7 @@ import importlib.util
 import requests
 import requests_cache
 from typing import Optional, ClassVar, Literal
+from typing_extensions import Self
 from pathlib import Path
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -168,14 +169,14 @@ class CachedSessionConfig(BaseModel):
         return backend
 
     @model_validator(mode="after")
-    def validate_backend_filepath(cls, values):
+    def validate_backend_filepath(self) -> Self:
         """
         Helper method for validating when file storage is a necessity vs when it's not required
         """
-        backend = values.backend
-        cache_name = values.cache_name
-        cache_directory = values.cache_directory
-        cache_path = Path(values.cache_path) if values.cache_path else values.cache_path
+        backend = self.backend
+        cache_name = self.cache_name
+        cache_directory = self.cache_directory
+        cache_path = Path(self.cache_path) if self.cache_path else self.cache_path
 
         if backend in ("filesystem", "sqlite") and cache_directory is None:
             raise ValueError(
@@ -185,18 +186,18 @@ class CachedSessionConfig(BaseModel):
 
         if backend not in ("filesystem", "sqlite") and cache_directory is not None:
             logger.warning(f"Note that the cache_directory will not be used when using the {backend} backend")
-            values.cache_directory = None
+            self.cache_directory = None
         else:
             logger.debug(
                 f"When initialized, the Cached Session Configuration will use the {backend} "
                 f"backend and the path: {cache_path}."
             )
-            if not cache_path.parent.exists():
+            if isinstance(cache_path, Path) and not cache_path.parent.exists():
                 logger.warning(
                     f"Warning: The parent directory, {cache_path.parent}, does not exist "
                     "and need to be created before use."
                 )
-        return values
+        return self
 
     @property
     def cache_path(self) -> str:

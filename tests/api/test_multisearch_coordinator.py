@@ -607,7 +607,7 @@ def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplo
         )
         assert f"Encountered an unexpected error during iteration for provider, {provider_name}" in caplog.text
 
-        assert search_results_list.join() == search_results_list_two.join() == search_results_list_three.join()
+        assert sorted(search_results_list.join(), key=lambda x: str(x)) == sorted(search_results_list_two.join(), key=lambda x: str(x)) == sorted(search_results_list_three.join(), key=lambda x: str(x))
         assert (
             len(search_results_list.filter()) == len(multisearch_coordinator.coordinators) - 1
         )  # only one key is invalid

@@ -14,31 +14,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Install all Python versions
-      - uses: actions/setup-python@v5
+      # Install all Python versions needed for tox
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
         with:
-          python-version: |
-            3.10
-            3.11
-            3.12
-            3.13
+          python-version: "3.10"
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       
       - name: Install Poetry
         uses: snok/install-poetry@v1
       
       - name: Install dependencies
-        run: poetry install --with testing --extras "database cryptography parsing"
+        run: poetry install --with testing --all-extras
       
-      - name: Install development deps
-        run: poetry add --group dev
+      - name: Install tox
+        run: poetry run pip install tox tox-gh-actions
       
-      # Run all tox environments
-      - name: Run tests
+      - name: Run tests with tox
         run: poetry run tox
-
-      - name: Combine coverage and generate report
-        run: tox -e coverage
-
-
-     - name: Upload coverage to Codecov
-       uses: codecov/codecov-action@v4
+      
+      - name: Generate coverage report
+        run: poetry run tox -e coverage
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

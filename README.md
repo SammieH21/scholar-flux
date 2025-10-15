@@ -2,7 +2,7 @@
 
 ![ScholarFluxBanner](assets/Banner.png)
 
-[![codecov](https://codecov.io/gh/SammieH21/scholar-flux/branch/main/graph/badge.svg)](https://codecov.io/gh/SammieH21/scholar-flux)
+[![codecov](https://codecov.io/gh/sammieh21/scholar-flux/graph/badge.svg?token=D06ZSHP5GF)](https://codecov.io/gh/sammieh21/scholar-flux)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Beta](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/SammieH21/scholar-flux)
@@ -115,4 +115,4 @@ The Apache License 2.0 applies only to the code only and gives no rights to the 
 
 ### Contact
 
-Questions or suggestions? Open an issue or email sammiehstat@gmail.com.
+Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
