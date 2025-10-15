@@ -31,12 +31,12 @@ pytest = "^8.4.1"
 pytest-cov = "*"
 coverage = {extras = ["toml"], version = "*"}
 requests-mock = "*"
-interrogate = "*"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.3.0"
 flake8 = "^7.3.0"
 tox = "^4.31.0"
+interrogate = "*"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = ">=5.0,<8.0"
