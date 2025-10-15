@@ -42,8 +42,7 @@ sphinx = ">=5.0,<8.0"
 sphinx-autobuild = ">=2021.3.14,<2024.0.0"
 sphinx-rtd-theme = ">=1.2.0,<4.0.0"
 
-[tool.tox.env.coverage]
-allowlist_externals = ["poetry"]
+
 
 [build-system]
 requires = ["poetry-core"]
