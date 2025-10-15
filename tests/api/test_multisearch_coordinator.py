@@ -595,7 +595,7 @@ def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplo
 
         caplog.clear()
         search_results_list_two = multisearch_coordinator.search(
-            page=1, from_request_cache=True, iterate_by_group=True, multithreading=False
+            page=1, from_request_cache=False, iterate_by_group=True, multithreading=False
         )
         for provider in set(multisearch_coordinator.coordinators):
             error_encountered = provider is provider_name
@@ -603,11 +603,11 @@ def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplo
 
         caplog.clear()
         search_results_list_three = multisearch_coordinator.search(
-            page=1, from_request_cache=True, multithreading=True
+            page=1, from_request_cache=False, multithreading=True
         )
         assert f"Encountered an unexpected error during iteration for provider, {provider_name}" in caplog.text
 
-        assert search_results_list_two.join() == search_results_list_three.join()
+        assert sorted(search_results_list.join(), key=lambda x: str(x)) == sorted(search_results_list_two.join(), key=lambda x: str(x)) == sorted(search_results_list_three.join(), key=lambda x: str(x))
         assert (
             len(search_results_list.filter()) == len(multisearch_coordinator.coordinators) - 1
         )  # only one key is invalid
