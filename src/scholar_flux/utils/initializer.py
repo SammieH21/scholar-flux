@@ -74,7 +74,7 @@ def initialize_package(
         "logger": logger,
         "log_directory": config.get("SCHOLAR_FLUX_LOG_DIRECTORY"),
         "log_file": config.get("SCHOLAR_FLUX_LOG_FILE", "application.log"),
-        "log_level": config.get("SCHOLAR_FLUX_LOG_LEVEL", logging.DEBUG),
+        "log_level": config.get("SCHOLAR_FLUX_LOG_LEVEL", logging.INFO),
         "logging_filter": masking_filter,
     }
 
