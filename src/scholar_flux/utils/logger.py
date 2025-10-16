@@ -16,7 +16,7 @@ from scholar_flux.exceptions import LogDirectoryError
 def setup_logging(
     logger: Optional[logging.Logger] = None,
     log_directory: Optional[str] = None,
-    log_file: str = "application.log",
+    log_file: Optional[str] = "application.log",
     log_level: int = logging.DEBUG,
     max_bytes: int = 1048576,
     backup_count: int = 5,
@@ -30,13 +30,15 @@ def setup_logging(
     your logs manageable.
 
     Args:
-        logger: The logger instance to configure. If None, uses the root logger.
-        log_directory: Where to save log files. If None, automatically finds a writable directory.
-        log_file: Name of the log file (default: 'application.log').
-        log_level: Minimum level to log (DEBUG logs everything, INFO skips debug messages).
-        max_bytes: Maximum size of each log file before rotating (default: 1MB).
-        backup_count: Number of old log files to keep (default: 5).
-        logging_filter: Optional filter to modify log messages (e.g., hide sensitive data).
+        logger (Optional[logging.Logger]): The logger instance to configure. If None, uses the root logger.
+        log_directory (Optional[str]): Indicates where to save log files. If None, automatically finds a writable
+                                       directory when a log_file is specified..
+        log_file (Optional[str]): Name of the log file (default: 'application.log'). If None, file-based logging
+                                  will not be performed.
+        log_level (int): Minimum level to log (DEBUG logs everything, INFO skips debug messages).
+        max_bytes (int): Maximum size of each log file before rotating (default: 1MB).
+        backup_count (int): Number of old log files to keep (default: 5).
+        logging_filter (Optional[logging.Filter]): Optional filter to modify log messages (e.g., hide sensitive data).
 
     Example:
         >>> # Basic setup - logs to console and file
@@ -57,24 +59,27 @@ def setup_logging(
         - Calling this function multiple times will reset the logger configuration
     """
 
-    # Create a root logger if it doesn't yet exist
+    # Create or get a root logger if it doesn't yet exist
     if not logger:
-        logger = logging.getLogger()
+        logger = logging.getLogger(__name__)
 
     logger.setLevel(log_level)
 
     # Construct the full path for the log file
     try:
         # Attempt to create the log directory within the package
-        current_log_directory = (
-            Path(log_directory) if log_directory is not None else get_default_writable_directory("logs")
-        )
-        logger.info("Using the current directory for logging: %s", current_log_directory)
+        if log_file:
+            current_log_directory = (
+                Path(log_directory) if log_directory is not None else get_default_writable_directory("logs")
+            )
+            logger.info("Using the current directory for logging: %s", current_log_directory)
+        else:
+            current_log_directory = None
+
     except RuntimeError as e:
         logger.error("Failed to identify a directory for logging: %s", e)
         raise LogDirectoryError(f"Could not identify or create a log directory due to an error: {e}.")
 
-    log_file_path = current_log_directory / log_file
 
     # Clear existing handlers (useful if setup_logging is called multiple times)
     logger.handlers = []
@@ -87,16 +92,25 @@ def setup_logging(
     console_handler.setFormatter(formatter)
 
     # create a handler for file logs
-    file_handler = RotatingFileHandler(str(log_file_path), maxBytes=max_bytes, backupCount=backup_count)
-    file_handler.setFormatter(formatter)
+    log_file_path = current_log_directory / log_file if current_log_directory and log_file else None
+        
+    if log_file_path:
+        file_handler = RotatingFileHandler(str(log_file_path), maxBytes=max_bytes, backupCount=backup_count)
+        file_handler.setFormatter(formatter)
+    else:
+        file_handler = None
 
+    # add both file and console handlers to the logger
     if logging_filter:
         # Add a sensitive data masking filter to both file and console handlers
         console_handler.addFilter(logging_filter)
-        file_handler.addFilter(logging_filter)
-
-    # add both file and console handlers to the logger
     logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
 
-    logger.info("Logging setup complete (folder: %s)", log_file_path)
+    if file_handler:
+        if logging_filter:
+            file_handler.addFilter(logging_filter)
+        logger.addHandler(file_handler)
+
+    # indicate the location where logs are created, if created
+    logging_type = f"(folder: {log_file_path})" if log_file_path else "(console_only)"
+    logger.info("Logging setup complete %s", logging_type)
