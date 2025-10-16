@@ -1,32 +1,49 @@
 name: Documentation
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# Prevent concurrent deployments
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
+      
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
       
       - name: Install dependencies
-        run: |
-          pip install poetry
-          poetry install --with docs
+        run: poetry install --with docs
       
-      - name: Build docs
+      - name: Build Sphinx documentation
         run: |
-          cd docs
-          make html
+          # Use poetry run to ensure we're in the correct virtual environment
+          poetry run sphinx-build -b html docs/source docs/build/html --keep-going
+        
+      - name: Add .nojekyll file
+        run: touch docs/build/html/.nojekyll
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
