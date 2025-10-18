@@ -80,7 +80,6 @@ def setup_logging(
         logger.error("Failed to identify a directory for logging: %s", e)
         raise LogDirectoryError(f"Could not identify or create a log directory due to an error: {e}.")
 
-
     # Clear existing handlers (useful if setup_logging is called multiple times)
     logger.handlers = []
 
@@ -93,7 +92,7 @@ def setup_logging(
 
     # create a handler for file logs
     log_file_path = current_log_directory / log_file if current_log_directory and log_file else None
-        
+
     if log_file_path:
         file_handler = RotatingFileHandler(str(log_file_path), maxBytes=max_bytes, backupCount=backup_count)
         file_handler.setFormatter(formatter)
@@ -114,3 +113,6 @@ def setup_logging(
     # indicate the location where logs are created, if created
     logging_type = f"(folder: {log_file_path})" if log_file_path else "(console_only)"
     logger.info("Logging setup complete %s", logging_type)
+
+
+__all__ = ["setup_logging"]

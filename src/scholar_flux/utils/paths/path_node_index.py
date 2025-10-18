@@ -427,3 +427,6 @@ class PathNodeIndex:
             list[int]: A list containing integers denoting individual records found in each path.
         """
         return self.node_map.record_indices
+
+
+__all__ = ["PathNodeIndex"]

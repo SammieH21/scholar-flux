@@ -161,3 +161,6 @@ class JsonFileUtils:
         except (TypeError, OverflowError) as e:
             logger.info(f"{e}. Object is not JSON-serializable")
             return False
+
+
+__all__ = ["JsonFileUtils"]

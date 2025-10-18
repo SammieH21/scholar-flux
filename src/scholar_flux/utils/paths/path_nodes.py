@@ -232,3 +232,6 @@ class PathNode:
     def __deepcopy__(self, memo) -> PathNode:
         """Helper method for deeply copying the current node"""
         return PathNode(path=self.path, value=copy.deepcopy(self.value, memo))
+
+
+__all__ = ["PathNode"]

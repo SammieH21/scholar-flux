@@ -12,7 +12,7 @@ Modules:
                         - masker: identifies and masks sensitive data from logs such as api keys and email addresses
 
     - logger.py: Contains the setup_logging that is used to set the logging level and output location for logs when
-              using the the scholar_flux package
+                 using the the scholar_flux package
 
     - config.py: Holds the ConfigLoader class that starts from the scholar_flux defaults and reads from an .env and
                  environment variables to automatically apply API keys, encryption settings, the default provider, etc.
@@ -83,6 +83,8 @@ from scholar_flux.utils.paths import (
     PathProcessingCache,
     PathDiscoverer,
 )
+
+from scholar_flux.utils.module_utils import set_public_api_module
 
 from scholar_flux.utils.json_processing_utils import (
     PathUtils,
@@ -174,6 +176,7 @@ __all__ = [
     "generate_iso_timestamp",
     "format_iso_timestamp",
     "parse_iso_timestamp",
+    "set_public_api_module",
 ]
 
 

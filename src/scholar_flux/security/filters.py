@@ -55,3 +55,6 @@ class MaskingFilter(logging.Filter):
         if isinstance(record.msg, str):
             record.msg = self.masker.mask_text(record.msg)
         return True
+
+
+__all__ = ["MaskingFilter"]

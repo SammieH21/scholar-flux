@@ -20,3 +20,6 @@ provider = ProviderConfig(
     records_per_page=25,
     docs_url="https://dev.springernature.com/docs/introduction/",
 )
+
+
+__all__ = ["provider"]

@@ -1,6 +1,8 @@
 ![ScholarFluxBanner](assets/Banner.png)
 
 [![codecov](https://codecov.io/gh/sammieh21/scholar-flux/graph/badge.svg?token=D06ZSHP5GF)](https://codecov.io/gh/sammieh21/scholar-flux)
+[![CI](https://github.com/SammieH21/scholar-flux/actions/workflows/ci.yml/badge.svg)](https://github.com/SammieH21/scholar-flux/actions/workflows/ci.yml)
+
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Beta](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/SammieH21/scholar-flux)
@@ -108,7 +110,7 @@ The Apache License 2.0 applies only to the code only and gives no rights to the 
 
 ### Acknowledgments
 
-    Thanks to Springer Nature, Crossref, PLOS, PubMed and other Providers for providing access to their academic databases through the respective APIs.
+    Thanks to Springer Nature, Crossref, PLOS, PubMed and other Providers for providing public access to their academic databases through the respective APIs.
     This project uses Poetry for dependency management and requires python 3.10 or higher.
 
 ### Contact

@@ -280,3 +280,6 @@ class BaseAPI:
     def __repr__(self) -> str:
         """Helper method for identifying the configuration for the BaseAPI"""
         return self.structure()
+
+
+__all__ = ["BaseAPI"]

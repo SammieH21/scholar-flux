@@ -1011,45 +1011,4 @@ class ProcessingPath:
         return f"ProcessingPath(components={self.delimiter.join(self.components)}, component_types={self.delimiter.join(self.component_types) if self.component_types else None})"
 
 
-# if __name__ == '__main__':
-#     path = ProcessingPath('a/b/c', ['list','list','terminal'],'/')
-#
-#     broken_path = '.i/<>/a/bcd%'
-#     d=ProcessingPath.infer_delimiter(broken_path)
-#     res=ProcessingPath.to_processing_path(broken_path,delimiter=d)
-#     res.depth
-#     better_path = 'a>b>c'
-#     res=ProcessingPath.to_processing_path(better_path,delimiter=ProcessingPath.infer_delimiter(better_path))
-#     res.depth
-#     ProcessingPath._validate_delimiter('.')
-#
-#     path_depth=ProcessingPath.to_processing_path('a.b.c',None,delimiter='.').depth
-#     path_ancestor=ProcessingPath.to_processing_path('a.b',['list','terminal'],delimiter='.')
-#     path2=ProcessingPath.to_processing_path('c.d',['list','list'],delimiter='.')
-#     path_child=ProcessingPath.to_processing_path('e.f.g',['list','list', 'list'],delimiter='.')
-#
-#     path=ProcessingPath.to_processing_path('a.b.c',None, delimiter='.')
-#     path.has_ancestor(path_ancestor)
-#     path[:-1].has_ancestor(path_ancestor)
-#     path_ancestor.is_ancestor_of(path)
-#
-#     path3 =  path2 / path_child
-#     path3.component_types
-#
-#
-#     path4 =  path3 / ProcessingPath('h',('terminal',))
-#     path4.component_types
-#
-#     paths = [
-#         ProcessingPath('a<>b'),
-#         ProcessingPath('b<>b'),
-#         ProcessingPath('c<>b'),
-#         ProcessingPath('a'),
-#         ProcessingPath('b'),
-#         ProcessingPath('d'),
-#         ProcessingPath('e'),
-#         ProcessingPath('c<>b<>f<>g')
-#     ]
-#
-#
-#     ProcessingPath.keep_descendants(paths)
+__all__ = ["ProcessingPath"]

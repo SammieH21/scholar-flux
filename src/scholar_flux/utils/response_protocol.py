@@ -40,3 +40,6 @@ class ResponseProtocol(Protocol):
     def raise_for_status(self) -> None:
         """Raise an exception for HTTP error status codes."""
         ...
+
+
+__all__ = ["ResponseProtocol"]

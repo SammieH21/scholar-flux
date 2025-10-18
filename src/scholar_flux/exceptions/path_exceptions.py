@@ -92,3 +92,21 @@ class PathDiscoveryError(PathUtilsError):
     """Exception raised for invalid operations resulting from the handling of PathNodes."""
 
     pass
+
+
+__all__ = [
+    "PathUtilsError",
+    "InvalidProcessingPathError",
+    "InvalidComponentTypeError",
+    "PathSimplificationError",
+    "InvalidPathDelimiterError",
+    "PathIndexingError",
+    "InvalidPathNodeError",
+    "RecordPathNodeMapError",
+    "RecordPathChainMapError",
+    "PathNodeIndexError",
+    "PathCombinationError",
+    "PathCacheError",
+    "PathNodeMapError",
+    "PathDiscoveryError",
+]

@@ -327,3 +327,6 @@ class RedisStorage(ABCStorage):
         except (TimeoutError, ConnectionError) as e:
             logger.warning(f"An active Redis service could not be found at {host}:{port}: {e}")
             return False
+
+
+__all__ = ["RedisStorage"]

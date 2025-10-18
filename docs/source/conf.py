@@ -42,8 +42,19 @@ html_css_files = [
     'custom.css',
 ]
 
+suppress_warnings = [
+    'ref.python',  # Suppress "more than one target found" warnings
+]
+
+# prefer the original module for cross-references
+autodoc_typehints_format = 'short'
+
 autodoc_default_options = {
     'members': True,           # Document all members
-    'undoc-members': True,     # Include items without docstrings
+    'undoc-members': False,     # Include only items with docstrings - note: all items should be documented in production
+    'imported-members': False,  # Don't document imported members in submodules
+    'private-members': False,
+    'special-members': '__init__',
     'show-inheritance': True,  # Show parent classes
 }
+

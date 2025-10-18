@@ -90,7 +90,7 @@ def initialize_package(
     except Exception as e:
         raise ValueError(f"Failed to initialize the logging for the scholar_flux package: {e}")
 
-    logging.debug(
+    logger.debug(
         "Loaded Scholar Flux with the following parameters:\n"
         f"config_params={pformat(config_params_dict)}\n"
         f"logging_params={pformat(logging_params_dict)}"
