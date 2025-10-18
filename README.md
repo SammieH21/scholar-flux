@@ -11,6 +11,13 @@
 The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications.
 In addition, this API has built in extension capabilities for applications in News retrieval and other domains.
 
+ - **Home**: https://github.com/SammieH21/scholar-flux
+ - **Documentation**: https://sammieh21.github.io/scholar-flux/
+ - **Source Code**: https://github.com/SammieH21/scholar-flux/tree/main/src/scholar_flux
+ - **Contributing**: https://github.com/SammieH21/scholar-flux/blob/main/CODE_OF_CONDUCT.md
+ - **Issues**: https://github.com/SammieH21/scholar-flux/issues
+ - **Security**: https://github.com/SammieH21/scholar-flux/blob/main/SECURITY.md
+
 ## Features
 
 - **Unified Access**: Aggregate searches across multiple academic databases and publishers.

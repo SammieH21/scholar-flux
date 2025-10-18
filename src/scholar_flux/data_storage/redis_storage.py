@@ -44,16 +44,17 @@ class RedisStorage(ABCStorage):
 
     Examples:
 
-
         >>> from scholar_flux.data_storage import RedisStorage
-        ### defaults to connecting to locally (localhost) on the default port for Redis (27017)
+        # Defaults to connecting to locally (localhost) on the default port for Redis services (6379)
+        # Verifies that a Redis service is locally available.
+        >>> assert RedisStorage.is_available() 
         >>> redis_storage = RedisStorage(namespace='testing_functionality')
         >>> print(redis_storage)
         # OUTPUT: RedisStorage(...)
-        ### Adding records to the storage
+        # Adding records to the storage
         >>> redis_storage.update('record_page_1', {'id':52, 'article': 'A name to remember'})
         >>> redis_storage.update('record_page_2', {'id':55, 'article': 'A name can have many meanings'})
-        ### Revising and overwriting a record
+        # Revising and overwriting a record
         >>> redis_storage.update('record_page_2', {'id':53, 'article': 'A name has many meanings'})
         >>> redis_storage.retrieve_keys() # retrieves all current keys stored in the cache under the namespace
         # OUTPUT: ['testing_functionality:record_page_1', 'testing_functionality:record_page_2']

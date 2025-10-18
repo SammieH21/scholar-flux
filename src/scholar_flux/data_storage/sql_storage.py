@@ -94,13 +94,16 @@ class SQLAlchemyStorage(ABCStorage):
 
         ### Import the package and initialize the storage in a dedicated package directory :
         >>> from scholar_flux.data_storage import SQLAlchemyStorage
+        # Defaults to connecting to locally (mongodb://127.0.0.1) on the default port for MongoDB (27017)
+        # Verifies that the dependency for a basic sqlite service is actually available for use locally
+        >>> assert SQLAlchemyStorage.is_available()
         >>> sql_storage = SQLAlchemyStorage(namespace='testing_functionality')
         >>> print(sql_storage)
         # OUTPUT: SQLAlchemyStorage(...)
-        ### Adding records to the storage
+        # Adding records to the storage
         >>> sql_storage.update('record_page_1', {'id':52, 'article': 'A name to remember'})
         >>> sql_storage.update('record_page_2', {'id':55, 'article': 'A name can have many meanings'})
-        ### Revising and overwriting a record
+        # Revising and overwriting a record
         >>> sql_storage.update('record_page_2', {'id':53, 'article': 'A name has many meanings'})
         >>> sql_storage.retrieve_keys() # retrieves all current keys stored in the cache under the namespace
         >>> sql_storage.retrieve_all()
