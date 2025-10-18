@@ -20,3 +20,9 @@ class KeyNotFound(KeyError):
     """Exception resulting from a missing or empty key being provided"""
 
     pass
+
+__all__ = [
+    "StorageCacheException",
+    "ConnectionFailed",
+    "KeyNotFound"
+]

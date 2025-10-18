@@ -8,6 +8,7 @@ import re
 import hashlib
 import requests
 from datetime import datetime, timezone
+from scholar_flux.utils.response_protocol import ResponseProtocol
 
 from typing import (
     Any,
@@ -33,8 +34,10 @@ T = TypeVar("T", bound=Hashable)
 def quote_if_string(value: Any) -> Any:
     """
     Attempt to quote string values to distinguish them from object text in class representations.
+
     Args:
         value (Any): a value that is quoted only if it is a string
+
     Returns:
         Any: Returns a quoted string if successful. Otherwise returns the value unchanged
     """
@@ -46,8 +49,10 @@ def quote_if_string(value: Any) -> Any:
 def try_quote_numeric(value: Any) -> Optional[str]:
     """
     Attempt to quote numeric values to distinguish them from string values and integers.
+
     Args:
         value (Any): a value that is quoted only if it is a numeric string or an integer
+
     Returns:
         Optional[str]: Returns a quoted string if successful. Otherwise None
     """
@@ -60,8 +65,10 @@ def quote_numeric(value: Any) -> str:
     """
     Attempts to quote as a numeric value and returns the original value if successful
     Otherwise returns the original element
+
     Args:
         value (Any): a value that is quoted only if it is a numeric string or an integer
+
     Returns:
         Returns a quoted string if successful.
     Raises:
@@ -96,6 +103,7 @@ def as_tuple(obj: Any) -> tuple:
 
     Args:
         obj (Any) The object to nest as a tuple
+
     Returns:
 
     """
@@ -203,17 +211,22 @@ def get_nested_data(json: list | dict | None, path: list) -> list | dict | None 
     return current_data
 
 
-def generate_response_hash(response: requests.Response) -> str:
+def generate_response_hash(response: requests.Response | ResponseProtocol) -> str:
     """
     Generates a response hash from a response from requests.
-    This function returns a unique identifier for the response
+
+    Args:
+        response (requests.Response | ResponseProtocol):
+            An http response or response-like object that implements the ResponseProtocol.
+    Returns: A unique identifier for the response.
     """
     # Extract URL directly from the response object
     url = response.url
 
     # Filter for relevant headers directly from the response object
-    relevant_headers = {k: v for k, v in response.headers.items() if k in ["ETag", "Last-Modified"]}
-    headers_string = str(sorted(relevant_headers.items()))
+    header_names = {"etag", "last-modified"}
+    relevant_headers = {k: v for k, v in response.headers.items() if str(k).lower() in header_names}
+    headers_string = str(sorted(f"{str(k).lower()}: {v}" for k, v in relevant_headers.items()))
 
     # Assume response.content is the way to access the raw byte content
     # Check if response.content is not None or empty before hashing
@@ -247,7 +260,7 @@ def coerce_int(value: Any) -> int | None:
 
 
 def coerce_str(value: Any) -> Optional[str]:
-    """Attempts to convert a value into a string, if possible, returning None if conversion fails"""
+    """Attempts to convert a value into a string, if possible, returning None if conversion fails."""
     if isinstance(value, str) or value is None:
         return value
 
@@ -260,8 +273,10 @@ def coerce_str(value: Any) -> Optional[str]:
 def try_int(value: JSON_TYPE | None) -> JSON_TYPE | int | None:
     """
     Attempts to convert a value to an integer, returning the original value if the conversion fails.
+
     Args:
         value (Hashable): the value to attempt to coerce into an integer
+
     Returns:
         Optional[int]:
     """
@@ -272,8 +287,10 @@ def try_int(value: JSON_TYPE | None) -> JSON_TYPE | int | None:
 def try_str(value: Any) -> str | None:
     """
     Attempts to convert a value to a string, returning the original value if the conversion fails.
+
     Args:
         value (Any): the value to attempt to coerce into an string
+
     Returns:
         Optional[int]:
     """
@@ -302,12 +319,13 @@ def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
 
 def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
     """
-    Attempts to convert a value into a dictionary, if possible
+    Attempts to convert a value into a dictionary, if possible.
     If it is not possible to convert the value into a dictionary,
     the function will return None.
+
     Args:
         value (List[Dict | Dict): The value to attempt to convert into a dict
-    Returns;
+    Returns:
         Optional[Dict]: The value converted into a dictionary if possible, otherwise None
     """
     if isinstance(value, dict):
@@ -322,11 +340,12 @@ def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
 
 def is_nested(obj: Any) -> bool:
     """
-    Indicates whether the current value is  a nested object:
-       useful for recursive iterations such as JSON record data.
+    Indicates whether the current value is  a nested object.
+    Useful for recursive iterations such as JSON record data.
 
     Args:
         obj: any (realistic JSON) data type - dicts, lists, strs, numbers
+
     Returns:
         bool: True if nested otherwise False
     """
@@ -344,8 +363,9 @@ def unlist_1d(current_data: Tuple | List | Any) -> Any:
         current_data (Tuple | List | Any): An object potentially unlist if it contains a single element.
 
     Returns:
-        Optional[Any]: The unlisted object if it comes from a single element list/tuple,
-                             otherwise returns the input unchanged.
+        Optional[Any]:
+            The unlisted object if it comes from a single element list/tuple,
+            otherwise returns the input unchanged.
     """
     if isinstance(current_data, (tuple, list)) and len(current_data) == 1:
         return current_data[0]
@@ -355,12 +375,14 @@ def unlist_1d(current_data: Tuple | List | Any) -> Any:
 def as_list_1d(value: Any) -> List:
     """
     Nests a value into a single element list if the value is not already a list.
+
     Args:
         value (Any): The value to add to a list if it is not already a list
+
     Returns:
-        List: If already a list, the value is returned as is.
-              Otherwise, the value is nested in a list.
-              Caveat: if the value is None, an empty list is returned
+        List:
+            If already a list, the value is returned as is. Otherwise, the value is nested in a list.
+            Caveat: if the value is None, an empty list is returned
     """
     if value is not None:
         return value if isinstance(value, list) else [value]
@@ -405,11 +427,11 @@ def try_call(
         suppress: A tuple of exceptions to handle and suppress if they occur
         logger: The logger to use for warning generation
         default: The value to return in the event that an error occurs and is suppressed
+
     Returns:
-        Optional[Any]: When successful, the return type of the callable is also
-        returned without modification. Upon a suppressed exception,
-        the function will generate a warning and return `None` by default unless
-        default is set
+        Optional[Any]:
+            When successful, the return type of the callable is also returned without modification. Upon suppressing an exception,
+            the function will generate a warning and return `None` by default unless the default was set.
     """
 
     suppress = as_tuple(suppress)
@@ -437,6 +459,12 @@ def generate_iso_timestamp() -> str:
     """
     Generates and formats an ISO 8601 timestamp string in UTC with millisecond precision
     for reliable round-trip conversion.
+
+    Example usage:
+        >>> from scholar_flux.utils import generate_iso_timestamp, parse_iso_timestamp, format_iso_timestamp
+        >>> timestamp = generate_iso_timestamp()
+        >>> parsed_timestamp = parse_iso_timestamp(timestamp)
+        >>> assert parsed_timestamp is not None and format_iso_timestamp(parsed_timestamp) == timestamp
 
     Returns:
         str: ISO 8601 formatted timestamp (e.g., "2024-03-15T14:30:00.123Z")
@@ -475,7 +503,24 @@ def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
         return None
 
 
-if __name__ == "__main__":
-    timestamp = generate_iso_timestamp()
-    parsed_timestamp = parse_iso_timestamp(timestamp)
-    assert parsed_timestamp is not None and format_iso_timestamp(parsed_timestamp) == timestamp
+__all__ =    [
+        "get_nested_data",
+        "nested_key_exists",
+        "generate_response_hash",
+        "coerce_int",
+        "coerce_str",
+        "try_str",
+        "try_int",
+        "try_dict",
+        "try_pop",
+        "try_call",
+        "as_list_1d",
+        "unlist_1d",
+        "is_nested",
+        "try_quote_numeric",
+        "quote_numeric",
+        "quote_if_string",
+        "generate_iso_timestamp",
+        "format_iso_timestamp",
+        "parse_iso_timestamp",
+    ]

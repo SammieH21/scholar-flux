@@ -68,6 +68,14 @@ scholar\_flux.utils.logger module
    :undoc-members:
    :show-inheritance:
 
+scholar\_flux.utils.module\_utils module
+----------------------------------------
+
+.. automodule:: scholar_flux.utils.module_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 scholar\_flux.utils.provider\_utils module
 ------------------------------------------
 

@@ -1,13 +1,13 @@
 # /utils/models/session.py
 """
 The scholar_flux.utils.models.session module defines the pydantic-based configuration models and
-BaseSessionManager specification necessary to create new sessions
+BaseSessionManager abstract base class that is a key building block in the creation of new sessions.
 
 Classes:
     BaseSessionManager: Defines the core, abstract methods necessary to create a new session object from session
-                        manager subclasses
-                        CachedSessionConfig: Defines the underlying logic pessary to validate the configuration used
-                                             when creating CachedSession objects using a CachedSessionManager.
+                        manager subclasses.
+    CachedSessionConfig: Defines the underlying logic necessary to validate the configuration used when creating CachedSession
+                         objects using a CachedSessionManager.
 """
 import datetime
 import importlib.util
@@ -27,20 +27,17 @@ logger = logging.getLogger(__name__)
 
 class BaseSessionManager(ABC):
     """
-    An abstract base class used as a factory to create session objects:
-        This can be extended to both validate inputs to sessions and abstract
-        the complexity of their creation
+    An abstract base class used as a factory to create session objects.
+    This base class can be extended to validate inputs to sessions and abstract the complexity of their creation
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        """Initializes BaseSessionManager subclasses given the provided arguments"""
+        """Initializes BaseSessionManager subclasses given the provided arguments."""
         pass
 
     @abstractmethod
     def configure_session(self, *args, **kwargs) -> requests.Session | requests_cache.CachedSession:
-        """
-        Configure the session. Should be overridden by subclasses.
-        """
+        """Configure the session. Should be overridden by subclasses."""
         raise NotImplementedError("configure_session must be implemented by subclasses")
 
     @classmethod
@@ -53,8 +50,8 @@ class BaseSessionManager(ABC):
 
     def __call__(self) -> requests.Session | requests_cache.CachedSession:
         """
-        Method that makes the session manager callable in the creation of the session
-        Calls the self.configure_session() method to return the created session object
+        Method that makes an instantiated session manager callable, enabling the creation of new cached sessions with
+        a specific configuration. Calls the self.configure_session() method to return the created session object.
         """
         return self.configure_session()
 
@@ -72,8 +69,8 @@ BACKEND_DEPENDENCIES = {
 
 class CachedSessionConfig(BaseModel):
     """
-    A helper model used to validate the inputs provided when creating a CachedSessionManager
-    This config is used to validate the inputs to the session manager prior to attempting its creation
+    A helper model used to validate the inputs provided when creating a CachedSessionManager.
+    This config is used to validate the inputs to the session manager prior to attempting its creation.
     """
 
     cache_name: str
@@ -90,10 +87,7 @@ class CachedSessionConfig(BaseModel):
 
     @field_validator("cache_directory", mode="before")
     def validate_cache_directory(cls, v) -> Optional[Path]:
-        """
-        Validates the cache_directory field to flag simple cases where
-        the value is an empty string.
-        """
+        """Validates the cache_directory field to flag simple cases where the value is an empty string."""
 
         if v is None or isinstance(v, Path):
             return v
@@ -109,10 +103,7 @@ class CachedSessionConfig(BaseModel):
 
     @field_validator("cache_name", mode="after")
     def validate_cache_name(cls, v) -> str:
-        """
-        Validates the cache_name field to flag simple cases where
-        the value is an empty string.
-        """
+        """Validates the cache_name field to flag simple cases where the value is an empty string."""
         if len(v) == 0:
             raise ValueError(f"The value provided to the cache_name parameter ({v}) must be a non-empty string.")
 
@@ -123,10 +114,7 @@ class CachedSessionConfig(BaseModel):
 
     @field_validator("expire_after", mode="after")
     def validate_expire_after(cls, v):
-        """
-        Validates the expire_after field to flag simple cases where
-        integer values that are not above or equal to 0 as invalid
-        """
+        """Validates the expire_after field to flag simple cases where numeric values below 0 are marked as invalid."""
         if isinstance(v, int) and v < 0 and not v == -1:
             raise ValueError(
                 f"The provided integer for the expire_after parameter ({v}) must be greater "
@@ -138,7 +126,7 @@ class CachedSessionConfig(BaseModel):
     def validate_backend_dependency(cls, v):
         """
         Validates the choice of backend to and raises an error if its dependency is missing.
-        If the backend has unmet dependencies, this validator will trigger a ValidationError
+        If the backend has unmet dependencies, this validator will trigger a ValidationError.
         """
 
         if isinstance(v, requests_cache.BaseCache):
@@ -170,9 +158,7 @@ class CachedSessionConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_backend_filepath(self) -> Self:
-        """
-        Helper method for validating when file storage is a necessity vs when it's not required
-        """
+        """Helper method for validating when file storage is a necessity vs when it's not required."""
         backend = self.backend
         cache_name = self.cache_name
         cache_directory = self.cache_directory
@@ -202,7 +188,9 @@ class CachedSessionConfig(BaseModel):
     @property
     def cache_path(self) -> str:
         """
-        Helper method for retrieving the path that the cache will be written to or named, depending on the backend.:
-            Assumes that a cache_name is already provided
+        Helper method for retrieving the path that the cache will be written to or named, depending on the backend.
+        Assumes that the cache_name is provided to the config is not `None`.
         """
         return str(self.cache_directory / self.cache_name) if self.cache_directory else self.cache_name
+
+__all__ = ["BaseSessionManager", "CachedSessionConfig"]

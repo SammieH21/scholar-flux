@@ -26,3 +26,4 @@ except (PackageNotFoundError, ImportError):  # Catch both  and ImportError
 from scholar_flux.package_metadata.directories import get_default_writable_directory
 
 __all__ = ["__version__", "get_default_writable_directory"]
+

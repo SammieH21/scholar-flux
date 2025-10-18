@@ -12,7 +12,7 @@ Scholar Flux is a Python library for searching and processing academic articles 
    :maxdepth: 2
    :caption: Contents:
 
-   api/modules
+   modules
 
 Getting Started
 ===============
@@ -20,11 +20,11 @@ Getting Started
 Installation
 ------------
 
-Install Scholar Flux using pip:
+The scholar-flux module is currently in beta, and is available right now for testing and preliminary use! Install Scholar Flux using pypi index for testing:
 
 .. code-block:: bash
 
-   pip install scholar-flux
+   pip install --extra-index-url https://test.pypi.org/simple/ scholar-flux --pre
 
 Quick Start Example
 ===================
@@ -90,7 +90,7 @@ Key Features
 API Reference
 =============
 
-For detailed API documentation, see the :doc:`api/modules` section.
+For detailed API documentation, see the :doc:`modules` section.
 
 Indices and tables
 ==================

@@ -29,3 +29,5 @@ provider = ProviderConfig(
     records_per_page=25,
     docs_url="https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
 )
+
+__all__ = ["provider"]

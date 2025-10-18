@@ -81,3 +81,6 @@ class NullStorage(ABCStorage):
     def __bool__(self, *args, **kwargs) -> bool:
         """The NullStorage is Falsy, indicating that no cache is ever stored"""
         return False
+
+
+__all__ = ["NullStorage"]

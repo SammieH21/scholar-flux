@@ -120,3 +120,12 @@ def validate_and_process_url(url: Optional[str]) -> Optional[str]:
         )
 
     return normalize_url(url)
+
+
+__all__ = [
+    "validate_email",
+    "validate_and_process_email",
+    "validate_url",
+    "normalize_url",
+    "validate_and_process_url",
+]

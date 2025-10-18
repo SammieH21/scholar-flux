@@ -1,6 +1,8 @@
 # tests/test_utils.py
 import logging
 from requests import Response
+from scholar_flux.utils.module_utils import set_public_api_module
+from typing import Callable
 
 import pytest
 
@@ -216,6 +218,10 @@ def test_try_int_none_value():
 
 
 def test_try_pop_existing_and_missing():
+    """
+    Validates whether the `try_pop` function successfully removes an object that exists within a set and
+    returns the default when the object does not exist in the set.
+    """
     s = {1, 2, 3}
     assert try_pop(s, 2) == 2
     assert 2 not in s
@@ -347,3 +353,43 @@ def test_try_call_non_callable(caplog):
     value = try_call(123, default=default, suppress=(TypeError,), logger=logger)  # type:ignore
     assert value == default
     assert str(excinfo.value) in caplog.text
+
+@pytest.fixture
+def new_int():
+    """Helper int for testing whether ints (don't have a __module__ attr) are skipped when setting public api modules"""
+    return 1
+
+@pytest.fixture()
+def new_set() -> set:
+    """Helper set for testing whether sets (don't have a __module__ attr) are skipped when setting public api modules"""
+    return {1, 2, 3}
+
+@pytest.fixture()
+def new_tuple() -> tuple:
+    """Helper tuple for verifying whether new classes are successfully renamed"""
+    return (4, 5, 6)
+
+@pytest.fixture()
+def new_fn() -> Callable:
+    """Uses a builtin function to test whether `set_public_api_module` successfully renames function modules"""
+    return lambda x: x
+
+@pytest.fixture()
+def new_class() -> object:
+    """Creates a helper class to test whether `set_public_api_module` successfully renames class modules"""
+    class AClass:
+        """A dummy class for testing"""
+        pass
+    return AClass
+
+def test_set_public_api_module(new_int, new_set, new_tuple, new_fn, new_class):
+    """Tests the set_public_api_module to verify that the module names of only functions and classes are modified"""
+
+    __all__ = ["try_quote_numeric", "quote_numeric", "flatten", "new_int", "new_tuple", "new_set", "new_fn", "new_class"]
+
+    set_public_api_module(__name__, __all__, globals())
+
+    assert all(fn.__module__ == __name__ if hasattr(fn, "__module__") else not callable(fn)
+               for fn in [try_quote_numeric, quote_numeric, flatten, new_int, new_tuple, new_set, new_fn, new_class]
+              )
+
