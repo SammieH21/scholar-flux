@@ -46,14 +46,16 @@ class MongoDBStorage(ABCStorage):
     Examples:
 
         >>> from scholar_flux.data_storage import MongoDBStorage
-        # defaults to connecting to locally (mongodb://127.0.0.1) on the default port for MongoDB (27017)
+        # Defaults to connecting to locally (mongodb://127.0.0.1) on the default port for MongoDB (27017)
+        # Verifies that a mongodb service is actually available locally on the default port
+        >>> assert MongoDBStorage.is_available()
         >>> mongo_storage = MongoDBStorage(namespace='testing_functionality')
         >>> print(mongo_storage)
         # OUTPUT: MongoDBStorage(...)
-        ### Adding records to the storage
+        # Adding records to the storage
         >>> mongo_storage.update('record_page_1', {'id':52, 'article': 'A name to remember'})
         >>> mongo_storage.update('record_page_2', {'id':55, 'article': 'A name can have many meanings'})
-        ### Revising and overwriting a record
+        # Revising and overwriting a record
         >>> mongo_storage.update('record_page_2', {'id':53, 'article': 'A name has many meanings'})
         >>> mongo_storage.retrieve_keys() # retrieves all current keys stored in the cache under the namespace
         # OUTPUT: ['testing_functionality:record_page_1', 'testing_functionality:record_page_2']
