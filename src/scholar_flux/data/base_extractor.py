@@ -254,3 +254,5 @@ class BaseDataExtractor:
             str: The representation of the current object
         """
         return self.structure()
+
+__all__ = ["BaseDataExtractor"]

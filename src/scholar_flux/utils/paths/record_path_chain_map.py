@@ -477,3 +477,6 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
 
         except Exception as e:
             raise PathNodeMapError(f"Error removing paths from PathNodeMap: {e}") from e
+
+__all__ = ["RecordPathNodeMap", "RecordPathChainMap"]
+

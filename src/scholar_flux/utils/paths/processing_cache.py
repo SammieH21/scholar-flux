@@ -197,3 +197,5 @@ class PathProcessingCache:
         }
 
         return terminal_path_list
+
+__all__ = ["PathProcessingCache"]

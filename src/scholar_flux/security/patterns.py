@@ -208,3 +208,5 @@ class MaskingPatternSet(set[MaskingPattern]):
                     if not isinstance(element, MaskingPattern):
                         raise TypeError(f"Expected a masking pattern, received type {type(others)}")
                 super().update(patterns)
+
+__all__ = ["MaskingPattern", "KeyMaskingPattern", "StringMaskingPattern", "MaskingPatternSet"]

@@ -19,3 +19,6 @@ provider = ProviderConfig(
     records_per_page=50,
     docs_url="https://api.plos.org/solr/faq",
 )
+
+
+__all__ = ["provider"]

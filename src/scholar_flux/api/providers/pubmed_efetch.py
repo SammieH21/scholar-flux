@@ -74,3 +74,6 @@ provider = ProviderConfig(
     request_delay=2,
     docs_url="https://www.ncbi.nlm.nih.gov/books/NBK25499/",
 )
+
+
+__all__ = ["provider"]

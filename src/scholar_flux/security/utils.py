@@ -82,3 +82,5 @@ class SecretUtils:
             bool: True if the object is a SecretStr, False otherwise
         """
         return isinstance(obj, SecretStr)
+
+__all__ = ["SecretUtils"]

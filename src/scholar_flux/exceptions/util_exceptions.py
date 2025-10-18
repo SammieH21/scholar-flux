@@ -38,3 +38,12 @@ class SecretKeyError(ValueError):
     """Raised when the provided Fernet secret key is invalid."""
 
     pass
+
+__all__ = [
+    "LogDirectoryError",
+    "SessionCreationError",
+    "SessionConfigurationError",
+    "SessionInitializationError",
+    "SessionCacheDirectoryError",
+    "SecretKeyError"
+]

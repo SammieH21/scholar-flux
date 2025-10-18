@@ -171,3 +171,5 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
         """
         provider_dict = ProviderUtils.load_provider_config_dict()
         return cls(provider_dict)
+
+__all__ = ["ProviderRegistry"]

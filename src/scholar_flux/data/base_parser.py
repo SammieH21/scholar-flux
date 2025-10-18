@@ -168,3 +168,5 @@ class BaseDataParser:
         Helper method for identifying the current implementation of the BaseDataParser and its configuration.
         """
         return self.structure()
+
+__all__ = ["BaseDataParser"]

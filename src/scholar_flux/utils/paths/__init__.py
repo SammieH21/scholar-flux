@@ -95,6 +95,7 @@ from scholar_flux.utils.paths.path_discoverer import PathDiscoverer
 from scholar_flux.utils.paths.path_node_map import PathNodeMap
 from scholar_flux.utils.paths.record_path_chain_map import RecordPathNodeMap, RecordPathChainMap
 from scholar_flux.utils.paths.path_node_index import PathNodeIndex
+from scholar_flux.utils.module_utils import set_public_api_module
 
 __all__ = [
     "ProcessingPath",
@@ -107,3 +108,5 @@ __all__ = [
     "RecordPathChainMap",
     "PathNodeIndex",
 ]
+
+set_public_api_module(__name__, __all__, globals())

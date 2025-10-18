@@ -211,3 +211,6 @@ class RetryHandler:
         will show the name of the class in addition to the values used to create it
         """
         return generate_repr(self)
+
+
+__all__ = ["RetryHandler"]

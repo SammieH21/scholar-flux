@@ -20,3 +20,5 @@ provider = ProviderConfig(
     records_per_page=25,
     docs_url="https://api.core.ac.uk/docs/v3#section/Welcome!",
 )
+
+__all__ = ["provider"]
