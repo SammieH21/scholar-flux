@@ -184,12 +184,4 @@ class RateLimiter:
             self.min_interval = current_min_interval
 
 
-# if __name__ == "__main__":
-#
-#     def asum():
-#         return sum(range(5))
-#
-#     limiter = RateLimiter(5)
-#     for i in range(3):
-#         with limiter.rate(min_interval=2) as limiter:
-#             asum()
+__all__ = ["RateLimiter"]

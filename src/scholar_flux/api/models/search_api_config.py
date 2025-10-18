@@ -609,3 +609,6 @@ class SearchAPIConfig(BaseModel):
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner"""
         return self.structure()
+
+
+__all__ = ["SearchAPIConfig"]

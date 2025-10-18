@@ -264,3 +264,6 @@ class SearchResultList(list[SearchResult]):
     def filter(self) -> SearchResultList:
         """Helper method that retains only elements from the original response that indicate successful processing."""
         return SearchResultList(item for item in self if isinstance(item.response_result, ProcessedResponse))
+
+
+__all__ = ["SearchResult", "SearchResultList"]

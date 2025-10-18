@@ -588,7 +588,7 @@ class SearchAPI(BaseAPI):
     def cache(self) -> Optional[BaseCache]:
         """
         Retrieves the requests-session cache object if the session object
-        is a CachedSession object. If a session cache does not exist, this
+        is a `CachedSession` object. If a session cache does not exist, this
         function will return None
 
         Returns:
@@ -618,17 +618,17 @@ class SearchAPI(BaseAPI):
         customize or override parameter settings to the API. additional_parameters is offered as a convenience
         method in case an API may use additional arguments or a query requires specific advanced functionality.
 
-        Other arguments and mappings can be supplied through **api_specific_parameters to the parameter config,
+        Other arguments and mappings can be supplied through `**api_specific_parameters` to the parameter config,
         provided that the options or pre-defined mappings exist in the config.
 
-        When **api_specific_parameters and additional_parameters conflict, additional_parameters is considered
+        When `**api_specific_parameters` and `additional_parameters` conflict, additional_parameters is considered
          the ground truth. If any remaining parameters are `None` in the constructed list of parameters, these
          values will be dropped from the final dictionary.
 
         Args:
             page (int): The page number to request.
             additional_parameters Optional[dict]: A dictionary of additional overrides that may or may not have
-                    `                             been included in the original parameter map of the current
+                                                  been included in the original parameter map of the current
                                                   API. (Provided for further customization of requests).
             **api_specific_parameters: Additional parameters to provide to the parameter config: Note that the
                                        config will only accept keyword arguments that have been explicitly
@@ -745,7 +745,7 @@ class SearchAPI(BaseAPI):
         Args:
             page (int): The page number to request.
             additional_parameters Optional[dict]: A dictionary of additional overrides not included in the original
-                                              SearchAPIConfig
+                                                  SearchAPIConfig
         Returns:
             Response: The API's response to the request.
         """
@@ -987,3 +987,6 @@ class SearchAPI(BaseAPI):
         return generate_repr_from_string(
             class_name, attribute_dict, flatten=flatten, show_value_attributes=show_value_attributes
         )
+
+
+__all__ = ["SearchAPI"]

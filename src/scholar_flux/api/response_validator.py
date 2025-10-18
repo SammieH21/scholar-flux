@@ -127,3 +127,6 @@ class ResponseValidator:
     def __repr__(self) -> str:
         """Helper method that uses the `structure` method to create a string representation of the ResponseValidator"""
         return self.structure()
+
+
+__all__ = ["ResponseValidator"]

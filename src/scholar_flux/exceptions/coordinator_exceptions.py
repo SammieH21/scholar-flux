@@ -18,3 +18,6 @@ class InvalidCoordinatorParameterException(CoordinatorException):
     """
 
     pass
+
+
+__all__ = ["CoordinatorException", "InvalidCoordinatorParameterException"]

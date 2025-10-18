@@ -93,3 +93,15 @@ class YAMLImportError(OptionalDependencyImportError):
         Please install the 'yaml' package to use this feature."""
 
         super().__init__(message=err)
+
+
+__all__ = [
+    "OptionalDependencyImportError",
+    "ItsDangerousImportError",
+    "RedisImportError",
+    "MongoDBImportError",
+    "XMLToDictImportError",
+    "SQLAlchemyImportError",
+    "YAMLImportError",
+    "CryptographyImportError",
+]

@@ -256,31 +256,4 @@ class DataExtractor(BaseDataExtractor):
         return records, metadata
 
 
-# # Example of using DataExtractor with default paths
-# if __name__ == "__main__":
-#     from scholar_flux.api import SearchAPI
-#     from scholar_flux.data import DataParser, DataExtractor
-#     api = SearchAPI(query='game theory', use_cache = True)
-#     response = api.search(page=1)
-#
-#     parser = DataParser()
-#     extractor = DataExtractor()
-#
-#     parsed_response = parser(response)
-#     records, metadata = extractor(parsed_response) if parsed_response is not None else (None, None)
-#
-#     # Example of customizing MetadataExtractor for a different data format or structure
-#     custom_record_paths:list  = [
-#        'response', 'docs'
-#     ]
-#
-#     custom_metadata_paths: list[list] = [
-#         ['response', 'numFound'],
-#         ['response', 'start'],
-#         ['response', 'maxScore']
-#     ]
-#
-#     custom_extractor = DataExtractor(record_path=custom_record_paths,
-#                                      metadata_path = custom_metadata_paths)
-#     if parsed_response is not None:
-#         records, metadata = custom_extractor.extract(parsed_response)
+__all__ = ["DataExtractor"]

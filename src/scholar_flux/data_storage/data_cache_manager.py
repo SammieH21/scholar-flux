@@ -39,15 +39,26 @@ class DataCacheManager:
     update cache with new data, and retrieve data from the cache storage.
 
     Args:
-    - cache_storage: Optional; A dictionary to store cached data. Defaults to using In-Memory Storage .
+        - cache_storage: Optional; A dictionary to store cached data. Defaults to using In-Memory Storage .
 
     Methods:
-    - generate_fallback_cache_key(response): Generates a unique fallback cache key based on the response URL and status code.
-    - verify_cache(cache_key): Checks if the provided cache_key exists in the cache storage.
-    - cache_is_valid(cache_key, response=None, cached_response=None): Determines whether the cached data for a given key is still valid.
-    - update_cache(cache_key, response, store_raw=False, metadata=None, parsed_response=None, processed_records=None): Updates the cache storage with new data.
-    - retrieve(cache_key): Retrieves data from the cache storage based on the cache key.
-    - retrieve_from_response(response): Retrieves data from the cache storage based on the response if within cache.
+        - generate_fallback_cache_key(response): Generates a unique fallback cache key based on the response URL and status code.
+        - verify_cache(cache_key): Checks if the provided cache_key exists in the cache storage.
+        - cache_is_valid(cache_key, response=None, cached_response=None): Determines whether the cached data for a given key is still valid.
+        - update_cache(cache_key, response, store_raw=False, metadata=None, parsed_response=None, processed_records=None): Updates the cache storage with new data.
+        - retrieve(cache_key): Retrieves data from the cache storage based on the cache key.
+        - retrieve_from_response(response): Retrieves data from the cache storage based on the response if within cache.
+
+    Examples:
+        >>> from scholar_flux.data_storage import DataCacheManager
+        >>> from scholar_flux.api import SearchCoordinator
+        >>> redis_cache_manager = DataCacheManager.with_storage('redis') # with default localhost and port
+        >>> search_coordinator = SearchCoordinator(
+        ...:                                        query = 'a new query',
+        ...:                                        provider_name='plos',
+        ...:                                        cache_manager=redis_cache_manager
+        )
+
     """
 
     def __init__(self, cache_storage: Optional[ABCStorage] = None) -> None:
@@ -429,7 +440,4 @@ class DataCacheManager:
         return self.structure()
 
 
-# if __name__ == '__main__':
-#     import scholar_flux
-#     redis = scholar_flux.DataCacheManager.with_storage('redis')
-#     print(redis)
+__all__ = ["DataCacheManager"]

@@ -13,10 +13,12 @@ logger = logging.getLogger(__name__)
 from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
 from base64 import b64encode, b64decode
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def skip_missing_encryption_dependency(session_encryption_dependency):
     if not session_encryption_dependency:
         pytest.skip("Missing encryption optional dependencies")
+
 
 def test_validate_key_error():
     """

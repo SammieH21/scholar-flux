@@ -183,3 +183,6 @@ class ABCDataProcessor(ABC):
         from the parsed api response.
         """
         return self.structure()
+
+
+__all__ = ["ABCDataProcessor"]

@@ -477,3 +477,6 @@ class APIParameterConfig:
     def __repr__(self) -> str:
         """Helper method for displaying the config and parameter mappings for the api in a user-friendly manner"""
         return self.structure()
+
+
+__all__ = ["APIParameterMap", "APIParameterConfig"]

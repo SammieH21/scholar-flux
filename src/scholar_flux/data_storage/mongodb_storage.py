@@ -336,3 +336,6 @@ class MongoDBStorage(ABCStorage):
         except (ServerSelectionTimeoutError, ConnectionFailure) as e:
             logger.warning(f"An active MongoDB service could not be found at {host}:{port}: {e}")
             return False
+
+
+__all__ = ["MongoDBStorage"]

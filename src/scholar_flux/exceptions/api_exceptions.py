@@ -152,3 +152,27 @@ class TimeoutException(APIException):
     """Exception raised for request timeouts."""
 
     pass
+
+
+__all__ = [
+    "APIException",
+    "MissingAPIKeyException",
+    "MissingAPISpecificParameterException",
+    "MissingProviderException",
+    "MissingResponseException",
+    "PermissionException",
+    "InvalidResponseException",
+    "NotFoundException",
+    "SearchAPIException",
+    "SearchRequestException",
+    "RequestCreationException",
+    "RequestFailedException",
+    "RateLimitExceededException",
+    "RetryLimitExceededException",
+    "TimeoutException",
+    "APIParameterException",
+    "RequestCacheException",
+    "InvalidResponseStructureException",
+    "InvalidResponseReconstructionException",
+    "QueryValidationException",
+]

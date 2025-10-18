@@ -564,3 +564,13 @@ class JsonNormalizer:
         unique_mappings_dict[current_data_key_test].append(current_key_str)
         logger.debug(f"Created unique key: {current_key_str} => {current_data_key_test}")
         return current_data_key_test
+
+
+__all__ = [
+    "PathUtils",
+    "KeyDiscoverer",
+    "KeyFilter",
+    "RecursiveJsonProcessor",
+    "JsonRecordData",
+    "JsonNormalizer",
+]

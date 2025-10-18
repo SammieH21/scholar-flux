@@ -203,3 +203,6 @@ class PathDiscoverer:
         """Removes all path-value mappings from the self.path_mappings dictionary."""
         self.path_mappings.clear()
         logger.debug("Cleared all paths from the Discoverer...")
+
+
+__all__ = ["PathDiscoverer"]

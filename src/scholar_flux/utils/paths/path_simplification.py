@@ -270,3 +270,6 @@ class PathSimplifier:
             {}
         """
         self.name_mappings.clear()
+
+
+__all__ = ["PathSimplifier"]

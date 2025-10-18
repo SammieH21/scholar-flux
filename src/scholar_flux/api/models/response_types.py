@@ -11,3 +11,5 @@ from typing import Union
 from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse
 
 APIResponseType = Union[ProcessedResponse, ErrorResponse]
+
+__all__ = ["APIResponseType"]

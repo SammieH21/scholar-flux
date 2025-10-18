@@ -177,3 +177,6 @@ class EncryptionPipelineFactory:
     def __call__(self) -> SerializerPipeline:
         """Helper method for being able to create the serializer pipeline by calling the factory object"""
         return self.create_pipeline()
+
+
+__all__ = ["EncryptionPipelineFactory"]

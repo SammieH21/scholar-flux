@@ -214,3 +214,6 @@ class InMemoryStorage(ABCStorage):
             flatten=flatten,
             show_value_attributes=show_value_attributes,
         )
+
+
+__all__ = ["InMemoryStorage"]

@@ -91,3 +91,6 @@ class PageListInput(RootModel[Sequence[int]]):
     def page_numbers(self) -> Sequence[int]:
         """Returns the sequence of validated page numbers as a list"""
         return list(self.root)
+
+
+__all__ = ["PageListInput"]
