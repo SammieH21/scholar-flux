@@ -52,12 +52,20 @@ class DataCacheManager:
     Examples:
         >>> from scholar_flux.data_storage import DataCacheManager
         >>> from scholar_flux.api import SearchCoordinator
-        >>> redis_cache_manager = DataCacheManager.with_storage('redis') # with default localhost and port
-        >>> search_coordinator = SearchCoordinator(
-        ...:                                        query = 'a new query',
-        ...:                                        provider_name='plos',
-        ...:                                        cache_manager=redis_cache_manager
-        )
+        # Factory method that creates a default redis connection to the service on localhost if available.
+        >>> redis_cache_manager = DataCacheManager.with_storage('redis') 
+        # Creates a search coordinator for retrieving API responses from the PLOS API provider
+        >>> search_coordinator = SearchCoordinator(query = 'Computational Caching Strategies',
+                                                   provider_name='plos',
+                                                   cache_requests = True, # caches raw requests prior to processing
+                                                   cache_manager=redis_cache_manager) # caches response processing 
+        # Uses the cache manager to temporarily store cached responses for the default duration
+        >>> processed_response = search_coordinator.search(page = 1)
+        # On the next search, the processed response data can be retrieved directly for later response reconstruction
+        >>> retrieved_response_json = search_coordinator.responses.cache.retrieve(processed_response.cache_key)
+        # Serialized responses store the core response fields (content, URL, status code) associated with API responses
+        >>> assert isinstance(retrieved_response_json, dict) and 'serialized_response' in retrieved_response_json
+
 
     """
 
