@@ -972,3 +972,5 @@ class SearchCoordinator(BaseCoordinator):
                 self.response_coordinator.cache_manager.delete(cache_key)
             except Exception as e:
                 logger.error(f"Error in deleting from processing cache: {e}")
+
+__all__ = ["SearchCoordinator"]

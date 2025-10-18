@@ -42,8 +42,35 @@ html_css_files = [
     'custom.css',
 ]
 
+suppress_warnings = [
+    'ref.python',  # Suppress "more than one target found" warnings
+]
+
+# prefer the original module for cross-references
+autodoc_typehints_format = 'short'
+
 autodoc_default_options = {
     'members': True,           # Document all members
-    'undoc-members': True,     # Include items without docstrings
+    'undoc-members': False,     # Include items without docstrings - note: all items should be documented in production
+    'imported-members': False,  # Don't document imported members in submodules
+    'private-members': False,
+    'special-members': '__init__',
     'show-inheritance': True,  # Show parent classes
 }
+
+
+# Skip documenting imported members
+def skip_member(app, what, name, obj, skip, options):
+    # Skip if the object is defined in a different module
+    if hasattr(obj, '__module__'):
+        # Get the module being documented
+        if what in ['module']:
+            return skip
+        # If object's __module__ doesn't match the current module, skip it
+        current_module = options.get('module')
+        if current_module and obj.__module__ != current_module:
+            return True
+    return skip
+
+def setup(app):
+    app.connect('autodoc-skip-member', skip_member)

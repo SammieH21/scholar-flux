@@ -20,14 +20,15 @@ from scholar_flux.security import SensitiveDataMasker
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
-config_logger = logging.getLogger("ConfigLoader")
+config_logger = logging.getLogger(__name__)
 
 
 class ConfigLoader:
     """
     Helper class used to load the configuration of the scholar_flux package on initialization to dynamically configure
     package options. Using the config loader with environment variables, the following settings can be defined
-    at runtime:
+    at runtime.
+
         Package Level Settings:
             - SCHOLAR_FLUX_DEFAULT_PROVIDER: Defines the provider to use by default when creating a SearchAPI instance
         API_KEYS:
@@ -45,6 +46,17 @@ class ConfigLoader:
             - SCHOLAR_FLUX_LOG_LEVEL: defines the default log level used for package level logging during and after
                                       scholar_flux package initialization
 
+    Examples:
+
+        >>> from scholar_flux.utils import ConfigLoader
+        >>> from pydantic import SecretStr
+        >>> config_loader = ConfigLoader()
+        >>> config_loader.load_config(reload_env=True)
+        >>> api_key = '' # Your key goes here
+        >>> if api_key:
+        >>>     config_loader.config['CROSSREF_API_KEY'] = api_key
+        >>> print(config_loader.env_path) # the default environment location when writing/replacing a env config
+        >>> config_loader.save_config() # to save the full configuration in the default environment folder
 
     """
 
@@ -91,6 +103,7 @@ class ConfigLoader:
     ) -> dict:
         """
         Retrieves a list of nonmissing environment variables from the current .env file that are non-null
+
         Args:
             env_path: Optional[Path | str]: Location of the .env file where env variables will be retrieved from
             replace_all: bool = False: Indicates whether all environment variables should be replaced vs. only non-missing variables
@@ -128,6 +141,7 @@ class ConfigLoader:
             value (Any): The value to convert to a string if its key contains any match
             key (str): The value to verify if it contains any match to keys containing API/SECRET/MAIL
             matches (str): The substrings used to indicate whether a secret should be guarded
+
         Returns:
             Any | SecretStr: The original type if the value is likely not a secret. otherwise returns a SecretStr
 
@@ -193,12 +207,13 @@ class ConfigLoader:
 
     def save_config(self, env_path: Optional[Path | str] = None) -> None:
         """
-        Save configuration settings to a .env file.
+        Save configuration settings to a .env file. Unmasks strings read as secrets if the are of the type,
+        `SecretStr`.
         """
         env_path = env_path or self.env_path
         for key, value in self.config.items():
             if value is not None:
-                self.write_key(key, value, env_path)
+                self.write_key(key, SensitiveDataMasker.unmask_secret(value), env_path)
 
     def write_key(
         self,
@@ -227,9 +242,4 @@ class ConfigLoader:
         raw_env_path = Path(str(env_path))
         return raw_env_path.resolve() if raw_env_path.exists() else cls.DEFAULT_ENV_PATH
 
-
-# # Example usage
-# if __name__ == "__main__":
-#     config_loader = ConfigLoader()
-#     config_loader.load_config(reload_env=True)
-#     config_loader.save_config()
+__all__ = ["ConfigLoader"]

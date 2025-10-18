@@ -744,3 +744,5 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
             logger.exception(f'Error copying map "{self}": {e}')
             raise PathNodeMapError(f"Error copying map: {e}")
+
+__all__ = ["PathNodeMap"]

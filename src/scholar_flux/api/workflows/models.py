@@ -4,8 +4,8 @@ Module that implements the base classes used by scholar_flux workflows to implem
 retrieval and processing of API responses.
 
 Classes:
-    BaseStepContext: Base class for step contexts
     BaseStepContext: Base class for workflow steps
+    BaseWorkflowStep: Base class for step contexts
     BaseWorkflowResult: Base class for returning the results from a Workflow
     BaseWorkflow: Base class for defining and fully executing a workflow
 """
@@ -119,3 +119,10 @@ class BaseWorkflow(BaseModel, ABC):
             BaseWorkflowResult: The final result of a workflow when its execution is successful.
         """
         return self._run(*args, **kwargs)
+
+__all__ = [
+    "BaseStepContext",
+    "BaseWorkflowStep",
+    "BaseWorkflowResult",
+    "BaseWorkflow",
+]

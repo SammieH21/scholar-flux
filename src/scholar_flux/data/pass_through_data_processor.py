@@ -108,39 +108,4 @@ class PassThroughDataProcessor(ABCDataProcessor):
         logger.debug(f"Finding field key matches within processing data: {record_keys}")
         return any(key for key in record_keys if key and nested_key_exists(record_dict, key, regex=use_regex))
 
-
-# if __name__ == '__main__':
-#     record_test_json: list[dict] = [
-#             {
-#                 "authors": {
-#                     "principle_investigator": "Dr. Smith",
-#                     "assistant": "Jane Doe"
-#                 },
-#                 "doi": "10.1234/example.doi",
-#                 "title": "Sample Study",
-#                 "abstract": ["This is a sample abstract.", "keywords: 'sample', 'abstract'"],
-#                 "genre": {
-#                     "subspecialty": "Neuroscience"
-#                 },
-#                 "journal": {
-#                     "topic": "Sleep Research"
-#                 }
-#             },
-#             {
-#                 "authors": {
-#                     "principle_investigator": "Dr. Lee",
-#                     "assistant": "John Roe"
-#                 },
-#                 "doi": "10.5678/example2.doi",
-#                 "title": "Another Study",
-#                 "abstract": "Another abstract.",
-#                 "genre": {
-#                     "subspecialty": "Psychiatry"
-#                 },
-#                 "journal": {
-#                     "topic": "Dreams"
-#                 }
-#             }
-#         ]
-#     processor = PassThroughDataProcessor( keep_keys=['journal'])
-#     processed = processor.process_page(record_test_json)
+__all__ = ["PassThroughDataProcessor"]

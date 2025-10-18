@@ -67,3 +67,6 @@ class ThreadedRateLimiter(RateLimiter):
             # Restore original min_interval atomically
             with self._lock:
                 self.min_interval = current_min_interval
+
+
+__all__ = ["ThreadedRateLimiter"]

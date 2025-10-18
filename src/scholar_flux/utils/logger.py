@@ -114,3 +114,5 @@ def setup_logging(
     # indicate the location where logs are created, if created
     logging_type = f"(folder: {log_file_path})" if log_file_path else "(console_only)"
     logger.info("Logging setup complete %s", logging_type)
+
+__all__ = ["setup_logging"]

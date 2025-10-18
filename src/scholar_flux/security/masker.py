@@ -27,17 +27,20 @@ class SensitiveDataMasker:
     The SensitiveDataMasker operates through the registration of patterns that identify the text to mask.
 
     Components:
-        - KeyMaskingPattern: identifies specific keys and regex patterns that will signal text to filter
-        - StringMaskingPattern: identifies strings to filter either by fixed or pattern matching
-        - MaskingPatternSet: A customized set accepting only subclasses of MaskingPatterns that specify
-                             the rules for filtering text of sensitive fields.
+        - **KeyMaskingPattern**:
+            identifies specific keys and regex patterns that will signal text to filter
+        - **StringMaskingPattern**:
+            identifies strings to filter either by fixed or pattern matching
+        - **MaskingPatternSet**:
+            A customized set accepting only subclasses of MaskingPatterns that specify
+            the rules for filtering text of sensitive fields.
 
     By default, this structure implements masking for email addresses, API keys, bearer tokens, etc.
     that are identified as sensitive parameters/secrets.
 
     Args:
-        register_defaults (bool): Determines whether or not to add the patterns that filter API keys
-                                  email parameters and auth bearers.
+        register_defaults (bool):
+            Determines whether or not to add the patterns that filter API keys email parameters and auth bearers.
 
     Examples:
         >>> from scholar_flux.security import SensitiveDataMasker # imports the class
@@ -64,8 +67,9 @@ class SensitiveDataMasker:
             register_defaults: (bool): Indicates whether to register_defaults for scrubbing emails,
             api_keys, Authorization Bearers, etc. from the  text when applying self.mask_text
         Attributes:
-            self.patterns (Set[MaskingPattern]): Indicates the full list of patterns that will be applied
-                                                 when scrubbing text of sensitive fields using masking patterns
+            self.patterns (Set[MaskingPattern]):
+                Indicates the full list of patterns that will be applied when scrubbing text of sensitive fields
+                using masking patterns.
         """
         self.patterns: set[MaskingPattern] = MaskingPatternSet()
 
@@ -73,7 +77,7 @@ class SensitiveDataMasker:
             self._register_api_defaults()
 
     def add_pattern(self, pattern: MaskingPattern) -> None:
-        """adds a pattern to the self.patterns attribute"""
+        """Adds a pattern to the self.patterns attribute."""
         self.patterns.add(pattern)
 
     def update(
@@ -86,7 +90,7 @@ class SensitiveDataMasker:
             | MutableSequence[MaskingPattern | KeyMaskingPattern | StringMaskingPattern]
         ),
     ) -> None:
-        """adds a pattern to the self.patterns attribute"""
+        """Adds a pattern to the self.patterns attribute."""
 
         pattern_set = {pattern} if not isinstance(pattern, (MutableSequence, set)) else pattern
         self.patterns.update(pattern_set)
@@ -110,8 +114,9 @@ class SensitiveDataMasker:
         Args:
             name (str): The name associated with the pattern (aides identification of patterns)
             fields (List[str] | str): The list of fields to identify to search and remove from logs.
-            pattern (str): An optional parameter for filtering and removing sensitive fields that
-                           match a given pattern: by default this is already set to remove api keys
+            pattern (str):
+                An optional parameter for filtering and removing sensitive fields that match a given pattern.
+                By default this is already set to remove api keys
                            that are typically denoted by alpha numeric fields
 
             **kwargs: Other fields, specifiable via additional keyword arguments that are passed
@@ -301,3 +306,5 @@ class SensitiveDataMasker:
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the SensitiveDataMasker in an easy to read manner."""
         return self.structure()
+
+__all__ = ["SensitiveDataMasker"]

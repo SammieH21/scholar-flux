@@ -244,3 +244,6 @@ class BaseCoordinator:
         Useful for showing the options being used to coordinate requests.
         """
         return self.structure()
+
+
+__all__ = ["BaseCoordinator"]

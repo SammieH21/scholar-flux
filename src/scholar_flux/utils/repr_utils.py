@@ -201,3 +201,12 @@ def generate_repr(
     # if the class doesn't have an attribute such as __dict__, fall back to a simple str
     except AttributeError:
         return str(obj)
+
+
+__all__ = [
+    "generate_repr",
+    "generate_repr_from_string",
+    "format_repr_value",
+    "normalize_repr",
+    "adjust_repr_padding",
+]

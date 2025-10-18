@@ -493,3 +493,5 @@ class MultiSearchCoordinator(UserDict):
     def __repr__(self) -> str:
         """Helper method for generating a string representation of the current list of coordinators"""
         return self.structure()
+
+__all__ = ["MultiSearchCoordinator"]

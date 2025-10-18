@@ -170,7 +170,7 @@ class SQLAlchemyStorage(ABCStorage):
         """
         Helper method for creating a new SQLAlchemyStorage with the same parameters. Note that
         the implementation of the MongoClient is not able to be deep copied, and this method
-        is provided for convenience in reinstantiation with the same configuration.
+        is provided for convenience in re-instantiation with the same configuration.
         """
         cls = self.__class__
         return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
@@ -381,3 +381,5 @@ class SQLAlchemyStorage(ABCStorage):
         except (exc.SQLAlchemyError, TimeoutError, ConnectionError) as e:
             logger.warning(f"An active SQL service could not be found at {db_url}: {e}")
             return False
+
+__all__ = ["SQLAlchemyStorage"]

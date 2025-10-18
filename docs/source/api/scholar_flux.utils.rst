@@ -27,6 +27,7 @@ Submodules
    scholar_flux.utils.json_file_utils
    scholar_flux.utils.json_processing_utils
    scholar_flux.utils.logger
+   scholar_flux.utils.module_utils
    scholar_flux.utils.provider_utils
    scholar_flux.utils.repr_utils
    scholar_flux.utils.response_protocol

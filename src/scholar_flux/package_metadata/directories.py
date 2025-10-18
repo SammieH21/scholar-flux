@@ -101,3 +101,5 @@ def get_default_writable_directory(
         return Path(default)
 
     raise RuntimeError(f"Could not locate a writable {directory_type} directory for scholar_flux")
+
+__all__ = ["get_default_writable_directory"]

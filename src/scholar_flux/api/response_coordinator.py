@@ -708,3 +708,5 @@ class ResponseCoordinator:
     def __repr__(self) -> str:
         """Helper class for representing the structure of the Response Coordinator"""
         return self.structure()
+
+__all__ = ["ResponseCoordinator"]

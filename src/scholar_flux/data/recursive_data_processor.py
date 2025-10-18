@@ -220,29 +220,4 @@ class RecursiveDataProcessor(ABCDataProcessor):
             return self.process_page(*args, **kwargs)
 
 
-# if __name__ == "__main__":
-#     record_test_json: list[dict] = [
-#         {
-#             "authors": {"principle_investigator": "Dr. Smith", "assistant": "Jane Doe"},
-#             "doi": "10.1234/example.doi",
-#             "title": "Sample Study",
-#             "abstract": [
-#                 "This is a sample abstract.",
-#                 "keywords: 'sample', 'abstract'",
-#             ],
-#             "genre": {"subspecialty": "Neuroscience"},
-#             "journal": {"topic": "Sleep Research"},
-#         },
-#         {
-#             "authors": {"principle_investigator": "Dr. Lee", "assistant": "John Roe"},
-#             "dois": [{"doi": "10.5678/example2.doi"}, {"doi": "10.5681/example3.doi"}],
-#             "title": "Another Study",
-#             "abstract": "Another abstract.",
-#             "genre": {"subspecialty": "Psychiatry"},
-#             "journal": {"topic": "Dreams"},
-#         },
-#     ]
-#     processor = RecursiveDataProcessor(value_delimiter="; ", use_full_path=True)
-#     processed = processor.process_page(record_test_json)
-#
-#     assert processed
+__all__ = ["RecursiveDataProcessor"]
