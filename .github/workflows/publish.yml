@@ -3,6 +3,7 @@ name: Publish to TestPyPI
 on:
   push:
     branches: [ main, develop ]
+    tags: [ 'v*' ]
     paths:
       - 'src/scholar_flux/**'
       - 'pyproject.toml'
