@@ -1,17 +1,15 @@
 # /utils/module_utils.py
-"""
-The scholar_flux.utils.module_utils module defines the `set_public_api_module` that is used
-throughout the scholar_flux source code to aid in logging and streamline the documentation of imports.
+"""The scholar_flux.utils.module_utils module defines the `set_public_api_module` that is used throughout the
+scholar_flux source code to aid in logging and streamline the documentation of imports.
 
-It is generally used in the initialization of submodules within the scholar_flux which helps
-greatly in the structuring of the automatic sphinx documentation.
+It is generally used in the initialization of submodules within the
+scholar_flux which helps greatly in the structuring of the automatic
+sphinx documentation.
 """
 
 
 def set_public_api_module(module_name: str, public_names: list[str], namespace: dict):
-    """
-
-    Assigns the current module's name to the __module__ attribute of public API objects.
+    """Assigns the current module's name to the __module__ attribute of public API objects.
 
     This function is useful for several use cases including sphinx documentation, introspection, and
     error handling/reporting.

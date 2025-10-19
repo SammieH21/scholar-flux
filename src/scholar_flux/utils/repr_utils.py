@@ -1,9 +1,7 @@
 # /utils/repr_utils.py
-"""
-The scholar_flux.utils.repr_utils module includes several methods used in the creation of descriptive
-representations of custom objects such as custom classes, dataclasses, and base models. This module
-can be used to generate a representation from a string to show nested attributes and customize the
-representation if needed.
+"""The scholar_flux.utils.repr_utils module includes several methods used in the creation of descriptive representations
+of custom objects such as custom classes, dataclasses, and base models. This module can be used to generate a
+representation from a string to show nested attributes and customize the representation if needed.
 
 Functions:
     - generate_repr: The core representation generating function that uses the class type and attributes
@@ -12,9 +10,9 @@ Functions:
                                  a representation from scratch
     - adjust_repr_padding: Helper function that adjusts the padding of the representation to ensure all
                            attributes are shown in-line
-   - format_repr_value: Formats the value of a nested attribute regarding padding and appearance with
-                        the selected options
-   - normalize_repr: Formats the value of a nested attribute, cleaning memory locations and stripping whitespace
+    - format_repr_value: Formats the value of a nested attribute regarding padding and appearance with
+                         the selected options
+    - normalize_repr: Formats the value of a nested attribute, cleaning memory locations and stripping whitespace
 """
 from typing import Any, Optional
 from pydantic import BaseModel
@@ -27,8 +25,7 @@ _LOCK_TYPE = type(threading.Lock())
 
 
 def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Optional[bool] = None) -> str:
-    """
-    Helper method for adjusting the padding for representations of objects
+    """Helper method for adjusting the padding for representations of objects.
 
     Args:
         obj (Any): The object to generate an adjusted repr for
@@ -63,8 +60,7 @@ def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Option
 
 
 def normalize_repr(value: Any) -> str:
-    """
-    Helper function for removing byte locations and surrounding signs from classes.
+    """Helper function for removing byte locations and surrounding signs from classes.
 
     Args:
         value (Any): a value whose representation to be normalized
@@ -84,8 +80,7 @@ def format_repr_value(
     show_value_attributes: Optional[bool] = None,
     flatten: Optional[bool] = None,
 ) -> str:
-    """
-    Helper function for representing nested objects from custom classes
+    """Helper function for representing nested objects from custom classes.
 
     Args:
         value (Any): The value containing the repr to format
@@ -93,7 +88,6 @@ def format_repr_value(
         show_value_attributes (Optional[bool]): If False, all attributes within the current object
                                                  will be replaced with '...'. As an example: e.g. StorageDevice(...)
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
-
     """
 
     # for basic objects, use strings, otherwise use the repr for BaseModels instead
@@ -121,11 +115,9 @@ def generate_repr_from_string(
     show_value_attributes: Optional[bool] = None,
     flatten: Optional[bool] = False,
 ) -> str:
-    """
-    Method for creating a basic representation of a custom object's data structure.
-    Allows for the direct creation of a repr using the classname as a string and
-    the attribute dict that will be formatted and prepared for representation of
-    the attributes of the object
+    """Method for creating a basic representation of a custom object's data structure. Allows for the direct creation of
+    a repr using the classname as a string and the attribute dict that will be formatted and prepared for representation
+    of the attributes of the object.
 
     Args:
         class_name: The class name of the object whose attributes are to be represented.
@@ -157,9 +149,8 @@ def generate_repr(
     show_value_attributes: bool = True,
     flatten: bool = False,
 ) -> str:
-    """
-    Method for creating a basic representation of a custom object's data structure.
-    Useful for showing the options/attributes being used by an object.
+    """Method for creating a basic representation of a custom object's data structure. Useful for showing the
+    options/attributes being used by an object.
 
     In case the object doesn't have a __dict__ attribute,
     the code will raise an AttributeError and fall back to

@@ -1,8 +1,6 @@
 # /api/base_coordinator.py
-"""
-Defines the BaseCoordinator that implements the most basic orchestration components used to request, process,
-and optional cache processed record data from APIs.
-"""
+"""Defines the BaseCoordinator that implements the most basic orchestration components used to request, process, and
+optional cache processed record data from APIs."""
 from typing import Optional
 from typing_extensions import Self
 import logging
@@ -24,9 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 class BaseCoordinator:
-    """
-    Base coordinator providing the bare minimum functionality for requesting and retrieving
-    records and metadata from APIs.
+    """Base coordinator providing the bare minimum functionality for requesting and retrieving records and metadata from
+    APIs.
 
     This class uses dependency injection to orchestrate the process of constructing requests,
     validating response, and processing scientific works and articles. This class is designed
@@ -62,19 +59,19 @@ class BaseCoordinator:
     """
 
     def __init__(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator):
-        """
-        Initializes the base coordinator by delegating assignemnt of attributes to the _initialize method.
-        Future coordinators can follow a similar pattern of using an _initialize for initial parameter assignment
+        """Initializes the base coordinator by delegating assignemnt of attributes to the _initialize method. Future
+        coordinators can follow a similar pattern of using an _initialize for initial parameter assignment.
 
         Args:
-            search_api (Optioanl[SearchAPI]): The search API to use for the retrieval of response records from APIs
-            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
-                                                                 core handling of all responses from APIs
+            search_api (Optioanl[SearchAPI]):
+                The search API to use for the retrieval of response records from APIs
+            response_coordinator (Optional[ResponseCoordinator]):
+                Core class used to handle the processing and core handling of all responses from APIs
         """
         self._initialize(search_api, response_coordinator)
 
     def _initialize(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator):
-        """initializes the base coordinator with a searchapi and the constructed responsecoordinator"""
+        """initializes the base coordinator with a searchapi and the constructed responsecoordinator."""
         self.search_api = search_api
         self.response_coordinator = response_coordinator
         self.last_response: Optional[ProcessedResponse | ErrorResponse] = None
@@ -91,12 +88,12 @@ class BaseCoordinator:
 
     @property
     def search_api(self) -> SearchAPI:
-        """Allows the search_api to be used as a property while also allowing for verification"""
+        """Allows the search_api to be used as a property while also allowing for verification."""
         return self._search_api
 
     @search_api.setter
     def search_api(self, search_api: SearchAPI) -> None:
-        """Allows the direct modification of the SearchAPI while ensuring type-safety"""
+        """Allows the direct modification of the SearchAPI while ensuring type- safety."""
         if not isinstance(search_api, SearchAPI):
             raise InvalidCoordinatorParameterException(
                 "Expected a SearchAPI object. " "Instead received type ({type(search_api)})"
@@ -105,40 +102,41 @@ class BaseCoordinator:
 
     @property
     def parser(self) -> BaseDataParser:
-        """Allows direct access to the data parser from the ResponseCoordinator"""
+        """Allows direct access to the data parser from the ResponseCoordinator."""
         return self.response_coordinator.parser
 
     @parser.setter
     def parser(self, parser: BaseDataParser) -> None:
-        """Allows the direct modification of the data parser from the ResponseCoordinator"""
+        """Allows the direct modification of the data parser from the ResponseCoordinator."""
         self.response_coordinator.parser = parser
 
     @property
     def extractor(self) -> BaseDataExtractor:
-        """Allows direct access to the DataExtractor from the ResponseCoordinator"""
+        """Allows direct access to the DataExtractor from the ResponseCoordinator."""
         return self.response_coordinator.extractor
 
     @extractor.setter
     def extractor(self, extractor: BaseDataExtractor) -> None:
-        """Allows the direct modification of the DataExtractor from the ResponseCoordinator"""
+        """Allows the direct modification of the DataExtractor from the ResponseCoordinator."""
         self.response_coordinator.extractor = extractor
 
     @property
     def processor(self) -> ABCDataProcessor:
-        """Allows direct access to the DataProcessor from the ResponseCoordinator"""
+        """Allows direct access to the DataProcessor from the ResponseCoordinator."""
         return self.response_coordinator.processor
 
     @processor.setter
     def processor(self, processor: ABCDataProcessor) -> None:
-        """Allows the direct modification of the DataProcessor from the ResponseCoordinator"""
+        """Allows the direct modification of the DataProcessor from the ResponseCoordinator."""
         self.response_coordinator.processor = processor
 
     @property
     def responses(self) -> ResponseCoordinator:
-        """
-        An alias for the response_coordinator property that is used for orchestrating the processing
-        of retrieved API responses. Handles response orchestration, including response content parsing,
-        the extraction of records/metadata, record processing, and cache operations.
+        """An alias for the response_coordinator property that is used for orchestrating the processing of retrieved API
+        responses.
+
+        Handles response orchestration, including response content parsing, the extraction of records/metadata, record
+        processing, and cache operations.
         """
         return self.response_coordinator
 
@@ -149,16 +147,17 @@ class BaseCoordinator:
 
     @property
     def response_coordinator(self) -> ResponseCoordinator:
-        """
-        Allows the ResponseCoordinator to be used as a property. The response_coordinator
-        handles and coordinates the processing of API responses from parsing,
-        record/metadata extraction, processing, and cache management.
+        """Allows the ResponseCoordinator to be used as a property.
+
+        The response_coordinator handles and coordinates the processing
+        of API responses from parsing, record/metadata extraction,
+        processing, and cache management.
         """
         return self._response_coordinator
 
     @response_coordinator.setter
     def response_coordinator(self, response_coordinator: ResponseCoordinator) -> None:
-        """Allows the direct modification of the SearchAPI while ensuring type-safety"""
+        """Allows the direct modification of the SearchAPI while ensuring type- safety."""
         if not isinstance(response_coordinator, ResponseCoordinator):
             raise InvalidCoordinatorParameterException(
                 f"Expected a ResponseCoordinator object. " f"Instead received type ({type(response_coordinator)})"
@@ -166,8 +165,8 @@ class BaseCoordinator:
         self._response_coordinator = response_coordinator
 
     def search(self, **kwargs) -> Optional[ProcessedResponse | ErrorResponse]:
-        """
-        Public Search Method coordinating the retrieval and processing of an API response.
+        """Public Search Method coordinating the retrieval and processing of an API response.
+
         This method serves as the base and will primarily handle the "How" of searching
         (e.g. Workflows, Single page search, etc.)
         """
@@ -180,8 +179,9 @@ class BaseCoordinator:
         Args:
             **kwargs: Arguments to provide to the search API
         Returns:
-            Optional[ProcessedResponse | ErrorResponse]: Contains the raw response and information related to
-            the basic processing of the data within the response
+            Optional[ProcessedResponse | ErrorResponse]:
+                Contains the raw response and information related to the basic processing
+                of the data within the response
         """
         try:
             cache_key = kwargs.pop("cache_key", None)
@@ -194,25 +194,26 @@ class BaseCoordinator:
 
     @classmethod
     def as_coordinator(cls, search_api: SearchAPI, response_coordinator: ResponseCoordinator, *args, **kwargs) -> Self:
-        """
-        Helper factory method for building a SearchCoordinator that allows users to build from the
-        final building blocks of a SearchCoordinator
+        """Helper factory method for building a SearchCoordinator that allows users to build from the final building
+        blocks of a SearchCoordinator.
 
         Args:
-            searchAPI (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
-            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
-                                                                 core handling of all responses from APIs
+            searchAPI (Optional[SearchAPI]):
+                The search API to use for the retrieval of response records from APIs
+            response_coordinator (Optional[ResponseCoordinator]):
+                Core class used to handle the processing and core handling of all responses from APIs
 
         Returns:
-            BaseCoordinator: A newly created coordinator subclassed from a BaseCoordinator that also orchestrates
-                             record retrieval and processing
+            BaseCoordinator:
+                A newly created coordinator subclassed from a BaseCoordinator that also orchestrates record retrieval
+                and processing
         """
         search_coordinator = cls.__new__(cls)
         search_coordinator._initialize(search_api, response_coordinator, *args, **kwargs)
         return search_coordinator
 
     def summary(self) -> str:
-        """Helper method for showing the structure of the current search coordinator"""
+        """Helper method for showing the structure of the current search coordinator."""
         class_name = self.__class__.__name__
 
         attributes = {"search_api": self.api.summary(), "response_coordinator": self.response_coordinator.summary()}
@@ -220,14 +221,14 @@ class BaseCoordinator:
         return generate_repr_from_string(class_name, attributes)
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """
-        Helper method for quickly showing a representation of the overall structure of the SearchCoordinator.
-        The helper function, generate_repr_from_string helps produce human-readable representations
-        of the core structure of the Coordinator.
+        """Helper method for quickly showing a representation of the overall structure of the SearchCoordinator. The
+        helper function, generate_repr_from_string helps produce human-readable representations of the core structure of
+        the Coordinator.
 
-        flatten (bool): Whether to flatten the coordinator's structural representation into a single line. Default=False
-        show_value_attributes (bool): Whether to show nested attributes of the components of the BaseCoordinatoror its
-                                      subclass.
+        flatten (bool):
+            Whether to flatten the coordinator's structural representation into a single line. Default=False
+        show_value_attributes (bool):
+            Whether to show nested attributes of the components of the BaseCoordinatoror its subclass.
 
         Returns:
             str: The structure of the current SearchCoordinator as a string.
@@ -239,8 +240,8 @@ class BaseCoordinator:
         )
 
     def __repr__(self) -> str:
-        """
-        Method for identifying the current implementation and subclasses of the BaseCoordinator.
+        """Method for identifying the current implementation and subclasses of the BaseCoordinator.
+
         Useful for showing the options being used to coordinate requests.
         """
         return self.structure()

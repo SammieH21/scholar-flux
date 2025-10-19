@@ -1,6 +1,5 @@
 # /api/models/responses.py
-"""
-The scholar_flux.api.models.responses module contains the core response types used to indicate whether the retrieval
+"""The scholar_flux.api.models.responses module contains the core response types used to indicate whether the retrieval
 and processing of API responses was successful or unsuccessful. Each class uses pydantic to ensure type validated
 responses while ensuring flexibility in how responses can be used and applied.
 
@@ -37,11 +36,9 @@ logger = logging.getLogger(__name__)
 
 
 class APIResponse(BaseModel):
-    """
-    A Response wrapper for responses of different types that allows consistency when using several possible backends.
+    """A Response wrapper for responses of different types that allows consistency when using several possible backends.
     The purpose of this class is to serve as the base for managing responses received from scholarly APIs while
     processing each component in a predictable, reproducible manner,
-
 
     This class uses pydantic's data validation and serialization/deserialization methods to aid caching and includes
     properties that refer back to the original response for displaying valid response codes, URLs, etc.
@@ -82,7 +79,7 @@ class APIResponse(BaseModel):
 
     @field_validator("created_at", mode="before")
     def validate_iso_timestamp(cls, v: Optional[str | datetime]) -> Optional[str]:
-        """Helper method for validating and ensuring that the timestamp accurately follows an iso 8601 format"""
+        """Helper method for validating and ensuring that the timestamp accurately follows an iso 8601 format."""
         if not v:
             return None
 
@@ -102,18 +99,17 @@ class APIResponse(BaseModel):
 
     @field_validator("response", mode="after")
     def transform_response(cls, v: Any) -> Optional[requests.Response | ResponseProtocol]:
-        """
-        Attempts to resolve a response object as an original or ReconstructedResponse:
-            All original response objects (duck-typed or requests response) with valid values will
-            be returned as is.
+        """Attempts to resolve a response object as an original or
+        ReconstructedResponse: All original response objects (duck-typed or
+        requests response) with valid values will be returned as is.
 
-            If the passed object is a string - this function will attempt to serialize it before
-            attempting to parse it as a dictionary.
+        If the passed object is a string - this function will attempt to serialize it before
+        attempting to parse it as a dictionary.
 
-            Dictionary fields will be decoded, if originally encoded, and parsed as a ReconstructedResponse object,
-            if possible.
+        Dictionary fields will be decoded, if originally encoded, and parsed as a ReconstructedResponse object,
+        if possible.
 
-            Otherwise, the original object is returned as is.
+        Otherwise, the original object is returned as is.
         """
 
         if isinstance(v, (requests.Response, ReconstructedResponse)) or cls._is_response_like(v):
@@ -129,8 +125,7 @@ class APIResponse(BaseModel):
 
     @property
     def status_code(self) -> Optional[int]:
-        """
-        Helper property from retrieving a status code from the APIResponse
+        """Helper property from retrieving a status code from the APIResponse.
 
         Returns:
             Optional[int]: The status code associated with the response (if available)
@@ -143,9 +138,8 @@ class APIResponse(BaseModel):
 
     @property
     def reason(self) -> Optional[str]:
-        """
-        Uses the underlying reason attribute on the response object, if available, to create
-        a human readable status description.
+        """Uses the underlying reason attribute on the response object, if available, to create a human readable status
+        description.
 
         Returns:
             Optional[str]: The status description associated with the response.
@@ -158,8 +152,7 @@ class APIResponse(BaseModel):
 
     @property
     def status(self) -> Optional[str]:
-        """
-        Helper property from retrieving a human-readable status description APIResponse
+        """Helper property from retrieving a human-readable status description APIResponse.
 
         Returns:
             Optional[int]: The status description associated with the response (if available).
@@ -168,8 +161,7 @@ class APIResponse(BaseModel):
 
     @property
     def headers(self) -> Optional[MutableMapping[str, str]]:
-        """
-        Return headers from the underlying response, if available and valid.
+        """Return headers from the underlying response, if available and valid.
 
         Returns:
             MutableMapping[str, str]: A dictionary of headers from the response
@@ -183,8 +175,7 @@ class APIResponse(BaseModel):
 
     @property
     def content(self) -> Optional[bytes]:
-        """
-        Return content from the underlying response, if available and valid.
+        """Return content from the underlying response, if available and valid.
 
         Returns:
             (bytes): The bytes from the original response content
@@ -200,9 +191,8 @@ class APIResponse(BaseModel):
 
     @property
     def text(self) -> Optional[str]:
-        """
-        Attempts to retrieve the response text by first decode the bytes of the its content.
-        If not available, this property attempts to directly reference the text attribute directly.
+        """Attempts to retrieve the response text by first decode the bytes of the its content. If not available, this
+        property attempts to directly reference the text attribute directly.
 
         Returns:
             Optional[str]: A text string if the text is available in the correct format, otherwise None
@@ -218,8 +208,7 @@ class APIResponse(BaseModel):
 
     @property
     def url(self) -> Optional[str]:
-        """
-        Return URL from the underlying response, if available and valid.
+        """Return URL from the underlying response, if available and valid.
 
         Returns:
             str: A string of the original URL if available. Accounts for objects that
@@ -234,11 +223,10 @@ class APIResponse(BaseModel):
         return None
 
     def validate_response(self) -> bool:
-        """
-        Helper method for determining whether the response attribute is truly a response.
-        If the response isn't a requests response, we use duck-typing to determine whether
-        the response attribute, itself, has the expected attributes of a response by using
-        properties for checking types vs None (if the attribute isn't the expected type)
+        """Helper method for determining whether the response attribute is truly a response. If the response isn't a
+        requests response, we use duck-typing to determine whether the response attribute, itself, has the expected
+        attributes of a response by using properties for checking types vs None (if the attribute isn't the expected
+        type)
 
         Returns:
             bool: An indicator of whether the current APIResponse.response attribute is
@@ -251,16 +239,13 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _is_response_like(cls, response: Any) -> bool:
-        """
-        Helper method for validating whether each of the core components of
-        a response are populated with the correct response types or are instead missing.
+        """Helper method for validating whether each of the core components of a response are populated with the correct
+        response types or are instead missing.
 
-        The following properties that refer back to the original response should be available:
-            1) status_code: (int)
-            2) reason: string
-            3) headers: dictionary
-            4) content: bytes
-            5) url: string or URL-like field
+        The following properties that refer back to the original
+        response should be available:     1) status_code: (int)     2)
+        reason: string     3) headers: dictionary     4) content: bytes
+        5) url: string or URL-like field
         """
         if not isinstance(response, ResponseProtocol):
             return False
@@ -279,9 +264,10 @@ class APIResponse(BaseModel):
         auto_created_at: Optional[bool] = None,
         **kwargs,
     ) -> Self:
-        """
-        Construct an APIResponse from a response object or from keyword arguments.
-        If response is not a valid response object, builds a minimal response-like object from kwargs.
+        """Construct an APIResponse from a response object or from keyword arguments.
+
+        If response is not a valid response object, builds a minimal
+        response-like object from kwargs.
         """
 
         model_kwargs = {field: kwargs.pop(field, None) for field in cls.model_fields if field in kwargs}
@@ -296,11 +282,11 @@ class APIResponse(BaseModel):
 
     @field_serializer("response", when_used="json")
     def encode_response(self, response: Any) -> Optional[Dict[str, Any] | List[Any]]:
-        """
-        Helper method for serializing a response into a json format. Accounts for special cases
-        such as CaseInsensitiveDict fields that are otherwise unserializable.
+        """Helper method for serializing a response into a json format. Accounts for special cases such as
+        CaseInsensitiveDict fields that are otherwise unserializable.
 
-        From this step, pydantic can safely use json internally to dump the encoded response fields
+        From this step, pydantic can safely use json internally to dump
+        the encoded response fields
         """
         if isinstance(response, (requests.Response, ReconstructedResponse)) or self._is_response_like(response):
             return self._encode_response(response)
@@ -308,9 +294,8 @@ class APIResponse(BaseModel):
 
     @classmethod
     def serialize_response(cls, response: requests.Response | ResponseProtocol) -> Optional[str]:
-        """
-        Helper method for serializing a response into a json format. The response object is first converted
-        into a serialized string and subsequently dumped after ensuring that the field is serializable.
+        """Helper method for serializing a response into a json format. The response object is first converted into a
+        serialized string and subsequently dumped after ensuring that the field is serializable.
 
         Args:
             response (Response, ResponseProtocol)
@@ -330,9 +315,8 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _encode_response(cls, response: requests.Response | ResponseProtocol) -> Dict[str, Any]:
-        """
-        Helper method for encoding a response using a ReconstructedResponse to store the core fields for responses and
-        response-like objects.
+        """Helper method for encoding a response using a ReconstructedResponse to store the core fields for responses
+        and response-like objects.
 
         Elements from the response are first extracted from the response object using the ReconstructedResponse data
         model. After extracting the fields from the model as a dictionary, the fields are subsequently encoded using
@@ -357,10 +341,10 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _decode_response(cls, encoded_response_dict: Dict[str, Any], **kwargs) -> Optional[ReconstructedResponse]:
-        """
-        Helper method for decoding a dictionary of encoded fields that were previously encoded using _encode_response.
-        This class approximately creates the previous response object by creating a ReconstructedResponse that
-        retains core fields from the original response to support the orchestration of response processing and caching.
+        """Helper method for decoding a dictionary of encoded fields that were previously encoded using
+        _encode_response. This class approximately creates the previous response object by creating a
+        ReconstructedResponse that retains core fields from the original response to support the orchestration of
+        response processing and caching.
 
         Args:
             encoded_response_dict (Dict[str, Any]):
@@ -394,9 +378,8 @@ class APIResponse(BaseModel):
 
     @classmethod
     def from_serialized_response(cls, response: Optional[Any] = None, **kwargs) -> Optional[ReconstructedResponse]:
-        """
-        Helper method for creating a new APIresponse from the original dumped object. This method Accounts for lack of
-        ease of serialization of responses by decoding the response dictionary that was loaded from a string using
+        """Helper method for creating a new APIresponse from the original dumped object. This method Accounts for lack
+        of ease of serialization of responses by decoding the response dictionary that was loaded from a string using
         json.loads from the json module in the standard library.
 
         If the response input is still a serialized string, this method will manually load the response dict with
@@ -421,8 +404,7 @@ class APIResponse(BaseModel):
 
     @classmethod
     def as_reconstructed_response(cls, response: Any) -> ReconstructedResponse:
-        """
-        Classmethod designed to create a reconstructed response from an original response object. This method coerces
+        """Classmethod designed to create a reconstructed response from an original response object. This method coerces
         response attributes into a reconstructed response that retains the original content, status code, headers, URL,
         reason, etc.
 
@@ -437,9 +419,8 @@ class APIResponse(BaseModel):
         return ReconstructedResponse.build(response)
 
     def __eq__(self, other: Any) -> bool:
-        """
-        Helper method for validating whether responses are equal. Elements of the same type are
-        considered a necessary quality for processing components to be considered equal.
+        """Helper method for validating whether responses are equal. Elements of the same type are considered a
+        necessary quality for processing components to be considered equal.
 
         Args:
             other (Any): An object to compare against the current APIResponse object/subclass
@@ -455,9 +436,10 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _deserialize_response_dict(cls, serialized_response_dict: str) -> Optional[dict]:
-        """
-        Helper method for deserializing the dumped model json. Attempts to load json data
-        from a string if possible. Otherwise returns None
+        """Helper method for deserializing the dumped model json.
+
+        Attempts to load json data from a string if possible. Otherwise
+        returns None
         """
         try:
             deserialized_dict = json.loads(serialized_response_dict)
@@ -467,10 +449,11 @@ class APIResponse(BaseModel):
         return None
 
     def raise_for_status(self):
-        """
-        Uses an underlying response object to validate the status code associated with the request.
-        If the attribute isn't a response or reconstructed response, the code will coerce the
-        class into a response object to verify the status code for the request URL and response.
+        """Uses an underlying response object to validate the status code associated with the request.
+
+        If the attribute isn't a response or reconstructed response, the
+        code will coerce the class into a response object to verify the
+        status code for the request URL and response.
         """
 
         if self.response is not None and isinstance(self.response, (requests.Response, ReconstructedResponse)):
@@ -479,7 +462,7 @@ class APIResponse(BaseModel):
             self.as_reconstructed_response(self.response).raise_for_status()
 
     def __repr__(self) -> str:
-        """Helper method for generating a simple representation of the current API Response"""
+        """Helper method for generating a simple representation of the current API Response."""
         return generate_repr(
             self,
             exclude={
@@ -489,8 +472,8 @@ class APIResponse(BaseModel):
 
 
 class ErrorResponse(APIResponse):
-    """
-    Returned when something goes wrong, but we don’t want to throw immediately—just hand back failure details.
+    """Returned when something goes wrong, but we don’t want to throw immediately—just hand back failure details.
+
     The class is formatted for compatibility with the ProcessedResponse,
     """
 
@@ -505,8 +488,7 @@ class ErrorResponse(APIResponse):
         cache_key: Optional[str] = None,
         response: Optional[requests.Response | ResponseProtocol] = None,
     ) -> Self:
-        """
-        Creates and logs the processing error if one occurs during response processing
+        """Creates and logs the processing error if one occurs during response processing.
 
         Args:
             response (Response): Raw API response.
@@ -528,70 +510,71 @@ class ErrorResponse(APIResponse):
 
     @property
     def parsed_response(self) -> None:
-        """Provided for type hinting + compatibility"""
+        """Provided for type hinting + compatibility."""
         return None
 
     @property
     def extracted_records(self) -> None:
-        """Provided for type hinting + compatibility"""
+        """Provided for type hinting + compatibility."""
         return None
 
     @property
     def processed_records(self) -> None:
-        """Provided for type hinting + compatibility"""
+        """Provided for type hinting + compatibility."""
         return None
 
     @property
     def metadata(self) -> None:
-        """Provided for type hinting + compatibility"""
+        """Provided for type hinting + compatibility."""
         return None
 
     @property
     def data(self) -> None:
-        """Provided for type hinting + compatibility"""
+        """Provided for type hinting + compatibility."""
         return self.processed_records
 
     def __repr__(self) -> str:
-        """Helper method for creating a string representation of the underlying ErrorResponse"""
+        """Helper method for creating a string representation of the underlying ErrorResponse."""
         return f"ErrorResponse(status_code={self.status_code}, error={self.error}, " f"message={self.message!r})"
 
     def __len__(self) -> int:
-        """
-        Helper method added for compatibility with the use-case of the ProcessedResponse.
-        always returns 0 as no records would have been processed successfully.
+        """Helper method added for compatibility with the use-case of the ProcessedResponse.
+
+        always returns 0 as no records would have been processed
+        successfully.
         """
         return 0
 
     def __bool__(self):
-        """Indicates that the underlying response was not successfully processed or contained an error code"""
+        """Indicates that the underlying response was not successfully processed or contained an error code."""
         return False
 
 
 class NonResponse(ErrorResponse):
-    """
-    Response class used to indicate that an error occurred in the preparation of a request or in the retrieval
-    of a response object from an API. This class is used to signify the error that occurred within the search process
-    using a similar interface as the other scholar_flux Response dataclasses.
+    """Response class used to indicate that an error occurred in the preparation of a request or in the retrieval of a
+    response object from an API.
+
+    This class is used to signify the error that occurred within the
+    search process using a similar interface as the other scholar_flux
+    Response dataclasses.
     """
 
     response: None = None
 
     def __repr__(self) -> str:
-        """Helper method for creating a string representation of the underlying ErrorResponse"""
+        """Helper method for creating a string representation of the underlying ErrorResponse."""
         return f"NonResponse(error={self.error}, " f"message={self.message!r})"
 
 
 class ProcessedResponse(APIResponse):
-    """
-    Helper class for returning a ProcessedResponse object that contains information on the original, cached,
-    or reconstructed_response received and processed after retrieval from an API in addition to the cache key.
-    This object also allows storage of intermediate steps including:
+    """Helper class for returning a ProcessedResponse object that contains information on the original, cached, or
+    reconstructed_response received and processed after retrieval from an API in addition to the cache key. This object
+    also allows storage of intermediate steps including:
 
-        1) parsed responses
-        2) extracted records and metadata
-        3) processed records (aliased as data)
-        4) any additional messages
-    An error field is provided for compatibility with the ErrorResponse class.
+    1) parsed responses     2) extracted records and metadata     3)
+    processed records (aliased as data)     4) any additional messages
+    An error field is provided for compatibility with the ErrorResponse
+    class.
     """
 
     parsed_response: Optional[Any] = None
@@ -602,16 +585,16 @@ class ProcessedResponse(APIResponse):
 
     @property
     def data(self) -> Optional[List[Dict[Any, Any]]]:
-        """Alias to the processed_records attribute that holds a list of dictionaries, when available"""
+        """Alias to the processed_records attribute that holds a list of dictionaries, when available."""
         return self.processed_records
 
     @property
     def error(self) -> None:
-        """Provided for type hinting + compatibility"""
+        """Provided for type hinting + compatibility."""
         return None
 
     def __repr__(self) -> str:
-        """Helper method for creating a simple representation of the ProcessedResponse"""
+        """Helper method for creating a simple representation of the ProcessedResponse."""
         return (
             f"ProcessedResponse(len={len(self.processed_records or [])}, "
             f"cache_key={self.cache_key!r}, "
@@ -619,13 +602,12 @@ class ProcessedResponse(APIResponse):
         )
 
     def __len__(self) -> int:
-        """Indicates the overall length of the processed data field as processed in the last step after filtering"""
+        """Indicates the overall length of the processed data field as processed in the last step after filtering."""
         return len(self.processed_records or [])
 
     def __bool__(self) -> bool:
-        """
-        Returns true, indicating that processing was successful, independent of the number of rows within the response
-        """
+        """Returns true, indicating that processing was successful, independent of the number of rows within the
+        response."""
         return True
 
 

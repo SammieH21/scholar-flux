@@ -1,7 +1,5 @@
 # /data_storage
-"""
-
-The scholar_flux.data_storage module contains the core storage definitions used to cache the response content,
+"""The scholar_flux.data_storage module contains the core storage definitions used to cache the response content,
 records and metadata for each unique page/batch of records under a key used for cache identification.
 
 Core components:

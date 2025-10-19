@@ -1,11 +1,10 @@
 # /api/models/reconstructed_response.py
-"""
-The scholar_flux.api.reconstructed_response module implements a basic ReconstructedResponse which was designed
-to allow flexibility in the request client that is used to retrieve data from APIs and load response data
-from cache.
+"""The scholar_flux.api.reconstructed_response module implements a basic ReconstructedResponse which was designed to
+allow flexibility in the request client that is used to retrieve data from APIs and load response data from cache.
 
-The ReconstructedResponse is a minimal implementation of a response-like object that can transform
-response classes from `requests`, `httpx`, and `asyncio` into a singular representation of the same response.
+The ReconstructedResponse is a minimal implementation of a response-like
+object that can transform response classes from `requests`, `httpx`, and
+`asyncio` into a singular representation of the same response.
 """
 from __future__ import annotations
 from typing import Optional, Dict, List, Any, MutableMapping, Mapping
@@ -24,11 +23,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ReconstructedResponse:
-    """
-    Helper class for retaining the most relevant of fields when reconstructing responses from
-    different sources such as requests and httpx (if chosen). The primary purpose of the ReconstructedResponse
-    in scholar_flux is to create a minimal representation of a response when we need to construct a ProcessedResponse
-    without an actual response and verify content fields.
+    """Helper class for retaining the most relevant of fields when reconstructing responses from different sources such
+    as requests and httpx (if chosen). The primary purpose of the ReconstructedResponse in scholar_flux is to create a
+    minimal representation of a response when we need to construct a ProcessedResponse without an actual response and
+    verify content fields.
 
     In applications such as retrieving cached data from a `scholar_flux.data_storage.DataCacheManager`, if an original
     or cached response is not available, then a ReconstructedResponse is created from the cached response fields when
@@ -67,18 +65,15 @@ class ReconstructedResponse:
 
     @classmethod
     def build(cls, response: Optional[Any] = None, **kwargs) -> ReconstructedResponse:
-        """
-        Helper method for building a new ReconstructedResponse from a regular response object.
-        This classmethod can either construct a new ReconstructedResponse object from a response
-        object or response-like object or create a new ReconstructedResponse altogether with its
-        inputs.
+        """Helper method for building a new ReconstructedResponse from a regular response object. This classmethod can
+        either construct a new ReconstructedResponse object from a response object or response-like object or create a
+        new ReconstructedResponse altogether with its inputs.
 
         Args:
             response: (Optional[Any]): A response or response-like object of unknown type or None
         kwargs: The underlying components needed to construct a new response. Note that ideally,
                 this set of key-value pairs would be specific only to the types expected by the
                 ReconstructedResponse.
-
         """
         if isinstance(response, ReconstructedResponse):
             return response
@@ -104,28 +99,23 @@ class ReconstructedResponse:
 
     @classmethod
     def fields(cls) -> list:
-        """
-        Helper method for retrieving a list containing the names of all fields associated with the
-         ReconstructedResponse class.
+        """Helper method for retrieving a list containing the names of all fields associated with the
+        ReconstructedResponse class.
 
-         Returns:
-             list[str]: A list containing the name of each attribute in the ReconstructedResponse.
+        Returns:
+            list[str]: A list containing the name of each attribute in the ReconstructedResponse.
         """
         return [field.name for field in fields(ReconstructedResponse)]
 
     def asdict(self) -> dict[str, Any]:
-        """
-        Helper method for converting the ReconstructedResponse into a dictionary containing attributes
-        and their corresponding values
-        """
+        """Helper method for converting the ReconstructedResponse into a dictionary containing attributes and their
+        corresponding values."""
         return asdict(self)
 
     @classmethod
     def from_keywords(cls, **kwargs) -> ReconstructedResponse:
-        """
-        Uses the provided keyword arguments to create a ReconstructedResponse.
-        keywords include the default attributes of the ReconstructedResponse, or can be inferred and processed from
-        other keywords.
+        """Uses the provided keyword arguments to create a ReconstructedResponse. keywords include the default
+        attributes of the ReconstructedResponse, or can be inferred and processed from other keywords.
 
         Args:
             status_code (int): The integer code indicating the status of the response
@@ -171,8 +161,8 @@ class ReconstructedResponse:
 
     @classmethod
     def _normalize_status_code(cls, **kwargs) -> Optional[int]:
-        """
-        Helper class method for extracting status codes from the status_code or status field.
+        """Helper class method for extracting status codes from the status_code or status field.
+
         Some status fields may actually contain a numeric code - this method accounts for
         these scenarios and returns None if a code isn't available.
 
@@ -192,11 +182,9 @@ class ReconstructedResponse:
 
     @classmethod
     def _normalize_reason(cls, **kwargs) -> Optional[str]:
-        """Helper class for extracting a reason associated with the status of a response. This method
-        accounts for several scenarios:
-            1) where status may actually be the status code and not an actual reason
-            2) either status or reason is provided and not the other
-            3) where the status code needs to be inferred from the status code instead
+        """Helper class for extracting a reason associated with the status of a response. This method accounts for
+        several scenarios: 1) where status may actually be the status code and not an actual reason 2) either status or
+        reason is provided and not the other 3) where the status code needs to be inferred from the status code instead.
 
         Args:
             **kwargs: The list of parameters to extract a status from. Includes `reason`, `reason_phrase`,
@@ -220,10 +208,8 @@ class ReconstructedResponse:
 
     @classmethod
     def _normalize_url(cls, **kwargs) -> Optional[str]:
-        """
-        Helper method to extract a URL as a string if available.
-        If the URL is a non-string field, this method attempts to convert
-        the field into a string.
+        """Helper method to extract a URL as a string if available. If the URL is a non-string field, this method
+        attempts to convert the field into a string.
 
         Args:
             **kwargs: A set of keyword arguments containing the `url` parameter
@@ -236,9 +222,8 @@ class ReconstructedResponse:
 
     @classmethod
     def _normalize_headers(cls, **kwargs) -> MutableMapping:
-        """
-        Helper method for extracting and converting headers to a MutableMapping
-        if the header field is a Mapping other than a dictionary type.
+        """Helper method for extracting and converting headers to a MutableMapping if the header field is a Mapping
+        other than a dictionary type.
 
         The field attempts to extract the necessary headers from either
         the `headers` field or `_headers` field if either is provided with preference
@@ -261,13 +246,9 @@ class ReconstructedResponse:
 
     @classmethod
     def _resolve_content_sources(cls, **kwargs) -> Optional[bytes]:
-        """
-        Helper method for retrieving the content field from a set of provided, disparate parameters that each
-        could have been provided by the user. This method searches for the following keys:
-            1) content,
-            2) _content,
-            3) json,
-            4) text
+        """Helper method for retrieving the content field from a set of provided, disparate parameters that each could
+        have been provided by the user. This method searches for the following keys: 1) content, 2) _content, 3) json,
+        4) text.
 
         If multiple fields are provided, this implementation prefers the the field containing
         the most information.
@@ -311,8 +292,7 @@ class ReconstructedResponse:
 
     @property
     def status(self) -> Optional[str]:
-        """
-        Helper property from retrieving a human-readable status description of the status
+        """Helper property from retrieving a human-readable status description of the status.
 
         Returns:
             Optional[int]: The status description associated with the response (if available)
@@ -321,8 +301,7 @@ class ReconstructedResponse:
 
     @property
     def text(self) -> Optional[str]:
-        """
-        Helper property from retrieving the text from the bytes content as a string
+        """Helper property from retrieving the text from the bytes content as a string.
 
         Returns:
             Optional[str]: The decoded text from the content of the response
@@ -344,8 +323,7 @@ class ReconstructedResponse:
     def _identify_invalid_fields(
         cls, response: requests.Response | ReconstructedResponse | ResponseProtocol
     ) -> dict[str, Any]:
-        """
-        Helper class method for identifying invalid fields within a response.
+        """Helper class method for identifying invalid fields within a response.
 
         This class iteratively validates the complete list of all invalid fields that populate the current
         ReconstructedResponse.
@@ -386,8 +364,7 @@ class ReconstructedResponse:
         return invalid_fields
 
     def is_response(self) -> bool:
-        """
-        Method for directly validating the fields that indicate that a response has been minimally recreated
+        """Method for directly validating the fields that indicate that a response has been minimally recreated
         successfully. The fields that are validated include:
 
             1) status codes (should be an integer)
@@ -411,10 +388,8 @@ class ReconstructedResponse:
         return not any(invalid_fields)
 
     def validate(self) -> None:
-        """
-        Raises an error if the recreated response object does not contain valid properties expected
-        of a response. if the response validation is successful, a response is not raised and an
-        object is not returned.
+        """Raises an error if the recreated response object does not contain valid properties expected of a response. if
+        the response validation is successful, a response is not raised and an object is not returned.
 
         Raises:
             InvalidResponseReconstructionException: if at least one field is determined to be invalid and
@@ -428,9 +403,8 @@ class ReconstructedResponse:
 
     @property
     def ok(self) -> bool:
-        """
-        Indicates whether the current response indicates a successful request (200 <= status_code < 400)
-        or whether an invalid response has been received. Accounts for the
+        """Indicates whether the current response indicates a successful request (200 <= status_code < 400) or whether
+        an invalid response has been received. Accounts for the.
 
         Returns:
             bool: True if the status code is an integer value within the range of 200 and 399, False otherwise
@@ -438,15 +412,14 @@ class ReconstructedResponse:
         return isinstance(self.status_code, int) and 200 <= self.status_code < 400
 
     def __eq__(self, other: Any) -> bool:
-        """Helper method for validating whether reconstructed API responses are the same"""
+        """Helper method for validating whether reconstructed API responses are the same."""
         if isinstance(other, ReconstructedResponse) and asdict(self) == asdict(other):
             return True
         return False
 
     def raise_for_status(self) -> None:
-        """
-        Method that imitates the capability of the requests and httpx response types to raise
-        errors when encountering status codes that are indicative of failed responses.
+        """Method that imitates the capability of the requests and httpx response types to raise errors when
+        encountering status codes that are indicative of failed responses.
 
         As scholar_flux processes data that is generally only sent when  status codes are within the
         200s (or exactly 200 [ok]), an error is raised when encountering a value outside of this range.

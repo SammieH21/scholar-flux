@@ -1,18 +1,18 @@
 # /data_storage/sql_storage.py
-"""
-The scholar_flux.data_storage.sql_storage module implements the SQLAlchemyStorage class that
-implements the abstract methods required for compatibility with the DataCacheManager in the
-scholar_flux package.
+"""The scholar_flux.data_storage.sql_storage module implements the SQLAlchemyStorage class that implements the abstract
+methods required for compatibility with the DataCacheManager in the scholar_flux package.
 
 This class implements caching by recording each of the fields of a ProcessedResponse into and parsed fields into a
 recursively encoded and serialized JSON data structure. When retrieving the data, the data is then decoded and
 deserialized to return the original object.
 
 Classes:
-    CacheTable: Defines the internal specification of the SQLAlchemy table that is used under the hood. This class
-                inherits from Base/DeclarativeBase subclass to define its structure and function as a SQLAlchemy table
-    SQLCacheStorage: Inherits from the scholar_flux.data_storage.abc_storage subclass and Defines the mechanisms by
-                     which the storage uses SQLAlchemy to load, retrieve, and update, and delete data.
+    - CacheTable:
+        Defines the internal specification of the SQLAlchemy table that is used under the hood. This class inherits
+        from Base/DeclarativeBase subclass to define its structure and function as a SQLAlchemy table
+    - SQLCacheStorage:
+        Inherits from the scholar_flux.data_storage.abc_storage subclass and Defines the mechanisms by which the
+        storage uses SQLAlchemy to load, retrieve, and update, and delete data.
 """
 from __future__ import annotations
 import logging
@@ -47,7 +47,7 @@ else:
         create_engine = None
 
         def Column(*args, **kwargs):
-            """Placeholder function that returned when the sqlalchemy package is not available"""
+            """Placeholder function that returned when the sqlalchemy package is not available."""
             pass
 
         String = Integer = JSON = exc = func = None
@@ -59,12 +59,12 @@ else:
 if TYPE_CHECKING or SQLALCHEMY_AVAILABLE:
 
     class Base(DeclarativeBase):
-        """Helper class from which future SQL tables can be defined from"""
+        """Helper class from which future SQL tables can be defined from."""
 
         pass
 
     class CacheTable(Base):
-        """Table that implements caching in a manner similar to a dictionary with key-cache data pairs"""
+        """Table that implements caching in a manner similar to a dictionary with key-cache data pairs."""
 
         __tablename__ = "cache"
         id = Column(Integer, primary_key=True, autoincrement=True)
@@ -78,17 +78,23 @@ else:
 
 
 class SQLAlchemyStorage(ABCStorage):
-    """
-    Implements the storage methods necessary to interact with SQLite3 in addition to other SQL flavors via sqlalchemy.
-    This implementation is designed to use a relational database as a cache by which data can be stored and retrieved
-    in a relatively straightforward manner that associates records in key-value pairs similar to the In-Memory Storage.
+    """Implements the storage methods necessary to interact with SQLite3 in addition to other SQL flavors via
+    sqlalchemy. This implementation is designed to use a relational database as a cache by which data can be stored and
+    retrieved in a relatively straightforward manner that associates records in key-value pairs similar to the In-Memory
+    Storage.
 
-    Note: this table uses the structure previously defined in the CacheTable to store records in a structured manner:
-        id: Automatically generated - identifies the unique record in the table
-        key: Is used to associate a specific cached record with a short human-readable (or hashed) string
-        cache: The JSON data associated with the record. To store the data, any nested, non-serializable data is first
-               encoded before being unstructured and stored. On retrieving the data, the JSON string is decoded
-               and restructured in order to return the original object.
+    **Note**:
+
+        This table uses the structure previously defined in the CacheTable to store records in a structured manner:
+
+        ID:
+            Automatically generated - identifies the unique record in the table
+        Key:
+            Is used to associate a specific cached record with a short human-readable (or hashed) string
+        Cache:
+            The JSON data associated with the record. To store the data, any nested, non-serializable data is first
+            encoded before being unstructured and stored. On retrieving the data, the JSON string is decoded and
+            restructured in order to return the original object.
 
     The SQLAlchemyStorage can be initialized as follows:
 
@@ -131,18 +137,22 @@ class SQLAlchemyStorage(ABCStorage):
         ttl: None = None,
         **sqlalchemy_config,
     ) -> None:
-        """
-        Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter.
-        This class uses the innate flexibility of SQLAlchemy to support backends such as SQLite, Postgres, DuckDB, etc.
+        """Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter. This
+        class uses the innate flexibility of SQLAlchemy to support backends such as SQLite, Postgres, DuckDB, etc.
 
         Args:
-            url (Optional[str]): Database connection string. This can be provided positionally or as a keyword argument.
-            namespace (Optional[str]): The prefix associated with each cache key. By default, this is None.
-            ttl (None): Ignored. Included for interface compatibility; not implemented.
-            **sqlalchemy_config: Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine
-                Typical parameters include the following:
-                    url (str): Indicates what server to connect to. Defaults to sqlite in the package directory.
-                    echo (bool): Indicates whether to show the executed SQL queries in the console.
+            url (Optional[str]):
+                Database connection string. This can be provided positionally or as a keyword argument.
+            namespace (Optional[str]):
+                The prefix associated with each cache key. By default, this is None.
+            ttl (None):
+                Ignored. Included for interface compatibility; not implemented.
+            **sqlalchemy_config:
+                Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine Typical parameters include
+                the following:
+
+                    - url (str): Indicates what server to connect to. Defaults to sqlite in the package directory.
+                    - echo (bool): Indicates whether to show the executed SQL queries in the console.
         """
 
         if not SQLALCHEMY_AVAILABLE:
@@ -170,24 +180,23 @@ class SQLAlchemyStorage(ABCStorage):
         self._validate_prefix(self.namespace, required=False)
 
     def clone(self) -> SQLAlchemyStorage:
-        """
-        Helper method for creating a new SQLAlchemyStorage with the same parameters. Note that
-        the implementation of the SQLAlchemyStorage is not able to be deep copied, and this method
-        is provided for convenience in re-instantiation with the same configuration.
+        """Helper method for creating a new SQLAlchemyStorage with the same parameters.
+
+        Note that the implementation of the SQLAlchemyStorage is not able to be deep copied, and this method is
+        provided for convenience in re-instantiation with the same configuration.
         """
         cls = self.__class__
         return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
-        """
-        Retrieve the value associated with the provided key from cache.
+        """Retrieve the value associated with the provided key from cache.
 
         Args:
             key (str): The key used to fetch the stored data from cache.
 
         Returns:
-            Any: The value returned is deserialized JSON object if successful. Returns None
-                if the key does not exist.
+            Any:
+                The value returned is deserialized JSON object if successful. Returns None if the key does not exist.
         """
         with self.Session() as session, self.lock:
             try:
@@ -202,12 +211,11 @@ class SQLAlchemyStorage(ABCStorage):
                 return None
 
     def retrieve_all(self) -> Dict[str, Any]:
-        """
-        Retrieve all records from cache.
+        """Retrieve all records from cache.
 
         Returns:
-            dict: Dictionary of key-value pairs. Keys are original keys,
-                values are JSON deserialized objects.
+            dict:
+                Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
         """
         with self.Session() as session, self.lock:
             cache = {}
@@ -223,8 +231,7 @@ class SQLAlchemyStorage(ABCStorage):
             return cache
 
     def retrieve_keys(self) -> List[str]:
-        """
-        Retrieve all keys for records from cache .
+        """Retrieve all keys for records from cache .
 
         Returns:
             list: A list of all keys saved via SQL.
@@ -243,14 +250,14 @@ class SQLAlchemyStorage(ABCStorage):
             return keys
 
     def update(self, key: str, data: Any) -> None:
-        """
-        Update the cache by storing associated value with provided key.
+        """Update the cache by storing associated value with provided key.
 
         Args:
-            key (str): The key used to store the serialized JSON string in cache.
-            data (Any): A Python object that will be serialized into JSON format and stored.
-                This includes standard data types like strings, numbers, lists, dictionaries,
-                etc.
+            key (str):
+                The key used to store the serialized JSON string in cache.
+            data (Any):
+                A Python object that will be serialized into JSON format and stored. This includes standard data types
+                like strings, numbers, lists, dictionaries, etc.
         """
         with self.Session() as session, self.lock:
             try:
@@ -269,12 +276,10 @@ class SQLAlchemyStorage(ABCStorage):
                 session.rollback()
 
     def delete(self, key: str) -> None:
-        """
-        Delete the value associated with the provided key from cache.
+        """Delete the value associated with the provided key from cache.
 
         Args:
             key (str): The key used associated with the stored data from cache.
-
         """
         with self.Session() as session, self.lock:
             try:
@@ -288,9 +293,7 @@ class SQLAlchemyStorage(ABCStorage):
                 session.rollback()
 
     def delete_all(self) -> None:
-        """
-        Delete all records from cache that match the current namespace prefix.
-        """
+        """Delete all records from cache that match the current namespace prefix."""
         with self.Session() as session, self.lock:
             try:
                 if self.namespace:
@@ -305,11 +308,9 @@ class SQLAlchemyStorage(ABCStorage):
                 session.rollback()
 
     def _serialize_data(self, record_data: Any) -> Any:
-        """
-        Helper method for serializing and encoding cached data.
-        The data is first encoded, identifying nested structures that need
-        to be encoded recursively. If a value is already in a serializable format,
-        then the record is left as is. The data is finally unstructured and returned.
+        """Helper method for serializing and encoding cached data. The data is first encoded, identifying nested
+        structures that need to be encoded recursively. If a value is already in a serializable format, then the record
+        is left as is. The data is finally unstructured and returned.
 
         Returns:
             The serialized version of the input data
@@ -319,11 +320,10 @@ class SQLAlchemyStorage(ABCStorage):
         return serialized_data
 
     def _deserialize_data(self, record_data: Any) -> Any:
-        """
-        Handles the serialization and deserialization of the SQLCacheStorage. This
-        implementation only attempts to structure the data in the case where it is a
-        dictionary or list, as the CacheTable's cache column implements the JSON column schema.
-        All other types are decoded and returned as is.
+        """Handles the serialization and deserialization of the SQLCacheStorage.
+
+        This implementation only attempts to structure the data in the case where it is a dictionary or list, as the
+        CacheTable's cache column implements the JSON column schema. All other types are decoded and returned as is.
         """
         if not record_data:
             return record_data
@@ -341,8 +341,7 @@ class SQLAlchemyStorage(ABCStorage):
         return deserialized_data
 
     def verify_cache(self, key: str) -> bool:
-        """
-        Check if specific cache key exists.
+        """Check if specific cache key exists.
 
         Args:
             key (str): The key to check its presence in the SQL storage backend.
@@ -359,9 +358,8 @@ class SQLAlchemyStorage(ABCStorage):
 
     @classmethod
     def is_available(cls, url: Optional[str] = None, verbose: bool = True) -> bool:
-        """
-        Helper class method for testing whether the SQL service can be accessed.
-        If so, this function returns True, otherwise False
+        """Helper class method for testing whether the SQL service can be accessed. If so, this function returns True,
+        otherwise False.
 
         Args:
             host (str): Indicates the location to attempt a connection

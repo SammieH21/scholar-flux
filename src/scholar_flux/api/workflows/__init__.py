@@ -1,9 +1,7 @@
 # api/workflows
-"""
-
-The scholar_flux.api.workflows module contains the core logic for integrating workflows into the SearchCoordinator,
-and, in doing so, allows for customizable, integrated, workflows that allow extraneous steps to occur throughout
-the process.
+"""The scholar_flux.api.workflows module contains the core logic for integrating workflows into the SearchCoordinator,
+and, in doing so, allows for customizable, integrated, workflows that allow extraneous steps to occur throughout the
+process.
 
 Examples include:
     1) Searching for articles of a particular type in customized year ranges
@@ -56,8 +54,6 @@ Modules:
        >>> assert pubmed_search.workflow == pubmed_workflow == pubmed_search_with_workflow.workflow
        # assuming that an API key is available:
        >>> response = pubmed_search.search(page = 1, use_workflow = True) # The workflow is used automatically
-
-
 """
 from scholar_flux.api.workflows.models import (
     BaseStepContext,

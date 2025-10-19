@@ -1,9 +1,8 @@
 # /api/models
 
-"""
-The scholar_flux.api.models module includes all of the needed configuration classes that
-are needed to define the configuration needed to configure APIs for specific providers and
-to ensure that the process is orchestrated in a robust way.
+"""The scholar_flux.api.models module includes all of the needed configuration classes that are needed to define the
+configuration needed to configure APIs for specific providers and to ensure that the process is orchestrated in a robust
+way.
 
 Core Models:
     - APIParameterMap: Contains the mappings and settings used to customized common and API Specific parameters

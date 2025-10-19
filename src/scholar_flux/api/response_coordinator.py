@@ -1,10 +1,10 @@
 # /api/response_coordinator.py
-"""
-The scholar_flux.api.response_coordinator module implements the ResponseCoordinator that is used to coordinate
-the processing of successfully and unsuccessfully retrieved responses. This class is used by the SearchCoordinator
-to orchestrate the response parsing, processing and caching of responses.
+"""The scholar_flux.api.response_coordinator module implements the ResponseCoordinator that is used to coordinate the
+processing of successfully and unsuccessfully retrieved responses. This class is used by the SearchCoordinator to
+orchestrate the response parsing, processing and caching of responses.
 
-The ResponseCoordinator relies on dependency injection to modify the processing methods used at each step.
+The ResponseCoordinator relies on dependency injection to modify the
+processing methods used at each step.
 """
 from __future__ import annotations
 from scholar_flux.data_storage import DataCacheManager
@@ -48,10 +48,9 @@ from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse, 
 
 
 class ResponseCoordinator:
-    """
-    Coordinates the parsing, extraction, processing, and caching of API responses.
-    The ResponseCoordinator operates on the concept of dependency injection to orchestrate
-    the entire process. Because the structure of the coordinator (parser, extractor, processor)
+    """Coordinates the parsing, extraction, processing, and caching of API responses. The ResponseCoordinator operates
+    on the concept of dependency injection to orchestrate the entire process. Because the structure of the coordinator
+    (parser, extractor, processor)
 
     Note that the overall composition of the coordinator is a governing factor in how the response is processed.
     The ResponseCoordinator uses a cache key and schema fingerprint to ensure that it is only
@@ -108,10 +107,8 @@ class ResponseCoordinator:
         processor: ABCDataProcessor,
         cache_manager: DataCacheManager,
     ):
-        """
-        Initializes the response coordinator using the core components used to
-        parse, process, and cache response data
-        """
+        """Initializes the response coordinator using the core components used to parse, process, and cache response
+        data."""
 
         self.parser = parser
         self.extractor = extractor
@@ -127,8 +124,7 @@ class ResponseCoordinator:
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
     ) -> "ResponseCoordinator":
-        """
-        Factory method to build a ResponseCoordinator with sensible defaults.
+        """Factory method to build a ResponseCoordinator with sensible defaults.
 
         Args:
             parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
@@ -162,8 +158,7 @@ class ResponseCoordinator:
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
     ) -> ResponseCoordinator:
-        """
-        Factory method to create a new ResponseCoordinator from an existing configuration
+        """Factory method to create a new ResponseCoordinator from an existing configuration.
 
         Args:
             response_coordinator: Optional([ResponseCoordinator]): ResponseCoordinator containing the defaults to swap
@@ -198,8 +193,7 @@ class ResponseCoordinator:
     def configure_cache(
         cls, cache_manager: Optional[DataCacheManager] = None, cache_results: Optional[bool] = None
     ) -> DataCacheManager:
-        """
-        Helper method for building and swapping out cache managers depending on the cache chosen.
+        """Helper method for building and swapping out cache managers depending on the cache chosen.
 
         Args:
             cache_manager (Optional[DataCacheManager]): An optional cache manager to use
@@ -227,12 +221,12 @@ class ResponseCoordinator:
 
     @property
     def parser(self) -> BaseDataParser:
-        """Allows direct access to the data parser from the ResponseCoordinator"""
+        """Allows direct access to the data parser from the ResponseCoordinator."""
         return self._parser
 
     @parser.setter
     def parser(self, parser: BaseDataParser) -> None:
-        """Allows the direct modification of the data parser from the ResponseCoordinator"""
+        """Allows the direct modification of the data parser from the ResponseCoordinator."""
         if not isinstance(parser, BaseDataParser):
             raise InvalidCoordinatorParameterException(
                 f"Expected a DataParser object. Instead received type ({type(parser)})"
@@ -241,12 +235,12 @@ class ResponseCoordinator:
 
     @property
     def extractor(self) -> BaseDataExtractor:
-        """Allows direct access to the DataExtractor from the ResponseCoordinator"""
+        """Allows direct access to the DataExtractor from the ResponseCoordinator."""
         return self._extractor
 
     @extractor.setter
     def extractor(self, extractor: BaseDataExtractor) -> None:
-        """Allows the direct modification of the DataExtractor from the ResponseCoordinator"""
+        """Allows the direct modification of the DataExtractor from the ResponseCoordinator."""
         if not isinstance(extractor, BaseDataExtractor):
             raise InvalidCoordinatorParameterException(
                 f"Expected a DataExtractor object. " f"Instead received type ({type(extractor)})"
@@ -255,12 +249,12 @@ class ResponseCoordinator:
 
     @property
     def processor(self) -> ABCDataProcessor:
-        """Allows direct access to the DataProcessor from the ResponseCoordinator"""
+        """Allows direct access to the DataProcessor from the ResponseCoordinator."""
         return self._processor
 
     @processor.setter
     def processor(self, processor: ABCDataProcessor) -> None:
-        """Allows the direct modification of the DataProcessor from the ResponseCoordinator"""
+        """Allows the direct modification of the DataProcessor from the ResponseCoordinator."""
         if not isinstance(processor, ABCDataProcessor):
             raise InvalidCoordinatorParameterException(
                 f"Expected a ABCDataProcessor or a sub-class of the "
@@ -270,28 +264,30 @@ class ResponseCoordinator:
 
     @property
     def cache(self) -> DataCacheManager:
-        """
-        Alias for the response data processing cache manager:
-        Also allows direct access to the DataCacheManager from the ResponseCoordinator
+        """Alias for the response data processing cache manager:
+
+        Also allows direct access to the DataCacheManager from the
+        ResponseCoordinator
         """
         return self._cache_manager
 
     @cache.setter
     def cache(self, cache_manager: DataCacheManager) -> None:
-        """
-        Alias for the response data processing cache manager:
-        Also allows the direct modification of the DataCacheManager from the ResponseCoordinator
+        """Alias for the response data processing cache manager:
+
+        Also allows the direct modification of the DataCacheManager from
+        the ResponseCoordinator
         """
         self.cache_manager = cache_manager
 
     @property
     def cache_manager(self) -> DataCacheManager:
-        """Allows direct access to the DataCacheManager from the ResponseCoordinator"""
+        """Allows direct access to the DataCacheManager from the ResponseCoordinator."""
         return self._cache_manager
 
     @cache_manager.setter
     def cache_manager(self, cache_manager: DataCacheManager) -> None:
-        """Allows the direct modification of the DataCacheManager from the ResponseCoordinator"""
+        """Allows the direct modification of the DataCacheManager from the ResponseCoordinator."""
         if not isinstance(cache_manager, DataCacheManager):
             raise InvalidCoordinatorParameterException(
                 f"Expected a DataCacheManager or a sub-class of the ABCDataProcessor. "
@@ -302,9 +298,8 @@ class ResponseCoordinator:
     def handle_response_data(
         self, response: Response, cache_key: Optional[str] = None
     ) -> Optional[List[Dict[Any, Any]] | List]:
-        """
-        Retrieves the data from the processed response from cache if previously cached.
-        Otherwise the data is retrieved after processing the response.
+        """Retrieves the data from the processed response from cache if previously cached. Otherwise the data is
+        retrieved after processing the response.
 
         Args:
             response (Response): Raw API response.
@@ -324,12 +319,9 @@ class ResponseCoordinator:
         from_cache: bool = True,
         validate_fingerprint: Optional[bool] = None,
     ) -> ErrorResponse | ProcessedResponse:
-        """
-        Retrieves the data from the processed response from cache as a
-          if previously cached. Otherwise the data is retrieved
-          after processing the response. The response data is
-          subsequently transformed into a dataclass containing
-          the response content, processing info, and metadata
+        """Retrieves the data from the processed response from cache as a if previously cached. Otherwise the data is
+        retrieved after processing the response. The response data is subsequently transformed into a dataclass
+        containing the response content, processing info, and metadata.
 
         Args:
             response (Response): Raw API response.
@@ -356,9 +348,7 @@ class ResponseCoordinator:
         response: Optional[Response | ResponseProtocol] = None,
         validate_fingerprint: Optional[bool] = None,
     ) -> Optional[ProcessedResponse]:
-        """
-        Retrieves Previously Cached Response data that has been
-        parsed, extracted, processed, and stored in cache
+        """Retrieves Previously Cached Response data that has been parsed, extracted, processed, and stored in cache.
 
         Args:
             response (Response | ResponseProtocol): Raw API response.
@@ -415,7 +405,7 @@ class ResponseCoordinator:
         response: Optional[Response | ResponseProtocol] = None,
         cached_response: Optional[Dict[str, Any]] = None,
     ) -> ProcessedResponse:
-        """Helper method for creating a processed response containing fields needed for processing"""
+        """Helper method for creating a processed response containing fields needed for processing."""
 
         if not isinstance(cached_response, dict):
             logger.warning(
@@ -447,10 +437,8 @@ class ResponseCoordinator:
         cached_response: dict[str, Any],
         validate_fingerprint: Optional[bool] = None,
     ) -> Optional[bool]:
-        """
-        Helper method for validating the cache dictionary containing the processed data, metadata,
-        and other information for the current response
-        """
+        """Helper method for validating the cache dictionary containing the processed data, metadata, and other
+        information for the current response."""
         if not cached_response:
             return False
 
@@ -475,8 +463,7 @@ class ResponseCoordinator:
     def _resolve_response(
         cls, response: Response | ResponseProtocol, validate: bool = False
     ) -> Response | ResponseProtocol:
-        """
-        Helper method for ensuring that the underlying response is actually a response object or valid response-like
+        """Helper method for ensuring that the underlying response is actually a response object or valid response-like
         object. If the value is a valid response-like object, the reconstructed response is returned as is.
 
         Args:
@@ -512,8 +499,8 @@ class ResponseCoordinator:
 
     @classmethod
     def _validate_response(cls, response: Response | ResponseProtocol) -> Response | ResponseProtocol:
-        """Helper method for returning the response or response-like object in case of errors. Otherwise
-        returns an error if the response type is not a valid response or response-like object
+        """Helper method for returning the response or response-like object in case of errors. Otherwise returns an
+        error if the response type is not a valid response or response-like object.
 
         Args:
             response (requests.Response | ResponseProtocol): A response or response like object
@@ -530,9 +517,8 @@ class ResponseCoordinator:
     def _handle_response(
         self, response: Response | ResponseProtocol, cache_key: Optional[str] = None
     ) -> ErrorResponse | ProcessedResponse:
-        """
-        Parses, extracts, processes, and optionally caches response data and orchestrates the process of handling errors
-        if one occurs anywhere along the response handling process.
+        """Parses, extracts, processes, and optionally caches response data and orchestrates the process of handling
+        errors if one occurs anywhere along the response handling process.
 
         Args:
             response (Response): Raw API response.
@@ -545,7 +531,6 @@ class ResponseCoordinator:
                                                success. Otherwise, on failure, an ErrorResponse is
                                                returned, detailing the precipitating factors behind the
                                                error.
-
         """
 
         try:
@@ -577,8 +562,7 @@ class ResponseCoordinator:
     def _process_response(
         self, response: Response | ResponseProtocol, cache_key: Optional[str] = None
     ) -> ProcessedResponse:
-        """
-        Parses, extracts, processes, and optionally caches response data.
+        """Parses, extracts, processes, and optionally caches response data.
 
         Args:
             response (Response): Raw API response.
@@ -639,8 +623,7 @@ class ResponseCoordinator:
         error_type: Exception,
         cache_key: Optional[str] = None,
     ) -> ErrorResponse:
-        """
-        Creates and logs the processing error if one occurs during response processing
+        """Creates and logs the processing error if one occurs during response processing.
 
         Args:
             response (Response): Raw API response.
@@ -655,7 +638,7 @@ class ResponseCoordinator:
         return ErrorResponse.from_error(response=response, cache_key=cache_key, message=error_message, error=error_type)
 
     def schema_fingerprint(self) -> str:
-        """Helper method for generating a concise view of the current structure of the response coordinator"""
+        """Helper method for generating a concise view of the current structure of the response coordinator."""
         fingerprint = self.cache_manager.cache_fingerprint(
             generate_repr_from_string(
                 self.__class__.__name__,
@@ -666,7 +649,7 @@ class ResponseCoordinator:
         return fingerprint
 
     def summary(self) -> str:
-        """Helper class for creating a quick summary representation of the structure of the Response Coordinator"""
+        """Helper class for creating a quick summary representation of the structure of the Response Coordinator."""
         class_name = self.__class__.__name__
 
         components = dict(
@@ -679,10 +662,9 @@ class ResponseCoordinator:
         return generate_repr_from_string(class_name, components, flatten=True)
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """
-        Helper method for retrieving a string representation of the overall structure of the current
-        ResponseCoordinator. The helper function, generate_repr_from_string helps produce human-readable
-        representations of the core structure of the ResponseCoordinator.
+        """Helper method for retrieving a string representation of the overall structure of the current
+        ResponseCoordinator. The helper function, generate_repr_from_string helps produce human-readable representations
+        of the core structure of the ResponseCoordinator.
 
         Args:
             flatten (bool): Whether to flatten the ResponseCoordinator's structural representation into a single line.
@@ -706,7 +688,7 @@ class ResponseCoordinator:
         )
 
     def __repr__(self) -> str:
-        """Helper class for representing the structure of the Response Coordinator"""
+        """Helper class for representing the structure of the Response Coordinator."""
         return self.structure()
 
 

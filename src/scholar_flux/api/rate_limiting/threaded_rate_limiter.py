@@ -1,8 +1,8 @@
 # /api/rate_limiting/rate_limiter.py
-"""
-The scholar_flux.api.rate_limiting.threaded_rate_limiter module implements creates a ThreadedRateLimiter that extends
-the basic functionality of the original RateLimiter class. This class can be used in multithreaded scenarios to ensure
-that rate limits to a provider are not exceeded within the specified constant time interval.
+"""The scholar_flux.api.rate_limiting.threaded_rate_limiter module implements ThreadedRateLimiter for thread safety.
+
+The ThreadedRateLimiter extends the basic functionality of the original RateLimiter class and can be used in
+multithreaded scenarios to ensure that provider rate limits are not exceeded within a constant time interval.
 """
 from __future__ import annotations
 from contextlib import contextmanager
@@ -14,11 +14,11 @@ import threading
 
 
 class ThreadedRateLimiter(RateLimiter):
-    """
-    Thread-safe version of RateLimiter that can be safely used across multiple threads.
+    """Thread-safe version of RateLimiter that can be safely used across multiple threads.
 
-    Inherits all functionality from RateLimiter but adds thread synchronization
-    to prevent race conditions when multiple threads access the same limiter instance.
+    Inherits all functionality from RateLimiter but adds thread
+    synchronization to prevent race conditions when multiple threads
+    access the same limiter instance.
     """
 
     def __init__(self, min_interval: Optional[float | int] = None):
@@ -44,8 +44,7 @@ class ThreadedRateLimiter(RateLimiter):
 
     @contextmanager
     def rate(self, min_interval: float | int) -> Iterator[Self]:
-        """
-        Thread-safe version of rate() context manager.
+        """Thread-safe version of rate() context manager.
 
         Args:
             min_interval: The minimum interval to temporarily use during the call

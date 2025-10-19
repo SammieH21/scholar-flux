@@ -1,8 +1,6 @@
 # /api/search_coordinator.py
-"""
-Defines the SearchCoordinator that provides enhanced customization and single/multi-page response retrieval and
-processing of record data from APIs.
-"""
+"""Defines the SearchCoordinator that provides enhanced customization and single/multi-page response retrieval and
+processing of record data from APIs."""
 from __future__ import annotations
 from typing import List, Dict, Optional, Any, Sequence, cast, Generator
 from requests import PreparedRequest, Response
@@ -42,9 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchCoordinator(BaseCoordinator):
-    """
-    High-level coordinator for requesting and retrieving records and metadata
-    from APIs.
+    """High-level coordinator for requesting and retrieving records and metadata from APIs.
 
     This class uses dependency injection to orchestrate the process of constructing requests,
     validating response, and processing scientific works and articles. This class is designed
@@ -74,10 +70,8 @@ class SearchCoordinator(BaseCoordinator):
         workflow: Optional[SearchWorkflow] = None,
         **kwargs,
     ):
-        """
-
-        Flexible initializer that constructs a SearchCoordinator either from its core components or from their
-        basic building blocks when these core components are not directly provided.
+        """Flexible initializer that constructs a SearchCoordinator either from its core components or from their basic
+        building blocks when these core components are not directly provided.
 
         If `search_api` and `response_coordinator` are provided, then this method will use these inputs directly.
 
@@ -169,9 +163,8 @@ class SearchCoordinator(BaseCoordinator):
         validator: Optional[ResponseValidator] = None,
         workflow: Optional[SearchWorkflow] = None,
     ):
-        """
-        Helper method for initializing the final components of the SearchCoordinator after
-        the creation of the SearchAPI and the ResponseCoordinator.
+        """Helper method for initializing the final components of the SearchCoordinator after the creation of the
+        SearchAPI and the ResponseCoordinator.
 
         Args:
             searchAPI (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
@@ -198,10 +191,9 @@ class SearchCoordinator(BaseCoordinator):
         cache_requests: Optional[bool] = None,
         **kwargs,
     ) -> SearchAPI:
-        """
-        Helper method for creating a new Search API from its components or an existing SearchAPI.
-        Useful for when a search API needs to be created and used from scratch rather than directly
-        copied given constraints on copying session and cached session objects.
+        """Helper method for creating a new Search API from its components or an existing SearchAPI. Useful for when a
+        search API needs to be created and used from scratch rather than directly copied given constraints on copying
+        session and cached session objects.
 
         Args:
             search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
@@ -242,9 +234,8 @@ class SearchCoordinator(BaseCoordinator):
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
     ) -> ResponseCoordinator:
-        """
-        Helper method for creating a new response coordinator either from an existing response coordinator
-        with overrides or created anew entirely from its core dependencies.
+        """Helper method for creating a new response coordinator either from an existing response coordinator with
+        overrides or created anew entirely from its core dependencies.
 
         Args:
             response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
@@ -282,9 +273,8 @@ class SearchCoordinator(BaseCoordinator):
     def as_coordinator(
         cls, search_api: SearchAPI, response_coordinator: ResponseCoordinator, *args, **kwargs
     ) -> SearchCoordinator:
-        """
-        Helper factory method for building a SearchCoordinator that allows users to build from the
-        final building blocks of a SearchCoordinator
+        """Helper factory method for building a SearchCoordinator that allows users to build from the final building
+        blocks of a SearchCoordinator.
 
         Args:
             searchAPI (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
@@ -308,10 +298,9 @@ class SearchCoordinator(BaseCoordinator):
         validator: Optional[ResponseValidator] = None,
         workflow: Optional[SearchWorkflow] = None,
     ) -> SearchCoordinator:
-        """
-        Helper factory method allowing the creation of a new components based on an existing configuration
-        while allowing the replacement of previous components. Note that this implementation does not directly
-        copy the underlying components if a new component is not selected.
+        """Helper factory method allowing the creation of a new components based on an existing configuration while
+        allowing the replacement of previous components. Note that this implementation does not directly copy the
+        underlying components if a new component is not selected.
 
         Args:
             SearchCoordinator: A previously created coordinator containing the components to use if a default
@@ -354,11 +343,9 @@ class SearchCoordinator(BaseCoordinator):
         use_workflow: Optional[bool] = True,
         **api_specific_parameters,
     ) -> Optional[ProcessedResponse | ErrorResponse]:
-        """
-        Public method for retrieving and processing records from the API specifying the page and records per page.
-        Note that the response object is saved under the last_response attribute in the event that the
-        data is processed successfully, irrespective of whether responses are cached or not.
-
+        """Public method for retrieving and processing records from the API specifying the page and records per page.
+        Note that the response object is saved under the last_response attribute in the event that the data is processed
+        successfully, irrespective of whether responses are cached or not.
 
         Args:
             page (int): The current page number. Used for process caching purposes even if not required by the API
@@ -406,12 +393,9 @@ class SearchCoordinator(BaseCoordinator):
         use_workflow: Optional[bool] = True,
         **api_specific_parameters,
     ) -> SearchResultList:
-        """
-        Public method for retrieving and processing records from the API specifying the page and records per page
-        in sequence. This method
-        Note that the response object is saved under the last_response attribute in the event that the
-        data is processed successfully, irrespective of whether responses are cached or not.
-
+        """Public method for retrieving and processing records from the API specifying the page and records per page in
+        sequence. This method Note that the response object is saved under the last_response attribute in the event that
+        the data is processed successfully, irrespective of whether responses are cached or not.
 
         Args:
             page (int): The current page number. Used for process caching purposes even if not required by the API
@@ -456,11 +440,10 @@ class SearchCoordinator(BaseCoordinator):
         use_workflow: Optional[bool] = True,
         **api_specific_parameters,
     ) -> Generator[SearchResult, None, None]:
-        """
-        Helper method that creates a generator function for retrieving and processing records from the
-        API Provider for a page range in sequence. This implementation dynamically examines the properties
-        of the page search result for each retrieved API response to determine whether or not iteration should
-        halt early versus determining whether iteration should continue.
+        """Helper method that creates a generator function for retrieving and processing records from the API Provider
+        for a page range in sequence. This implementation dynamically examines the properties of the page search result
+        for each retrieved API response to determine whether or not iteration should halt early versus determining
+        whether iteration should continue.
 
         This method is directly used by SearchCoordinator.search_pages to provide a clean interface that abstracts
         the complexity of iterators and is also provided for convenience when iteration is more preferable.
@@ -510,10 +493,9 @@ class SearchCoordinator(BaseCoordinator):
         use_workflow: Optional[bool] = True,
         **api_specific_parameters,
     ) -> SearchResult:
-        """
-        Helper method for retrieving and processing a search result for a particular page number received from an API
-        Provider. This method is used to support the retrieval of a page range while wrapping each result in
-        a SearchResult class as a BaseModel that provides more structured information about the received API Response,
+        """Helper method for retrieving and processing a search result for a particular page number received from an API
+        Provider. This method is used to support the retrieval of a page range while wrapping each result in a
+        SearchResult class as a BaseModel that provides more structured information about the received API Response,
         including the provider's name, the page number, and the response result.
 
         The SearchResult can hold three different results:
@@ -556,9 +538,8 @@ class SearchCoordinator(BaseCoordinator):
 
     @classmethod
     def _validate_page_list_input(cls, pages: Sequence[int] | PageListInput) -> PageListInput:
-        """
-        Helper method for validating the input to pages: Used to coerce a sequence of pages
-        to PageListInput if possible.
+        """Helper method for validating the input to pages: Used to coerce a sequence of pages to PageListInput if
+        possible.
 
         Args:
             pages (Sequence[int] | PageListInput): The input to pass to search_pages containing
@@ -581,7 +562,7 @@ class SearchCoordinator(BaseCoordinator):
             )
 
     def _process_page_result(self, response_result: Optional[ErrorResponse | ProcessedResponse], page: int) -> bool:
-        """Helper method for logging the result of each page search and determining whether to continue"""
+        """Helper method for logging the result of each page search and determining whether to continue."""
 
         halt = True
 
@@ -623,8 +604,7 @@ class SearchCoordinator(BaseCoordinator):
         from_request_cache: bool = True,
         from_process_cache: bool = True,
     ) -> Optional[List[Dict]]:
-        """
-        Public method to perform a search, specifying the page and records per page. Note that instead of returning a
+        """Public method to perform a search, specifying the page and records per page. Note that instead of returning a
         ProcessedResponse or ErrorResponse, this calls the search_data method and only retrieves the list of processed
         records from the ProcessedResponse.
 
@@ -659,8 +639,7 @@ class SearchCoordinator(BaseCoordinator):
         from_process_cache: bool = True,
         **api_specific_parameters,
     ) -> Optional[ProcessedResponse | ErrorResponse]:
-        """
-        Helper method for retrieving and processing records from the API specifying the page and records per page.
+        """Helper method for retrieving and processing records from the API specifying the page and records per page.
         This method is called to perform all steps necessary to retrieve and process a response from the selected API.
         Beyond catching basic exceptions related to raised error codes and processing response issues, further errors
         are to be caught at a higher level such as in the public SearchCoordinator.search method.
@@ -696,8 +675,7 @@ class SearchCoordinator(BaseCoordinator):
     def fetch(
         self, page: int, from_request_cache: bool = True, raise_on_error: bool = False, **api_specific_parameters
     ) -> Optional[Response | ResponseProtocol]:
-        """
-        Fetches the raw response from the current API or from cache if available.
+        """Fetches the raw response from the current API or from cache if available.
 
         Args:
             page (int): The page number to retrieve from the cache.
@@ -729,8 +707,7 @@ class SearchCoordinator(BaseCoordinator):
         return None
 
     def robust_request(self, page: int, **api_specific_parameters) -> Optional[Response | ResponseProtocol]:
-        """Constructs and sends a request to the current API.
-        Fetches a response from the current API.
+        """Constructs and sends a request to the current API. Fetches a response from the current API.
 
         Args:
             page (int): The page number to retrieve from the cache.
@@ -758,8 +735,8 @@ class SearchCoordinator(BaseCoordinator):
         return response
 
     def get_cached_request(self, page: int, **kwargs) -> Optional[Response | ResponseProtocol]:
-        """
-        Retrieves the cached request for a given page number if available.
+        """Retrieves the cached request for a given page number if available.
+
         Args:
             page (int): The page number to retrieve from the cache.
         Returns:
@@ -778,8 +755,7 @@ class SearchCoordinator(BaseCoordinator):
             return None
 
     def get_cached_response(self, page: int) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves the cached response for a given page number if available.
+        """Retrieves the cached response for a given page number if available.
 
         Args:
             page (int): The page number to retrieve from the cache.
@@ -826,11 +802,8 @@ class SearchCoordinator(BaseCoordinator):
     def _log_response_source(
         self, response: Optional[Response | ResponseProtocol], page: int, cache_key: Optional[str]
     ) -> None:
-        """
-        Logs and indicates whether the response originated from a
-        requests-cache session or was retrieved directly from the current API.
-        Also indicates whether we're using a cache key to attempt to pull from
-        cache if available.
+        """Logs and indicates whether the response originated from a requests- cache session or was retrieved directly
+        from the current API. Also indicates whether we're using a cache key to attempt to pull from cache if available.
 
         Args:
             response (Response): Response retrieved from a request.
@@ -897,11 +870,10 @@ class SearchCoordinator(BaseCoordinator):
 
     # Cache Management
     def _create_cache_key(self, page: int) -> str:
-        """
-        Combines information about the query type and current page to create an identifier for the current query.
-        The cache key is always generated using the current page argument as well as the provider_name, query,
-        and records_per_page, all of which originate from the SearchAPIConfig (accessible as properties).
-        As a result, consistency is guaranteed
+        """Combines information about the query type and current page to create an identifier for the current query. The
+        cache key is always generated using the current page argument as well as the provider_name, query, and
+        records_per_page, all of which originate from the SearchAPIConfig (accessible as properties). As a result,
+        consistency is guaranteed.
 
         Args:
             page (int): The current page number.
@@ -936,8 +908,8 @@ class SearchCoordinator(BaseCoordinator):
         return None
 
     def _delete_cached_request(self, page: int, **kwargs) -> None:
-        """
-        Deletes the cached request for a given page number if available.
+        """Deletes the cached request for a given page number if available.
+
         Args:
             page (int): The page number to delete from the cache.
         """
@@ -960,8 +932,8 @@ class SearchCoordinator(BaseCoordinator):
                 logger.error(f"Error deleting cached request: {e}")
 
     def _delete_cached_response(self, page: int) -> None:
-        """
-        Deletes the cached response for a given page number if available.
+        """Deletes the cached response for a given page number if available.
+
         Args:
             page (int): The page number to delete from the cache.
         """

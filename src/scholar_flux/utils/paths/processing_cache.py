@@ -1,11 +1,10 @@
 # /utils/paths/processing_cache
-"""
-The scholar_flux.utils.paths.path_cache class implements the PathProcessingCache to facilitate the faster,
-more efficient processing of nested JSON data structures.
+"""The scholar_flux.utils.paths.path_cache class implements the PathProcessingCache to facilitate the faster, more
+efficient processing of nested JSON data structures.
 
-For the duration that a path-node combination is active, the cache uses uses weakly-referenced dictionaries
-and sets to facilitate the efficient retrieval and filtering of path-node combinations.
-
+For the duration that a path-node combination is active, the cache uses
+uses weakly-referenced dictionaries and sets to facilitate the efficient
+retrieval and filtering of path-node combinations.
 """
 from __future__ import annotations
 from typing import Optional, Set, Literal
@@ -26,11 +25,10 @@ logger.setLevel(logging.WARNING)
 
 
 class PathProcessingCache:
-    """
-    The PathProcessingCache class implements a method of path caching that enables faster prefix searches. and
-    retrieval of terminal paths associated with a path to node mapping. This class is used within PathNodeMaps
-    and RecordPathNodeMaps to increase the speed and efficiency of path discovery, processing, and filtering
-    path-node mappings.
+    """The PathProcessingCache class implements a method of path caching that enables faster prefix searches. and
+    retrieval of terminal paths associated with a path to node mapping. This class is used within PathNodeMaps and
+    RecordPathNodeMaps to increase the speed and efficiency of path discovery, processing, and filtering path-node
+    mappings.
 
     Because the primary purpose of the scholar_flux Trie-based path-node-processing implementation is the processing and
     preparation of highly nested JSON structures from API responses, the PathProcessingCache was created
@@ -43,8 +41,7 @@ class PathProcessingCache:
     """
 
     def __init__(self) -> None:
-        """
-        Initializes the ProcessingCache instance.
+        """Initializes the ProcessingCache instance.
 
         Attributes:
             _cache (defaultdict[str, WeakSet[ProcessingPath]]):
@@ -54,7 +51,6 @@ class PathProcessingCache:
                 Implements a lazy caching system that only adds elements to the `_cache` when filtering and node
                 retrieval is explicitly required. The implementation uses weakly referenced keys to remove cached paths
                 to ensure that references are deleted when a lazy operation is no longer needed.
-
         """
 
         self._cache: defaultdict[str, WeakSet[ProcessingPath]] = defaultdict(WeakSet)  # Initialize the cache
@@ -62,8 +58,7 @@ class PathProcessingCache:
 
     @property
     def path_cache(self) -> defaultdict[str, WeakSet[ProcessingPath]]:
-        """
-        Helper method that allows for inspection of the ProcessingCache and automatically updates the node cache
+        """Helper method that allows for inspection of the ProcessingCache and automatically updates the node cache
         prior to retrieval.
 
         Returns:
@@ -74,8 +69,8 @@ class PathProcessingCache:
         return self._cache
 
     def lazy_add(self, path: ProcessingPath) -> None:
-        """
-        Add a path to the cache for faster prefix searches.
+        """Add a path to the cache for faster prefix searches.
+
         Args:
             path (ProcessingPath): The path to add to the cache.
         """
@@ -86,8 +81,8 @@ class PathProcessingCache:
         self.updates[path] = "add"
 
     def lazy_remove(self, path: ProcessingPath) -> None:
-        """
-        Remove a path from the cache.
+        """Remove a path from the cache.
+
         Args:
             path (ProcessingPath): The path to remove from the cache.
         """
@@ -97,8 +92,8 @@ class PathProcessingCache:
         self.updates[path] = "remove"
 
     def _add_to_cache(self, path: ProcessingPath) -> None:
-        """
-        Add a path to the cache for faster prefix searches.
+        """Add a path to the cache for faster prefix searches.
+
         Args:
             path (ProcessingPath): The path to add to the cache.
         """
@@ -113,10 +108,8 @@ class PathProcessingCache:
         logger.debug(f"Added path to cache: {path}")
 
     def _remove_from_cache(self, path: ProcessingPath) -> None:
-        """
-        Removes paths from the cache explicitly. Note that the weak-reference
-        automatically removes no-longer-referenced paths. As a result, this
-        method is provided when elsewhere, keys are still referenced.
+        """Removes paths from the cache explicitly. Note that the weak-reference automatically removes no-longer-
+        referenced paths. As a result, this method is provided when elsewhere, keys are still referenced.
 
         Args:
             path (ProcessingPath): The path to remove from the cache.
@@ -139,9 +132,7 @@ class PathProcessingCache:
                 logger.debug(f"Removed path from cache: {path}")
 
     def _prune_cache(self) -> None:
-        """
-        Prunes empty weak-key referenced dictionary key entries from the cache. As the set
-        is cleared.
+        """Prunes empty weak-key referenced dictionary key entries from the cache. As the set is cleared.
 
         Args:
             path (ProcessingPath): The path to remove from the cache.
@@ -152,9 +143,7 @@ class PathProcessingCache:
                 self._cache.pop(path, None)
 
     def cache_update(self) -> None:
-        """
-        Initializes the lazy updates for the cache given the current update instructions.
-        """
+        """Initializes the lazy updates for the cache given the current update instructions."""
         for path, operation in self.updates.items():
             if operation == "add":
                 self._add_to_cache(path)
@@ -169,8 +158,8 @@ class PathProcessingCache:
         min_depth: Optional[int] = None,
         max_depth: Optional[int] = None,
     ) -> Set[ProcessingPath]:
-        """
-        Filter the cache for paths with the given prefix.
+        """Filter the cache for paths with the given prefix.
+
         Args:
             prefix (ProcessingPath): The prefix to search for.
             min_depth (Optional[int]): The minimum depth to search for. Default is None.

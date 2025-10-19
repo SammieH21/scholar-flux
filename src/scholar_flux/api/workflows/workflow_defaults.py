@@ -1,9 +1,9 @@
 # /api/workflows/workflow_defaults.py
-"""
-The scholar_flux.api.workflows.workflow_defaults defines the default workflows that are automatically used
-when setting up a new SearchCoordinator with a provider name registered in the `WORKFLOW_DEFAULTS` enumeration.
+"""The scholar_flux.api.workflows.workflow_defaults defines the default workflows that are automatically used when
+setting up a new SearchCoordinator with a provider name registered in the `WORKFLOW_DEFAULTS` enumeration.
 
-At the present moment, only the PubMed API implements a workflow to consolidate two step article/metadata retrieval.
+At the present moment, only the PubMed API implements a workflow to
+consolidate two step article/metadata retrieval.
 """
 
 from enum import Enum
@@ -14,7 +14,7 @@ from scholar_flux.api.workflows.pubmed_workflow import PubMedSearchStep, PubMedF
 
 
 class WORKFLOW_DEFAULTS(Enum):
-    """Enumerated class specifying default workflows for different providers"""
+    """Enumerated class specifying default workflows for different providers."""
 
     pubmed = SearchWorkflow(
         steps=[
@@ -25,9 +25,8 @@ class WORKFLOW_DEFAULTS(Enum):
 
     @classmethod
     def get(cls, workflow_name: str) -> Optional[SearchWorkflow]:
-        """
-        Attempt to retrieve a SearchWorkflow instance for the given workflow name.
-        Will not throw an error if the workflow does not exist.
+        """Attempt to retrieve a SearchWorkflow instance for the given workflow name. Will not throw an error if the
+        workflow does not exist.
 
         Args:
             workflow_name (str): Name of the default Workflow

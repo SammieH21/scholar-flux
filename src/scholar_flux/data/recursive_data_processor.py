@@ -1,10 +1,9 @@
 # /data/recursive_data_processor.py
-"""
-The scholar_flux.data.recursive_data_processor implements the RecursiveDataProcessor that implements the dynamic,
-and automatic recursive retrieval of nested key-data pairs from listed dictionary records.
+"""The scholar_flux.data.recursive_data_processor implements the RecursiveDataProcessor that implements the dynamic, and
+automatic recursive retrieval of nested key-data pairs from listed dictionary records.
 
-The data processor can be used to flatten and filter records based on conditions and extract nested data
-for each record in the response.
+The data processor can be used to flatten and filter records based on
+conditions and extract nested data for each record in the response.
 """
 from typing import Any, Optional
 from scholar_flux.utils import KeyDiscoverer, RecursiveJsonProcessor, KeyFilter
@@ -20,10 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 class RecursiveDataProcessor(ABCDataProcessor):
-    """
-    Processes a list of raw page record dict data from the API response based on discovered record keys and
-    flattens them into a list of dictionaries consisting of key value pairs that simplify the interpretation
-    of the final flattened json structure.
+    """Processes a list of raw page record dict data from the API response based on discovered record keys and flattens
+    them into a list of dictionaries consisting of key value pairs that simplify the interpretation of the final
+    flattened json structure.
 
     Example:
         >>> from scholar_flux.data import RecursiveDataProcessor
@@ -39,7 +37,6 @@ class RecursiveDataProcessor(ABCDataProcessor):
         >>> result = recursive_data_processor(data) # recursively flattens and processes by default
         >>> print(result)
         # OUTPUT: [{'id': '1', 'a.b': 'c'}, {'id': '2', 'b.f': 'e'}, {'id': '2', 'c.h': 'g'}]
-
     """
 
     def __init__(
@@ -51,8 +48,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         regex: Optional[bool] = True,
         use_full_path: Optional[bool] = True,
     ) -> None:
-        """
-        Initializes the data processor with JSON data and optional parameters for processing.
+        """Initializes the data processor with JSON data and optional parameters for processing.
 
         Args:
             json_data (list[dict]): The json data set to process and flatten - a list of dictionaries is expected
@@ -89,10 +85,9 @@ class RecursiveDataProcessor(ABCDataProcessor):
         self.lock = threading.Lock()
 
     def load_data(self, json_data: Optional[list[dict]] = None):
-        """
-        Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
-        from. If `json_data` is missing, or the json input is equal to the current `json_data` attribute, then
-        the json_data attribute will not be updated from the json input.
+        """Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
+        from. If `json_data` is missing, or the json input is equal to the current `json_data` attribute, then the
+        json_data attribute will not be updated from the json input.
 
         Args:
             json_data (Optional[list[dict]]) The json data to be loaded as an attribute
@@ -111,15 +106,12 @@ class RecursiveDataProcessor(ABCDataProcessor):
             )
 
     def discover_keys(self) -> Optional[dict[str, list[str]]]:
-        """
-        Discovers all keys within the JSON data.
-        """
+        """Discovers all keys within the JSON data."""
         return self.key_discoverer.get_all_keys()
 
     def process_record(self, record_dict: dict[str, Any], **kwargs) -> dict[str, Any]:
-        """
-        Processes a record dictionary to extract record data and article content, creating a processed record dictionary with an abstract field.
-        """
+        """Processes a record dictionary to extract record data and article content, creating a processed record
+        dictionary with an abstract field."""
         # Retrieve a dict containing the fields for the current record
         if not record_dict:
             return {}
@@ -133,9 +125,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         ignore_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
     ) -> list[dict]:
-        """
-        Processes each individual record dict from the JSON data.
-        """
+        """Processes each individual record dict from the JSON data."""
 
         if parsed_records is not None:
             logger.debug("Processing next page..")
@@ -177,9 +167,8 @@ class RecursiveDataProcessor(ABCDataProcessor):
         record_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
     ) -> bool:
-        """
-        Filters records, using regex pattern matching, checking if any of the keys provided in the function call exist.
-        """
+        """Filters records, using regex pattern matching, checking if any of the keys provided in the function call
+        exist."""
         use_regex = regex if regex is not None else False
         if record_keys:
             logger.debug(f"Finding field key matches within processing data: {record_keys}")
@@ -196,9 +185,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         include: bool = True,
         **kwargs,
     ) -> dict[str, list[str]]:
-        """
-        Filters discovered keys based on specified criteria.
-        """
+        """Filters discovered keys based on specified criteria."""
 
         return KeyFilter.filter_keys(
             self.key_discoverer.get_all_keys(),
@@ -211,10 +198,11 @@ class RecursiveDataProcessor(ABCDataProcessor):
         )
 
     def __call__(self, *args, **kwargs) -> list[dict]:
-        """
-        Convenience method that calls process_page while also locking the class for
-        processing while a single page is processed. Useful in a threading context
-        where multiple SearchCoordinators may be using the same RecursiveDataProcessor.
+        """Convenience method that calls process_page while also locking the class for processing while a single page is
+        processed.
+
+        Useful in a threading context where multiple SearchCoordinators
+        may be using the same RecursiveDataProcessor.
         """
         with self.lock:
             return self.process_page(*args, **kwargs)

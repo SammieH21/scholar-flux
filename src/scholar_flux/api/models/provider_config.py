@@ -1,8 +1,10 @@
 # /api/models/provider_config.py
-"""
-The scholar_flux.api.models.provider_config module implements the basic provider configuration necessary for
-interacting with APIs. It provides the foundational information necessary for the SearchAPI to resolve
-provider names to the URLs of the providers as well as basic defaults necessary for interaction.
+"""The scholar_flux.api.models.provider_config module implements the basic provider configuration necessary for
+interacting with APIs.
+
+It provides the foundational information necessary for the SearchAPI to
+resolve provider names to the URLs of the providers as well as basic
+defaults necessary for interaction.
 """
 from pydantic import BaseModel, field_validator, ConfigDict, Field
 from typing import Optional, ClassVar, Any
@@ -17,11 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 class ProviderConfig(BaseModel):
-    """
-    Config for creating the basic instructions and settings necessary to interact with with new providers.
-    This config on initialization is created for default providers on package initialization in the
-    scholar_flux.api.providers submodule. A new, custom provider or override can be added to the provider_registry
-    (A custom user dictionary) from the scholar_flux.api.providers module.
+    """Config for creating the basic instructions and settings necessary to interact with with new providers. This
+    config on initialization is created for default providers on package initialization in the
+    scholar_flux.api.providers submodule. A new, custom provider or override can be added to the provider_registry (A
+    custom user dictionary) from the scholar_flux.api.providers module.
 
     Args:
         provider_name (str): The name of the provider to be associated with the config.
@@ -72,14 +73,13 @@ class ProviderConfig(BaseModel):
 
     @field_validator("provider_name", mode="after")
     def normalize_provider_name(cls, v: str) -> str:
-        """Helper method for normalizing the names of providers to a consistent structure"""
+        """Helper method for normalizing the names of providers to a consistent structure."""
         return cls._normalize_name(v)
 
     def search_config_defaults(self) -> dict[str, Any]:
-        """
-        Convenience Method for retrieving ProviderConfig fields as a dict. Useful for
-        providing the missing information needed to create a SearchAPIConfig object for a
-        provider when only the provider_name has been provided
+        """Convenience Method for retrieving ProviderConfig fields as a dict. Useful for providing the missing
+        information needed to create a SearchAPIConfig object for a provider when only the provider_name has been
+        provided.
 
         Returns:
             (dict): A dictionary containing the URL, name, records_per_page, and request_delay
@@ -89,7 +89,7 @@ class ProviderConfig(BaseModel):
 
     @field_validator("base_url")
     def validate_base_url(cls, v: str) -> str:
-        """Validates the current url and raises a APIParameterException if invalid"""
+        """Validates the current url and raises a APIParameterException if invalid."""
         if not isinstance(v, str) or not validate_url(v):
             msg = f"Error validating the API base URL: The URL provided to the ProviderConfig is invalid: {v}"
             logger.error(msg)
@@ -98,7 +98,7 @@ class ProviderConfig(BaseModel):
 
     @field_validator("docs_url")
     def validate_docs_url(cls, v: Optional[str]) -> Optional[str]:
-        """Validates the documentation url and raises a APIParameterException if invalid"""
+        """Validates the documentation url and raises a APIParameterException if invalid."""
         if v is not None and not validate_url(v):
             msg = f"Error validating the document URL: The URL provided to the ProviderConfig is invalid: {v}"
             logger.error(msg)
@@ -107,9 +107,8 @@ class ProviderConfig(BaseModel):
 
     @staticmethod
     def _normalize_name(provider_name: str) -> str:
-        """
-        Helper method for normalizing names to resolve them against string input
-        with minor differences in case.
+        """Helper method for normalizing names to resolve them against string input with minor differences in case.
+
         Args:
             provider_name (str): The name of the provider to normalize
         """
@@ -117,8 +116,7 @@ class ProviderConfig(BaseModel):
 
     @staticmethod
     def _normalize_url(url: str, normalize_https: bool = True) -> str:
-        """
-        Helper method to aid in comparisons of string urls. Because of the idios
+        """Helper method to aid in comparisons of string urls. Because of the idios.
 
         Args:
             url (str): The url to normalize into a consistent structure for later comparison
@@ -126,16 +124,15 @@ class ProviderConfig(BaseModel):
                                     This is True by default.
         Returns:
             str: The normalized url
-
         """
         return normalize_url(url, normalize_https=normalize_https)
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """Helper method that shows the current structure of the ProviderConfig"""
+        """Helper method that shows the current structure of the ProviderConfig."""
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
-        """Utility method for creating an easy to view representation of the current configuration"""
+        """Utility method for creating an easy to view representation of the current configuration."""
         return self.structure()
 
 

@@ -1,9 +1,7 @@
 # /utils/helpers.py
-"""
-The scholar_flux.utils.helpers module contains several helper functions to aid in common data data manipulation
-scenarios including character conversions, date-time parsing and formatting, and nesting and unnesting common
-python data structures.
-"""
+"""The scholar_flux.utils.helpers module contains several helper functions to aid in common data data manipulation
+scenarios including character conversions, date-time parsing and formatting, and nesting and unnesting common python
+data structures."""
 import re
 import hashlib
 import requests
@@ -32,8 +30,7 @@ T = TypeVar("T", bound=Hashable)
 
 
 def quote_if_string(value: Any) -> Any:
-    """
-    Attempt to quote string values to distinguish them from object text in class representations.
+    """Attempt to quote string values to distinguish them from object text in class representations.
 
     Args:
         value (Any): a value that is quoted only if it is a string
@@ -47,8 +44,7 @@ def quote_if_string(value: Any) -> Any:
 
 
 def try_quote_numeric(value: Any) -> Optional[str]:
-    """
-    Attempt to quote numeric values to distinguish them from string values and integers.
+    """Attempt to quote numeric values to distinguish them from string values and integers.
 
     Args:
         value (Any): a value that is quoted only if it is a numeric string or an integer
@@ -62,9 +58,8 @@ def try_quote_numeric(value: Any) -> Optional[str]:
 
 
 def quote_numeric(value: Any) -> str:
-    """
-    Attempts to quote as a numeric value and returns the original value if successful
-    Otherwise returns the original element
+    """Attempts to quote as a numeric value and returns the original value if successful Otherwise returns the original
+    element.
 
     Args:
         value (Any): a value that is quoted only if it is a numeric string or an integer
@@ -73,7 +68,6 @@ def quote_numeric(value: Any) -> str:
         Returns a quoted string if successful.
     Raises:
         ValueError: If the value cannot be quoted
-
     """
     quoted_value = try_quote_numeric(value)
     if quoted_value is None:
@@ -82,8 +76,7 @@ def quote_numeric(value: Any) -> str:
 
 
 def flatten(current_data: Optional[Dict | List]) -> Optional[Dict | List]:
-    """
-    Flattens a dictionary or list if it contains a single element that is a dictionary.
+    """Flattens a dictionary or list if it contains a single element that is a dictionary.
 
     Args:
         current_data: A dictionary or list to be flattened if it contains a single dictionary element.
@@ -97,15 +90,13 @@ def flatten(current_data: Optional[Dict | List]) -> Optional[Dict | List]:
 
 
 def as_tuple(obj: Any) -> tuple:
-    """
-    Convert or nest an object into a tuple if possible to make available for later function calls
-    that require tuples instead of lists, NoneTypes, and other data types.
+    """Convert or nest an object into a tuple if possible to make available for later function calls that require tuples
+    instead of lists, NoneTypes, and other data types.
 
     Args:
         obj (Any) The object to nest as a tuple
 
     Returns:
-
     """
     match obj:
         case tuple():
@@ -121,8 +112,7 @@ def as_tuple(obj: Any) -> tuple:
 
 
 def pattern_search(json_dict: Dict, key_to_find: str, regex: bool = True) -> List:
-    """
-    Searches for keys matching the regex pattern in the given dictionary.
+    """Searches for keys matching the regex pattern in the given dictionary.
 
     Args:
         obj: The dictionary to search.
@@ -141,8 +131,7 @@ def pattern_search(json_dict: Dict, key_to_find: str, regex: bool = True) -> Lis
 
 
 def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
-    """
-    Recursively checks if a specified key is present anywhere in a given JSON-like dictionary or list structure.
+    """Recursively checks if a specified key is present anywhere in a given JSON-like dictionary or list structure.
 
     Args:
         obj: The dictionary or list to search.
@@ -176,9 +165,7 @@ def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
 
 
 def get_nested_dictionary_data(data: Dict[str, Any], path: List[str]) -> Any:
-    """
-    Retrieve data from a nested dictionary using a list of keys as the path.
-    """
+    """Retrieve data from a nested dictionary using a list of keys as the path."""
     for key in path:
         data = data.get(key, {})
         if not isinstance(data, dict):
@@ -187,8 +174,7 @@ def get_nested_dictionary_data(data: Dict[str, Any], path: List[str]) -> Any:
 
 
 def get_nested_data(json: list | dict | None, path: list) -> list | dict | None | str | int:
-    """
-    Recursively retrieves data from a nested dictionary using a sequence of keys.
+    """Recursively retrieves data from a nested dictionary using a sequence of keys.
 
     Args:
         json (List[Dict[Any, Any]] | Dict[Any, Any]): The parsed json structure from which to extract data.
@@ -212,8 +198,7 @@ def get_nested_data(json: list | dict | None, path: list) -> list | dict | None 
 
 
 def generate_response_hash(response: requests.Response | ResponseProtocol) -> str:
-    """
-    Generates a response hash from a response or response-like object that implements the ResponseProtocol.
+    """Generates a response hash from a response or response-like object that implements the ResponseProtocol.
 
     Args:
         response (requests.Response | ResponseProtocol):
@@ -237,12 +222,14 @@ def generate_response_hash(response: requests.Response | ResponseProtocol) -> st
     return hashlib.sha256(f"{url}{headers_string}{content_hash}".encode()).hexdigest()
 
 
-def compare_response_hashes(response1: requests.Response | ResponseProtocol,
-                            response2: requests.Response | ResponseProtocol) -> bool:
-    """
-    Determines whether two responses differ.
-    This function uses hashing to generate an identifier unique key_to_find
-    the content of the response for comparison purpose later dealing with cache
+def compare_response_hashes(
+    response1: requests.Response | ResponseProtocol, response2: requests.Response | ResponseProtocol
+) -> bool:
+    """Determines whether two responses differ.
+
+    This function uses hashing to generate an identifier unique
+    key_to_find the content of the response for comparison purpose later
+    dealing with cache
     """
     hash1 = generate_response_hash(response1)
     hash2 = generate_response_hash(response2)
@@ -273,8 +260,7 @@ def coerce_str(value: Any) -> Optional[str]:
 
 
 def try_int(value: JSON_TYPE | None) -> JSON_TYPE | int | None:
-    """
-    Attempts to convert a value to an integer, returning the original value if the conversion fails.
+    """Attempts to convert a value to an integer, returning the original value if the conversion fails.
 
     Args:
         value (Hashable): the value to attempt to coerce into an integer
@@ -287,8 +273,7 @@ def try_int(value: JSON_TYPE | None) -> JSON_TYPE | int | None:
 
 
 def try_str(value: Any) -> str | None:
-    """
-    Attempts to convert a value to a string, returning the original value if the conversion fails.
+    """Attempts to convert a value to a string, returning the original value if the conversion fails.
 
     Args:
         value (Any): the value to attempt to coerce into an string
@@ -301,8 +286,7 @@ def try_str(value: Any) -> str | None:
 
 
 def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
-    """
-    Attempt to remove an item from a set and return the item if it exists.
+    """Attempt to remove an item from a set and return the item if it exists.
 
     Args:
         item (Hashable): The item to try to remove from the set
@@ -310,7 +294,6 @@ def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
 
     Returns:
         Optional[Hashable] `item` if the value is in the set, otherwise returns the specified default
-
     """
     try:
         s.remove(item)
@@ -320,10 +303,8 @@ def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
 
 
 def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
-    """
-    Attempts to convert a value into a dictionary, if possible.
-    If it is not possible to convert the value into a dictionary,
-    the function will return None.
+    """Attempts to convert a value into a dictionary, if possible. If it is not possible to convert the value into a
+    dictionary, the function will return None.
 
     Args:
         value (List[Dict | Tuple | Dict): The value to attempt to convert into a dict
@@ -341,9 +322,8 @@ def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
 
 
 def is_nested(obj: Any) -> bool:
-    """
-    Indicates whether the current value is  a nested object.
-    Useful for recursive iterations such as JSON record data.
+    """Indicates whether the current value is  a nested object. Useful for recursive iterations such as JSON record
+    data.
 
     Args:
         obj: any (realistic JSON) data type - dicts, lists, strs, numbers
@@ -355,11 +335,8 @@ def is_nested(obj: Any) -> bool:
 
 
 def unlist_1d(current_data: Tuple | List | Any) -> Any:
-    """
-    Retrieves an element from a list/tuple if it contains only a single element.
-    Otherwise, it will return the element as is. Useful for extracting
-    text from a single element list/tuple
-
+    """Retrieves an element from a list/tuple if it contains only a single element. Otherwise, it will return the
+    element as is. Useful for extracting text from a single element list/tuple.
 
     Args:
         current_data (Tuple | List | Any): An object potentially unlist if it contains a single element.
@@ -375,8 +352,7 @@ def unlist_1d(current_data: Tuple | List | Any) -> Any:
 
 
 def as_list_1d(value: Any) -> List:
-    """
-    Nests a value into a single element list if the value is not already a list.
+    """Nests a value into a single element list if the value is not already a list.
 
     Args:
         value (Any): The value to add to a list if it is not already a list
@@ -392,9 +368,8 @@ def as_list_1d(value: Any) -> List:
 
 
 def path_search(obj: Union[Dict, List], key_to_find: str) -> list[str]:
-    """
-    Searches for keys matching the regex pattern in the given dictionary.
-    This function only verifies top-level keys rather than nested values
+    """Searches for keys matching the regex pattern in the given dictionary. This function only verifies top-level keys
+    rather than nested values.
 
     Args:
         obj: The dictionary to search.
@@ -417,10 +392,8 @@ def try_call(
     log_level: int = logging.WARNING,
     default: Optional[Any] = None,
 ) -> Optional[Any]:
-    """
-    A helper function for calling another function safely in the event that
-    one of the specified errors occur and are contained within the list of
-    errors to suppress.
+    """A helper function for calling another function safely in the event that one of the specified errors occur and are
+    contained within the list of errors to suppress.
 
     Args:
         func: The function to call
@@ -458,9 +431,8 @@ def try_call(
 
 
 def generate_iso_timestamp() -> str:
-    """
-    Generates and formats an ISO 8601 timestamp string in UTC with millisecond precision
-    for reliable round-trip conversion.
+    """Generates and formats an ISO 8601 timestamp string in UTC with millisecond precision for reliable round-trip
+    conversion.
 
     Example usage:
         >>> from scholar_flux.utils import generate_iso_timestamp, parse_iso_timestamp, format_iso_timestamp
@@ -475,8 +447,7 @@ def generate_iso_timestamp() -> str:
 
 
 def format_iso_timestamp(timestamp: datetime) -> str:
-    """
-    Formats an iso timestamp string in UTC with millisecond precision.
+    """Formats an iso timestamp string in UTC with millisecond precision.
 
     Returns:
         str: ISO 8601 formatted timestamp (e.g., "2024-03-15T14:30:00.123Z")
@@ -485,8 +456,7 @@ def format_iso_timestamp(timestamp: datetime) -> str:
 
 
 def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
-    """
-    Attempts to convert an ISO 8601 timestamp string back to a datetime object.
+    """Attempts to convert an ISO 8601 timestamp string back to a datetime object.
 
     Args:
         timestamp_str: ISO 8601 formatted timestamp string

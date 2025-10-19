@@ -44,6 +44,7 @@ html_css_files = [
 
 suppress_warnings = [
     'ref.python',  # Suppress "more than one target found" warnings
+    'toc.duplicate_entry', # suppress duplicate object warnings: convenience imports of objects into public modules
 ]
 
 # prefer the original module for cross-references

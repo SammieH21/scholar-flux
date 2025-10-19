@@ -1,8 +1,6 @@
 # /package_metadata/directories.py
-"""
-The scholar_flux.package_metadata.directories module implements the `get_default_writable_directory` function that is
-used to determine the default directory to use for caching and logging based on whether it is writeable.
-"""
+"""The scholar_flux.package_metadata.directories module implements the `get_default_writable_directory` function that is
+used to determine the default directory to use for caching and logging based on whether it is writeable."""
 from pathlib import Path
 from typing import Optional, Literal
 import os
@@ -55,10 +53,8 @@ def get_default_writable_directory(
     *,
     default: Optional[Path] = None,
 ) -> Path:
-    """
-    This is a helper function that, in case a default directory is not specified
-    for caching and logging in package-specific functionality, it can serve as a
-    fallback, identifying writeable package directories where required.
+    """This is a helper function that, in case a default directory is not specified for caching and logging in package-
+    specific functionality, it can serve as a fallback, identifying writeable package directories where required.
 
     Args:
         directory_type (Literal['package_cache','logs', "env"])

@@ -1,8 +1,6 @@
 # /data_storage/null_storage.py
-"""
-The scholar_flux.data_storage.null_storage module implements a Null (No-Op) Storage that is used to ensure that
-responses are always reprocessed when implemented.
-"""
+"""The scholar_flux.data_storage.null_storage module implements a Null (No-Op) Storage that is used to ensure that
+responses are always reprocessed when implemented."""
 from __future__ import annotations
 from typing import Any, List, Dict, Optional
 from scholar_flux.data_storage.abc_storage import ABCStorage
@@ -13,9 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class NullStorage(ABCStorage):
-    """
-    NullStorage is a no-op implementation of ABCStorage.
-    This class is useful for when you want to disable storage without changing code logic.
+    """NullStorage is a no-op implementation of ABCStorage. This class is useful for when you want to disable storage
+    without changing code logic.
 
     The scholar_flux package mainly implements this storage when the user turns off processing
     cache.
@@ -38,7 +35,7 @@ class NullStorage(ABCStorage):
         pass
 
     def clone(self) -> NullStorage:
-        """Helper method for creating a new implementation of the current NullStorage"""
+        """Helper method for creating a new implementation of the current NullStorage."""
         cls = self.__class__
         return cls()
 
@@ -79,7 +76,7 @@ class NullStorage(ABCStorage):
         return True
 
     def __bool__(self, *args, **kwargs) -> bool:
-        """The NullStorage is Falsy, indicating that no cache is ever stored"""
+        """The NullStorage is Falsy, indicating that no cache is ever stored."""
         return False
 
 

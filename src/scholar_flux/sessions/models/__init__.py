@@ -1,7 +1,5 @@
 # /sessions/models
-"""
-
-The scholar_flux.sessions.models module contains classes and form the basis for the creation and validation of
+"""The scholar_flux.sessions.models module contains classes and form the basis for the creation and validation of
 sessions and the parameters used to create them.
 
 This module also contains the underlying config that is necessary for the creation and validation of the

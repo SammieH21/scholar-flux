@@ -1,8 +1,10 @@
 # /utils/paths/processing_path.py
-"""
-Implements the ProcessingPath that is the most fundamental component in the scholar_flux JSON path processing trie
-implementation. The ProcessingPath is used to store a path processing representation that allows for extensive
-flexibility in the creation, filtering, and discovery of nested keys in JSON structures.
+"""Implements the ProcessingPath that is the most fundamental component in the scholar_flux JSON path processing trie
+implementation.
+
+The ProcessingPath is used to store a path processing representation
+that allows for extensive flexibility in the creation, filtering, and
+discovery of nested keys in JSON structures.
 """
 from __future__ import annotations
 from typing import Union
@@ -24,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class ProcessingPath:
-    """
-    A utility class to handle path operations for processing and flattening dictionaries.
+    """A utility class to handle path operations for processing and flattening dictionaries.
 
     Args:
         components (Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]):
@@ -66,8 +67,7 @@ class ProcessingPath:
         component_types: Optional[Union[Tuple[str, ...], List[str]]] = None,
         delimiter: Optional[str] = None,
     ):
-        """
-        Initializes the ProcessingPath. The inputs are first validated to ensure that the path components and
+        """Initializes the ProcessingPath. The inputs are first validated to ensure that the path components and
         delimiters are valid.
 
         Args:
@@ -90,8 +90,7 @@ class ProcessingPath:
 
     @staticmethod
     def _validate_delimiter(delimiter: str) -> str:
-        """
-        Validate the provided delimiter to ensure it's suitable for use in a ProcessingPath.
+        """Validate the provided delimiter to ensure it's suitable for use in a ProcessingPath.
 
         Args:
             delimiter (str): The delimiter to validate.
@@ -118,9 +117,8 @@ class ProcessingPath:
     def _validate_and_split_path(
         self, path: Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]
     ) -> Tuple[str, ...]:
-        """
-        Helper method used to validate and prepare a tuple of path components on the instantiation of the
-        ProcessingPath. After validation, the path is prepared, split and formatted depending on its input type
+        """Helper method used to validate and prepare a tuple of path components on the instantiation of the
+        ProcessingPath. After validation, the path is prepared, split and formatted depending on its input type.
 
         Args:
             path (Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]):
@@ -165,10 +163,8 @@ class ProcessingPath:
     def _validate_component_types(
         self, component_types: Optional[Union[str, Tuple[str, ...], List[str]]] = None
     ) -> Optional[Tuple[str, ...]]:
-        """
-        Helper method that validates the component types that serve as metadata for each component.
-        Upon validation, the component types are split into a tuple of strings depending on their initial
-        type
+        """Helper method that validates the component types that serve as metadata for each component. Upon validation,
+        the component types are split into a tuple of strings depending on their initial type.
 
         Args:
             path (Union[str, Tuple[str, ...], List[str]]): The path to validate and split.
@@ -218,8 +214,7 @@ class ProcessingPath:
         path: Union[str, ProcessingPath],
         delimiters: list[str] = ["<>", "//", "/", ">", "<", "\\", "%", "."],
     ) -> Optional[str]:
-        """
-        Infer the delimiter used in the path string based on its string representation.
+        """Infer the delimiter used in the path string based on its string representation.
 
         Args:
             path (Union[str,ProcessingPath]): The path string to infer the delimiter from.
@@ -237,8 +232,7 @@ class ProcessingPath:
         return None
 
     def update_delimiter(self, new_delimiter: str) -> ProcessingPath:
-        """
-        Update the delimiter of the current ProcessingPath with the provided new delimiter.
+        """Update the delimiter of the current ProcessingPath with the provided new delimiter.
 
         This method creates a new ProcessingPath instance with the same components but replaces
         the existing delimiter with the specified `new_delimiter`.
@@ -268,8 +262,7 @@ class ProcessingPath:
         delimiter: Optional[str] = None,
         infer_delimiter: bool = False,
     ) -> ProcessingPath:
-        """
-        Convert an input to a ProcessingPath instance if it's not already.
+        """Convert an input to a ProcessingPath instance if it's not already.
 
         Args:
             path (Union[ProcessingPath, str, int, List[str], List[int], List[str | int]]): The input path to convert.
@@ -306,8 +299,7 @@ class ProcessingPath:
         path: Union[ProcessingPath, str],
         component_types: Optional[List | Tuple] = None,
     ) -> ProcessingPath:
-        """
-        Converts an input to a ProcessingPath instance if it's not already a processing path.
+        """Converts an input to a ProcessingPath instance if it's not already a processing path.
 
         Args:
             path (Union[ProcessingPath, str, List[str]]): The input path to convert.
@@ -411,9 +403,8 @@ class ProcessingPath:
 
     @property
     def record_index(self) -> int:
-        """
-        Extract the first element of the current path to determine the record number
-        if the current path  refers back to a paginated structure
+        """Extract the first element of the current path to determine the record number if the current path  refers back
+        to a paginated structure.
 
         Returns:
             int: The first value, converted to an integer if possible
@@ -539,10 +530,10 @@ class ProcessingPath:
         return hash(str(self))
 
     def __contains__(self, value: object) -> bool:
-        """
-        Method for indicating whether a partial path is contained within the ProcessingPath.
-        This method uses string operations to account for delimiters to determine whether there
-        is a match
+        """Method for indicating whether a partial path is contained within the ProcessingPath.
+
+        This method uses string operations to account for delimiters to
+        determine whether there is a match
         """
 
         if not isinstance(value, (list, tuple, str, ProcessingPath)):
@@ -556,8 +547,7 @@ class ProcessingPath:
         return path.update_delimiter("<<>>").to_string() in self.update_delimiter("<<>>").to_string()
 
     def __lt__(self, path: ProcessingPath) -> bool:
-        """
-        Check if the current path is a subset of the given path and has a different depth.
+        """Check if the current path is a subset of the given path and has a different depth.
 
         Args:
             path (ProcessingPath): The path to compare against.
@@ -569,8 +559,7 @@ class ProcessingPath:
         return self._to_alphanum() < path._to_alphanum()
 
     def __le__(self, path: ProcessingPath) -> bool:
-        """
-        Check if the current path is equal to or a subset of the given path.
+        """Check if the current path is equal to or a subset of the given path.
 
         Args:
             path (ProcessingPath): The path to compare against.
@@ -582,8 +571,7 @@ class ProcessingPath:
         return self._to_alphanum() <= path._to_alphanum()
 
     def __gt__(self, path: ProcessingPath) -> bool:
-        """
-        Check if the current path strictly contains the given path.
+        """Check if the current path strictly contains the given path.
 
         Args:
             path (ProcessingPath): The path to compare against.
@@ -595,8 +583,7 @@ class ProcessingPath:
         return self._to_alphanum() > path._to_alphanum()
 
     def __ge__(self, path: ProcessingPath) -> bool:
-        """
-        Check if the current path is equal to or strictly contains the given path.
+        """Check if the current path is equal to or strictly contains the given path.
 
         Args:
             path (ProcessingPath): The path to compare against.
@@ -636,8 +623,7 @@ class ProcessingPath:
         return not self.__eq__(other)
 
     def __bool__(self) -> bool:
-        """
-        Determine whether the current path is empty or non-empty
+        """Determine whether the current path is empty or non-empty.
 
         Returns:
             bool: Indicates whether the number of components is non-zero
@@ -645,8 +631,7 @@ class ProcessingPath:
         return not self.is_root
 
     def __len__(self) -> int:
-        """
-        Helper method that retrieves the total number of components from the processing path.
+        """Helper method that retrieves the total number of components from the processing path.
 
         Excludes the root component in the calculation.
 
@@ -683,11 +668,11 @@ class ProcessingPath:
         return ProcessingPath(new_components, new_component_types, delimiter=self.delimiter)
 
     def sorted(self) -> ProcessingPath:
-        """
-        Returns a sorted ProcessingPath from the current_path. Elements are sorted by component in alphabetical order
+        """Returns a sorted ProcessingPath from the current_path. Elements are sorted by component in alphabetical
+        order.
 
-         Returns:
-            ProcessingPath: A new ProcessingPath object with the same components/types in a reversed order
+        Returns:
+           ProcessingPath: A new ProcessingPath object with the same components/types in a reversed order
         """
 
         ordered_indices, _ = zip(
@@ -702,15 +687,14 @@ class ProcessingPath:
         return ProcessingPath(ordered_components, ordered_component_types, self.delimiter)
 
     def __reversed__(self) -> ProcessingPath:
-        """Helper method to reverse the ProcessingPath using the `reversed` built-in method"""
+        """Helper method to reverse the ProcessingPath using the `reversed` built-in method."""
         return self.reversed()
 
     def reversed(self) -> ProcessingPath:
-        """
-        Returns a reversed ProcessingPath from the current_path.
+        """Returns a reversed ProcessingPath from the current_path.
 
-         Returns:
-            ProcessingPath: A new ProcessingPath object with the same components/types in a reversed order
+        Returns:
+           ProcessingPath: A new ProcessingPath object with the same components/types in a reversed order
         """
         return ProcessingPath(
             self.components[::-1],
@@ -783,10 +767,8 @@ class ProcessingPath:
     def _filter_indices_list(
         self, indices: List[int], include_matches: bool = False
     ) -> Tuple[Tuple[str, ...], Optional[Tuple[str, ...]]]:
-        """
-        Filter the current ProcessingPath using a list of indices and
-        returns components and component types as a tuple
-        """
+        """Filter the current ProcessingPath using a list of indices and returns components and component types as a
+        tuple."""
         filtered_components = tuple(
             [component for index, component in enumerate(self.components) if (index in indices) == include_matches]
         )
@@ -804,7 +786,6 @@ class ProcessingPath:
 
     def remove_indices(self, num: int = -1, reverse: bool = False) -> ProcessingPath:
         """Remove numeric components from the path.
-
 
         Args:
             num (int): The number of numeric components to remove. If negative, removes all (default is -1).
@@ -842,8 +823,7 @@ class ProcessingPath:
         return ProcessingPath(new_components, self.component_types, self.delimiter)
 
     def get_parent(self, step: int = 1) -> Optional[ProcessingPath]:
-        """
-        Get the ancestor path of the current ProcessingPath by the specified number of steps.
+        """Get the ancestor path of the current ProcessingPath by the specified number of steps.
 
         This method navigates up the path structure by the given number of steps. If the step count is greater than or
         equal to the depth of the current path, or if the path is already the root, it returns None. If the step count
@@ -874,8 +854,7 @@ class ProcessingPath:
         )
 
     def get_ancestors(self) -> List[Optional[ProcessingPath]]:
-        """
-        Get all parent paths of the current ProcessingPath by the specified number of steps.
+        """Get all parent paths of the current ProcessingPath by the specified number of steps.
 
         Returns:
             List[Optional[ProcessingPath]]:
@@ -956,7 +935,7 @@ class ProcessingPath:
 
     @classmethod
     def keep_descendants(cls, paths: List[ProcessingPath]) -> List[ProcessingPath]:
-        """Filters a list of paths and keeps only descendants"""
+        """Filters a list of paths and keeps only descendants."""
         if not paths:
             return []
 
@@ -975,14 +954,12 @@ class ProcessingPath:
         return result
 
     def group(self, last_only: bool = False) -> ProcessingPath:
-        """
-        Attempt to retrieve the path omitting the last element if it is numeric.
-        The remaining integers are replaced with a placeholder (i).
-        This is later useful for when we need to group paths into a list or sets
-        in order to consolidate record fields.
+        """Attempt to retrieve the path omitting the last element if it is numeric. The remaining integers are replaced
+        with a placeholder (i). This is later useful for when we need to group paths into a list or sets in order to
+        consolidate record fields.
 
         Args:
-            last_only (bool): Determines wether or not to replace all list indices vs removing only the lst
+            last_only (bool): Determines whether or not to replace all list indices vs removing only the last
 
         Returns:
             ProcessingPath: A ProcessingPath instance with the last numeric component removed and indices replaced.

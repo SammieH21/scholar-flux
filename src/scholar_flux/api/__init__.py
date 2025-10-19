@@ -1,10 +1,7 @@
 # api/
-"""
-
-The scholar_flux.api module includes the core classes and functionality necessary
-to interact with APIs in a universally applicable manner. This module defines
-the methods necessary to retrieve the raw responses from APIs based on the
-configuration used for the API client (SearchAPI).
+"""The scholar_flux.api module includes the core classes and functionality necessary to interact with APIs in a
+universally applicable manner. This module defines the methods necessary to retrieve the raw responses from APIs based
+on the configuration used for the API client (SearchAPI).
 
 Sub-modules:
     models: Contains the classes used to set up new configurations in addition to the API utility models

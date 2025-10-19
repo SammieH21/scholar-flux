@@ -1,8 +1,7 @@
 # /sessions/encryption.py
-"""
-The scholar_flux.sessions.encryption module is tasked with the implementation of an EncryptionPipelineFactory
-that can be used to easily and efficiently create a serializer that is accepted by CachedSession objects
-to store requests cache.
+"""The scholar_flux.sessions.encryption module is tasked with the implementation of an EncryptionPipelineFactory that
+can be used to easily and efficiently create a serializer that is accepted by CachedSession objects to store requests
+cache.
 
 This encryption factory uses encryption and a safer_serializer for two steps:
     1) To sign the requests storage cache for invalidation on unexpected data changes/tampering
@@ -41,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 
 class EncryptionPipelineFactory:
-    """
-    Helper class used to create a factory for encrypting and decrypting session cache and pipelines using a secret key.
+    """Helper class used to create a factory for encrypting and decrypting session cache and pipelines using a secret
+    key.
 
     Note that pickle in common uses carries the potential for vulnerabilities when reading untrusted serialized
     data and can otherwise perform arbitrary code execution. This implementation makes use of a safe serializer
@@ -64,11 +63,8 @@ class EncryptionPipelineFactory:
     """
 
     def __init__(self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ""):
-        """
-
-
-        Initializes the EncryptionPipelineFactory class that generates an encryption pipeline
-        for use with CachedSession objects.
+        """Initializes the EncryptionPipelineFactory class that generates an encryption pipeline for use with
+        CachedSession objects.
 
         If no secret_key is provided, the code attempts to retrieve a secret key from the
         SCHOLAR_FLUX_CACHE_SECRET_KEY environment variable from the config.
@@ -101,9 +97,8 @@ class EncryptionPipelineFactory:
 
     @staticmethod
     def _prepare_key(key: Optional[str | bytes]) -> bytes | None:
-        """
-        Prepares the input (bytes, string) and returns a bytes variable if
-        if a non-missing value is provided.
+        """Prepares the input (bytes, string) and returns a bytes variable if if a non-missing value is provided.
+
         If the key is None, the function will also return None
         """
         cache_secret_key = config.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
@@ -126,7 +121,7 @@ class EncryptionPipelineFactory:
 
     @staticmethod
     def _validate_key(key: bytes) -> None:
-        """Ensures that the length of the received bytes is 44 characters"""
+        """Ensures that the length of the received bytes is 44 characters."""
         if len(key) != 44:  # 32 bytes encoded in base64 => 44 characters
             raise SecretKeyError("Fernet key must be 32 url-safe base64-encoded bytes (length 44)")
         try:
@@ -136,16 +131,16 @@ class EncryptionPipelineFactory:
 
     @staticmethod
     def generate_secret_key() -> bytes:
-        """Generate a secret key for Fernet encryption"""
+        """Generate a secret key for Fernet encryption."""
         return Fernet.generate_key()
 
     @property
     def fernet(self) -> Fernet:
-        """Returns a fernet key using the validated 32 byte url-safe base64 key"""
+        """Returns a fernet key using the validated 32 byte url-safe base64 key."""
         return Fernet(self.secret_key)
 
     def encryption_stage(self) -> Stage:
-        """Create a stage that uses Fernet encryption"""
+        """Create a stage that uses Fernet encryption."""
         fernet = self.fernet
 
         return Stage(
@@ -155,9 +150,8 @@ class EncryptionPipelineFactory:
         )
 
     def signer_stage(self) -> Stage:
-        """Create a stage that uses `itsdangerous` to add a signature to responses on write, and
-        validate that signature with a secret key on read.
-        """
+        """Create a stage that uses `itsdangerous` to add a signature to responses on write, and validate that signature
+        with a secret key on read."""
         return Stage(
             self.signer(secret_key=self.secret_key, salt=self.salt),
             dumps="sign",
@@ -165,7 +159,7 @@ class EncryptionPipelineFactory:
         )
 
     def create_pipeline(self) -> SerializerPipeline:
-        """Create a serializer that uses pickle + itsdangerous for signing and cryptography for encryption"""
+        """Create a serializer that uses pickle + itsdangerous for signing and cryptography for encryption."""
         base_stage = CattrStage()
 
         return SerializerPipeline(
@@ -175,7 +169,7 @@ class EncryptionPipelineFactory:
         )
 
     def __call__(self) -> SerializerPipeline:
-        """Helper method for being able to create the serializer pipeline by calling the factory object"""
+        """Helper method for being able to create the serializer pipeline by calling the factory object."""
         return self.create_pipeline()
 
 

@@ -1,8 +1,6 @@
 # /utils/json_file_utils.py
-"""
-The scholar_flux.utils.json_file_utils module implements a simple JsonFileUtils class that contains a basic set of convenience
-classes for interacting with the file system and JSON files.
-"""
+"""The scholar_flux.utils.json_file_utils module implements a simple JsonFileUtils class that contains a basic set of
+convenience classes for interacting with the file system and JSON files."""
 from pathlib import Path
 import re
 import json
@@ -14,8 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class JsonFileUtils:
-    """
-    Helper class that implements several basic file utility class methods for easily interacting with the file
+    """Helper class that implements several basic file utility class methods for easily interacting with the file
     system. This class also contains utility methods used to parse, load, and dump JSON files for convenience.
 
     Example:
@@ -39,15 +36,14 @@ class JsonFileUtils:
 
     @classmethod
     def get_filepath(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> str:
-        """
-        Prepare the filepath using the filepath and extension if provided.
-        Assumes a Unix filesystem structure for edge cases.
+        """Prepare the filepath using the filepath and extension if provided. Assumes a Unix filesystem structure for
+        edge cases.
 
         Args:
-            filepath (Union[str, Path]): The file path
-            ext (Optional[str]): An optional extension to add to the file path. If the extension is left None,
-                                 and an extension does not yet exist on the file path, the default JSON is
-                                 used by default.
+            filepath (Union[str, Path]): The file path to read from
+            ext (Optional[str]):
+                An optional extension to add to the file path. If the extension is left None, and an extension does
+                not yet exist on the file path, the default JSON is used by default.
         """
         filepath_value = Path(filepath).expanduser()
 
@@ -66,8 +62,7 @@ class JsonFileUtils:
         ext: Optional[str] = None,
         dump: bool = True,
     ) -> None:
-        """
-        Save an object in text format with the specified extension (if provided).
+        """Save an object in text format with the specified extension (if provided).
 
         Args:
             obj (Union[List, Dict, str, float, int]): A value to save into a file
@@ -82,16 +77,16 @@ class JsonFileUtils:
 
     @classmethod
     def load_data(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> Union[Dict, List, str]:
-        """
-        Attempts to load data from a filepath as a dictionary/list.
-        If unsuccessful, the file's contents are instead loaded as a string.
+        """Attempts to load data from a filepath as a dictionary/list. If unsuccessful, the file's contents are instead
+        loaded as a string.
 
         Args:
             filepath (Union[str, Path]): The file path to read the data from
 
         Returns:
-            Union[Dict, List, str]: A dictionary or list if the data can be successfully loaded with `json`,
-                                    and a string if loading with JSON is not possible.
+            Union[Dict, List, str]:
+                A dictionary or list if the data can be successfully loaded with `json`, and a string if loading with
+                JSON is not possible.
         """
         filepath = cls.get_filepath(filepath, ext)
         with open(filepath, "r") as f:
@@ -105,8 +100,7 @@ class JsonFileUtils:
 
     @classmethod
     def read_lines(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> Generator[str, None, None]:
-        """
-        Iteratively reads lines from a text file.
+        """Iteratively reads lines from a text file.
 
         Args:
             filepath (Union[str, Path]): The file path to read the data from
@@ -119,7 +113,6 @@ class JsonFileUtils:
             >>> from scholar_flux.utils import JsonFileUtils
             >>> line_gen = JsonFileUtils.read_lines('pyproject.toml')
             >>> assert isinstance(list(line_gen), list)
-
         """
         filepath = cls.get_filepath(filepath, ext)
         with open(filepath, "r") as f:
@@ -129,8 +122,7 @@ class JsonFileUtils:
     def append_to_file(
         cls, content: Union[str, List[str]], filepath: Union[str, Path], ext: Optional[str] = None
     ) -> None:
-        """
-        Helper method used to append content to a file in a content-type aware manner.
+        """Helper method used to append content to a file in a content-type aware manner.
 
         Args:
             content (Union[str, List[str]]): The content to append to the file.
@@ -146,8 +138,7 @@ class JsonFileUtils:
 
     @staticmethod
     def is_jsonable(obj: Any) -> bool:
-        """
-        Verifies whether the object can be serialized as a json object
+        """Verifies whether the object can be serialized as a json object.
 
         Args:
             obj (Any): The object to check

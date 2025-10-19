@@ -1,7 +1,8 @@
 # /data/data_extractor.py
-"""
-The scholar_flux.data.data_extractor builds on the BaseDataExtractor to implement automated extraction
-when the paths are not known beforehand. The extracted list of responses and metadata dictionaries are used in
+"""The scholar_flux.data.data_extractor builds on the BaseDataExtractor to implement automated extraction when the paths
+are not known beforehand.
+
+The extracted list of responses and metadata dictionaries are used in
 later steps prior to further response record processing.
 """
 from typing import Any, Optional, Union
@@ -15,10 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 class DataExtractor(BaseDataExtractor):
-    """
-    The DataExtractor allows for the streamlined extraction of records and metadata from
-    responses retrieved from APIs. This proceeds as the second stage of the response processing
-    step where metadata and records are extracted from parsed responses.
+    """The DataExtractor allows for the streamlined extraction of records and metadata from responses retrieved from
+    APIs. This proceeds as the second stage of the response processing step where metadata and records are extracted
+    from parsed responses.
 
     The data extractor provides two ways to identify metadata paths and record paths:
 
@@ -50,8 +50,6 @@ class DataExtractor(BaseDataExtractor):
         # OUTPUT: {'query': 'specification driven development', 'record_count': 5, 'response_time': '50ms'}
         >>> print(records)
         # OUTPUT: [{'id': 1, 'record': 'protocol vs.code'}, {'id': 2, 'record': 'Impact of Agile'}]
-
-
     """
 
     DEFAULT_DYNAMIC_RECORD_IDENTIFIERS = ("title", "doi", "abstract")
@@ -64,8 +62,7 @@ class DataExtractor(BaseDataExtractor):
         dynamic_record_identifiers: Optional[list | tuple] = None,
         dynamic_metadata_identifiers: Optional[list | tuple] = None,
     ):
-        """
-        Initialize the DataExtractor with optional path overrides for metadata and records.
+        """Initialize the DataExtractor with optional path overrides for metadata and records.
 
         Args:
             record_path (Optional[List[str]]): Custom path to find records in the parsed data. Contains a list of strings and
@@ -80,8 +77,6 @@ class DataExtractor(BaseDataExtractor):
             dynamic_metadata_identifiers (Optional[List[str]]): Helps to identify dictionary keys that are likely to only belong
                                                                to metadata that could otherwise share a similar structure to
                                                                a list of dictionaries, similar to what's seen with records.
-
-
         """
 
         self.dynamic_record_identifiers = (
@@ -142,10 +137,9 @@ class DataExtractor(BaseDataExtractor):
         return None
 
     def _validate_inputs(self) -> None:
-        """
-        Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting metadata
-        and records. This method operates by verifying the attributes associated with the current data extractor once
-        the attributes are set.
+        """Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting
+        metadata and records. This method operates by verifying the attributes associated with the current data
+        extractor once the attributes are set.
 
         Note that this method is overriden so that all additional fields are validated once super().__init__(...) is
         called.
@@ -165,13 +159,11 @@ class DataExtractor(BaseDataExtractor):
         return None
 
     def dynamic_identification(self, parsed_page_dict: dict) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        """
-        Dynamically identify and separate metadata from records. This function recursively traverses the
-        dictionary and uses a heuristic to determine whether a specific record corresponds to metadata
-        or is a list of records: Generally, keys associated with values corresponding to metadata will
-        contain only lists of dictionarys On the other hand, nested structures containing metadata
-        will be associated with a singular value other a dictionary of keys associated with a
-        singular value that is not a list. Using this heuristic, we're able to determine metadata
+        """Dynamically identify and separate metadata from records. This function recursively traverses the dictionary
+        and uses a heuristic to determine whether a specific record corresponds to metadata or is a list of records:
+        Generally, keys associated with values corresponding to metadata will contain only lists of dictionarys On the
+        other hand, nested structures containing metadata will be associated with a singular value other a dictionary of
+        keys associated with a singular value that is not a list. Using this heuristic, we're able to determine metadata
         from records with a high degree of confidence.
 
         Args:
@@ -216,8 +208,8 @@ class DataExtractor(BaseDataExtractor):
 
     @staticmethod
     def _identify_by_key(record: Any, key_identifiers: list | tuple) -> bool:
-        """
-        Helper method for determining if a key exists in a dictionary.
+        """Helper method for determining if a key exists in a dictionary.
+
         If a record is not a dictionary, or a key is not contained in a record dictionary,
         then this method will return False by default.
         Args:
@@ -235,8 +227,7 @@ class DataExtractor(BaseDataExtractor):
         )
 
     def extract(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
-        """
-        Extract both records and metadata from the parsed page dictionary.
+        """Extract both records and metadata from the parsed page dictionary.
 
         Args:
             parsed_page (List[Dict] | Dict): The dictionary containing the page data and metadata to be extracted.

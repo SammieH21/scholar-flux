@@ -1,7 +1,6 @@
 # /security/masker.py
-"""
-The scholar_flux.security.masker defines the SensitiveDataMasker that is used during API retrieval and processing
-to identify and mask potentially sensitive fields based on dictionary fields and string-based patterns.
+"""The scholar_flux.security.masker defines the SensitiveDataMasker that is used during API retrieval and processing to
+identify and mask potentially sensitive fields based on dictionary fields and string-based patterns.
 
 This class is used during initialization and the scholar_flux.SearchAPI class to mask API keys, emails, etc. to redact
 text from both console and file system logs.
@@ -19,10 +18,8 @@ from scholar_flux.utils.repr_utils import generate_repr
 
 
 class SensitiveDataMasker:
-    """
-    The main interface used by the scholar_flux API for masking all text identified as sensitive.
-    This class is used by scholar_flux to ensure that all sensitive text sent to the scholar_flux.logger
-    is masked.
+    """The main interface used by the scholar_flux API for masking all text identified as sensitive. This class is used
+    by scholar_flux to ensure that all sensitive text sent to the scholar_flux.logger is masked.
 
     The SensitiveDataMasker operates through the registration of patterns that identify the text to mask.
 
@@ -59,9 +56,8 @@ class SensitiveDataMasker:
     """
 
     def __init__(self, register_defaults: bool = True):
-        """
-        Initializes the SensitiveDataMasker for registering and applying different masking patterns,
-        each with a name and pattern that will be scrubbed from text with the use of the mask_text method
+        """Initializes the SensitiveDataMasker for registering and applying different masking patterns, each with a name
+        and pattern that will be scrubbed from text with the use of the mask_text method.
 
         Args:
             register_defaults: (bool): Indicates whether to register_defaults for scrubbing emails,
@@ -106,21 +102,20 @@ class SensitiveDataMasker:
         return {p for p in self.patterns if p.name == name}
 
     def add_sensitive_key_patterns(self, name: str, fields: List[str] | str, **kwargs) -> None:
-        """
-        Adds patterns that identify potentially sensitive strings with the aim of filtering
-        them from logs.
+        """Adds patterns that identify potentially sensitive strings with the aim of filtering them from logs.
 
-        The parameters provided to the method are used to create new string patterns
+        The parameters provided to the method are used to create new string patterns.
+
         Args:
-            name (str): The name associated with the pattern (aides identification of patterns)
-            fields (List[str] | str): The list of fields to identify to search and remove from logs.
+            name (str):
+                The name associated with the pattern (aides identification of patterns)
+            fields (List[str] | str):
+                The list of fields to identify to search and remove from logs.
             pattern (str):
                 An optional parameter for filtering and removing sensitive fields that match a given pattern.
-                By default this is already set to remove api keys
-                           that are typically denoted by alpha numeric fields
-
-            **kwargs: Other fields, specifiable via additional keyword arguments that are passed
-                      to KeyMaskingPattern
+                By default this is already set to remove api keys that are typically denoted by alpha numeric fields
+            **kwargs:
+                Other fields, specifiable via additional keyword arguments that are passed to KeyMaskingPattern
         """
 
         if isinstance(fields, str):
@@ -131,16 +126,14 @@ class SensitiveDataMasker:
             self.add_pattern(pattern)
 
     def add_sensitive_string_patterns(self, name: str, patterns: List[str] | str, **kwargs) -> None:
-        """
-        Adds patterns that identify potentially sensitive strings with the aim of filtering
-        them from logs.
+        """Adds patterns that identify potentially sensitive strings with the aim of filtering them from logs.
 
         The parameters provided to the method are used to create new string patterns
         Args:
             name (str): The name associated with the pattern (aides identification of patterns)
             patterns (List[str] | str): The list of patterns to search for and remove from logs
-            **kwargs: Other fields, specifiable via additional keyword arguments that are passed
-                      to StringMaskingPattern
+            **kwargs:
+                Other fields, specifiable via additional keyword arguments that are passed to StringMaskingPattern
         """
         if isinstance(patterns, str):
             patterns = [patterns]
@@ -157,28 +150,31 @@ class SensitiveDataMasker:
         use_regex: bool = False,
         ignore_case: bool = True,
     ) -> bool:
-        """
-        Identifies fields already registered as secret strings and adds a relevant
-        pattern for ensuring that the field, when unmasked for later use, doesn't
-        display in logs. Note that if the current field is not a SecretStr,
+        """Identifies fields already registered as secret strings and adds a relevant pattern for ensuring that the
+        field, when unmasked for later use, doesn't display in logs. Note that if the current field is not a SecretStr,
         the method will return False without modification or side-effects.
 
         The parameters provided to the method are used to create new string patterns
         when a SecretStr is detected.
 
         Args:
-            field (str): The field, parameter, or key associated with the secret key
-            value (SecretStr | Any): The value, if typed as a secret string, to be registered as a pattern
-            name (Optional[str]): The name to add to identify the relevant pattern by within the pattern set.
-                                 If not provided, defaults to the field name.
-            use_regex (bool): Indicates whether the current function should use regular expressions
-                             when matching the pattern in text. Defaults to False.
-            ignore_case (bool): Whether we should consider case when determining whether or not to filter
-                               a string. Defaults to True.
+            field (str):
+                The field, parameter, or key associated with the secret key
+            value (SecretStr | Any):
+                The value, if typed as a secret string, to be registered as a pattern
+            name (Optional[str]):
+                The name to add to identify the relevant pattern by within the pattern set. If not provided, defaults
+                to the field name.
+            use_regex (bool):
+                Indicates whether the current function should use regular expressions when matching the pattern in text.
+                Defaults to False.
+            ignore_case (bool):
+                Whether we should consider case when determining whether or not to filter a string. Defaults to True.
 
         Returns:
-            bool: True if the value was a SecretStr and a masking pattern was successfully registered,
-                  False if the value was not a SecretStr (no side-effects occur in this case).
+            bool:
+                If the value is a SecretStr, a string masking pattern is registered for the value and True is returned.
+                if the value is not a SecretStr, False is returned and no side-effects will occur in this case.
 
         Example:
             >>> masker = SensitiveDataMasker()
@@ -200,12 +196,12 @@ class SensitiveDataMasker:
         return False
 
     def _register_api_defaults(self) -> None:
-        """
-        Contains the default fields that will be used to remove sensitive strings
-        and parameters such as API keys, emails, etc. from text/logs.
+        """Contains the default fields that will be used to remove sensitive strings and parameters such as API keys,
+        emails, etc. from text/logs.
 
-        When ran, this method updates the sel.patterns set with the above key patterns
-        for scrubbing text/logs
+        When ran, this method updates the `self.patterns` attribute with default patterns for scrubbing the console
+        text and logs of email regex pattern matches, authorization bearer headers, and API keys that could otherwise
+        appear in json structures if unaccounted for.
         """
         self.add_sensitive_key_patterns(
             name="api_key",
@@ -224,11 +220,9 @@ class SensitiveDataMasker:
         )
 
     def mask_text(self, text: str) -> str:
-        """
-        Public method for removing sensitive data from text/logs
-        Note that the data that is obfuscated is dependent on what
-        patterns were already previously defined in the SensitiveDataMasker.
-        by default, this includes API keys, emails, and auth headers.
+        """Public method for removing sensitive data from text/logs Note that the data that is obfuscated is dependent
+        on what patterns were already previously defined in the SensitiveDataMasker. by default, this includes API keys,
+        emails, and auth headers.
 
         Args:
             text (str): the text to scrub of sensitive data
@@ -243,20 +237,18 @@ class SensitiveDataMasker:
         return result
 
     def clear(self) -> None:
-        """
-        Clears the `SensitiveDataMasker.patterns` set of all previously registered MaskingPatterns including
-        those that were registered by default.
+        """Clears the `SensitiveDataMasker.patterns` set of all previously registered MaskingPatterns including those
+        that were registered by default.
 
-        The masker would otherwise use the available `patterns` set to determine what text strings would be
-        masked when the `mask_text` method is called. Calling `mask_text` after clearing all MaskingPatterns
-        from the current masker will leave all text unmasked and return the inputted text as is.
+        The masker would otherwise use the available `patterns` set to determine what text strings would be masked when
+        the `mask_text` method is called. Calling `mask_text` after clearing all MaskingPatterns from the current masker
+        will leave all text unmasked and return the inputted text as is.
         """
         self.patterns.clear()
 
     @staticmethod
     def mask_secret(obj: Any) -> Optional[SecretStr]:
-        """
-        Method for ensuring that any non-secret keys will be masked as secrets
+        """Method for ensuring that any non-secret keys will be masked as secrets.
 
         Args:
             obj (Any): An object to attempt to unmask if it is a secret string
@@ -267,26 +259,21 @@ class SensitiveDataMasker:
 
     @staticmethod
     def unmask_secret(obj: Any) -> Any:
-        """
-        Method for ensuring that usable values can be successfully extracted from objects.
-        If the current value is a secret string, this method will return the secret value
-        from the object.
+        """Method for ensuring that usable values can be successfully extracted from objects. If the current value is a
+        secret string, this method will return the secret value from the object.
 
         Args:
             obj (Any): An object to attempt to unmask if it is a secret string
         Returns:
             obj (Any): The object's original type before being converted into a secret string
-
         """
         return SecretUtils.unmask_secret(obj)
 
     @classmethod
     def is_secret(cls, obj: Any) -> bool:
-        """
-        Utility method for verifying whether the current value is a secret. This method delegates
-        the verification of the value type to the `SecretUtils` helper class to abstract the
-        implementation details in cases where the implementation details might require modification
-        in the future for special cases.
+        """Utility method for verifying whether the current value is a secret. This method delegates the verification of
+        the value type to the `SecretUtils` helper class to abstract the implementation details in cases where the
+        implementation details might require modification in the future for special cases.
 
         Args:
             obj (Any): The object to check
@@ -297,9 +284,10 @@ class SensitiveDataMasker:
         return SecretUtils.is_secret(obj)
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
-        """
-        Helper method for creating an in-memory cache without overloading the representation with the
-        specifics of what is being cached. By default, nested MaskingPatterns will not be shown.
+        """Helper method for creating an in-memory cache without overloading the representation with the specifics of
+        what is being cached.
+
+        By default, nested MaskingPatterns will not be shown.
         """
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 

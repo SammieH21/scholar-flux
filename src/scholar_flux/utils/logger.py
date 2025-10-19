@@ -1,8 +1,6 @@
 # utils/logger.py
-"""
-The scholar_flux.utils.logger module implements a basic logger used to create an easy-to-re-initialize
-logger to be used for logging events and progress in the retrieval and processing of API responses.
-"""
+"""The scholar_flux.utils.logger module implements a basic logger used to create an easy-to-re-initialize logger to be
+used for logging events and progress in the retrieval and processing of API responses."""
 import logging
 from pathlib import Path
 from typing import Optional
@@ -22,8 +20,7 @@ def setup_logging(
     backup_count: int = 5,
     logging_filter: Optional[logging.Filter] = None,
 ):
-    """
-    Configure logging to write to both console and file with optional filtering.
+    """Configure logging to write to both console and file with optional filtering.
 
     Sets up a logger that outputs to both the terminal (console) and a rotating log file.
     Rotating files automatically create new files when size limits are reached, keeping

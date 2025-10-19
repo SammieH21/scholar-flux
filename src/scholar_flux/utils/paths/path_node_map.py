@@ -1,8 +1,6 @@
 # /utils/paths/path_node_map.py
-"""
-The scholar_flux.utils.paths.path_node_map module implements the PathNodeMap that is used to record terminal path-value
-combinations that enables more efficient mapping, retrieval, and updates to terminal path node combinations.
-"""
+"""The scholar_flux.utils.paths.path_node_map module implements the PathNodeMap that is used to record terminal path-
+value combinations that enables more efficient mapping, retrieval, and updates to terminal path node combinations."""
 from __future__ import annotations
 
 import copy
@@ -25,9 +23,7 @@ logger.setLevel(logging.WARNING)
 
 
 class PathNodeMap(UserDict[ProcessingPath, PathNode]):
-    """
-    A dictionary-like class that maps Processing paths to PathNode objects.
-    """
+    """A dictionary-like class that maps Processing paths to PathNode objects."""
 
     DEFAULT_USE_CACHE: bool = True
 
@@ -47,9 +43,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         overwrite: Optional[bool] = True,
         **path_nodes: Mapping[str | ProcessingPath, PathNode],
     ) -> None:
-        """
-        Initializes the PathNodeMap instance.
-        """
+        """Initializes the PathNodeMap instance."""
         super().__init__()
         logger.debug("Initializing PathNodeMap instance")  # Log initialization
         self.use_cache: bool = use_cache if use_cache is not None else self.DEFAULT_USE_CACHE  # Store the cache flag
@@ -61,8 +55,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             self.update(*nodes, **path_nodes, overwrite=self.overwrite)
 
     def __contains__(self, key: object) -> bool:
-        """
-        Checks if a key exists in the PathNodeMap instance.
+        """Checks if a key exists in the PathNodeMap instance.
 
         Args:
             key (Union[str, ProcessingPath, PathNode]): The key that is or contains Processing path to check.
@@ -89,8 +82,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         value: PathNode,
         # *, overwrite: Optional[bool] = None
     ) -> None:
-        """
-        Sets an item in the PathNodeMap instance.
+        """Sets an item in the PathNodeMap instance.
 
         Args:
             key (ProcessingPath): The key (Processing path) to set.
@@ -113,8 +105,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         # self._add_to_cache(key)
 
     def __delitem__(self, key: Union[str, ProcessingPath]) -> None:
-        """
-        Deletes an item from the PathNodeMap instance.
+        """Deletes an item from the PathNodeMap instance.
 
         Args:
             key (ProcessingPath): The key (Processing path) to delete.
@@ -133,12 +124,12 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
     @property
     def nodes(self) -> list[PathNode]:
-        """enables the retrieval of paths stored within the current map as a property"""
+        """enables the retrieval of paths stored within the current map as a property."""
         return list(self.data.values())
 
     @property
     def paths(self) -> list[ProcessingPath]:
-        """enables retrieval of nodes stored within the current map as a property"""
+        """enables retrieval of nodes stored within the current map as a property."""
         return list(self.data.keys())
 
     def filter(
@@ -148,8 +139,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         max_depth: Optional[int] = None,
         from_cache: Optional[bool] = None,
     ) -> dict[ProcessingPath, PathNode]:
-        """
-        Filter the PathNodeMap for paths with the given prefix.
+        """Filter the PathNodeMap for paths with the given prefix.
+
         Args:
             prefix (ProcessingPath): The prefix to search for.
             min_depth (Optional[int]): The minimum depth to search for. Default is None.
@@ -180,8 +171,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         min_depth: Optional[int] = None,
         max_depth: Optional[int] = None,
     ) -> dict[ProcessingPath, PathNode]:
-        """
-        Filter the PathNodeMap for paths with the given prefix.
+        """Filter the PathNodeMap for paths with the given prefix.
+
         Args:
             prefix (ProcessingPath): The prefix to search for.
             min_depth (Optional[int]): The minimum depth to search for. Default is None.
@@ -219,8 +210,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             raise PathNodeMapError(f"Error filtering paths with prefix {prefix} at max_depth {max_depth}") from e
 
     def _remove_nonterminal_nodes(self, path: ProcessingPath) -> None:
-        """
-        Filter the PathNodeMap for paths with the given prefix.
+        """Filter the PathNodeMap for paths with the given prefix.
+
         Args:
             path (ProcessingPath): The prefix to search for.
             from_cache (Optional[int]): Whether to use cache when filtering based on a path prefix.
@@ -247,8 +238,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         min_depth: Optional[int] = None,
         max_depth: Optional[int] = None,
     ) -> dict[ProcessingPath, PathNode]:
-        """
-        Use the enabled cache to filter the PathNodeMap for paths with the given prefix.
+        """Use the enabled cache to filter the PathNodeMap for paths with the given prefix.
+
         Args:
             prefix (ProcessingPath): The prefix to search for.
             min_depth (Optional[int]): The minimum depth to search for. Default is None.
@@ -308,7 +299,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             )
 
     def node_exists(self, node: Union[PathNode, ProcessingPath]) -> bool:
-        """Helper method to validate whether the current node exists"""
+        """Helper method to validate whether the current node exists."""
         if not isinstance(node, (PathNode, ProcessingPath)):
             raise KeyError(f"Key must be node or path. Received '{type(node)}'")
 
@@ -318,9 +309,11 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return self.data.get(node) is not None
 
     def _validate_new_node_path(self, node: Union[PathNode, ProcessingPath], overwrite: Optional[bool] = None):
-        """
-        Helper method to validate whether the current node already exists in the current map: Raises an error if
-        the field does. otherwise, if overwriting is enabled, indicates that the current node will be overwritten
+        """Helper method to validate whether the current node already exists in the current map: Raises an error if the
+        field does.
+
+        otherwise, if overwriting is enabled, indicates that the current
+        node will be overwritten
         """
         overwrite = overwrite if overwrite is not None else self.overwrite
         if self.node_exists(node):
@@ -330,8 +323,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
                 logger.debug(f"The node at '{node}' will be ovewritten")
 
     def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None):
-        """
-        Validate constraints on the node to be inserted into the PathNodeMap.
+        """Validate constraints on the node to be inserted into the PathNodeMap.
 
         Args:
             node (PathNode): The PathNode instance to validate.
@@ -359,8 +351,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             Generator[ProcessingPath, None, None],
         ],
     ) -> Set[ProcessingPath]:
-        """
-        Filter a list of paths to keep only terminal paths.
+        """Filter a list of paths to keep only terminal paths.
+
         Args:
             path_list (list[ProcessingPath]): The list of paths to filter.
             Returns:
@@ -445,8 +437,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         node: PathNode,
         overwrite: Optional[bool] = None,
     ) -> ProcessingPath:
-        """
-        Method of performing key-value pair validation while returning the path if the pair is valid:
+        """Method of performing key-value pair validation while returning the path if the pair is valid:
 
         Args:
             path (Union[str, ProcessingPath]): The initial path, formatted as a string or a ProcessingPath instance.
@@ -470,8 +461,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         cls,
         key_value_pairs: Union[PathNodeMap, MutableMapping[ProcessingPath, PathNode], dict[str, PathNode]],
     ) -> dict[ProcessingPath, PathNode]:
-        """
-        Takes a dictionary or a PathNodeMap Transforms the string keys in a dictionary into Processing paths and returns the mapping
+        """Takes a dictionary or a PathNodeMap Transforms the string keys in a dictionary into Processing paths and
+        returns the mapping.
 
         Args:
             key_value_pairs (Union[dict[ProcessingPath, PathNode], dict[str, PathNode]]): The dictionary of key-value pairs to transform.
@@ -511,9 +502,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         PathNodeMap,
         dict[ProcessingPath, PathNode],
     ]:
-        """
-        Helper function to format the input arguments as a dictionary.
-        """
+        """Helper function to format the input arguments as a dictionary."""
 
         type_verified = False
         node_dict = cls.format_mapping(path_nodes) if path_nodes else {}
@@ -557,8 +546,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         overwrite: Optional[bool] = None,
         **kwargs: Mapping[str | ProcessingPath, PathNode],
     ) -> None:
-        """
-        Updates the PathNodeMap instance with new key-value pairs.
+        """Updates the PathNodeMap instance with new key-value pairs.
 
         Args:
             *args (Union[PathNodeMap,dict[ProcessingPath, PathNode],dict[str, PathNode]]): PathNodeMap or dictionary containing the key-value pairs to append to the PathNodeMap
@@ -582,7 +570,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         ],
         overwrite: Optional[bool] = None,
     ) -> None:
-        """Helper method for directly updating the current path node map skipping previously performed validation steps"""
+        """Helper method for directly updating the current path node map skipping previously performed validation
+        steps."""
         default_overwrite = overwrite if overwrite is not None else self.overwrite
         try:
             # setting and using self.overwrite as a tempoary overwrite parameter
@@ -596,9 +585,8 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
     def get(  # type: ignore[override]
         self, key: Union[str, ProcessingPath], default: Optional[PathNode] = None
     ) -> Optional[PathNode]:
-        """
-        Gets an item from the PathNodeMap instance. If the value isn't available,
-        this method will return the value specified in default
+        """Gets an item from the PathNodeMap instance. If the value isn't available, this method will return the value
+        specified in default.
 
         Args:
             key (Union[str,ProcessingPath]): The key (Processing path) If string, coerces to a ProcessingPath.
@@ -628,12 +616,11 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return sorted({path.record_index for path in self.nodes})
 
     def get_node(self, key: Union[str, ProcessingPath], default: Optional[PathNode] = None) -> Optional[PathNode]:
-        """Helper method for retrieving a path node in a standardized way"""
+        """Helper method for retrieving a path node in a standardized way."""
         return self.get(key, default)
 
     def __getitem__(self, key: Union[str, ProcessingPath]) -> PathNode:
-        """
-        Gets an item from the PathNodeMap instance.
+        """Gets an item from the PathNodeMap instance.
 
         Args:
             key (Union[str,ProcessingPath]): The key (Processing path) If string, coerces to a ProcessingPath.
@@ -666,8 +653,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return key
 
     def add(self, node: PathNode, overwrite: Optional[bool] = None, inplace: bool = True) -> Optional[PathNodeMap]:
-        """
-        Add a node to the PathNodeMap instance.
+        """Add a node to the PathNodeMap instance.
 
         Args:
             node (PathNode): The node to add.
@@ -728,8 +714,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return None
 
     def __copy__(self) -> PathNodeMap:
-        """
-        Create a copy of the current path-node combinations and their contents.
+        """Create a copy of the current path-node combinations and their contents.
 
         Returns:
             SparsePathNodeMap: A new map of path-node combinations  with the same attributes

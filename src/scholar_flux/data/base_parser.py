@@ -1,8 +1,9 @@
 # /data/base_parser.py
-"""
-The scholar_flux.data.base_parser module contains the core logic for parsing data structures received from
-APIs. This module implements the BaseDataParser that is used to prepare and parse JSON, XML, and YAML
-into dictionary-based nested structures prior to record extraction and processing.
+"""The scholar_flux.data.base_parser module contains the core logic for parsing data structures received from APIs.
+
+This module implements the BaseDataParser that is used to prepare and
+parse JSON, XML, and YAML into dictionary-based nested structures prior
+to record extraction and processing.
 """
 from typing import Callable, TYPE_CHECKING
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
@@ -31,16 +32,13 @@ else:
 
 
 class BaseDataParser:
-    """
-    Base class responsible for parsing typical formats seen in APIs
-    that send news and academic articles in XML, JSON, and YAML formats.
-    """
+    """Base class responsible for parsing typical formats seen in APIs that send news and academic articles in XML,
+    JSON, and YAML formats."""
 
     def __init__(self):
-        """
-        On initialization, the data parser is set to use built-in class methods to
-        parse json, xml, and yaml-based response content by default and the parse
-        helper class to determine which parser to use based on the Content-Type.
+        """On initialization, the data parser is set to use built-in class methods to parse json, xml, and yaml-based
+        response content by default and the parse helper class to determine which parser to use based on the Content-
+        Type.
 
         Args:
             additional_parsers (Optional[dict[str, Callable]]): Allows for the addition of
@@ -50,7 +48,7 @@ class BaseDataParser:
 
     @classmethod
     def detect_format(cls, response: requests.Response | ResponseProtocol) -> str | None:
-        """Helper method for determining the format corresponding to a response object"""
+        """Helper method for determining the format corresponding to a response object."""
         if not isinstance(response, requests.Response) and not isinstance(response, ResponseProtocol):
             raise DataParsingException(f"Expected a response or response-like object, received type {type(response)}")
 
@@ -67,10 +65,8 @@ class BaseDataParser:
 
     @classmethod
     def parse_from_defaults(cls, response: requests.Response | ResponseProtocol) -> dict | list[dict] | None:
-        """
-        Detects the API response format if a format is not already specified and
-        uses one of the default structures to parse the data structure into a dictionary
-        depending on the content type stored in the API response header.
+        """Detects the API response format if a format is not already specified and uses one of the default structures
+        to parse the data structure into a dictionary depending on the content type stored in the API response header.
 
         Args:
             response (response type): The response (or response-like) object from the API request.
@@ -91,14 +87,14 @@ class BaseDataParser:
 
     @classmethod
     def parse_xml(cls, content: bytes) -> dict | list[dict]:
-        """Uses the optional `xmltodict` library to parse XML content into a dictionary"""
+        """Uses the optional `xmltodict` library to parse XML content into a dictionary."""
         if xmltodict is None:
             raise XMLToDictImportError
         return xmltodict.parse(content)
 
     @classmethod
     def parse_json(cls, content: bytes) -> dict | list[dict]:
-        """Uses the standard `json` library to parse XML content into a dictionary"""
+        """Uses the standard `json` library to parse XML content into a dictionary."""
         return json.loads(content)
 
     @classmethod
@@ -110,8 +106,7 @@ class BaseDataParser:
 
     @classmethod
     def get_default_parsers(cls) -> dict[str, Callable]:
-        """
-        Helper method used to retrieve the default parsers to parse XML, JSON, and YAML response data.
+        """Helper method used to retrieve the default parsers to parse XML, JSON, and YAML response data.
 
         Returns:
             dict[str, Callable]: A dictionary of data parsers that can be used to parse response data
@@ -125,15 +120,14 @@ class BaseDataParser:
         return format_parsers
 
     def parse(self, response: requests.Response | ResponseProtocol) -> dict | list[dict] | None:
-        """Uses one of the default parsing methods to extract a dictionary of data from the response content"""
+        """Uses one of the default parsing methods to extract a dictionary of data from the response content."""
         try:
             return self.parse_from_defaults(response)
         except Exception as e:
             raise DataParsingException(f"An error occurred during response content parsing: {e}")
 
     def __call__(self, response: requests.Response | ResponseProtocol, *args, **kwargs) -> dict | list[dict] | None:
-        """
-        Helper method for Parsing API response content into dictionary (json) structure.
+        """Helper method for Parsing API response content into dictionary (json) structure.
 
         Args:
             response (response type): The response object from the API request.
@@ -144,9 +138,8 @@ class BaseDataParser:
         return self.parse(response, *args, **kwargs)
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """
-        Helper method for retrieving a string representation of the structure of the current BaseDataParser
-        or subclass of the BaseDataParser.
+        """Helper method for retrieving a string representation of the structure of the current BaseDataParser or
+        subclass of the BaseDataParser.
 
         Override this for more specific descriptions of attributes and defaults.
         Useful for showing the options being used for parsing response content into dictionary objects.
@@ -164,9 +157,7 @@ class BaseDataParser:
         )
 
     def __repr__(self):
-        """
-        Helper method for identifying the current implementation of the BaseDataParser and its configuration.
-        """
+        """Helper method for identifying the current implementation of the BaseDataParser and its configuration."""
         return self.structure()
 
 

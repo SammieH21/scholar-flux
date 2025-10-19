@@ -1,8 +1,8 @@
 # /data_storage/in_memory_storage.py
-"""
-The scholar_flux.data_storage.in_memory_storage module implements an InMemoryStorage class that implements a basic
-cache storage with an in-memory dictionary. The InMemoryStorage class implements the basic CRUD operations and
-convenience methods used to perform operations.
+"""The scholar_flux.data_storage.in_memory_storage module implements an InMemoryStorage class that implements a basic
+cache storage with an in-memory dictionary.
+
+The InMemoryStorage class implements the basic CRUD operations and convenience methods used to perform operations.
 """
 
 from __future__ import annotations
@@ -16,10 +16,8 @@ from scholar_flux.utils.repr_utils import generate_repr_from_string
 
 
 class InMemoryStorage(ABCStorage):
-    """
-    Default storage class that implements in-memory cache using a dictionary.
-    This class provides methods to check the cache, delete from the cache,
-            update the cache with new data, and retrieve data from the cache storage.
+    """Default storage class that implements in-memory cache using a dictionary. This class provides methods to check
+    the cache, delete from the cache, update the cache with new data, and retrieve data from the cache storage.
 
     Args:
         namespace (Optional[str]): Prefix for cache keys. Defaults to None.
@@ -49,7 +47,6 @@ class InMemoryStorage(ABCStorage):
         >>> memory_storage.delete_all() # deletes all records from the namespace
         >>> memory_storage.retrieve_keys() # Will now be empty
         >>> memory_storage.retrieve_all() # Will also be empty
-
     """
 
     def __init__(
@@ -58,9 +55,10 @@ class InMemoryStorage(ABCStorage):
         ttl: Optional[int] = None,
         **memory_config,
     ) -> None:
-        """
-        Initialize a basic memory_cache using a namespace. Note that ttl and **memory_config
-        are provided for interface compatibility and do not affect processing or cache initialization
+        """Initialize a basic memory_cache using a namespace.
+
+        Note that ttl and **memory_config are provided for interface compatibility and do not affect processing or
+        cache initialization.
         """
         self.namespace = namespace
 
@@ -73,9 +71,7 @@ class InMemoryStorage(ABCStorage):
         self._initialize()
 
     def clone(self) -> InMemoryStorage:
-        """
-        Helper method for creating a new InMemoryStorage with the same configuration.
-        """
+        """Helper method for creating a new InMemoryStorage with the same configuration."""
         cls = self.__class__
         storage = cls(namespace=self.namespace)
         with self.lock:
@@ -83,17 +79,16 @@ class InMemoryStorage(ABCStorage):
         return storage
 
     def _initialize(self, **kwargs) -> None:
-        """
-        Initializes an empty memory cache if kwargs is empty. Otherwise initializes the dictionary
-        Starting from the key-value mappings specified as key-value pairs
+        """Initializes an empty memory cache if kwargs is empty.
+
+        Otherwise initializes the dictionary Starting from the key-value mappings specified as key-value pairs.
         """
         logger.debug("Initializing in-memory cache...")
         with self.lock:
             self.memory_cache: dict = {} | kwargs
 
     def retrieve(self, key: str) -> Optional[Any]:
-        """
-        Attempts to retrieve a response containing the specified cache key within the current namespace
+        """Attempts to retrieve a response containing the specified cache key within the current namespace.
 
         Args:
             key (str): The key used to fetch the stored data from cache.
@@ -106,8 +101,7 @@ class InMemoryStorage(ABCStorage):
             return self.memory_cache.get(namespace_key)
 
     def retrieve_all(self) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves all cache key-response mappings found within the current namespace
+        """Retrieves all cache key-response mappings found within the current namespace.
 
         Returns:
             A dictionary containing each key-value mapping for all cached data within the same namespace
@@ -116,8 +110,7 @@ class InMemoryStorage(ABCStorage):
             return {k: v for k, v in self.memory_cache.items() if not self.namespace or k.startswith(self.namespace)}
 
     def retrieve_keys(self) -> Optional[List[str]]:
-        """
-        Retrieves the full list of all cache keys found within the current namespace
+        """Retrieves the full list of all cache keys found within the current namespace.
 
         Returns:
             List[str]: The full list of all keys that are currently mapped within the storage
@@ -126,8 +119,7 @@ class InMemoryStorage(ABCStorage):
             return [key for key in self.memory_cache if not self.namespace or key.startswith(self.namespace)] or []
 
     def update(self, key: str, data: Any) -> None:
-        """
-        Attempts to update the data associated with a specific cache key in the namespace
+        """Attempts to update the data associated with a specific cache key in the namespace.
 
         Args:
             key (str): The key of the key-value pair
@@ -138,8 +130,7 @@ class InMemoryStorage(ABCStorage):
             self.memory_cache[namespace_key] = data
 
     def delete(self, key: str) -> None:
-        """
-        Attempts to delete the selected cache key if found within the current namespace
+        """Attempts to delete the selected cache key if found within the current namespace.
 
         Args:
             key (str): The key used associated with the stored data from the dictionary cache.
@@ -155,7 +146,7 @@ class InMemoryStorage(ABCStorage):
             logger.info(f"Key: {key}  (namespace = '{self.namespace}') does not exist in cache.")
 
     def delete_all(self) -> None:
-        """Attempts to delete all cache keys found within the current namespace"""
+        """Attempts to delete all cache keys found within the current namespace."""
         logger.debug("deleting all record within cache...")
         try:
             with self.lock:
@@ -175,8 +166,7 @@ class InMemoryStorage(ABCStorage):
             logger.warning(f"An error occurred deleting e: {e}")
 
     def verify_cache(self, key: str) -> bool:
-        """
-        Verifies whether a cache key exists the current namespace in the in-memory cache
+        """Verifies whether a cache key exists the current namespace in the in-memory cache.
 
         Args:
             key (str): The key to lookup in the cache
@@ -192,8 +182,7 @@ class InMemoryStorage(ABCStorage):
 
     @classmethod
     def is_available(cls, *args, **kwargs) -> bool:
-        """
-        Helper method that returns True, indicating that dictionary-based storage will always be available
+        """Helper method that returns True, indicating that dictionary-based storage will always be available.
 
         Returns:
             (bool): True to indicate that the dictionary-base cache storage will always be available
@@ -201,10 +190,8 @@ class InMemoryStorage(ABCStorage):
         return True
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """
-        Helper method for creating an in-memory cache without overloading the representation with the
-        specifics of what is being cached.
-        """
+        """Helper method for creating an in-memory cache without overloading the representation with the specifics of
+        what is being cached."""
         class_name = self.__class__.__name__
         str_memory_cache = f"dict(n={len(self.memory_cache)})"
         class_attribute_dict = dict(namespace=self.namespace, memory_cache=str_memory_cache)

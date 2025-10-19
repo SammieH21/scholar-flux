@@ -1,8 +1,6 @@
 # /data/base_extractor
-"""
-The scholar_flux.data.base_extractor implements the core processes used to extract data from parsed responses
-when the structure and the locations of records and metadata are already known.
-"""
+"""The scholar_flux.data.base_extractor implements the core processes used to extract data from parsed responses when
+the structure and the locations of records and metadata are already known."""
 from typing import Any, Optional, Union
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import get_nested_data, try_int, try_dict, as_list_1d, unlist_1d
@@ -14,17 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class BaseDataExtractor:
-    """
-    Base DataExtractor implementing the minimum components necessary to extract records and metadata from
-    parsed responses when the location of records and metadata is known beforehand"""
+    """Base DataExtractor implementing the minimum components necessary to extract records and metadata from parsed
+    responses when the location of records and metadata is known beforehand."""
 
     def __init__(
         self,
         record_path: Optional[list] = None,
         metadata_path: Optional[list[list] | dict[str, list]] = None,
     ):
-        """
-        Initialize the DataExtractor with metadata and records to extract separately.
+        """Initialize the DataExtractor with metadata and records to extract separately.
 
         If record path or metadata_path are specified,
            then the data extractor will attempt to retrieve the metadata and records at the
@@ -47,10 +43,9 @@ class BaseDataExtractor:
         self._validate_inputs()
 
     def _validate_inputs(self) -> None:
-        """
-        Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting metadata
-        and records. This method operates by verifying the attributes associated with the current data extractor once
-        the attributes are set.
+        """Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting
+        metadata and records. This method operates by verifying the attributes associated with the current data
+        extractor once the attributes are set.
 
         Validated Attributes:
             record_path (Optional[List[str | None]]): The path where a list of records are located
@@ -106,8 +101,7 @@ class BaseDataExtractor:
         return None
 
     def extract_metadata(self, parsed_page_dict: dict) -> dict:
-        """
-        Extract metadata from the parsed page dictionary.
+        """Extract metadata from the parsed page dictionary.
 
         Args:
             parsed_page_dict (Dict): The dictionary containing the page data to be parsed.
@@ -147,8 +141,7 @@ class BaseDataExtractor:
         return metadata
 
     def extract_records(self, parsed_page_dict: dict) -> Optional[list[dict[str, Any]]]:
-        """
-        Extract records from parsed data as a list of dicts.
+        """Extract records from parsed data as a list of dicts.
 
         Args:
             parsed_page_dict (Dict): The dictionary containing the page data to be parsed.
@@ -175,9 +168,8 @@ class BaseDataExtractor:
 
     @classmethod
     def _prepare_page(cls, parsed_page: Union[list[dict], dict]) -> dict:
-        """
-        Prepares the JSON data for metadata and record extraction by coercing it into a dictionary
-        if not already a dictionary.
+        """Prepares the JSON data for metadata and record extraction by coercing it into a dictionary if not already a
+        dictionary.
 
         Args:
             parsed_page (List[Dict] | Dict): The list or dictionary containing the page data and metadata to be
@@ -202,8 +194,7 @@ class BaseDataExtractor:
         return parsed_page
 
     def extract(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
-        """
-        Extract both records and metadata from the parsed page dictionary.
+        """Extract both records and metadata from the parsed page dictionary.
 
         Args:
             parsed_page (List[Dict] | Dict): The dictionary containing the page data and metadata to be extracted.
@@ -220,21 +211,18 @@ class BaseDataExtractor:
         return records, metadata
 
     def __call__(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
-        """
-        Helper method enabling users to call the extractor as a function to extract both records and metadata
+        """Helper method enabling users to call the extractor as a function to extract both records and metadata.
 
         Args:
             parsed_page (List[Dict] | Dict): The dictionary containing the page data and metadata to be extracted.
 
         Returns:
             Tuple[Optional[List[Dict]], Optional[Dict]]: A tuple containing the list of records and the metadata dictionary.
-
         """
         return self.extract(parsed_page)
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """
-        Base method for showing the structure of the current Data Extractor. This  method reveals the configuration
+        """Base method for showing the structure of the current Data Extractor. This  method reveals the configuration
         settings of the extractor config that will be used to extract records and metadata.
 
         Returns:
@@ -244,11 +232,9 @@ class BaseDataExtractor:
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
-        """
-        Base method for identifying the current implementation of the BaseDataExtractor. Subclasses can
-        override this for more specific descriptions of attributes and defaults.
-        Useful for showing the options being used for extracting metadata and records from the parsed
-        json/data dictionaries from the api response.
+        """Base method for identifying the current implementation of the BaseDataExtractor. Subclasses can override this
+        for more specific descriptions of attributes and defaults. Useful for showing the options being used for
+        extracting metadata and records from the parsed json/data dictionaries from the api response.
 
         Returns:
             str: The representation of the current object

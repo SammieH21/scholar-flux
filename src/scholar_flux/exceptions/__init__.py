@@ -1,7 +1,6 @@
 # /exceptions
-"""
-The scholar_flux.exceptions module implements different types of exceptions used within the scholar_flux package
-with customized exceptions with applications to client setup, API retrieval, API processing, and caching.
+"""The scholar_flux.exceptions module implements different types of exceptions used within the scholar_flux package with
+customized exceptions with applications to client setup, API retrieval, API processing, and caching.
 
 Modules:
     api_exceptions: Exceptions crafted for unforeseen issues in API client creation and errors in response retrieval
