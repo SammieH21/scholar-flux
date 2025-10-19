@@ -1,10 +1,12 @@
 # /utils/paths/path_simplification.py
-"""The scholar_flux.utils.paths.path_simplification module implements the PathSimplifier that is used in the latter path
-processing steps to coerce a nested JSON structure into a singular list of dictionaries.
+"""The scholar_flux.utils.paths.path_simplification module implements the PathSimplifier for flattening JSON records.
 
-The PathSimplifier will return the full paths to arrive at each path if allowed. Otherwise, the PathSimplifier will
-attempt to shorten the names in the final dictionary of paths up to the user-specified nested key (component) length
-while preventing name collisions from occurring.
+This simplifier is used in the latter path processing steps to coerce a nested JSON structure represented by a
+PathNodeIndex into a singular list of dictionaries.
+
+The PathSimplifier will return the full paths where each nested JSON value can be found, if allowed. Otherwise, the
+PathSimplifier will attempt to shorten the names in the final dictionary of paths up to the user-specified nested
+key (component) length while preventing name collisions from occurring.
 
 """
 from __future__ import annotations

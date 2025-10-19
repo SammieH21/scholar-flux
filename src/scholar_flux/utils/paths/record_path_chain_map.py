@@ -269,12 +269,12 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
 
     @property
     def nodes(self) -> list[PathNode]:
-        """enables looping over paths stored across maps."""
+        """Enables looping over paths stored across maps."""
         return [node for mapping in self.data.values() for node in mapping.values()]
 
     @property
     def paths(self) -> list[ProcessingPath]:
-        """enables looping over nodes stored across maps."""
+        """Enables looping over nodes stored across maps."""
         return [path for mapping in self.data.values() for path in mapping]
 
     @classmethod

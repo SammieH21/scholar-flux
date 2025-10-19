@@ -1,9 +1,11 @@
 # /utils/paths/processing_cache
-"""The scholar_flux.utils.paths.path_cache class implements the PathProcessingCache to facilitate the faster, more
-efficient processing of nested JSON data structures.
+"""The scholar_flux.utils.paths.path_cache class implements the PathProcessingCache to cache path processing operations.
 
-For the duration that a path-node combination is active, the cache uses uses weakly-referenced dictionaries and sets to
-facilitate the efficient retrieval and filtering of path-node combinations.
+By caching terminal paths and their parent paths, the PathProcessingCache class facilitates the faster, more efficient
+filtering, processing, and retrieval of nested JSON data components and structures as represented by path nodes.
+
+For the duration that each path-node combination exists, the cache uses weakly-referenced dictionaries and
+weakly-referenced sets to facilitate indexed trie operations and the process of filtering each path-node combination.
 
 """
 from __future__ import annotations
@@ -48,7 +50,7 @@ class PathProcessingCache:
             _cache (defaultdict[str, WeakSet[ProcessingPath]]):
                 Underlying cache data structure that keeps track of all descendants that begin with the current prefix
                 by mapping path strings to WeakSets that automatically remove ProcessingPaths when garbage collected
-            _updates (WeakKeyDictionary[ProcessingPath, Literal['add', 'remove']]):
+            updates (WeakKeyDictionary[ProcessingPath, Literal['add', 'remove']]):
                 Implements a lazy caching system that only adds elements to the `_cache` when filtering and node
                 retrieval is explicitly required. The implementation uses weakly referenced keys to remove cached paths
                 to ensure that references are deleted when a lazy operation is no longer needed.

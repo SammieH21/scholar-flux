@@ -25,8 +25,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PathNode:
-    """A dataclass that provides a wrapper for both the path (key) and the value (Any) Simplifies the process of
-    manipulating and flattening data originating from JSON.
+    """A dataclass acts as a wrapper for path-terminal value pairs in nested JSON structures. 
+
+    The PathNode consists of a value of any type and a ProcessingPath instance that indicates where a terminal-value was
+    found. This class simplifies the process of manipulating and flattening data structures originating from JSON data
 
     Attributes:
         path (ProcessingPath): The terminal path where the value was located
@@ -134,7 +136,7 @@ class PathNode:
     @classmethod
     def is_valid_node(cls, node: PathNode) -> bool:
         """Validates whether the current node is or is not a PathNode isinstance. If the current input is not a
-        PathNode, then this class will raise a InvalidPathNodeError.
+        PathNode, then this class will raise an InvalidPathNodeError.
 
         Raises:
            InvalidPathNodeError: If the current node is not a PathNode or if its path is not a valid ProcessingPath

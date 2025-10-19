@@ -51,7 +51,7 @@ def test_invalid_node_creation():
 
 
 def test_pathnode_update_and_equality():
-    """Verifies that updates to path nodes wll create new nodes entirely without the modification of the previous."""
+    """Verifies that updates to path nodes will create new nodes entirely without the modification of the previous."""
     path = ProcessingPath(["0", "data", "0", "title"])
     node = PathNode(path, "A")
     copied_node = node.copy()

@@ -110,7 +110,7 @@ def test_inferred_record_index():
 
 
 def test_formatting(all_path_nodes):
-    """Tests whether the helper function accommodates a the expected range of inputs including nodes and/or a
+    """Tests whether the helper function accommodates the expected range of inputs including nodes and/or a
     sequence/mapping of nodes as intended."""
     positional_params = (node for record in all_path_nodes[5:] for node in record.values())
     keyword_params = {str(path): node for record in all_path_nodes[:5] for path, node in record.items()}

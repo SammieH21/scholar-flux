@@ -127,12 +127,12 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
     @property
     def nodes(self) -> list[PathNode]:
-        """enables the retrieval of paths stored within the current map as a property."""
+        """Enables the retrieval of paths stored within the current map as a property."""
         return list(self.data.values())
 
     @property
     def paths(self) -> list[ProcessingPath]:
-        """enables retrieval of nodes stored within the current map as a property."""
+        """Enables retrieval of nodes stored within the current map as a property."""
         return list(self.data.keys())
 
     def filter(

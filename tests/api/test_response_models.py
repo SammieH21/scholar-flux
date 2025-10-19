@@ -66,7 +66,7 @@ def test_success_response():
 
 
 def test_api_response_from_response(mock_successful_response):
-    """Verifies elements of the APIResponse parent clsas such as status code, status, cache_key, etc."""
+    """Verifies elements of the APIResponse parent class such as status code, status, cache_key, etc."""
     api_response = APIResponse.from_response(response=mock_successful_response, cache_key="foo")
     assert api_response.status_code == 200
     assert api_response.cache_key == "foo"

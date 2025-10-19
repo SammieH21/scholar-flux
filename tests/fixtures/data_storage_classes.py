@@ -84,7 +84,7 @@ def sqlite_nm_test_storage(sqlite_test_config, storage_test_namespace):
 
 @pytest.fixture(scope="module")
 def in_memory_test_storage():
-    """Create a In Memory Data Storage instance."""
+    """Create an In Memory Data Storage instance."""
     return InMemoryStorage()
 
 

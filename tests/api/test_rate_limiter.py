@@ -99,7 +99,7 @@ def test_decorator_respects_rate_limit():
 
 @patch("scholar_flux.api.rate_limiting.rate_limiter.RateLimiter._wait")
 def test_context_manager_calls_wait(mock_sleep):
-    """Tests the total number of times that the `_wait` helper method is called when te rate limiter's min_interval
+    """Tests the total number of times that the `_wait` helper method is called when the rate limiter's min_interval
     parameter is set to a value of 1.
 
     Patches the  `_wait` method to record the number of calls to the

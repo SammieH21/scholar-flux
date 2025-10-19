@@ -83,7 +83,7 @@ def test_pathnodemap_add_get_remove():
 
 
 def test_pathnodemap_filter_and_cache(ref_test_nodes):
-    """Verifies whether filtering node maps will returns the intended result independent of the use of caching."""
+    """Verifies whether filtering node maps will return the intended result independent of the use of caching."""
     m = PathNodeMap(use_cache=True)
 
     nodes = list(ref_test_nodes)
