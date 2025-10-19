@@ -67,7 +67,7 @@ class WorkflowStep(BaseWorkflowStep):
         behavior to modify the current search and its behavior.
 
         Args:
-            ctx (Optional[StepContext]): Defines the inputs that are used by the current SearcWorkflowStep to modify
+            ctx (Optional[StepContext]): Defines the inputs that are used by the current SearchWorkflowStep to modify
                                          its function before execution.
             provider_name: Optional[str]: Allows for the modification of the current provider for multifaceted searches
             **search_parameters:  defines optional keyword arguments to pass to SearchCoordinator._search()

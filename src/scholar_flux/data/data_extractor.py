@@ -144,7 +144,7 @@ class DataExtractor(BaseDataExtractor):
         metadata and records. This method operates by verifying the attributes associated with the current data
         extractor once the attributes are set.
 
-        Note that this method is overriden so that all additional fields are validated once super().__init__(...) is
+        Note that this method is overridden so that all additional fields are validated once super().__init__(...) is
         called.
 
         Validated Attributes:
@@ -165,7 +165,7 @@ class DataExtractor(BaseDataExtractor):
     def dynamic_identification(self, parsed_page_dict: dict) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Dynamically identify and separate metadata from records. This function recursively traverses the dictionary
         and uses a heuristic to determine whether a specific record corresponds to metadata or is a list of records:
-        Generally, keys associated with values corresponding to metadata will contain only lists of dictionarys On the
+        Generally, keys associated with values corresponding to metadata will contain only lists of dictionaries On the
         other hand, nested structures containing metadata will be associated with a singular value other a dictionary of
         keys associated with a singular value that is not a list. Using this heuristic, we're able to determine metadata
         from records with a high degree of confidence.

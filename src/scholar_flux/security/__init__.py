@@ -18,7 +18,7 @@ Note that the global package level SensitiveDataMasker is instantiated on packag
     # set up and remove all matching email-like strings
     >>> email_pattern = r"[a-zA-Z0-9._%+-]+(@|%40)[a-zA-Z0-9.-]+[.][a-zA-Z]+"
     >>> masker.add_sensitive_string_patterns( name="email_strings", patterns=email_pattern, use_regex = True)
-    >>> masker.mask_text("here_is_my_fake123@emailxcom")
+    >>> masker.mask_text("here_is_my_fake123@email.com")
     # Output: "***"
 
 """

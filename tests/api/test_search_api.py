@@ -488,7 +488,7 @@ def test_cache_expiration(default_api_parameter_config, default_cache_session, d
 
 
 def test_prepare_search_url_and_params():
-    """Ensures that the URL used in requests preparation can be overriden prior to being sent."""
+    """Ensures that the URL used in requests preparation can be overridden prior to being sent."""
     api = SearchAPI.from_defaults(query="test", provider_name="core", api_key="this_is_a_fake_api_key")
     req = api.prepare_request("https://api.example.com", "endpoint", {"foo": "bar"}, api_key="123")
     assert isinstance(req.url, str) and req.url.startswith("https://api.example.com/endpoint")

@@ -681,7 +681,7 @@ class ResponseCoordinator:
         Args:
             flatten (bool): Whether to flatten the ResponseCoordinator's structural representation into a single line.
             show_value_attributes (bool): Whether to show nested attributes of the components in the structure of the
-                                          current ResponseCoordinator instantce.
+                                          current ResponseCoordinator instance.
 
         Returns:
             str: The structure of the current ResponseCoordinator as a string.

@@ -58,7 +58,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         """Checks if a key exists in the PathNodeMap instance.
 
         Args:
-            key (Union[str, ProcessingPath, PathNode]): The key that is or contains Processing path to check.
+            key (Union[str, ProcessingPath, PathNode]): The key that is, or contains, a Processing path to check.
 
         Returns:
             bool: True if the key exists, False otherwise.
@@ -327,7 +327,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             if not overwrite:
                 raise PathNodeMapError(f"A path and node at '{node}' already exists in the Map")
             else:
-                logger.debug(f"The node at '{node}' will be ovewritten")
+                logger.debug(f"The node at '{node}' will be overwritten")
 
     def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None):
         """Validate constraints on the node to be inserted into the PathNodeMap.
@@ -497,7 +497,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
     #       """
     #       Attempts to extract a node from arguments of arbitrary lengths.
     #       If there is more than one node, this method will return None with
-    #       the aim of defering processing multiple nodes to other helper methods
+    #       the aim of deferring processing multiple nodes to other helper methods
 
     #       """
     #       if isinstance(nodes, PathNode):
@@ -586,7 +586,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         steps."""
         default_overwrite = overwrite if overwrite is not None else self.overwrite
         try:
-            # setting and using self.overwrite as a tempoary overwrite parameter
+            # setting and using self.overwrite as a temporary overwrite parameter
             self.overwrite = default_overwrite
             super().update(node_dict)
         except Exception as e:
@@ -620,7 +620,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
     def record_indices(self) -> list[int]:
         """
         Helper property for retrieving the full list of all record indices across all paths for the current map
-        Note: This assumes that all paths within the curent map are derived from a list of records where every
+        Note: This assumes that all paths within the current map are derived from a list of records where every
         path's first element denotes its initial position in a list with nested json components
 
         Returns:
@@ -653,7 +653,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
                                              for retrieving, searching, deleting objects, etc.
         Returns:
             ProcessingPath: Returns the path as is if a ProcessingPath. otherwise
-                            this method coerces string inputs into a ProcesingPath
+                            this method coerces string inputs into a ProcessingPath
 
         Raises:
             InvalidProcessingPathError if the value is anything other than a string/path object already

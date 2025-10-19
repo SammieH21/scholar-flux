@@ -1,9 +1,11 @@
 # /security/masker.py
-"""The scholar_flux.security.masker defines the SensitiveDataMasker that is used during API retrieval and processing to
-identify and mask potentially sensitive fields based on dictionary fields and string-based patterns.
+"""The scholar_flux.security.masker defines the SensitiveDataMasker that is used during API retrieval and processing.
 
-This class is used during initialization and the scholar_flux.SearchAPI class to mask API keys, emails, etc. to redact
-text from both console and file system logs.
+The SensitiveDataMasker implements the logic necessary to determine text strings to mask and is used to identify and
+mask potentially sensitive fields based on dictionary fields and string-based patterns.
+
+This class is also used during initialization and within the scholar_flux.SearchAPI class to identify and mask API keys,
+emails, and other forms of sensitive data with the aim of redacting text from both console and file system logs.
 
 """
 from typing import List, Optional, Set, Any, MutableSequence
@@ -19,8 +21,9 @@ from scholar_flux.utils.repr_utils import generate_repr
 
 
 class SensitiveDataMasker:
-    """The main interface used by the scholar_flux API for masking all text identified as sensitive. This class is used
-    by scholar_flux to ensure that all sensitive text sent to the scholar_flux.logger is masked.
+    """The main interface used by the scholar_flux API for masking all text identified as sensitive.
+
+    This class is used by scholar_flux to ensure that all sensitive text sent to the scholar_flux.logger is masked.
 
     The SensitiveDataMasker operates through the registration of patterns that identify the text to mask.
 
@@ -43,7 +46,7 @@ class SensitiveDataMasker:
     Examples:
         >>> from scholar_flux.security import SensitiveDataMasker # imports the class
         >>> masker = SensitiveDataMasker(register_defaults = True) # initializes a masker with defaults
-        >>> masked = masker.mask_text("'API_KEY' = 'Thisshouldbemasked', email='asecretemail@address.com'")
+        >>> masked = masker.mask_text("'API_KEY' = 'This_Should_Be_Masked_1234', email='a.secret.email@address.com'")
         >>> print(masked)
         # Output: "'API_KEY' = '***', email='***'"
 

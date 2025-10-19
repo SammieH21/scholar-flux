@@ -80,7 +80,7 @@ class SearchRequestException(APIException):
 
 
 class SearchAPIException(APIException):
-    """Exception raised when the search api fails in retrieing data from APIs ."""
+    """Exception raised when the search api fails in retrying data from APIs ."""
 
     pass
 

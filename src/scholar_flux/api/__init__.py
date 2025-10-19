@@ -25,7 +25,7 @@ You can also retrieve the responses directly without processing via the SearchAP
     >>> api = SearchAPI(query='ML') # uses PLOS by default
     >>> response = api.search(page = 1) # retrieves and processes records from the API response
 
-The functionality of the SearchCoordinators are further customized using the following moodules:
+The functionality of the SearchCoordinators are further customized using the following modules:
     scholar_flux.sessions: Contains the core classes for directly setting up cached sessions
     scholar_flux.data: Contains the core classes used to parse, extract, and process records
     scholar_flux.data_storage: Contains the core classes used for caching

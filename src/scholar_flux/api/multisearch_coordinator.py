@@ -316,7 +316,7 @@ class MultiSearchCoordinator(UserDict):
 
         This implementation also uses the SearchCoordinator.iter_pages to dynamically identify when page retrieval
         should halt for each API provider, accounting for errors, timeouts, and less than the expected amount of
-        records before filtering records with prespecified criteria.
+        records before filtering records with pre-specified criteria.
 
         Note, that as threading is performed by provider, this method will not differ significantly in speed from
         the `MultiSearchCoordinator.iter_pages` method if only a single provider has been specified.
