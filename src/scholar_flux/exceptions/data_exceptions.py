@@ -1,12 +1,10 @@
 # /exceptions/data_exceptions.py
-"""
-Implements exceptions for handling scenarios that could occur during the parsing, extraction, and processing of
-response data.
-"""
+"""Implements exceptions for handling scenarios that could occur during the parsing, extraction, and processing of
+response data."""
 
 
 class ResponseProcessingException(Exception):
-    """Base Exception for handling errors in response parsing and processing"""
+    """Base Exception for handling errors in response parsing and processing."""
 
 
 class DataParsingException(ResponseProcessingException):

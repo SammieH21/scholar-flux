@@ -1,9 +1,8 @@
 # /api/models
 
-"""
-The scholar_flux.api.models module includes all of the needed configuration classes that
-are needed to define the configuration needed to configure APIs for specific providers and
-to ensure that the process is orchestrated in a robust way.
+"""The scholar_flux.api.models module includes all of the needed configuration classes that are needed to define the
+configuration needed to configure APIs for specific providers and to ensure that the process is orchestrated in a robust
+way.
 
 Core Models:
     - APIParameterMap: Contains the mappings and settings used to customized common and API Specific parameters
@@ -15,6 +14,7 @@ Core Models:
     - ProcessedResponse: Indicates a successfully retrieved and processed response from an API provider.
     - ErrorResponse: Indicates that an exception occurred somewhere in the process of response retrieval and processing.
     - NonResponse: Indicates a that a response of any status code code not be retrieved due to an exception.
+
 """
 
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse

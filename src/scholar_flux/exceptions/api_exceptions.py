@@ -1,7 +1,5 @@
 # /exceptions/api_exceptions.py
-"""
-Implements exceptions involving the creation of requests and retrieval of responses from API Providers
-"""
+"""Implements exceptions involving the creation of requests and retrieval of responses from API Providers."""
 import requests
 from json import JSONDecodeError
 from typing import Optional
@@ -18,25 +16,25 @@ class APIException(Exception):
 
 
 class MissingAPIKeyException(ValueError):
-    """Exception raised when a blank string is provided yet invalid"""
+    """Exception raised when a blank string is provided yet invalid."""
 
     pass
 
 
 class MissingAPISpecificParameterException(ValueError):
-    """Exception raised when an API specific parameter is required but not provided in the config"""
+    """Exception raised when an API specific parameter is required but not provided in the config."""
 
     pass
 
 
 class MissingProviderException(ValueError):
-    """Exception raised when an API specific parameter is required but not provided in the config"""
+    """Exception raised when an API specific parameter is required but not provided in the config."""
 
     pass
 
 
 class MissingResponseException(ValueError):
-    """Exception raised when a response or response-like objects is required but not provided"""
+    """Exception raised when a response or response-like objects is required but not provided."""
 
     pass
 
@@ -60,7 +58,7 @@ class RequestFailedException(APIException):
 
 
 class RequestCreationException(APIException):
-    """Exception raised when the preparation of an API request fails"""
+    """Exception raised when the preparation of an API request fails."""
 
 
 class NotFoundException(APIException):
@@ -100,13 +98,13 @@ class RequestCacheException(APIException):
 
 
 class InvalidResponseStructureException(APIException):
-    """Exception raised on when encountering an non response/response-like object when a valid response was expected"""
+    """Exception raised on when encountering an non response/response-like object when a valid response was expected."""
 
     pass
 
 
 class InvalidResponseReconstructionException(InvalidResponseStructureException):
-    """Exception raised on the attempted creation of a ReconstructedResponse if an exception is encountered"""
+    """Exception raised on the attempted creation of a ReconstructedResponse if an exception is encountered."""
 
     pass
 
@@ -115,7 +113,7 @@ class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""
 
     def __init__(self, response: Optional[requests.Response | ResponseProtocol] = None, *args, **kwargs):
-        """Initializes the `InvalidResponseException` class with a response or response-like parameter for logging"""
+        """Initializes the `InvalidResponseException` class with a response or response-like parameter for logging."""
 
         self.response: Optional[requests.Response | ResponseProtocol] = (
             response if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)) else None

@@ -17,26 +17,22 @@ from time import sleep
 
 @pytest.fixture
 def parameter_map():
-    """Holds the default configuration used to simulate the requirements of an API"""
+    """Holds the default configuration used to simulate the requirements of an API."""
     parameter_map = APIParameterMap(query="q", start="page", auto_calculate_page=False, records_per_page="pagesize")
     return parameter_map
 
 
 @pytest.fixture
 def paginated_records_directory() -> Path:
-    """
-    Location holding multiple AI-generated mock json examples simulated and modeled after the default response structure
-    of the PLOS API.
-    """
+    """Location holding multiple AI-generated mock json examples simulated and modeled after the default response
+    structure of the PLOS API."""
     return Path(__file__).parent.parent / "mocks" / "mocked_paginated_records"
 
 
 @pytest.fixture
 def mock_json_provider_page_dict(paginated_records_directory):
-    """
-    Dictionary where each value holds a list of paths corresponding to a page number from each
-    mock-generated API provider.
-    """
+    """Dictionary where each value holds a list of paths corresponding to a page number from each mock-generated API
+    provider."""
     mock_json_providers = ("api-one", "api-two", "api-three")
     return {
         mock_json_provider: [path for path in paginated_records_directory.iterdir() if mock_json_provider in str(path)]
@@ -46,9 +42,10 @@ def mock_json_provider_page_dict(paginated_records_directory):
 
 @pytest.fixture
 def pause_rate_limiting():
-    """
-    Fixture for briefly turning off the default rate limit for unknown providers:
-    Used to temporarily pauses rate limiting for individual tests when included as a fixture dependency
+    """Fixture for briefly turning off the default rate limit for unknown providers:
+
+    Used to temporarily pauses rate limiting for individual tests when
+    included as a fixture dependency
     """
     default_rate_limit = MultiSearchCoordinator.DEFAULT_THREADED_REQUEST_DELAY
     MultiSearchCoordinator.DEFAULT_THREADED_REQUEST_DELAY = 0
@@ -57,10 +54,8 @@ def pause_rate_limiting():
 
 
 def get_path_components(json_page_path: Path, url_prefix="") -> dict[str, Any]:
-    """
-    Helper function for quickly generating a dictionary where each element corresponds to some
-    aspect of the provider including the page number, URL, and corresponding content from the provider.
-    """
+    """Helper function for quickly generating a dictionary where each element corresponds to some aspect of the provider
+    including the page number, URL, and corresponding content from the provider."""
 
     page_match = re.match(r".*api.*page-(\d+)\.json", json_page_path.name)
 
@@ -83,10 +78,8 @@ def get_path_components(json_page_path: Path, url_prefix="") -> dict[str, Any]:
 
 
 def create_coordinators(path_component_dict, query, parameter_config):
-    """
-    Generates a dictionary of coordinators from the path_component_dict which indicates the page number and provider
-    and the APIParameterMap that maps parameters to the parameters expected by the API.
-    """
+    """Generates a dictionary of coordinators from the path_component_dict which indicates the page number and provider
+    and the APIParameterMap that maps parameters to the parameters expected by the API."""
     return {
         path_components["base_url"]: SearchCoordinator(
             SearchAPI(
@@ -106,10 +99,8 @@ def create_coordinators(path_component_dict, query, parameter_config):
 
 @pytest.fixture
 def path_component_dict(mock_json_provider_page_dict) -> dict[Path, Any]:
-    """
-    Uses the `get_path_components` function to generate a dictionary of parameters corresponding to each individual
-    mock API provider and the path to where each mocked response JSON file for each page can be found.
-    """
+    """Uses the `get_path_components` function to generate a dictionary of parameters corresponding to each individual
+    mock API provider and the path to where each mocked response JSON file for each page can be found."""
     component_dict = {
         path: get_path_components(path) for path_group in mock_json_provider_page_dict.values() for path in path_group
     }
@@ -118,11 +109,12 @@ def path_component_dict(mock_json_provider_page_dict) -> dict[Path, Any]:
 
 @pytest.fixture
 def path_component_dict_rate(mock_json_provider_page_dict) -> dict[Path, Any]:
-    """Generates a similar dictionary as the path_component_dict with the only modifications being the
-    `base_url` and `provider_name`. The url is prefixed with `rate-` so that `https://example-api-one.com` becomes
-    `https://example-rate-api-one.com`.
+    """Generates a similar dictionary as the path_component_dict with the only modifications being the `base_url` and
+    `provider_name`. The url is prefixed with `rate-` so that `https://example-api-one.com` becomes `https://example-
+    rate-api-one.com`.
 
-    This dictionary fixture is used to help simulate retrieval from multiple providers simultaneously.
+    This dictionary fixture is used to help simulate retrieval from
+    multiple providers simultaneously.
     """
     component_dict = {
         path: get_path_components(path, url_prefix="rate-")
@@ -134,35 +126,36 @@ def path_component_dict_rate(mock_json_provider_page_dict) -> dict[Path, Any]:
 
 @pytest.fixture
 def coordinator_dict(path_component_dict, parameter_map) -> dict[str, SearchCoordinator]:
-    """Generates a coordinator dictionary using the `create_coordinators` helper function from a path_component_dict"""
+    """Generates a coordinator dictionary using the `create_coordinators` helper function from a path_component_dict."""
     return create_coordinators(path_component_dict, query="quantum-computing", parameter_config=parameter_map)
 
 
 @pytest.fixture
 def coordinator_dict_rate(path_component_dict_rate, parameter_map) -> dict[str, SearchCoordinator]:
-    """
-    Similarly generates a coordinator dictionary using the `create_coordinators` helper function for the
-    URLs prefixed with `rate-`.
-    """
+    """Similarly generates a coordinator dictionary using the `create_coordinators` helper function for the URLs
+    prefixed with `rate-`."""
     return create_coordinators(path_component_dict_rate, query="quantum-computing", parameter_config=parameter_map)
 
 
 @pytest.fixture
 def coordinator_dict_new_query(path_component_dict, parameter_map) -> dict[str, SearchCoordinator]:
-    """
-    Creates new coordinators that retrieve data from the API with the query, `new-query`. Used
-    to simulate pulling from the same provider with a different query, while require the same rate limit
-    to be triggered as used with the initial `quantum-computing` query
+    """Creates new coordinators that retrieve data from the API with the query, `new-query`.
+
+    Used to simulate pulling from the same provider with a different
+    query, while require the same rate limit to be triggered as used
+    with the initial `quantum-computing` query
     """
     return create_coordinators(path_component_dict, query="new-query", parameter_config=parameter_map)
 
 
 @pytest.fixture
 def coordinator_dict_rate_new_query(path_component_dict_rate, parameter_map) -> dict[str, SearchCoordinator]:
-    """
-    Creates new coordinators that retrieve data from the API with the query, `new-query` from the URLs
-    prefixed with `rate-`. Simulate pulling from a different provider with a different query,
-    while require a different rate limiter given that the provider differs from the initial `coordinator_dict`
+    """Creates new coordinators that retrieve data from the API with the query, `new-query` from the URLs prefixed with
+    `rate-`.
+
+    Simulate pulling from a different provider with a different query,
+    while require a different rate limiter given that the provider
+    differs from the initial `coordinator_dict`
     """
 
     return create_coordinators(path_component_dict_rate, query="new-query", parameter_config=parameter_map)
@@ -175,7 +168,7 @@ def patch_provider_url(
     content: bytes,
     mocker: requests_mock.Mocker,
 ) -> None:
-    """Helper function for patching coordinators to ensure that only mocked results are retrieved"""
+    """Helper function for patching coordinators to ensure that only mocked results are retrieved."""
 
     if coordinator := coordinator_dict.get(base_url):
         parameters = coordinator.api.build_parameters(page=page_number)
@@ -202,8 +195,7 @@ def initialize_mocker(
     path_component_dict,
     path_component_dict_rate,
 ):
-    """
-    Helper function for quickly initializing each url to return simulated data for testing the MultiCoordinator.
+    """Helper function for quickly initializing each url to return simulated data for testing the MultiCoordinator.
 
     This function uses a context manager to set up mocking for each of the following sites.
 
@@ -226,7 +218,7 @@ def initialize_mocker(
 
     @contextmanager
     def with_mocker():
-        """Nested function for creating a reusable mocker without redefining each individual URL across tests"""
+        """Nested function for creating a reusable mocker without redefining each individual URL across tests."""
         all_path_component_dicts = list(path_component_dict.values()) + list(path_component_dict_rate.values())
 
         all_coordinator_dicts = (
@@ -253,9 +245,9 @@ def initialize_mocker(
 
 
 def test_mocked_initialization(coordinator_dict, path_component_dict, initialize_mocker):
-    """
-    Helper function for first determining whether the context manager `initialize_mocker`
-    is working as intended. Loops through each coordinator to determine whether the coordinators
+    """Helper function for first determining whether the context manager `initialize_mocker` is working as intended.
+
+    Loops through each coordinator to determine whether the coordinators
     return the expected result.
     """
     with initialize_mocker() as _:
@@ -274,11 +266,11 @@ def test_mocked_initialization(coordinator_dict, path_component_dict, initialize
 
 
 def test_multisearch_initialization(coordinator_dict, pause_rate_limiting):
-    """
-    Test whether a multisearch_coordinator is created as intended and that individual components can be
-    added independent on the method used to populate the MultiSearchCoordinator object.
+    """Test whether a multisearch_coordinator is created as intended and that individual components can be added
+    independent on the method used to populate the MultiSearchCoordinator object.
 
-    Also tests whether the addition of non-coordinators will fail as expected when added.
+    Also tests whether the addition of non-coordinators will fail as
+    expected when added.
     """
     multisearch_coordinator_one = MultiSearchCoordinator()
     multisearch_coordinator_one.add_coordinators(list(coordinator_dict.values()))
@@ -310,10 +302,12 @@ def test_multisearch_initialization(coordinator_dict, pause_rate_limiting):
 
 
 def test_page_iteration(coordinator_dict, initialize_mocker, path_component_dict, pause_rate_limiting):
-    """
-    Tests whether iter_pages returns a generator that iteratively returns each page for as long
-    as there is a page with data to return. Each page should only be requested and processed upon
-    retrieving the next page via an iterator such as a `for loop`, the `next` function, a list, or a `while loop`
+    """Tests whether iter_pages returns a generator that iteratively returns each page for as long as there is a page
+    with data to return.
+
+    Each page should only be requested and processed upon retrieving the
+    next page via an iterator such as a `for loop`, the `next` function,
+    a list, or a `while loop`
     """
     multisearch_coordinator = MultiSearchCoordinator()
     multisearch_coordinator.add_coordinators(coordinator_dict.values())
@@ -361,9 +355,10 @@ def test_page_iteration(coordinator_dict, initialize_mocker, path_component_dict
 
 
 def test_page_search(coordinator_dict, initialize_mocker, pause_rate_limiting):
-    """
-    Uses the MultiSearchCoordinator to retrieve the first page across all coordinators by query and URL.
-    Both `search` and `search_pages` should return the same result when requesting a single page
+    """Uses the MultiSearchCoordinator to retrieve the first page across all coordinators by query and URL.
+
+    Both `search` and `search_pages` should return the same result when
+    requesting a single page
     """
     multisearch_coordinator = MultiSearchCoordinator()
     multisearch_coordinator.add_coordinators(coordinator_dict.values())
@@ -410,10 +405,12 @@ def test_page_search(coordinator_dict, initialize_mocker, pause_rate_limiting):
 
 
 def test_page_range_search(coordinator_dict, initialize_mocker, path_component_dict, pause_rate_limiting):
-    """
-    Attempts to retrieve the full length of pages available from each mock provider. The actual page
-    count retrieved will depend on the number of successful results available and whether any unsuccessful
-    status codes are returned. In the latter scenario, the method should stop early.
+    """Attempts to retrieve the full length of pages available from each mock provider.
+
+    The actual page count retrieved will depend on the number of
+    successful results available and whether any unsuccessful status
+    codes are returned. In the latter scenario, the method should stop
+    early.
     """
     multisearch_coordinator = MultiSearchCoordinator()
     multisearch_coordinator.add_coordinators(coordinator_dict.values())
@@ -455,12 +452,12 @@ def test_rate_limiter_normalization(
     path_component_dict,
     pause_rate_limiting,  # added to restore the default afterward
 ):
-    """
-    Test whether each rate limiter for each individual provider will trigger universally for each individual provider
+    """Test whether each rate limiter for each individual provider will trigger universally for each individual provider
     independent of coordinator configuration used to request the next page.
 
-    The MultiSearchCoordinator uses the `coordinator.api.provider_name` attribute to assign the same rate limiter
-    across each coordinator querying from the same provider
+    The MultiSearchCoordinator uses the `coordinator.api.provider_name`
+    attribute to assign the same rate limiter across each coordinator
+    querying from the same provider
     """
     MIN_REQUEST_DELAY_INTERVAL = 0.200
     TOLERANCE = 0.7
@@ -507,7 +504,7 @@ def test_rate_limiter_normalization(
     sleep_args = []
 
     def sleep_and_record(arg):
-        """Helper class used to both sleep and verify the arguments passed to sleep during request rate limiting"""
+        """Helper class used to both sleep and verify the arguments passed to sleep during request rate limiting."""
         sleep_args.append(arg)
         original_sleep_fn(arg)
 
@@ -568,10 +565,11 @@ def test_rate_limiter_normalization(
 
 
 def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplog):
-    """
-    Test whether retrieving a single failed result will halt retrieval from a single coordinator.
-    This method should only stop the process of retrieving a response from the first provider while other
-    response should be retrieved successfully.
+    """Test whether retrieving a single failed result will halt retrieval from a single coordinator.
+
+    This method should only stop the process of retrieving a response
+    from the first provider while other response should be retrieved
+    successfully.
     """
     multisearch_coordinator = MultiSearchCoordinator()
     multisearch_coordinator.add_coordinators(coordinator_dict.values())
@@ -618,10 +616,11 @@ def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplo
 
 
 def test_invalid_parameters(initialize_mocker, pause_rate_limiting, caplog):
-    """
-    Ensures that invalid parameters provided for the MultiSearchCoordinator halt processing prior to any
-    requests being sent. This includes parameters for the number of workers, non-integer page numbers,
-    non-positive page values provided to the API
+    """Ensures that invalid parameters provided for the MultiSearchCoordinator halt processing prior to any requests
+    being sent.
+
+    This includes parameters for the number of workers, non-integer page
+    numbers, non-positive page values provided to the API
     """
     multisearch_coordinator = MultiSearchCoordinator()
 
@@ -663,9 +662,10 @@ def test_invalid_parameters(initialize_mocker, pause_rate_limiting, caplog):
 
 
 def test_empty_search(pause_rate_limiting, caplog):
-    """
-    Ensure that an empty search triggers a log message indicating that no coordinators have been registered.
-    The SearchResultList should then be returned but completely empty as a result.
+    """Ensure that an empty search triggers a log message indicating that no coordinators have been registered.
+
+    The SearchResultList should then be returned but completely empty as
+    a result.
     """
     multisearch_coordinator = MultiSearchCoordinator()
     search_result_list = multisearch_coordinator.search(page=1)
@@ -678,12 +678,13 @@ def test_empty_search(pause_rate_limiting, caplog):
 def test_error_response(
     coordinator_dict, coordinator_dict_new_query, monkeypatch, initialize_mocker, pause_rate_limiting, caplog
 ):
-    """
-    Ensure that the MultiSearchCoordinator returns an error response as expected upon encountering invalid
-    responses or processing errors.
+    """Ensure that the MultiSearchCoordinator returns an error response as expected upon encountering invalid responses
+    or processing errors.
 
-    Mocks the `search` method to return an error to verify that the result contains a SearchResultList that
-    in turn contains each SearchResult indicating the page number, provider, and ErrorResponse for all pages
+    Mocks the `search` method to return an error to verify that the
+    result contains a SearchResultList that in turn contains each
+    SearchResult indicating the page number, provider, and ErrorResponse
+    for all pages
     """
     multisearch_coordinator = MultiSearchCoordinator()
     multisearch_coordinator.add_coordinators(

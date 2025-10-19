@@ -12,8 +12,7 @@ import pytest
 
 @pytest.fixture
 def search_api() -> SearchAPI:
-    """
-    Basic SearchAPI for testing response retrieval and caching. By default, request cache is turned off by default
+    """Basic SearchAPI for testing response retrieval and caching. By default, request cache is turned off by default
     but can be turned on during the creation of the SearchCoordinator.
 
     Returns:
@@ -37,8 +36,7 @@ def search_api() -> SearchAPI:
 
 @pytest.fixture()
 def initialize_mocker(search_api: SearchAPI, academic_json_response: Response) -> Callable:
-    """
-    Helper function for quickly initializing a mock URL for testing and verifying cache settings.
+    """Helper function for quickly initializing a mock URL for testing and verifying cache settings.
 
     Returns:
         A callable to be used as a context for retrieving mock API responses
@@ -51,7 +49,7 @@ def initialize_mocker(search_api: SearchAPI, academic_json_response: Response) -
 
     @contextmanager
     def with_mocker():
-        """Nested function for creating a reusable mocker without redefining each individual URL across tests"""
+        """Nested function for creating a reusable mocker without redefining each individual URL across tests."""
         parameters = search_api.build_parameters(page=1)
         prepared_request = search_api.prepare_request(parameters=parameters)
         with Mocker() as m:
@@ -73,9 +71,8 @@ def create_search_coordinator(
     cache_requests: bool = False,
     **cache_kwargs,
 ) -> SearchCoordinator:
-    """
-    Helper method for creating a new search coordinator for response cache testing.
-    Takes a cache backend and creates the required backend based on the keyword arguments applied.
+    """Helper method for creating a new search coordinator for response cache testing. Takes a cache backend and creates
+    the required backend based on the keyword arguments applied.
 
     Args:
         search_api (SearchAPI): A SearchAPI instance that the SearchCoordinator will use for response retrieval
@@ -115,10 +112,10 @@ def create_search_coordinator(
 def test_response_cache(
     initialize_mocker, db_dependency_unavailable, request, search_api, cache_backend, cache_kwargs, cache_requests
 ):
-    """
-    Performs an integration test to verify that the functions of the response cache (as opposed to the request cache)
-    correctly retrieves cached data as needed with the appropriate backend. `pytest.mark.parametrize` is used to test
-    each backend in sequence.
+    """Performs an integration test to verify that the functions of the response cache (as opposed to the request cache)
+    correctly retrieves cached data as needed with the appropriate backend.
+
+    `pytest.mark.parametrize` is used to test each backend in sequence.
     """
     # Skip if required dependency is missing
     if db_dependency_unavailable(cache_backend):

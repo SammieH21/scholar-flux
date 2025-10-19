@@ -1,10 +1,7 @@
 # api/
-"""
-
-The scholar_flux.api module includes the core classes and functionality necessary
-to interact with APIs in a universally applicable manner. This module defines
-the methods necessary to retrieve the raw responses from APIs based on the
-configuration used for the API client (SearchAPI).
+"""The scholar_flux.api module includes the core classes and functionality necessary to interact with APIs in a
+universally applicable manner. This module defines the methods necessary to retrieve the raw responses from APIs based
+on the configuration used for the API client (SearchAPI).
 
 Sub-modules:
     models: Contains the classes used to set up new configurations in addition to the API utility models
@@ -33,6 +30,7 @@ The functionality of the SearchCoordinators are further customized using the fol
     scholar_flux.data: Contains the core classes used to parse, extract, and process records
     scholar_flux.data_storage: Contains the core classes used for caching
     scholar_flux.security: Contains the core classes used for ensuring security in console and logging (e.g API keys)
+
 """
 
 from scholar_flux.api.response_validator import ResponseValidator

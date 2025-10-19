@@ -1,23 +1,21 @@
 # /exceptions/storage_exceptions.py
-"""
-Implements exceptions involving both potential edge-cases and common issues involving data and cache storage.
-"""
+"""Implements exceptions involving both potential edge-cases and common issues involving data and cache storage."""
 
 
 class StorageCacheException(Exception):
-    """Base exception for Storage Issues"""
+    """Base exception for Storage Issues."""
 
     pass
 
 
 class ConnectionFailed(StorageCacheException):
-    """Exception arising from storage connection errors"""
+    """Exception arising from storage connection errors."""
 
     pass
 
 
 class KeyNotFound(KeyError):
-    """Exception resulting from a missing or empty key being provided"""
+    """Exception resulting from a missing or empty key being provided."""
 
     pass
 

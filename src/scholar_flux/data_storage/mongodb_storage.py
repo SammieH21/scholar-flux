@@ -1,10 +1,10 @@
 # /data_storage/mongo_storage.py
-"""
-The scholar_flux.data_storage.mongodb_storage module implements the MongoDBStorage class that implements the abstract
+"""The scholar_flux.data_storage.mongodb_storage module implements the MongoDBStorage class that implements the abstract
 methods required for compatibility with the DataCacheManager in the scholar_flux package.
 
-This class implements caching by using the prebuilt features available in MongoDB to store ProcessedResponse
-fields within the database for later CRUD operations.
+This class implements caching by using the prebuilt features available in MongoDB to store ProcessedResponse fields
+within the database for later CRUD operations.
+
 """
 from __future__ import annotations
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
@@ -38,10 +38,9 @@ else:
 
 
 class MongoDBStorage(ABCStorage):
-    """
-    Implements the storage methods necessary to interact with MongoDB with a similar interface as other storage methods.
-    This implementation is designed to use a key-value store as a cache by which data can be stored and retrieved
-    in a relatively straightforward manner similar to the In-Memory Storage.
+    """Implements the storage methods necessary to interact with MongoDB with a similar interface as other storage
+    methods. This implementation is designed to use a key-value store as a cache by which data can be stored and
+    retrieved in a relatively straightforward manner similar to the In-Memory Storage.
 
     Examples:
 
@@ -69,6 +68,7 @@ class MongoDBStorage(ABCStorage):
         >>> mongo_storage.delete_all() # deletes all records from the namespace
         >>> mongo_storage.retrieve_keys() # Will now be empty
         >>> mongo_storage.retrieve_all() # Will also be empty
+
     """
 
     DEFAULT_CONFIG: Dict[str, Any] = {
@@ -88,20 +88,23 @@ class MongoDBStorage(ABCStorage):
         ttl: Optional[int] = None,
         **mongo_config,
     ):
-        """
-        Initialize the Mongo DB storage backend and connect to the Mongo DB server.
+        """Initialize the Mongo DB storage backend and connect to the Mongo DB server.
 
         Args:
-            host (Optional[str]): The host address where the Mongo Database can be found.
-                                  The default is `'mongodb://127.0.0.1'`, which is the mongo server on the localhost
-            namespace (Optional[str]): The prefix associated with each cache key. By default, this is None.
-            ttl (Optional[int]): The total number of seconds that must elapse for a cache record
-            **mongo_config (Dict[Any, Any]): Configuration parameters required to connect
-                to the Mongo DB server. Typically includes parameters like host, port,
-                db, etc.
+            host (Optional[str]):
+                The host address where the Mongo Database can be found. The default is
+                `'mongodb://127.0.0.1'`, which is the mongo server on the localhost.
+            namespace (Optional[str]):
+                The prefix associated with each cache key. By default, this is None.
+            ttl (Optional[int]):
+                The total number of seconds that must elapse for a cache record
+            **mongo_config (Dict[Any, Any]):
+                Configuration parameters required to connect to the Mongo DB server.
+                Typically includes parameters such as host, port, db, etc.
 
         Raises:
             MongoDBImportError: If db module is not available or fails to load.
+
         """
 
         if not pymongo:
@@ -128,27 +131,29 @@ class MongoDBStorage(ABCStorage):
         self.lock = threading.Lock()
 
     def clone(self) -> MongoDBStorage:
-        """
-        Helper method for creating a new MongoDBStorage with the same parameters. Note that
-        the implementation of the MongoClient is not able to be deep copied. This method
-        is provided for convenience for reinstantiation with the same configuration.
+        """Helper method for creating a new MongoDBStorage with the same parameters.
+
+        Note that the implementation of the MongoClient is not able to be deep copied. This method is provided for
+        convenience for re-instantiation with the same configuration.
+
         """
         cls = self.__class__
         return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
-        """
-        Retrieve the value associated with the provided key from cache.
+        """Retrieve the value associated with the provided key from cache.
 
         Args:
-            key (str): The key used to fetch the stored data from cache.
+            key (str):
+                The key used to fetch the stored data from cache.
 
         Returns:
-            Any: The value returned is deserialized JSON object if successful. Returns None
-                if the key does not exist.
+            Any:
+                The value returned is deserialized JSON object if successful. Returns None if the key does not exist.
 
         Raises:
             PyMongoError: If there is an error retrieving the record
+
         """
         try:
             namespace_key = self._prefix(key)
@@ -165,15 +170,14 @@ class MongoDBStorage(ABCStorage):
         return None
 
     def retrieve_all(self) -> Dict[str, Any]:
-        """
-        Retrieve all records from cache that match the current namespace prefix.
+        """Retrieve all records from cache that match the current namespace prefix.
 
         Returns:
-            dict: Dictionary of key-value pairs. Keys are original keys,
-                values are JSON deserialized objects.
+            dict: Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
 
         Raises:
-            PyMongoError: If there is an error during the retrieval of records under the namespace
+            PyMongoError: If there is an error during the retrieval of records under the namespace.
+
         """
         cache = {}
         try:
@@ -193,14 +197,14 @@ class MongoDBStorage(ABCStorage):
         return cache
 
     def retrieve_keys(self) -> List[str]:
-        """
-        Retrieve all keys for records from cache .
+        """Retrieve all keys for records from cache.
 
         Returns:
             list[str]: A list of all keys saved via SQL.
 
         Raises:
-            PyMongoError: If there is an error retrieving the record key
+            PyMongoError: If there is an error retrieving the record key.
+
         """
         keys = []
         try:
@@ -214,17 +218,18 @@ class MongoDBStorage(ABCStorage):
         return keys
 
     def update(self, key: str, data: Any):
-        """
-        Update the cache by storing associated value with provided key.
+        """Update the cache by storing associated value with provided key.
 
         Args:
-            key (str): The key used to store the data in cache.
-            data (Any): A Python object that will be serialized into JSON format and stored.
-                This includes standard data types like strings, numbers, lists, dictionaries,
-                etc.
+            key (str):
+                The key used to store the data in cache.
+            data (Any):
+                A Python object that will be serialized into JSON format and stored. This includes standard
+                data types such as strings, numbers, lists, dictionaries, etc.
 
         Raises:
             PyMongoError: If an error occur when attempting to insert or update a record
+
         """
         try:
             namespace_key = self._prefix(key)
@@ -246,14 +251,14 @@ class MongoDBStorage(ABCStorage):
             logger.error(f"Error updating key {key}: {e}")
 
     def delete(self, key: str):
-        """
-        Delete the value associated with the provided key from cache.
+        """Delete the value associated with the provided key from cache.
 
         Args:
             key (str): The key used associated with the stored data from the cache.
 
         Raises:
             PyMongoError: If there is an error deleting the record
+
         """
         try:
             namespace_key = self._prefix(key)
@@ -267,11 +272,11 @@ class MongoDBStorage(ABCStorage):
             logger.error(f"Error deleting key {key}: {e}")
 
     def delete_all(self):
-        """
-        Delete all records from cache that match the current namespace prefix.
+        """Delete all records from cache that match the current namespace prefix.
 
         Raises:
             PyMongoError: If there an error occurred when deleting records from the collection
+
         """
         try:
             with self.lock:
@@ -284,8 +289,7 @@ class MongoDBStorage(ABCStorage):
             logger.error(f"Error deleting all records: {e}")
 
     def verify_cache(self, key: str) -> bool:
-        """
-        Check if specific cache key exists.
+        """Check if specific cache key exists.
 
         Args:
             key (str): The key to check its presence in the Mongo DB storage backend.
@@ -295,6 +299,7 @@ class MongoDBStorage(ABCStorage):
 
         Raises:
             ValueError: If provided key is empty or None.
+
         """
         if not key:
             raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
@@ -304,23 +309,23 @@ class MongoDBStorage(ABCStorage):
 
     @classmethod
     def is_available(cls, host: str = "localhost", port: int = 27017, verbose: bool = True) -> bool:
-        """
-        Helper method that indicates whether the service is available or not. It attempts to establish
-        a connection on the provided host and port and returns a boolean indicating if the connection
-        was successful.
+        """Helper method that indicates whether the service is available or not. It attempts to establish a connection
+        on the provided host and port and returns a boolean indicating if the connection was successful.
 
         Args:
             host (str): The IP of the host of the MongoDB service. Defaults to localhost (the local computer).
             port (int): The port where the service is hosted. Defaults to the default port 6379.
-            verbose: Indicates whether to log status messages. Defaults to True
+            verbose (bool): Indicates whether to log status messages. Defaults to True
 
         Returns:
-            bool: Indicating whether or not the service was be successfully accessed.
-                  The value returned is True if successful and False otherwise.
+            bool:
+                Indicating whether or not the service was be successfully accessed. The value returned is True
+                if successful and False otherwise.
 
         Raises:
             ServerSelectionTimeoutError: If a timeout error occurs when attempting to ping Mongo DB
             ConnectionFailure: If a connection cannot be established
+
         """
 
         if not pymongo:

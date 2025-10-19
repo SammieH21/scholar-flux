@@ -9,7 +9,7 @@ from scholar_flux.package_metadata import get_default_writable_directory
 
 @pytest.fixture(autouse=True)
 def temp_env_writable_directory(cleanup, tmp_path, monkeypatch):
-    """Helper fixture for modifying the default write location when testing the ConfigLoader"""
+    """Helper fixture for modifying the default write location when testing the ConfigLoader."""
     import scholar_flux.package_metadata.directories
 
     monkeypatch.setattr(
@@ -19,13 +19,13 @@ def temp_env_writable_directory(cleanup, tmp_path, monkeypatch):
 
 @pytest.fixture
 def temp_env_file(cleanup, tmp_path):
-    """Uses a temporary environment path variable to setup subsequent config tests"""
+    """Uses a temporary environment path variable to setup subsequent config tests."""
     env_path = tmp_path / ".env"
     yield env_path
 
 
 def test_process_env_file(temp_env_file):
-    """Verifies whether the configuration path is set as intended when provided"""
+    """Verifies whether the configuration path is set as intended when provided."""
     loader = ConfigLoader(temp_env_file)
     assert loader.env_path == temp_env_file
 
@@ -38,7 +38,8 @@ def test_process_env_file(temp_env_file):
 
 
 def test_write_key_with_masked_and_unmasked_values(cleanup, temp_env_file):
-    """Validates whether writing an API key with masking and unmasking works as intended and is triggered by keywords"""
+    """Validates whether writing an API key with masking and unmasking works as intended and is triggered by
+    keywords."""
     loader = ConfigLoader(env_path=temp_env_file)
     assert loader.env_path == temp_env_file
     key = "CONF_TEST_API_KEY"
@@ -59,7 +60,7 @@ def test_write_key_with_masked_and_unmasked_values(cleanup, temp_env_file):
 
 
 def test_config_saving_equivalence(cleanup, tmp_path):
-    """Validates whether the creation of a new env file on `self.write_key` is successful when not already created"""
+    """Validates whether the creation of a new env file on `self.write_key` is successful when not already created."""
     env_path = tmp_path / ".env"
     loader = ConfigLoader(env_path=env_path)
     assert not env_path.exists()
@@ -76,7 +77,7 @@ def test_config_saving_equivalence(cleanup, tmp_path):
 
 
 def test_write_key_creates_env_file_if_missing(cleanup, tmp_path):
-    """Validates whether the creation of a new env file on `self.write_key` is successful when not already created"""
+    """Validates whether the creation of a new env file on `self.write_key` is successful when not already created."""
     env_path = tmp_path / ".env"
     loader = ConfigLoader(env_path=env_path)
     key = "CONF_THREE_KEY"
@@ -89,7 +90,8 @@ def test_write_key_creates_env_file_if_missing(cleanup, tmp_path):
 
 
 def test_write_key_on_error(cleanup, tmp_path, monkeypatch, caplog):
-    """Validates whether expected errors when creating/writing a new env file on `self.write_key` will handle errors gracefully"""
+    """Validates whether expected errors when creating/writing a new env file on `self.write_key` will handle errors
+    gracefully."""
     env_path = tmp_path / ".env"
 
     e = "Some error occurred during file-write for whatever reason..."

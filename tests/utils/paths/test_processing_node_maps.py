@@ -5,7 +5,7 @@ from scholar_flux.utils import PathNode, PathNodeMap, ProcessingPath
 
 @pytest.fixture
 def default_mapping():
-    """Fixture used to verify the functionality used in a basic path node map"""
+    """Fixture used to verify the functionality used in a basic path node map."""
     x1 = PathNode.to_path_node("a.b.c.1", 1)
     x2 = PathNode.to_path_node("a.b.c.2", 2)
     x3 = PathNode.to_path_node("a.b.c.3", 3)
@@ -16,15 +16,13 @@ def default_mapping():
 
 @pytest.fixture
 def ref_test_nodes() -> Generator[PathNode, None, None]:
-    """Helper method for creating a generator of nodes for testing map capability and function in caching"""
+    """Helper method for creating a generator of nodes for testing map capability and function in caching."""
     return (PathNode(ProcessingPath(["0", "data", str(i), "title"]), f"title_{i}") for i in range(10))
 
 
 def test_map_initialization():
-    """
-    Verifies different methods used to initialize a new PathNodeMap and determine whether each
-    results in identical node maps
-    """
+    """Verifies different methods used to initialize a new PathNodeMap and determine whether each results in identical
+    node maps."""
     x1 = PathNode.to_path_node("a.b.c.1", 1)
     x2 = PathNode.to_path_node("a.b.c.2", 2)
     x3 = PathNode.to_path_node("a.b.c.3", 3)
@@ -44,7 +42,7 @@ def test_map_initialization():
 
 
 def test_contains(default_mapping):
-    """Validates whether nodes can be identified as being present within a mapping by path and node"""
+    """Validates whether nodes can be identified as being present within a mapping by path and node."""
     (x1, _, _, x4) = default_mapping.nodes
     assert "a" not in default_mapping
     assert None not in default_mapping
@@ -61,7 +59,7 @@ def test_contains(default_mapping):
 
 
 def test_retrieve(default_mapping):
-    """Verifies that the retrieval of nodes can occur via the use of both ProcessingPaths and path strings"""
+    """Verifies that the retrieval of nodes can occur via the use of both ProcessingPaths and path strings."""
     (x1, _, _, x4) = default_mapping.nodes
 
     assert default_mapping.get_node(x1.path) == x1
@@ -73,7 +71,7 @@ def test_retrieve(default_mapping):
 
 
 def test_pathnodemap_add_get_remove():
-    """Verifies that the removal of nodes operates as intended to both add and remove paths inplace"""
+    """Verifies that the removal of nodes operates as intended to both add and remove paths inplace."""
     path = ProcessingPath(["0", "data", "0", "title"])
     node = PathNode(path, "A")
     m = PathNodeMap()
@@ -85,7 +83,7 @@ def test_pathnodemap_add_get_remove():
 
 
 def test_pathnodemap_filter_and_cache(ref_test_nodes):
-    """Verifies whether filtering node maps will returns the intended result independent of the use of caching"""
+    """Verifies whether filtering node maps will returns the intended result independent of the use of caching."""
     m = PathNodeMap(use_cache=True)
 
     nodes = list(ref_test_nodes)
@@ -101,7 +99,7 @@ def test_pathnodemap_filter_and_cache(ref_test_nodes):
 
 
 def test_cache_weakset_default_clear(ref_test_nodes):
-    """Verifies whether filtering node maps will returns the intended result independent of the use of caching"""
+    """Verifies whether filtering node maps will returns the intended result independent of the use of caching."""
     mapping = PathNodeMap(use_cache=True)
     mapping.update(ref_test_nodes)
 

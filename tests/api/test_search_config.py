@@ -25,10 +25,11 @@ import scholar_flux.api.models.search_api_config
     ],
 )
 def test_non_provider_initialization(provider, basename):
-    """
-    Verifies that specifying a default provider successfully retrieves its corresponding config/parameter map.
-    This function uses a parametrized set of arguments to test different combinations of providers
-    to verify that it retrieves the expected base name for the URL of the provider.
+    """Verifies that specifying a default provider successfully retrieves its corresponding config/parameter map.
+
+    This function uses a parametrized set of arguments to test different
+    combinations of providers to verify that it retrieves the expected
+    base name for the URL of the provider.
     """
     api_config = SearchAPIConfig.from_defaults(provider_name=provider.upper(), request_delay=None)
     default_provider = provider_registry.get(provider)
@@ -51,10 +52,12 @@ def test_non_provider_initialization(provider, basename):
     ),
 )
 def test_api_key_format(api_key_dictionary, request):
-    """
-    Test that verifies whether all API keys, if available, are of the correct type (SecretStr or None).
-    This function uses parametrize to iteratively evaluate each individual provider config to ascertain whether there
-    are any inconsistencies preventing the correct API key from being loaded and used in the scholar_flux.config.
+    """Test that verifies whether all API keys, if available, are of the correct type (SecretStr or None).
+
+    This function uses parametrize to iteratively evaluate each
+    individual provider config to ascertain whether there are any
+    inconsistencies preventing the correct API key from being loaded and
+    used in the scholar_flux.config.
     """
 
     # first ensures that we're dealing with the intended provider
@@ -80,13 +83,12 @@ def test_api_key_format(api_key_dictionary, request):
 
 @pytest.mark.parametrize("provider", ["plos", "pubmed_efetch", "pubmed", "springernature", "crossref", "core"])
 def test_api_key_additions(provider):
-    """
-    Tests whether masked API keys that are validated via the SearchAPIConfig remain masked when
-    included as an attribute the created SearchAPIConfig instance.
+    """Tests whether masked API keys that are validated via the SearchAPIConfig remain masked when included as an
+    attribute the created SearchAPIConfig instance.
 
-    The config, which contains a masked list of environment variables for providers,
-    is patched to include the masked api key so that the environment variable can be automatically
-    retrieved from the config.
+    The config, which contains a masked list of environment variables
+    for providers, is patched to include the masked api key so that the
+    environment variable can be automatically retrieved from the config.
     """
 
     provider_info = provider_registry.get(provider)
@@ -103,20 +105,20 @@ def test_api_key_additions(provider):
 
 
 def test_api_default():
-    """
-    Verifies that the SearchAPIConfig allows for `None` the api_key parameter to be later validated in the parameter
+    """Verifies that the SearchAPIConfig allows for `None` the api_key parameter to be later validated in the parameter
     building steps as opposed to configuration creation.
 
-    PLOS does not require an API key, so the value is not populated with a known default from the environment.
+    PLOS does not require an API key, so the value is not populated with
+    a known default from the environment.
     """
     api = SearchAPIConfig.from_defaults("plos", api_key=None)  # API key should default to an empty string
     assert api.api_key is None
 
 
 def test_search_api_config_validation(caplog):
-    """
-    Ensures that invalid values passed to the SearchAPIConfig are flagged with a ValueError
-    or subclass that inherits from the ValueError exception type.
+    """Ensures that invalid values passed to the SearchAPIConfig are flagged with a ValueError or subclass that inherits
+    from the ValueError exception type.
+
     - API keys are flagged and raise a ValueError if an empty string is passed (as opposed to None)
     - URLs must be valid and raise an exception if otherwise invalid.
     - The provider name and URL type variables are turned into empty strings (for typing) for later inference in the
@@ -178,7 +180,7 @@ def test_search_api_config_validation(caplog):
 
 
 def test_missing_provider_information(caplog):
-    """Verifies that a missing provider and URL will raise a ValueError when a provider cannot be inferred"""
+    """Verifies that a missing provider and URL will raise a ValueError when a provider cannot be inferred."""
     original_default_provider = SearchAPIConfig.DEFAULT_PROVIDER
     SearchAPIConfig.DEFAULT_PROVIDER = None  # type: ignore
     with pytest.raises(ValueError) as excinfo:
@@ -192,19 +194,19 @@ def test_missing_provider_information(caplog):
 
 
 def test_missing_provider_url(caplog):
-    """Verifies that the PLOS url is inferred as intended when the PLOS provider is specified"""
+    """Verifies that the PLOS url is inferred as intended when the PLOS provider is specified."""
     base_url, provider, provider_info = SearchAPIConfig._prepare_provider_info(provider_name="plos", base_url="")
     assert base_url and provider_info and base_url == provider_info.base_url
 
 
 def test_api_key_modification(caplog):
-    """
-    Validates that the modification of an API key takes place as intended with changes in providers
-    To verify, the `config` dictionary is patched to include mock API keys for each provider and later checked
-    to determine whether the API key matches the provider's assigned string/secret key.
+    """Validates that the modification of an API key takes place as intended with changes in providers To verify, the
+    `config` dictionary is patched to include mock API keys for each provider and later checked to determine whether the
+    API key matches the provider's assigned string/secret key.
 
-    This method also verifies that the provider api key is removed as intended when it no
-    longer applies to the current provider after a configuration update.
+    This method also verifies that the provider api key is removed as
+    intended when it no longer applies to the current provider after a
+    configuration update.
     """
     api_key = SensitiveDataMasker.mask_secret("A Secret")
     another_api_key = SensitiveDataMasker.mask_secret("Another Secret")
@@ -253,13 +255,13 @@ def test_api_key_modification(caplog):
 
 
 def test_nondefault_initialization():
-    """Ensures that non-default initializations use the base-name of the url as the provider name"""
+    """Ensures that non-default initializations use the base-name of the url as the provider name."""
     api = SearchAPIConfig(base_url="https://test_api.com")  # type: ignore
     assert api.provider_name == "test_api"
 
 
 def test_conflicting_default_initialization(caplog):
-    """Validates that, when the provided defaults conflict, the base URL is prioritized"""
+    """Validates that, when the provided defaults conflict, the base URL is prioritized."""
     provider_from_url = provider_registry.get("crossref")
     assert provider_from_url
     base_url = provider_from_url.base_url
@@ -276,12 +278,12 @@ def test_conflicting_default_initialization(caplog):
 
 
 def test_missing_required_parameter():
-    """
-    Validates that, when a parameter is required but missing, it throws an error if a default
-    is otherwise not specified.
+    """Validates that, when a parameter is required but missing, it throws an error if a default is otherwise not
+    specified.
 
-    Uses crossref to validate that a value error is thrown when a SearchAPIConfig instance
-    is created without the api specific parameter being assigned a value.
+    Uses crossref to validate that a value error is thrown when a
+    SearchAPIConfig instance is created without the api specific
+    parameter being assigned a value.
     """
     provider_name = "crossref"
     provider_from_url = provider_registry.get(provider_name)
@@ -303,7 +305,7 @@ def test_missing_required_parameter():
 
 
 def test_nonneeded_api_key(caplog):
-    """Tests that, upon changing the config to a new provider, the previous API key is removed"""
+    """Tests that, upon changing the config to a new provider, the previous API key is removed."""
     provider_name = "core"
     config = SearchAPIConfig.from_defaults(provider_name, api_key="my_core_api_key")
     new_config = SearchAPIConfig.update(config, base_url="https://testing_site.com")
@@ -314,10 +316,11 @@ def test_nonneeded_api_key(caplog):
 
 
 def test_search_api_config_dynamic_provider_override(caplog):
-    """
-    Test that the SearchAPI handles dynamic provider overrides the base URL appropriately
-    and replaces an invalid provider name with the provider name from the base url.
-    This test also validates that the logger prints the appropriate warning message describing preference for the URL.
+    """Test that the SearchAPI handles dynamic provider overrides the base URL appropriately and replaces an invalid
+    provider name with the provider name from the base url.
+
+    This test also validates that the logger prints the appropriate
+    warning message describing preference for the URL.
     """
 
     plos_api_config = SearchAPIConfig()  # type: ignore

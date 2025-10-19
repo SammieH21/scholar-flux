@@ -1,10 +1,11 @@
 # /utils/initializer.py
-"""
-The scholar_flux.utils.initializer.py module is used within the scholar_flux package to kickstart the initialization
-of the scholar_flux package on import. Several key steps are performed via the use of the initializer:
-    1) Environment variables are imported using the ConfigLoader
-    2) The Logger is subsequently set up for the scholar_flux API package
-    3) The package level masker is subsequently set up to enable sensitive data to be redacted from logs
+"""The scholar_flux.utils.initializer.py module is used within the scholar_flux package to kickstart the initialization
+of the scholar_flux package on import.
+
+Several key steps are performed via the use of the initializer: 1) Environment variables are imported using the
+ConfigLoader 2) The Logger is subsequently set up for the scholar_flux API package 3) The package level masker is
+subsequently set up to enable sensitive data to be redacted from logs
+
 """
 from typing import Optional, Any
 import logging
@@ -22,10 +23,8 @@ def initialize_package(
     config_params: Optional[dict[str, Any]] = None,
     logging_params: Optional[dict[str, Any]] = None,
 ) -> tuple[dict[str, Any], logging.Logger, security.SensitiveDataMasker]:
-    """
-    Function used for initializing the scholar_flux package
-    Imports a '.env' config file in the event that it is available at a default location
-    Otherwise loads the default settings of the package.
+    """Function used for initializing the scholar_flux package Imports a '.env' config file in the event that it is
+    available at a default location Otherwise loads the default settings of the package.
 
     Also allows for dynamic re-initialization of configuration parameters and logging.
     config_parameters correspond to the scholar_flux.utils.ConfigSettings.load_config method.
@@ -47,6 +46,7 @@ def initialize_package(
 
     Raises:
         ValueError: If there are issues with loading the configuration or initializing the logger.
+
     """
 
     logger = logging.getLogger()
