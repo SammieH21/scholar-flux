@@ -1,11 +1,11 @@
 # /utils/paths/path_simplification.py
-"""
-The scholar_flux.utils.paths.path_simplification module implements the PathSimplifier that is used in the latter path
+"""The scholar_flux.utils.paths.path_simplification module implements the PathSimplifier that is used in the latter path
 processing steps to coerce a nested JSON structure into a singular list of dictionaries.
 
 The PathSimplifier will return the full paths to arrive at each path if allowed. Otherwise, the PathSimplifier will
 attempt to shorten the names in the final dictionary of paths up to the user-specified nested key (component) length
 while preventing name collisions from occurring.
+
 """
 from __future__ import annotations
 import logging
@@ -23,8 +23,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PathSimplifier:
-    """
-    A utility class for simplifying and managing Processing Paths.
+    """A utility class for simplifying and managing Processing Paths.
 
     Args:
         delimiter (str): The delimiter to use when splitting paths.
@@ -34,6 +33,7 @@ class PathSimplifier:
         delimiter (str): The delimiter used to separate components in the path.
         non_informative (List[str]): A list of non-informative components to be removed during simplification.
         name_mappings (Dict[ProcessingPath, str]): A dictionary for tracking unique names to avoid collisions.
+
     """
 
     delimiter: str = ProcessingPath.DEFAULT_DELIMITER
@@ -41,8 +41,7 @@ class PathSimplifier:
     name_mappings: Dict[ProcessingPath, str] = field(default_factory=dict)
 
     def _generate_base_name(self, path: ProcessingPath, max_components: int) -> ProcessingPath:
-        """
-        Generate a base name from the Processing Path.
+        """Generate a base name from the Processing Path.
 
         Args:
             path (ProcessingPath): The ProcessingPath object representing the path components.
@@ -53,6 +52,7 @@ class PathSimplifier:
 
         Raises:
             PathSimplificationError: If an error occurs during name generation.
+
         """
 
         if not isinstance(path, ProcessingPath) or path.depth < 1:
@@ -66,8 +66,7 @@ class PathSimplifier:
             raise PathSimplificationError(f"Error generating base name for path {path}: {e}")
 
     def _handle_collision(self, original_name: ProcessingPath) -> ProcessingPath:
-        """
-        Handle name collisions by appending a unique number to the original name.
+        """Handle name collisions by appending a unique number to the original name.
 
         Args:
             original_name (ProcessingPath): The original name that caused a collision.
@@ -77,6 +76,7 @@ class PathSimplifier:
 
         Raises:
             PathSimplificationError: If an error occurs while handling the collision.
+
         """
         try:
             counter = 1
@@ -93,8 +93,7 @@ class PathSimplifier:
         max_components: Optional[int],
         remove_noninformative: bool = False,
     ) -> ProcessingPath:
-        """
-        Generate a unique name for the given Processing Path.
+        """Generate a unique name for the given Processing Path.
 
         Args:
             path (ProcessingPath): The ProcessingPath object representing the path components.
@@ -106,6 +105,7 @@ class PathSimplifier:
 
         Raises:
             PathSimplificationError: If an error occurs during name generation.
+
         """
         if not isinstance(path, ProcessingPath):
             raise PathSimplificationError("The provided path must be a ProcessingPath object.")
@@ -146,8 +146,8 @@ class PathSimplifier:
         max_components: Optional[int],
         remove_noninformative: bool = False,
     ) -> Dict[ProcessingPath, str]:
-        """
-        Simplify paths by removing non-informative components and selecting the last 'max_components' informative components.
+        """Simplify paths by removing non-informative components and selecting the last 'max_components' informative
+        components.
 
         Args:
             paths (List[Union[ProcessingPath, str]]): List of path strings or ProcessingPaths to simplify.
@@ -160,6 +160,7 @@ class PathSimplifier:
 
         Raises:
             PathSimplificationError: If an error occurs during path simplification.
+
         """
         #       if not (paths and self.name_mappings):
         #           raise PathSimplificationError('A valid list of paths and a non-empty name mappings dictionary is required for simplification.')
@@ -187,8 +188,7 @@ class PathSimplifier:
         terminal_nodes: List[PathNode] | Set[PathNode],
         collapse: Optional[str] = ";",
     ) -> Dict[str, Any]:
-        """
-        Simplify terminal nodes by mapping them to their corresponding unique names.
+        """Simplify terminal nodes by mapping them to their corresponding unique names.
 
         Args:
             terminal_nodes (List[PathNode]): A list of PathNode objects representing the terminal nodes.
@@ -199,6 +199,7 @@ class PathSimplifier:
 
         Raises:
             PathSimplificationError: If an error occurs during simplification.
+
         """
         if not (terminal_nodes and self.name_mappings):
             raise PathSimplificationError(
@@ -226,14 +227,14 @@ class PathSimplifier:
 
     @classmethod
     def _collapse(cls, obj: Any, delimiter: str) -> Any:
-        """
-        Helper method for collapsing an item or list of items into a joined string if possible.
-        If an object that is an empty string or list is received, this function will return None instead.
+        """Helper method for collapsing an item or list of items into a joined string if possible. If an object that is
+        an empty string or list is received, this function will return None instead.
 
         Args:
             obj (Any): The object to flatten and collapse into a string
         Returns:
             Any: A flattened representation if possible, otherwise a joined string representation of the object
+
         """
         unnested_obj = unlist_1d(obj)
         if unnested_obj in ([], "") or unnested_obj is None:
@@ -241,8 +242,7 @@ class PathSimplifier:
         return delimiter.join(map(str, obj))
 
     def get_mapped_paths(self) -> Dict[ProcessingPath, str]:
-        """
-        Get the current name mappings.
+        """Get the current name mappings.
 
         Returns:
             Dict[ProcessingPath, str]: The dictionary of mappings from original paths to simplified names.
@@ -254,12 +254,12 @@ class PathSimplifier:
             Output:
 
             {ProcessingPath('a/b/c'): 'c', ProcessingPath('a/b/d'): 'd'}
+
         """
         return self.name_mappings
 
     def clear_mappings(self) -> None:
-        """
-        Clear all existing path mappings.
+        """Clear all existing path mappings.
 
         Example:
             ### simplifier = PathSimplifier()
@@ -268,6 +268,7 @@ class PathSimplifier:
             ### simplifier.get_mapped_paths()
         Output:
             {}
+
         """
         self.name_mappings.clear()
 

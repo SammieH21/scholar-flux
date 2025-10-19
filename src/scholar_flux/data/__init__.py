@@ -1,31 +1,33 @@
 # /data
-"""
-
-The scholar_flux.data module contains components that process the raw responses, enabling end users to interact with
-structured and formatted data after the scholar_flux SearchApi receives a valid response.
-This module, after receiving the response performs the following steps:
-     Response Parsing --> Record Extraction --> Record Processing
+"""The scholar_flux.data module contains components that process the raw responses, enabling end users to interact with
+structured and formatted data after the scholar_flux SearchApi receives a valid response. This module, after receiving
+the response performs the following steps: Response Parsing --> Record Extraction --> Record Processing.
 
 Stages:
-    - Response Parsing:
+    **Response Parsing**:
         Extracts XML, JSON, or YAML-based responses from the response content. The response content is automatically
         parsed  depending on the content type listed in the response header. This can be further customized to enable
         the processing of other content types in a streamlined way.
-    - Record Extraction:
+    **Record Extraction**:
         This phase involves the extraction of metadata and records from parsed API responses.
         The process of can be performed in two ways:
-            1. The paths of records are listed ahead of time, indicating individual metadata fields and where the list
-               of JSON records can be found if available.
-            2. The metadata and records can be identified automatically using heuristics instead:
-                Records are generally identified as a list of dictionaries where each list entry is a separate records
-                that may contain similar sets of fields.
+
+        1. The paths of records are listed ahead of time, indicating individual metadata fields and where the list
+        of JSON records can be found if available.
+
+        2. The metadata and records can be identified automatically using heuristics instead.
+        Records are generally identified as a list of dictionaries where each list entry is a separate records that
+        may contain similar sets of fields.
+
         The record extraction phase then returns the records and metadata as a tuple in that order.
-    - Record Processing:
+    **Record Processing**:
         The final stage of the response processing pipeline where the records are flattened, processed, and filtered.
         This stage often involves flattening each individual record element into the path where the data can be found
         and the value found at the end of the nested path. This stage also allows individual records to be filtered
         by key - paths can be retained or removed based on whether it contains a regex pattern or fixed string.
-        The results are then returned as a list of flattened dictionaries, depending on the Processor chosen:
+        The results are then returned as a list of flattened dictionaries, depending on the Processor chosen.
+
+        Processors:
 
             - DataProcessor:
                 Requires the end-user to manually specify the paths where data should be extracted in each record as
@@ -44,6 +46,7 @@ Stages:
 
     Each element in the processing pipeline is designed to be extensible and can be further customized and used in
     the retrieval of response data using base/ABC implementations:
+
         - BaseDataParser
         - BaseDataExtractor
         - ABCDataProcessor
@@ -59,6 +62,7 @@ Stages:
         >>> response.parsed_response # a JSON formatted response after parsing the response with the search_coordinator.parser
         >>> response.extracted_records # list of dictionaries containing records extracted using the search_coordinator.extractor
         >>> response.data # the list of dictionaries processed from the search_coordinator.processor
+
 """
 
 from scholar_flux.data.base_extractor import BaseDataExtractor

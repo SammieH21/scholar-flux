@@ -1,16 +1,14 @@
 # sessions/
-"""
-
-The scholar_flux.sessions module contains helper classes to set up HTTP sessions, both cached and uncached, with relatively
-straightforward configurations and a unified interface. The SessionManager and CachedSessionManager are designed
-as factory classes that return a constructed session object with the parameters provided.
-
+"""The scholar_flux.sessions module contains helper classes to set up HTTP sessions, both cached and uncached, with
+relatively straightforward configurations and a unified interface. The SessionManager and CachedSessionManager are
+designed as factory classes that return a constructed session object with the parameters provided.
 
 Classes:
-    - SessionManager: Creates a standard requests.Session that simply takes a user-agent parameter.
-    - CachedSessionManager: Creates a requests-cache.CachedSession with configurable options.
-                            This implementation uses pydantic for configuration to validate the
-                            parameters used to create the requests.CachedSession object.
+    - SessionManager:
+        Creates a standard requests.Session that simply takes a user-agent parameter.
+    - CachedSessionManager:
+        Creates a requests-cache.CachedSession with configurable options. This implementation uses pydantic for
+        configuration to validate the parameters used to create the requests.CachedSession object.
 
 Basic Usage:
     >>> from scholar_flux.api import SearchAPI
@@ -66,13 +64,14 @@ Raises:
 Cached Session Support:
     Cached sessions support all built-in subclasses originating from the BaseCache base class in requests-cache.
     This includes the following built-ins:
-        - Dynamo DB,
-        - File System cache,
-        - GridFS
-        - In-Memory
-        - Mongo DB
-        - Redis
-        - SQLite
+
+    - Dynamo DB,
+    - File System cache,
+    - GridFS
+    - In-Memory
+    - Mongo DB
+    - Redis
+    - SQLite
 
     Custom implementations of BaseCache are also supported.
 

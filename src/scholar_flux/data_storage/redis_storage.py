@@ -1,6 +1,5 @@
 # /data_storage/redis_storage.py
-"""
-The scholar_flux.data_storage.redis_storage module implements the RedisStorage class that implements the abstract
+"""The scholar_flux.data_storage.redis_storage module implements the RedisStorage class that implements the abstract
 methods required for compatibility with the DataCacheManager in the scholar_flux package.
 
 This class implements caching by using the serialization-deserialization and caching features available in Redis
@@ -9,6 +8,7 @@ to store ProcessedResponse fields within the database for later CRUD operations.
 WARNING: Ensure that the 'namespace' parameter is set to a non-empty, unique value for each logical cache.
 Using an empty or shared namespace may result in accidental deletion or overwriting of unrelated data. For that reason,
 the `delete_all` method does not perform any deletions unless a namespace exists
+
 """
 
 from __future__ import annotations
@@ -37,17 +37,16 @@ else:
 
 
 class RedisStorage(ABCStorage):
-    """
-    Implements the storage methods necessary to interact with Redis with a similar interface as other storage methods.
-    This implementation is designed to use a key-value store as a cache by which data can be stored and retrieved
-    in a relatively straightforward manner similar to the In-Memory Storage.
+    """Implements the storage methods necessary to interact with Redis with a similar interface as other storage
+    methods. This implementation is designed to use a key-value store as a cache by which data can be stored and
+    retrieved in a relatively straightforward manner similar to the In-Memory Storage.
 
     Examples:
 
         >>> from scholar_flux.data_storage import RedisStorage
         # Defaults to connecting to locally (localhost) on the default port for Redis services (6379)
         # Verifies that a Redis service is locally available.
-        >>> assert RedisStorage.is_available() 
+        >>> assert RedisStorage.is_available()
         >>> redis_storage = RedisStorage(namespace='testing_functionality')
         >>> print(redis_storage)
         # OUTPUT: RedisStorage(...)
@@ -68,6 +67,7 @@ class RedisStorage(ABCStorage):
         >>> redis_storage.delete_all() # deletes all records from the namespace
         >>> redis_storage.retrieve_keys() # Will now be empty
         >>> redis_storage.retrieve_all() # Will also be empty
+
     """
 
     DEFAULT_NAMESPACE: str = "SFAPI"
@@ -80,21 +80,23 @@ class RedisStorage(ABCStorage):
         ttl: Optional[int] = None,
         **redis_config,
     ):
-        """
-        Initialize the Redis storage backend and connect to the Redis server.
+        """Initialize the Redis storage backend and connect to the Redis server.
 
         Args:
-            host (Optional[str]): Redis server host. Can be provided positionally or as a keyword argument.
-                                  Defaults to 'localhost' if not specified.
-            namespace Optional[str]: The prefix associated with each cache key. Defaults to DEFAULT_NAMESPACE
-                                     if left `None`.
-            ttl Optional[int]: The total number of seconds that must elapse for a cache record
-                    to expire. If not provided, ttl defaults to None.
-            **redis_config Optional(Dict[Any, Any]): Configuration parameters required to connect
-                    to the Redis server. Typically includes parameters like host, port,
-                    db, etc.
+            host (Optional[str]):
+                Redis server host. Can be provided positionally or as a keyword argument. Defaults to
+                'localhost' if not specified.
+            namespace Optional[str]:
+                The prefix associated with each cache key. Defaults to DEFAULT_NAMESPACE if left `None`.
+            ttl Optional[int]:
+                The total number of seconds that must elapse for a cache record to expire. If not provided,
+                ttl defaults to None.
+            **redis_config Optional(Dict[Any, Any]):
+                Configuration parameters required to connect to the Redis server. Typically includes parameters
+                such as host, port, db, etc.
         Raises:
             RedisImportError: If redis module is not available or fails to load.
+
         """
         super().__init__()
 
@@ -119,24 +121,25 @@ class RedisStorage(ABCStorage):
         logger.info("RedisClient initialized and connected.")
 
     def clone(self) -> RedisStorage:
-        """
-        Helper method for creating a new RedisStorage with the same parameters. Note that
-        the implementation of the RedisStorage is not able to be deep copied, and this method
-        is provided for convenience in reinstantiation with the same configuration.
+        """Helper method for creating a new RedisStorage with the same parameters.
+
+        Note that the implementation of the RedisStorage is not able to be deep copied, and this method is provided for
+        convenience in re-instantiation with the same configuration.
+
         """
         cls = self.__class__
         return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
     def retrieve(self, key: str) -> Optional[Any]:
-        """
-        Retrieve the value associated with the provided key from cache.
+        """Retrieve the value associated with the provided key from cache.
 
         Args:
             key (str): The key used to fetch the stored data from cache.
 
         Returns:
-            Any: The value returned is deserialized JSON object if successful. Returns None
-                if the key does not exist.
+            Any:
+                The value returned is deserialized JSON object if successful. Returns None if the key does not exist.
+
         """
         try:
             namespace_key = self._prefix(key)
@@ -155,14 +158,14 @@ class RedisStorage(ABCStorage):
         return None
 
     def retrieve_all(self) -> Dict[str, Any]:
-        """
-        Retrieve all records from cache that match the current namespace prefix.
+        """Retrieve all records from cache that match the current namespace prefix.
 
         Returns:
-            dict: Dictionary of key-value pairs. Keys are original keys,
-                values are JSON deserialized objects.
+            dict:
+                Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
         Raises:
             RedisError: If there is an error during the retrieval of records under the namespace
+
         """
         try:
             matched_keys = self.retrieve_keys()
@@ -174,14 +177,14 @@ class RedisStorage(ABCStorage):
         return {}
 
     def retrieve_keys(self) -> List[str]:
-        """
-        Retrieve all keys for records from cache that match the current namespace prefix.
+        """Retrieve all keys for records from cache that match the current namespace prefix.
 
         Returns:
             list: A list of all keys saved under the current namespace.
 
         Raises:
             RedisError: If there is an error retrieving the record key
+
         """
         keys = []
         try:
@@ -196,17 +199,18 @@ class RedisStorage(ABCStorage):
         return keys
 
     def update(self, key: str, data: Any) -> None:
-        """
-        Update the cache by storing associated value with provided key.
+        """Update the cache by storing associated value with provided key.
 
         Args:
-            key (str): The key used to store the serialized JSON string in cache.
-            data (Any): A Python object that will be serialized into JSON format and stored.
-                This includes standard data types like strings, numbers, lists, dictionaries,
-                etc.
+            key (str):
+                The key used to store the serialized JSON string in cache.
+            data (Any):
+                A Python object that will be serialized into JSON format and stored. This includes standard data types
+                like strings, numbers, lists, dictionaries, etc.
 
         Raises:
             Redis: If an error occur when attempting to insert or update a record
+
         """
         try:
             with self.lock:
@@ -221,14 +225,14 @@ class RedisStorage(ABCStorage):
             logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}")
 
     def delete(self, key: str) -> None:
-        """
-        Delete the value associated with the provided key from cache.
+        """Delete the value associated with the provided key from cache.
 
         Args:
             key (str): The key used associated with the stored data from cache.
 
         Raises:
             RedisError: If there is an error deleting the record
+
         """
         try:
             namespace_key = self._prefix(key)
@@ -242,11 +246,11 @@ class RedisStorage(ABCStorage):
             logger.error(f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}")
 
     def delete_all(self) -> None:
-        """
-        Delete all records from cache that match the current namespace prefix.
+        """Delete all records from cache that match the current namespace prefix.
 
         Raises:
             RedisError: If there an error occurred when deleting records from the collection
+
         """
 
         # this function requires a namespace to avoid deleting unrelated data
@@ -268,8 +272,7 @@ class RedisStorage(ABCStorage):
             logger.error(f"Error during attempted deletion of all keys from namespace '{self.namespace}': {e}")
 
     def verify_cache(self, key: str) -> bool:
-        """
-        Check if specific cache key exists.
+        """Check if specific cache key exists.
 
         Args:
             key (str): The key to check its presence in the Redis storage backend.
@@ -281,6 +284,7 @@ class RedisStorage(ABCStorage):
             ValueError: If provided key is empty or None.
 
             RedisError: If an error occurs when looking up a key
+
         """
         try:
             if not key or not isinstance(key, str):
@@ -300,9 +304,8 @@ class RedisStorage(ABCStorage):
 
     @classmethod
     def is_available(cls, host: str = "localhost", port: int = 6379, verbose: bool = True) -> bool:
-        """
-        Helper class method for testing whether the Redis service can be accessed.
-        If so, this function returns True, otherwise False
+        """Helper class method for testing whether the Redis service can be accessed. If so, this function returns True,
+        otherwise False.
 
         Args:
             host (str): Indicates the location to attempt a connection
@@ -312,6 +315,7 @@ class RedisStorage(ABCStorage):
         Raises:
             TimeoutError: If a timeout error occurs when attempting to ping Redis
             ConnectionError: If a connection cannot be established
+
         """
         if not redis:
             logger.warning("The redis module is not available")

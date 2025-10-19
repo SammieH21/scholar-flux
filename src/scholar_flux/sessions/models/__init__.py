@@ -1,7 +1,5 @@
 # /sessions/models
-"""
-
-The scholar_flux.sessions.models module contains classes and form the basis for the creation and validation of
+"""The scholar_flux.sessions.models module contains classes and form the basis for the creation and validation of
 sessions and the parameters used to create them.
 
 This module also contains the underlying config that is necessary for the creation and validation of the
@@ -22,6 +20,7 @@ For example, the BaseSessionManager is subclassed into the SessionManager to cre
     >>> session_manager = SessionManager("my_scholar_flux_session") # Enforces the creation of a user agent
     ### The session_manager creates a session object for direct use in APIs
     >>> session = session_manager() # In this case, the manager creates a standard requests.Session
+
 """
 from scholar_flux.sessions.models.session import BaseSessionManager, CachedSessionConfig
 

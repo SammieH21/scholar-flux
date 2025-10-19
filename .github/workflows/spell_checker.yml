@@ -1,0 +1,21 @@
+name: Spell Checking
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  cspell:
+    name: Check spelling with cspell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: streetsidesoftware/cspell-action@v6
+        with:
+          config: './cspell.json'
+          incremental_files_only: false
+          files: 'src/**/*.py'  # Only check Python files in src/
+        continue-on-error: true

@@ -6,14 +6,14 @@ from scholar_flux.exceptions import RedisImportError
 
 @pytest.fixture(scope="session", autouse=True)
 def skip_missing_redis_dependency(db_dependency_unavailable):
-    """Helper fixture for only performing tests for redis when the client and dependency are available"""
+    """Helper fixture for only performing tests for redis when the client and dependency are available."""
 
     if db_dependency_unavailable("redis"):
         pytest.skip()
 
 
 def test_redis_retrieval_failure(redis_test_storage, monkeypatch, caplog):
-    """Helper method to test retrieval edge cases with data retrieval in redis"""
+    """Helper method to test retrieval edge cases with data retrieval in redis."""
     from redis import RedisError
 
     e = "Directly raised exception"
@@ -46,7 +46,7 @@ def test_redis_retrieval_failure(redis_test_storage, monkeypatch, caplog):
 
 
 def test_redis_update_failure(redis_test_storage, monkeypatch, caplog):
-    """Helper method to test update edge cases with data retrieval in redis"""
+    """Helper method to test update edge cases with data retrieval in redis."""
     from redis import RedisError
 
     e = "Directly raised exception"
@@ -59,7 +59,7 @@ def test_redis_update_failure(redis_test_storage, monkeypatch, caplog):
 
 
 def test_redis_delete_failure(redis_test_storage, monkeypatch, caplog):
-    """Helper method to test deletion edge cases with data retrieval in redis"""
+    """Helper method to test deletion edge cases with data retrieval in redis."""
     from redis import RedisError
 
     e = "Directly raised exception"
@@ -85,7 +85,7 @@ def test_redis_delete_failure(redis_test_storage, monkeypatch, caplog):
 
 
 def test_redis_verify_cache_failure(redis_test_storage, monkeypatch, caplog):
-    """Helper method to test cache verification edge cases with data retrieval in redis"""
+    """Helper method to test cache verification edge cases with data retrieval in redis."""
     from redis import RedisError
 
     intkey = 271
@@ -106,7 +106,7 @@ def test_redis_verify_cache_failure(redis_test_storage, monkeypatch, caplog):
 
 
 def test_redis_unavailable(redis_test_storage, caplog):
-    """Validates that, when the redis package is not installed, an error will be raised"""
+    """Validates that, when the redis package is not installed, an error will be raised."""
     with patch("scholar_flux.data_storage.redis_storage.redis", None):
         assert not redis_test_storage.is_available()
         assert "The redis module is not available" in caplog.text
@@ -118,7 +118,8 @@ def test_redis_unavailable(redis_test_storage, caplog):
 
 
 def test_redis_server_unavailable(redis_test_storage, monkeypatch, caplog):
-    """Verifies that the behavior of the RedisStorage is as expected when attempting to create a preliminary connection"""
+    """Verifies that the behavior of the RedisStorage is as expected when attempting to create a preliminary
+    connection."""
     import redis
     from redis import ConnectionError
 
@@ -133,9 +134,10 @@ def test_redis_server_unavailable(redis_test_storage, monkeypatch, caplog):
 
 
 def test_missing_namespace(redis_test_storage, monkeypatch, caplog):
-    """
-    Tests whether delete_all will successfully retain data as intended. this method uses a patch that should raise
-    an error deletion is attempted nonetheless
+    """Tests whether delete_all will successfully retain data as intended.
+
+    this method uses a patch that should raise an error deletion is
+    attempted nonetheless
     """
 
     current_namespace = redis_test_storage.namespace

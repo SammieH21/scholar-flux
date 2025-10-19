@@ -21,9 +21,10 @@ def skip_missing_encryption_dependency(session_encryption_dependency):
 
 
 def test_validate_key_error():
-    """
-    Validates whether the a string secret key will raise an error: The EncryptionPipelineFactory expects a Fernet
-    if a key is provided. Otherwise it should generate it automatically.
+    """Validates whether the a string secret key will raise an error: The EncryptionPipelineFactory expects a Fernet if
+    a key is provided.
+
+    Otherwise it should generate it automatically.
     """
     with pytest.raises(SecretKeyError):
         key = " " * 44
@@ -31,19 +32,18 @@ def test_validate_key_error():
 
 
 def test_generate_secret_key(skip_missing_encryption_dependency):
-    """
-    Tests the generation of a new Fernet key and verifies the type.
-    Fernet keys should be URL encoded bytes with a of a length `len(fernet) == 44`
+    """Tests the generation of a new Fernet key and verifies the type.
+
+    Fernet keys should be URL encoded bytes with a of a length
+    `len(fernet) == 44`
     """
     fernet = EncryptionPipelineFactory.generate_secret_key()
     assert isinstance(fernet, bytes) and len(fernet) == 44
 
 
 def test_env_key_loader(skip_missing_encryption_dependency, caplog):
-    """
-    Validates whether the use of a SCHOLAR_FLUX_CACHE_SECRET_KEY will be successfully when generating a new
-    encryption pipeline factory class
-    """
+    """Validates whether the use of a SCHOLAR_FLUX_CACHE_SECRET_KEY will be successfully when generating a new
+    encryption pipeline factory class."""
     # generates the fernet key
     fernet = EncryptionPipelineFactory.generate_secret_key()
 
@@ -56,9 +56,10 @@ def test_env_key_loader(skip_missing_encryption_dependency, caplog):
 
 
 def test_encryption_factory_secret_initialization(session_encryption_dependency):
-    """
-    Tests whether the initialization of a faulty and secret keys will raise the intended error.
-    Also validates whether valid secret keys are successfully used in the EncryptionPipelineFactory
+    """Tests whether the initialization of a faulty and secret keys will raise the intended error.
+
+    Also validates whether valid secret keys are successfully used in
+    the EncryptionPipelineFactory
     """
     if not session_encryption_dependency:
         pytest.skip()
@@ -88,7 +89,7 @@ def test_encryption_factory_secret_initialization(session_encryption_dependency)
 
 
 def test_missing_encryption(session_encryption_dependency):
-    """Validates whether a missing package dependency will correctly raise an error once instantiated"""
+    """Validates whether a missing package dependency will correctly raise an error once instantiated."""
     if not session_encryption_dependency:
         pytest.skip()
 
@@ -109,13 +110,14 @@ def test_encrypted_cached_session_initialization(
     incorrect_secret_salt_encryption_cache_session_manager,
     session_encryption_dependency,
 ):
-    """
-    Verifies that, when available, the EncryptionPipelineFactory works as intended to encrypt session cache
-    when using the initial fernet key for session encryption and decryption.
+    """Verifies that, when available, the EncryptionPipelineFactory works as intended to encrypt session cache when
+    using the initial fernet key for session encryption and decryption.
 
-    Also validates that, when a new fernet key is used to attempt to access the same encrypted cache sql file with a
-    a session encryption pipeline, the SearchAPI will instead raise an InvalidToken error indicating that the
-    previously accessible resource can't be accessed with the current, incorrect Fernet key.
+    Also validates that, when a new fernet key is used to attempt to
+    access the same encrypted cache sql file with a a session encryption
+    pipeline, the SearchAPI will instead raise an InvalidToken error
+    indicating that the previously accessible resource can't be accessed
+    with the current, incorrect Fernet key.
     """
 
     if not session_encryption_dependency:

@@ -1,15 +1,15 @@
 # /api/workflows/search_workflow.py
-"""
-Implements the workflow steps, runner, and context necessary for orchestrating a workflow that retrieves and
-processes API responses using a sequential methodology. These classes form the base of how a workflow is designed
-and can be used directly to create a multi-step workflow or subclassed to further customize the functionality of
-the workflow.
+"""Implements the workflow steps, runner, and context necessary for orchestrating a workflow that retrieves and
+processes API responses using a sequential methodology. These classes form the base of how a workflow is designed and
+can be used directly to create a multi-step workflow or subclassed to further customize the functionality of the
+workflow.
 
 Classes:
     StepContext: Defines the step context to be transferred to the next step in a workflow to modify its function
     WorkflowStep: Contains the necessary logic and instructions for executing the current step of the SearchWorkflow
     WorkflowResult: Class that holds the history and final result of a workflow after successful execution
     SearchWorkflow: Defines and fully executes a workflow and the steps used to arrive at the final result
+
 """
 from __future__ import annotations
 from pydantic import Field, PrivateAttr, field_validator
@@ -31,15 +31,15 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowStep(BaseWorkflowStep):
-    """
-    Defines a specific step in a workflow and indicates its processing metadata and execution instructions before,
+    """Defines a specific step in a workflow and indicates its processing metadata and execution instructions before,
     during, and after the execution of the `search` procedure in this step of the `SearchWorkflow`.
 
-        Args:
-            provider_name: Optional[str]: Allows for the modification of the current provider for multifaceted searches
-            **search_parameters:  defines optional keyword arguments to pass to SearchCoordinator._search()
-            **config_parameters:  defines optional keyword arguments that modify the step's SearchAPIConfig
-            **description (str): An optional description explaining the execution and/or purpose of the current step
+    Args:
+        provider_name: Optional[str]: Allows for the modification of the current provider for multifaceted searches
+        **search_parameters:  defines optional keyword arguments to pass to SearchCoordinator._search()
+        **config_parameters:  defines optional keyword arguments that modify the step's SearchAPIConfig
+        **description (str): An optional description explaining the execution and/or purpose of the current step
+
     """
 
     provider_name: Optional[str] = Field(default=None, description="The provider to use for this step.")
@@ -51,7 +51,7 @@ class WorkflowStep(BaseWorkflowStep):
 
     @field_validator("provider_name", mode="after")
     def format_provider_name(cls, v) -> str:
-        """Helper method used to format the inputted provider name using name normalization after type checking"""
+        """Helper method used to format the inputted provider name using name normalization after type checking."""
         if isinstance(v, str):
             v = ProviderConfig._normalize_name(v)
         return v
@@ -63,8 +63,7 @@ class WorkflowStep(BaseWorkflowStep):
         search_parameters: Optional[dict] = None,
         config_parameters: Optional[dict] = None,
     ) -> Self:
-        """
-        Overrides the `pre_transform of the base workflow step to allow for the modification of runtime search
+        """Overrides the `pre_transform of the base workflow step to allow for the modification of runtime search
         behavior to modify the current search and its behavior.
 
         Args:
@@ -76,6 +75,7 @@ class WorkflowStep(BaseWorkflowStep):
 
         Returns:
             SearchWorkflowStep: A modified or copied version of the current search workflow step
+
         """
 
         if ctx is not None:
@@ -93,8 +93,7 @@ class WorkflowStep(BaseWorkflowStep):
         )
 
     def post_transform(self, ctx: StepContext, *args, **kwargs) -> StepContext:
-        """
-        Helper method that validates whether the current `ctx` is a StepContext before returning the result
+        """Helper method that validates whether the current `ctx` is a StepContext before returning the result.
 
         Args:
             ctx (StepContext): The context to verify as a StepContext
@@ -103,16 +102,16 @@ class WorkflowStep(BaseWorkflowStep):
 
         Raises:
             TypeError: If the current `ctx` is not a StepContext
+
         """
         self._verify_context(ctx)
         return ctx  # Identity: returns context unchanged
 
 
 class StepContext(BaseStepContext):
-    """
-    Helper class that holds information on the Workflow step, step number, and its results after execution.
-    This StepContext is passed before and after the execution of a SearchWorkflowStep to dynamically aid in
-    the modification of the functioning of each step at runtime.
+    """Helper class that holds information on the Workflow step, step number, and its results after execution. This
+    StepContext is passed before and after the execution of a SearchWorkflowStep to dynamically aid in the modification
+    of the functioning of each step at runtime.
 
     Args:
         step_number (int): Indicate the order in which the step is executed for a particular step context
@@ -120,6 +119,7 @@ class StepContext(BaseStepContext):
                              each step of a workflow. This value defines both the step taken to arrive at the result.
         result (Optional[ProcessedResponse | ErrorResponse]): Indicates the result that was retrieved and processed in
                                                               the current step
+
     """
 
     step_number: int
@@ -131,12 +131,12 @@ class StepContext(BaseStepContext):
 
 
 class WorkflowResult(BaseWorkflowResult):
-    """
-    Helper class that encapsulates the result and history in an object
+    """Helper class that encapsulates the result and history in an object.
 
     Args:
         history (List[StepContext]): Defines the context of steps and results taken to arrive at a particular result
         result (Any): The final result after the execution of a workflow
+
     """
 
     history: List[StepContext]
@@ -144,15 +144,14 @@ class WorkflowResult(BaseWorkflowResult):
 
 
 class SearchWorkflow(BaseWorkflow):
-    """
-    Front-end SearchWorkflow class that is further refined for particular providers base on subclassing.
-    This class defines the full workflow used to arrive at a result and records the history of each search
-    at any particular step.
+    """Front-end SearchWorkflow class that is further refined for particular providers base on subclassing. This class
+    defines the full workflow used to arrive at a result and records the history of each search at any particular step.
 
     Args:
         steps (List[WorkflowStep]): Defines the steps to be iteratively executed to arrive at a result.
         history (List[StepContext]): Defines the full context of all steps taken and results recorded to arrive at the
                                      final result on the completion of an executed workflow.
+
     """
 
     steps: List[WorkflowStep]
@@ -164,8 +163,7 @@ class SearchWorkflow(BaseWorkflow):
         verbose: bool = True,
         **keyword_parameters,
     ) -> WorkflowResult:
-        """
-        Executes the workflow using the provided search coordinator.
+        """Executes the workflow using the provided search coordinator.
 
         Args:
             search_coordinator (BaseCoordinator): The search coordinator to use for executing the workflow.
@@ -174,6 +172,7 @@ class SearchWorkflow(BaseWorkflow):
 
         Returns:
             List[StepContext]: A list of StepContext objects representing the state at each step.
+
         """
         i = 0
         result = None
@@ -209,8 +208,7 @@ class SearchWorkflow(BaseWorkflow):
         return WorkflowResult(history=self._history, result=result)
 
     def __call__(self, *args, **kwargs) -> WorkflowResult:
-        """
-        Similarly enables the current workflow instance to executed like a function. This method calls the `_run`
+        """Similarly enables the current workflow instance to executed like a function. This method calls the `_run`
         private method under the hood to initiate the workflow.
 
         Args:
@@ -219,6 +217,7 @@ class SearchWorkflow(BaseWorkflow):
 
         Returns:
             WorkflowResult: The final result of a SearchWorkflow when its execution and retrieval is successful.
+
         """
         return self._run(*args, **kwargs)
 

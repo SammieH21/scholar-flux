@@ -1,6 +1,4 @@
-"""
-
-The scholar_flux.security module contains classes and models created specifically for ensuring that console and file
+"""The scholar_flux.security module contains classes and models created specifically for ensuring that console and file
 logs do not contain sensitive data. The set of modules uses pattern matching to determine whether, when sending a
 request, any known API keys are filtered from the logs.
 

@@ -3,10 +3,8 @@ import pytest
 
 @pytest.fixture
 def sample_json():
-    """
-    A JSON fixture used to mock a simple json data set to validate the JSON processing utilities that filter, process,
-    and flatten JSON files.
-    """
+    """A JSON fixture used to mock a simple json data set to validate the JSON processing utilities that filter,
+    process, and flatten JSON files."""
     sample_json = [
         {
             "name": "John",
@@ -19,10 +17,9 @@ def sample_json():
 
 @pytest.fixture
 def mock_api_parsed_json_records():
-    """
-    A mock json data set used to verify whether recursive and path-based scholar_flux JSON processing utilities produce
-    the expected result using a format that more closely matches the general format that is returned by academic APIs.
-    """
+    """A mock json data set used to verify whether recursive and path-based scholar_flux JSON processing utilities
+    produce the expected result using a format that more closely matches the general format that is returned by academic
+    APIs."""
     return [
         {
             "authors": {"principle_investigator": "Dr. Smith", "assistant": "Jane Doe"},

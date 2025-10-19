@@ -11,8 +11,7 @@ import os
 
 @pytest.fixture
 def core_api_key() -> Optional[SecretStr]:
-    """
-    Masked API key that is otherwise required for testing and retrieval of data from the CORE API.
+    """Masked API key that is otherwise required for testing and retrieval of data from the CORE API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
     is instead validated to ensure it is registered as a valid secret key in the config
@@ -28,8 +27,7 @@ def core_api_key() -> Optional[SecretStr]:
 
 @pytest.fixture
 def pubmed_api_key() -> Optional[SecretStr]:
-    """
-    Masked API key that is otherwise required for testing and retrieval of data from the NIH PubMed database.
+    """Masked API key that is otherwise required for testing and retrieval of data from the NIH PubMed database.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
     is instead validated to ensure it is registered as a valid secret key in the config
@@ -45,8 +43,7 @@ def pubmed_api_key() -> Optional[SecretStr]:
 
 @pytest.fixture
 def springer_nature_api_key() -> Optional[SecretStr]:
-    """
-    Masked API key that is otherwise required for testing and retrieval of data from the Springer Nature API.
+    """Masked API key that is otherwise required for testing and retrieval of data from the Springer Nature API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
     is instead validated to ensure it is registered as a valid secret key in the config
@@ -62,8 +59,7 @@ def springer_nature_api_key() -> Optional[SecretStr]:
 
 @pytest.fixture
 def crossref_api_key() -> Optional[SecretStr]:
-    """
-    Masked API key that is otherwise required for testing and retrieval of data from the Crossref API.
+    """Masked API key that is otherwise required for testing and retrieval of data from the Crossref API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
     is instead validated to ensure it is registered as a valid secret key in the config
@@ -79,17 +75,14 @@ def crossref_api_key() -> Optional[SecretStr]:
 
 @pytest.fixture
 def scholar_flux_logger() -> logging.Logger:
-    """
-    Helper method used for retrieving the logger used by scholar_flux to log events that occur during use
-    for user feedback.
-    """
+    """Helper method used for retrieving the logger used by scholar_flux to log events that occur during use for user
+    feedback."""
     return logger
 
 
 @pytest.fixture
 def original_config_test_api_key() -> SecretStr:
-    """
-    Helper API key used to later mock and test using a fake, yet consistent API key.
+    """Helper API key used to later mock and test using a fake, yet consistent API key.
 
     SecretStr: The mocked API key tha has been formatted as a secret string.
     """
@@ -98,8 +91,7 @@ def original_config_test_api_key() -> SecretStr:
 
 @pytest.fixture
 def new_config_test_api_key() -> SecretStr:
-    """
-    A helper API key used to later mock and test configurations that, for different provider, require a different
+    """A helper API key used to later mock and test configurations that, for different provider, require a different
     mocked API key.
 
     Returns:
@@ -110,10 +102,8 @@ def new_config_test_api_key() -> SecretStr:
 
 @pytest.fixture
 def original_config(original_config_test_api_key):
-    """
-    A helper config fixture used to simulate a configuration that aids in the retrieval of data from the mocked
-    http://original.com API.
-    """
+    """A helper config fixture used to simulate a configuration that aids in the retrieval of data from the mocked
+    http://original.com API."""
     return SearchAPIConfig(
         base_url="https://original.com", records_per_page=10, request_delay=1, api_key=original_config_test_api_key
     )
@@ -121,10 +111,8 @@ def original_config(original_config_test_api_key):
 
 @pytest.fixture
 def new_config(new_config_test_api_key):
-    """
-    A helper config fixture used to simulate a configuration that aids in the retrieval of data from the mocked
-    http://new.com API.
-    """
+    """A helper config fixture used to simulate a configuration that aids in the retrieval of data from the mocked
+    http://new.com API."""
     return SearchAPIConfig(
         base_url="https://new.com", records_per_page=5, request_delay=2, api_key=new_config_test_api_key
     )
@@ -132,19 +120,19 @@ def new_config(new_config_test_api_key):
 
 @pytest.fixture
 def original_api_parameter_config():
-    """
-    Helper configuration used to mock the creation of api parameter configurations without requiring explicit settings.
-    This parameter configuration is used to mock the APIParameterConfig for the mocked `https://original.com` API.
+    """Helper configuration used to mock the creation of api parameter configurations without requiring explicit
+    settings.
+
+    This parameter configuration is used to mock the APIParameterConfig
+    for the mocked `https://original.com` API.
     """
     return APIParameterConfig.from_defaults("crossref")
 
 
 @pytest.fixture
 def new_api_parameter_config():
-    """
-    Helper configuration used to mock the creation of a new configuration without requiring explicit settings
-    This parameter configuration is used to mock the APIParameterConfig for the mocked `https://new.com` API.
-    """
+    """Helper configuration used to mock the creation of a new configuration without requiring explicit settings This
+    parameter configuration is used to mock the APIParameterConfig for the mocked `https://new.com` API."""
     return APIParameterConfig.from_defaults("plos")
 
 

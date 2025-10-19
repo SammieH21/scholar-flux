@@ -1,8 +1,6 @@
 # /utils/paths
-"""
-
-The scholar_flux.utils.paths module contains a series of related classes that serve the purpose of providing a unified
-interface for processing json paths in a manner that simplifies the implementation of nested values into paths
+"""The scholar_flux.utils.paths module contains a series of related classes that serve the purpose of providing a
+unified interface for processing json paths in a manner that simplifies the implementation of nested values into paths
 leading to terminal values (keys) and the terminal elements (values).
 
 Modules:
@@ -86,6 +84,7 @@ Examples:
                 'authors.principle_investigator': 'Dr. Smith',
                 'genre.subspecialty': 'Neuroscience',
                 'journal.topic': 'Sleep Research'}]
+
 """
 from scholar_flux.utils.paths.processing_path import ProcessingPath
 from scholar_flux.utils.paths.processing_cache import PathProcessingCache

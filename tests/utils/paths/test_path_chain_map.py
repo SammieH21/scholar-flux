@@ -15,7 +15,7 @@ from scholar_flux.utils.paths import ProcessingPath, PathNode, PathNodeMap, Reco
 
 @pytest.fixture
 def all_path_nodes():
-    """Fixture for mocking nodes from a single record"""
+    """Fixture for mocking nodes from a single record."""
     all_path_nodes = []
     for i in range(10):
         idx = i
@@ -28,13 +28,13 @@ def all_path_nodes():
 
 @pytest.fixture
 def default_mapping(all_path_nodes):
-    """Creates a ChainMap from the previously created fixture"""
+    """Creates a ChainMap from the previously created fixture."""
     default_mapping = RecordPathChainMap(*all_path_nodes)
     return default_mapping
 
 
 def test_blank_initialization():
-    """Testing the initialization of a chainmap without arguments"""
+    """Testing the initialization of a chainmap without arguments."""
     mapping = RecordPathChainMap()
     assert mapping == RecordPathChainMap({})  # type: ignore
     assert mapping == RecordPathChainMap(set())  # type: ignore
@@ -43,10 +43,8 @@ def test_blank_initialization():
 
 
 def test_initialization(all_path_nodes):
-    """
-    Verifies whether the RecordPathChainMap will correctly initialize with the assigned records with the
-    different configurations used to assign records to the mapping.
-    """
+    """Verifies whether the RecordPathChainMap will correctly initialize with the assigned records with the different
+    configurations used to assign records to the mapping."""
     mapping = RecordPathChainMap()
     assert len(mapping) == 0
 
@@ -80,11 +78,11 @@ def test_initialization(all_path_nodes):
 
 
 def test_inferred_record_index():
-    """
-    Verifies whether not directly specifying a record_index throws an error or infers from the input nodes.
+    """Verifies whether not directly specifying a record_index throws an error or infers from the input nodes.
 
-    Whenever a RecordPathNodeMap is specified with defaults, the index should be inferred from the first element
-    of each path. An error is raised when encountering zero or more than one record_index.
+    Whenever a RecordPathNodeMap is specified with defaults, the index
+    should be inferred from the first element of each path. An error is
+    raised when encountering zero or more than one record_index.
     """
     a1 = PathNode.to_path_node("1.a", value=1)
     a2 = PathNode.to_path_node("1.b", value=2)
@@ -112,10 +110,8 @@ def test_inferred_record_index():
 
 
 def test_formatting(all_path_nodes):
-    """
-    Tests whether the helper function accommodates a the expected range of inputs including nodes and/or
-    a sequence/mapping of nodes as intended.
-    """
+    """Tests whether the helper function accommodates a the expected range of inputs including nodes and/or a
+    sequence/mapping of nodes as intended."""
     positional_params = (node for record in all_path_nodes[5:] for node in record.values())
     keyword_params = {str(path): node for record in all_path_nodes[:5] for path, node in record.items()}
 
@@ -132,11 +128,11 @@ def test_formatting(all_path_nodes):
 
 
 def test_invalid_formatting():
-    """
-    Validates the `_format_nodes_as_dict` function by attempting to raise a PathNodeMapError by providing invalid inputs
-    that should raise the exception.
+    """Validates the `_format_nodes_as_dict` function by attempting to raise a PathNodeMapError by providing invalid
+    inputs that should raise the exception.
 
-    This test identifies whether non-nodes are successfully flagged and the appropriate exception raised.
+    This test identifies whether non-nodes are successfully flagged and
+    the appropriate exception raised.
     """
     new_path_node = RecordPathNodeMap(record_index=1)
     invalid_path_node = {"a": " "}
@@ -149,11 +145,11 @@ def test_invalid_formatting():
 
 
 def test_record_map_creation():
-    """
-    Tests instantiation of a record map using several instantiation methods with a sequence/mapping of nodes.
+    """Tests instantiation of a record map using several instantiation methods with a sequence/mapping of nodes.
 
-    Each method should result in the same record map structure and not vary.
-    We can consider a sequence of nodes to internally map a path to a node value.
+    Each method should result in the same record map structure and not
+    vary. We can consider a sequence of nodes to internally map a path
+    to a node value.
     """
     a1 = PathNode.to_path_node("1.a", value=1)
     a2 = PathNode.to_path_node("1.b", value=2)
@@ -196,10 +192,8 @@ def test_record_map_creation():
 
 
 def test_chain_input_preparation():
-    """
-    Test robustness and equality of methods used to prepare node inputs for use in practice
-    by testing `_prepare_inputs` with a range of both valid and invalid inputs.
-    """
+    """Test robustness and equality of methods used to prepare node inputs for use in practice by testing
+    `_prepare_inputs` with a range of both valid and invalid inputs."""
     a1 = PathNode.to_path_node("2.a", value=1)
     a2 = PathNode.to_path_node("2.b", value=2)
     a3 = PathNode.to_path_node("2.c", value=3)
@@ -230,7 +224,7 @@ def test_chain_input_preparation():
 
 
 def test_invalid_record_indices():
-    """Ensures invalid record indices are flagged as such: includes inputs with two different prefixes in path names"""
+    """Ensures invalid record indices are flagged as such: includes inputs with two different prefixes in path names."""
     a1 = PathNode.to_path_node("1.a", value=1)
     b1 = PathNode.to_path_node("2.g", value=3)
 
@@ -240,10 +234,8 @@ def test_invalid_record_indices():
 
 
 def test_record_map_resolution(all_path_nodes):
-    """
-    Validates whether each of the following methods produces the same output when generating record maps from
-    mappings and lists using the `RecordPathChainMap._resolve_record_maps` method.
-    """
+    """Validates whether each of the following methods produces the same output when generating record maps from
+    mappings and lists using the `RecordPathChainMap._resolve_record_maps` method."""
     record_map_one = RecordPathChainMap._resolve_record_maps(*all_path_nodes)
     record_map_two = RecordPathChainMap._resolve_record_maps(
         *(node for node_map in all_path_nodes for node in node_map.values())
@@ -263,11 +255,9 @@ def test_record_map_resolution(all_path_nodes):
 
 
 def test_extract_record_index():
-    """
-    Validates the record index calculation of record indices against valid and invalid inputs to determine whether
+    """Validates the record index calculation of record indices against valid and invalid inputs to determine whether
     each input produces the intended result and is consistent with the record indices that originate from individual
-    paths.
-    """
+    paths."""
     path_string = "1.2.3"
     path = ProcessingPath(path_string)
     assert RecordPathChainMap._extract_record_index(path_string) == path.record_index
@@ -284,11 +274,11 @@ def test_extract_record_index():
 
 
 def test_filtering(all_path_nodes):
-    """
-    Tests filtering against a range of both valid and invalid inputs to ensure that filtering correctly
-    returns nodes matching a condition when valid inputs are received.
+    """Tests filtering against a range of both valid and invalid inputs to ensure that filtering correctly returns nodes
+    matching a condition when valid inputs are received.
 
-    Also verifies edge cases concerning invalid inputs and exceptions that can result with invalid inputs.
+    Also verifies edge cases concerning invalid inputs and exceptions
+    that can result with invalid inputs.
     """
     mapping = RecordPathChainMap()
 
@@ -318,8 +308,7 @@ def test_filtering(all_path_nodes):
 
 
 def test_retrieval(all_path_nodes, default_mapping):
-    """
-    Tests whether each source (the nodes used to create the mapping and the methods of the map) correctly identifies
+    """Tests whether each source (the nodes used to create the mapping and the methods of the map) correctly identifies
     the same nodes using the `retrieve` method and the `node_exists` method with nodes and paths respectively.
 
     In contrast, a non-node/path should raise an error.
@@ -352,13 +341,12 @@ def test_node_validation(all_path_nodes):
 
 
 def test_contains(default_mapping):
-    """
-    Verifies that key membership is operating as intended. Nodes, paths, and strings should first be coerced
-    into paths and subsequently record_indexes to verify whether, first, the record_index exists associated
-    with the path.
+    """Verifies that key membership is operating as intended. Nodes, paths, and strings should first be coerced into
+    paths and subsequently record_indexes to verify whether, first, the record_index exists associated with the path.
 
-    If an actual path is specified instead of a record index, then membership testing will existing to the path
-    and verify whether the associated path node exists.
+    If an actual path is specified instead of a record index, then
+    membership testing will existing to the path and verify whether the
+    associated path node exists.
     """
     assert "1100" not in default_mapping
     assert None not in default_mapping
