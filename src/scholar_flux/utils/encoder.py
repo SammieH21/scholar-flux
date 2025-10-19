@@ -1,16 +1,18 @@
 # /utils/encoder.py
-"""
-The scholar_flux.utils.encoder module contains implementations of encoder-decoder helper classes that help
-abstract the serialization and deserialization of JSON data sets for easier storage.
+"""The scholar_flux.utils.encoder module contains implementations of encoder-decoder helper classes that help abstract
+the serialization and deserialization of JSON data sets for easier storage.
 
 Responses from APIs often contains non-serializable data types including non-traditional sequences and mappings
 that aren't directly serializable. The implementations directly aid in creating representations of these classes
 that can be used to reconstruct the original object after serialization with built-in types.
 
 Classes:
-    CacheDataEncoder: Helper class used to recursively encode and decode nested JSON data with mixed data types.
-    JsonDataEncoder: Helper class that builds on the CacheDataEncoder to provide built-in JSON loading/dumping
-                     support that aids in the creation of a simple Serialization-Deserialization pipeline.
+    CacheDataEncoder:
+        Helper class used to recursively encode and decode nested JSON data with mixed data types.
+    JsonDataEncoder:
+        Helper class that builds on the CacheDataEncoder to provide built-in JSON loading/dumping
+        support that aids in the creation of a simple Serialization-Deserialization pipeline.
+
 """
 import base64
 import json
@@ -23,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class CacheDataEncoder:
-    """
-    A utility class to encode data into a base64 string representation or decode it back from base64.
+    """A utility class to encode data into a base64 string representation or decode it back from base64.
 
     This class supports encoding binary data (bytes) and recursively handles nested structures
     such as dictionaries and lists by encoding their elements, preserving the original structure upon decoding.
@@ -54,6 +55,7 @@ class CacheDataEncoder:
         >>> encoded_data = CacheDataEncoder.encode(data)
         >>> serialized_data = json.dumps(encoded_data)
         >>> assert data == CacheDataEncoder.decode(json.loads(serialized_data))
+
     """
 
     DEFAULT_HASH_PREFIX: Optional[str] = "<hashbytes>"
@@ -61,10 +63,8 @@ class CacheDataEncoder:
 
     @classmethod
     def is_base64(cls, s: str | bytes, hash_prefix: Optional[str] = None) -> bool:
-        """
-        Check if a string is a valid base64 encoded string. Encoded strings can optionally
-        be identified with a hash_prefix to streamline checks to determine whether or not to
-        later decode a base64 encoded string.
+        """Check if a string is a valid base64 encoded string. Encoded strings can optionally be identified with a
+        hash_prefix to streamline checks to determine whether or not to later decode a base64 encoded string.
 
         As a general heuristic when encoding and decoding base 64 objects, a string should be equal
         to its original value after encoding and decoding the string. In this implementation,
@@ -78,6 +78,7 @@ class CacheDataEncoder:
 
         Returns:
             bool: True if the string is base64 encoded, False otherwise.
+
         """
         if isinstance(s, (str, bytes)) and not s:
             return False
@@ -110,9 +111,8 @@ class CacheDataEncoder:
 
     @classmethod
     def is_nonreadable(cls, s: bytes, prop: Optional[float] = None) -> bool:
-        """
-        Check if a decoded byte string contains a high percentage of non-printable characters.
-        Non-printable characters are defined as those not within the unicode range of (32 <= c <= 126).
+        """Check if a decoded byte string contains a high percentage of non-printable characters. Non-printable
+        characters are defined as those not within the unicode range of (32 <= c <= 126).
 
         Args:
             s (bytes): The byte string to check.
@@ -121,6 +121,7 @@ class CacheDataEncoder:
 
         Returns:
             bool: True if the string is likely gibberish, False otherwise.
+
         """
         p = prop if prop is not None else cls.DEFAULT_NONREADABLE_PROP
         non_printable_count = sum(1 for c in s if not (32 <= c <= 126))
@@ -130,9 +131,8 @@ class CacheDataEncoder:
 
     @classmethod
     def encode(cls, data: Any, hash_prefix: Optional[str] = None) -> Any:
-        """
-        Recursively encodes all items that contain elements that cannot be directly serialized into JSON into
-        a format more suitable for serialization:
+        """Recursively encodes all items that contain elements that cannot be directly serialized into JSON into a
+        format more suitable for serialization:
 
             - Mappings are converted into dictionaries
             - Sets and other uncommon Sequences other than lists and tuples are converted into lists
@@ -149,6 +149,7 @@ class CacheDataEncoder:
         Returns:
             Any: Encoded string (for bytes) or a dictionary/list/tuple
                  with recursively encoded elements.
+
         """
 
         hash_prefix = hash_prefix if hash_prefix is not None else cls.DEFAULT_HASH_PREFIX
@@ -167,8 +168,8 @@ class CacheDataEncoder:
 
     @classmethod
     def decode(cls, data: Any, hash_prefix: Optional[str] = None) -> Any:
-        """
-        Recursively decodes base64 strings back to bytes or recursively decode elements within dictionaries and lists.
+        """Recursively decodes base64 strings back to bytes or recursively decode elements within dictionaries and
+        lists.
 
         Args:
             data (Any): The input data that needs decoding from a base64 encoded format.
@@ -181,6 +182,7 @@ class CacheDataEncoder:
         Returns:
             Any: Decoded bytes for byte-based representations or recursively decoded elements
                  within the dictionary/list/tuple if applicable.
+
         """
 
         hash_prefix = hash_prefix if hash_prefix is not None else cls.DEFAULT_HASH_PREFIX
@@ -201,8 +203,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _encode_bytes(cls, data: bytes, hash_prefix: Optional[str] = None) -> str:
-        """
-        Helper method for encoding a bytes objects into strings.
+        """Helper method for encoding a bytes objects into strings.
 
         Args:
             data (bytes): The bytes to encode.
@@ -210,6 +211,7 @@ class CacheDataEncoder:
 
         Returns:
             str: The base64-encoded string, optionally prefixed.
+
         """
 
         try:
@@ -222,8 +224,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _encode_dict(cls, data: MutableMapping, hash_prefix: Optional[str] = None) -> dict:
-        """
-        Helper method for recursively encoding a mutable mapping containing encoded value into its original encoded
+        """Helper method for recursively encoding a mutable mapping containing encoded value into its original encoded
         representation.
 
         Args:
@@ -232,6 +233,7 @@ class CacheDataEncoder:
 
         Returns:
             dict: A dictionary containing the recursively encoded elements.
+
         """
         # exact type comparison, ignores format
         if type(data) is not dict:  # noqa: E721
@@ -246,8 +248,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _encode_list(cls, data: MutableSequence | set, hash_prefix: Optional[str] = None) -> list:
-        """
-        Helper method for encoding a list containing encoded value into its original encoded representation.
+        """Helper method for encoding a list containing encoded value into its original encoded representation.
 
         Args:
             data (MutableSequence | set): The MutableSequence, list, or set to encode.
@@ -255,6 +256,7 @@ class CacheDataEncoder:
 
         Returns:
             list: A list containing the recursively encoded elements
+
         """
         # exact type comparison, ignores format
         if type(data) is not list:  # noqa: E721
@@ -269,8 +271,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _encode_tuple(cls, data: tuple, hash_prefix: Optional[str] = None) -> tuple:
-        """
-        Helper method for encoding a tuple containing encoded value into its original encoded representation.
+        """Helper method for encoding a tuple containing encoded value into its original encoded representation.
 
         Args:
             data (tuple): The tuple to encode.
@@ -278,7 +279,9 @@ class CacheDataEncoder:
 
         Returns:
             tuple: A tuple containing the recursively encoded elements
-        ."""
+        .
+
+        """
         try:
             hash_prefix = hash_prefix or ""
             return tuple(cls.encode(item, hash_prefix) for item in data)
@@ -289,8 +292,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _decode_string(cls, data: str | bytes, hash_prefix: Optional[str] = None) -> str | bytes:
-        """
-        Helper method for decoding a string into bytes if possible. Otherwise the original string is returned.
+        """Helper method for decoding a string into bytes if possible. Otherwise the original string is returned.
 
         Args:
             data (str): The string to encode back into bytes if a bytes type.
@@ -298,6 +300,7 @@ class CacheDataEncoder:
 
         Returns:
             str | bytes: A bytes object decoded from a base64 string if successful, otherwise returns the original str
+
         """
 
         if isinstance(hash_prefix, str) and isinstance(data, str) and not data.startswith(hash_prefix):
@@ -321,8 +324,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _decode_dict(cls, data: dict, hash_prefix: Optional[str] = None) -> dict:
-        """
-        Helper method for decoding a dictionary containing encoded value into its original decoded representation.
+        """Helper method for decoding a dictionary containing encoded value into its original decoded representation.
 
         Args:
             data (dict): The dictionary containing elements to recursively decode.
@@ -330,6 +332,7 @@ class CacheDataEncoder:
 
         Returns:
             dict: A dictionary containing the recursively decoded elements
+
         """
         try:
             hash_prefix = hash_prefix or ""
@@ -341,8 +344,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _decode_list(cls, data: list, hash_prefix: Optional[str] = None) -> list:
-        """
-        Helper method for decoding a recursively encoded list into its original decoded representation.
+        """Helper method for decoding a recursively encoded list into its original decoded representation.
 
         Args:
             data (list): The list containing elements to recursively decode.
@@ -350,6 +352,7 @@ class CacheDataEncoder:
 
         Returns:
             list: A list containing the recursively decoded elements
+
         """
         try:
             hash_prefix = hash_prefix or ""
@@ -361,8 +364,7 @@ class CacheDataEncoder:
 
     @classmethod
     def _decode_tuple(cls, data: tuple, hash_prefix: Optional[str] = None) -> tuple:
-        """
-        Helper method for decoding a recursively encoded tuple into its original decoded representation.
+        """Helper method for decoding a recursively encoded tuple into its original decoded representation.
 
         Args:
             data (tuple): The tuple containing elements to recursively decode.
@@ -370,6 +372,7 @@ class CacheDataEncoder:
 
         Returns:
             tuple: A tuple containing the recursively decoded elements
+
         """
         try:
             hash_prefix = hash_prefix or ""
@@ -381,10 +384,8 @@ class CacheDataEncoder:
 
 
 class JsonDataEncoder(CacheDataEncoder):
-    """
-    Helper class used to extend the CacheDataEncoder to provide functionality directly relevant
-    to serializing and deserializing data from JSON formats into serialized JSON strings for
-    easier storage and recovery.
+    """Helper class used to extend the CacheDataEncoder to provide functionality directly relevant to serializing and
+    deserializing data from JSON formats into serialized JSON strings for easier storage and recovery.
 
     This method includes utility dumping and loading tools directly applicable to safely dumping
     and reloading responses received by various APIs.
@@ -401,12 +402,12 @@ class JsonDataEncoder(CacheDataEncoder):
         # the result should be the original string
         >>> assert data == recovered_data
         # OUTPUT: True
+
     """
 
     @classmethod
     def serialize(cls, data: Any, **json_kwargs) -> str:
-        """
-        Class method that encodes and serializes data to a JSON string.
+        """Class method that encodes and serializes data to a JSON string.
 
         Args:
             data (Any): The data to encode and serialize as a json string.
@@ -414,14 +415,14 @@ class JsonDataEncoder(CacheDataEncoder):
 
         Returns:
             str: The JSON string.
+
         """
         encoded = cls.encode(data)
         return cls.dumps(encoded, **json_kwargs)
 
     @classmethod
     def deserialize(cls, s: str, **json_kwargs) -> Any:
-        """
-        Class method that deserializes and decodes json data from a JSON string.
+        """Class method that deserializes and decodes json data from a JSON string.
 
         Args:
             s (str): The JSON string to deserialize and decode.
@@ -429,15 +430,14 @@ class JsonDataEncoder(CacheDataEncoder):
 
         Returns:
             Any: The decoded data.
+
         """
         loaded = cls.loads(s, **json_kwargs)
         return cls.decode(loaded)
 
     @classmethod
     def dumps(cls, data: Any, **json_kwargs) -> str:
-        """
-        Convenience method that uses the `json` module to serialize (dump) JSON
-        data into a JSON string.
+        """Convenience method that uses the `json` module to serialize (dump) JSON data into a JSON string.
 
         Args:
             data (Any): The data to serialize as a json string.
@@ -445,13 +445,13 @@ class JsonDataEncoder(CacheDataEncoder):
 
         Returns:
             str: The JSON string.
+
         """
         return json.dumps(data, **json_kwargs)
 
     @classmethod
     def loads(cls, s: str, **json_kwargs) -> Any:
-        """
-        Convenience method that uses the `json` module to deserialize (load) from a JSON string.
+        """Convenience method that uses the `json` module to deserialize (load) from a JSON string.
 
         Args:
             s (str): The JSON string to deserialize and decode.
@@ -459,6 +459,7 @@ class JsonDataEncoder(CacheDataEncoder):
 
         Returns:
             Any: The loaded json data.
+
         """
         return json.loads(s, **json_kwargs)
 

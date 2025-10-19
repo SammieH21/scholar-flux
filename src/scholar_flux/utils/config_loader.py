@@ -1,11 +1,11 @@
 # /api/utils/config_loader.py
-"""
-The scholar_flux.api.utils.config_loader is the primary configuration loader used by the scholar_flux package to
+"""The scholar_flux.api.utils.config_loader is the primary configuration loader used by the scholar_flux package to
 ensure that user-specified package default settings are registered via the use of environment variables.
 
-The ConfigLoader is used alongside the scholar_flux.utils.initializer to fully initialize the scholar_flux
-package with the chosen configuration. This includes the initialization of importing API keys as secret
-strings, defining log levels, default API providers, etc.
+The ConfigLoader is used alongside the scholar_flux.utils.initializer to fully initialize the scholar_flux package with
+the chosen configuration. This includes the initialization of importing API keys as secret strings, defining log levels,
+default API providers, etc.
+
 """
 import os
 import logging
@@ -24,9 +24,8 @@ config_logger = logging.getLogger(__name__)
 
 
 class ConfigLoader:
-    """
-    Helper class used to load the configuration of the scholar_flux package on initialization to dynamically configure
-    package options. Using the config loader with environment variables, the following settings can be defined
+    """Helper class used to load the configuration of the scholar_flux package on initialization to dynamically
+    configure package options. Using the config loader with environment variables, the following settings can be defined
     at runtime.
 
         Package Level Settings:
@@ -78,15 +77,13 @@ class ConfigLoader:
     }
 
     def __init__(self, env_path: Optional[Path | str] = None):
-        """Utility class for loading environment variables from the operating system and .env files"""
+        """Utility class for loading environment variables from the operating system and .env files."""
 
         self.env_path: Path = self._process_env_path(env_path)
         self.config: Dict[str, Any] = self.DEFAULT_ENV.copy()  # Use a copy to avoid modifying the class attribute
 
     def try_loadenv(self, env_path: Optional[Path | str] = None, verbose: bool = False) -> Optional[Dict[str, Any]]:
-        """
-        Try to load environment variables from a specified .env file into the environment and return as a dict.
-        """
+        """Try to load environment variables from a specified .env file into the environment and return as a dict."""
         env_path = self._process_env_path(env_path or self.env_path)
         if load_dotenv(env_path):  # Load environment variables from a .env file
             return dotenv_values(env_path)
@@ -101,8 +98,7 @@ class ConfigLoader:
         replace_all: bool = False,
         verbose: bool = False,
     ) -> dict:
-        """
-        Retrieves a list of nonmissing environment variables from the current .env file that are non-null
+        """Retrieves a list of nonmissing environment variables from the current .env file that are non-null.
 
         Args:
             env_path: Optional[Path | str]: Location of the .env file where env variables will be retrieved from
@@ -111,6 +107,7 @@ class ConfigLoader:
 
         Returns:
             dict: A dictionary of key-value pairs corresponding to environment variables
+
         """
         env_path = self._process_env_path(env_path or self.env_path)
 
@@ -133,9 +130,8 @@ class ConfigLoader:
         key: str | int,
         matches: list[str] | tuple = ("API_KEY", "SECRET", "MAIL"),
     ) -> Any | SecretStr:
-        """
-        Helper method to flag and guard the values of api keys, secrets, and likely email addresses by transforming
-        them into secret strings if they are non-missing
+        """Helper method to flag and guard the values of api keys, secrets, and likely email addresses by transforming
+        them into secret strings if they are non-missing.
 
         Args:
             value (Any): The value to convert to a string if its key contains any match
@@ -155,10 +151,9 @@ class ConfigLoader:
         return value
 
     def load_os_env(self, replace_all: bool = False, verbose: bool = False) -> dict:
-        """
-        Load any updated configuration settings from variables set within the system environment.
-        The configuration setting must already exist in the config to be updated if available.
-        Otherwise, the ConfigLoader.update_config method allows direct updates to the config settings.
+        """Load any updated configuration settings from variables set within the system environment. The configuration
+        setting must already exist in the config to be updated if available. Otherwise, the ConfigLoader.update_config
+        method allows direct updates to the config settings.
 
         Args:
             replace_all: bool = False: Indicates whether all environment variables should be replaced vs. only non-missing variables
@@ -166,6 +161,7 @@ class ConfigLoader:
 
         Returns:
             dict: A dictionary of key-value pairs corresponding to environment variables
+
         """
         if verbose:
             config_logger.debug("Attempting to load updated settings from the system environment.")
@@ -184,8 +180,7 @@ class ConfigLoader:
         reload_os_env: bool = False,
         verbose: bool = False,
     ) -> None:
-        """
-        Load configuration settings from the global OS environment or an .env file while optionally overwriting
+        """Load configuration settings from the global OS environment or an .env file while optionally overwriting
         previously set configuration settings.
 
         Optionally attempt to reload and overwrite previously set ConfigLoader using either or both sources
@@ -205,6 +200,7 @@ class ConfigLoader:
                 environment.
             verbose (bool):
                 Convenience setting indicating whether or not to log changed configuration variable names.
+
         """
 
         os_config = self.load_os_env(verbose=verbose) if reload_os_env else {}
@@ -215,18 +211,17 @@ class ConfigLoader:
         self.update_config(config_env_variables, verbose=verbose)
 
     def update_config(self, env_dict: dict[str, Any], verbose: bool = False) -> None:
-        """
-        Helper method for both logging and updating the config dictionary
-        with the provided dictionary of environment variable key-value pairs
-        """
+        """Helper method for both logging and updating the config dictionary with the provided dictionary of environment
+        variable key-value pairs."""
         if verbose and env_dict:
             config_logger.debug("Updating the following variables into the config settings:", env_dict)
         self.config.update(env_dict)
 
     def save_config(self, env_path: Optional[Path | str] = None) -> None:
-        """
-        Save configuration settings to a .env file. Unmasks strings read as secrets if the are of the type,
-        `SecretStr`.
+        """Save configuration settings to a .env file.
+
+        Unmasks strings read as secrets if the are of the type, `SecretStr`.
+
         """
         env_path = env_path or self.env_path
         for key, value in self.config.items():
@@ -240,9 +235,7 @@ class ConfigLoader:
         env_path: Optional[Path | str] = None,
         create: bool = True,
     ) -> None:
-        """
-        Write a key-value pair to a .env file.
-        """
+        """Write a key-value pair to a .env file."""
         env_path = self._process_env_path(env_path or self.env_path)
         try:
             if create and not env_path.exists():
@@ -253,7 +246,11 @@ class ConfigLoader:
 
     @classmethod
     def _process_env_path(cls, env_path: Optional[Union[str, Path]]) -> Path:
-        """Try to load from the provided `env_path` variable first. Otherwise try to load from DEFAULT_ENV_PATH"""
+        """Try to load from the provided `env_path` variable first.
+
+        Otherwise try to load from DEFAULT_ENV_PATH
+
+        """
         if not env_path:
             return cls.DEFAULT_ENV_PATH
 

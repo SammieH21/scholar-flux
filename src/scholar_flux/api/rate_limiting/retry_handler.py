@@ -1,9 +1,10 @@
 # /api/rate_limiting/retry_handler.py
-"""
-The scholar_flux.api.rate_limiting.retry_handler implements a basic RetryHandler that defines a variable period of
-time to wait in between successive unsuccessful requests to the same provider. This class is implemented by default
-within the `SearchCoordinator` class to verify and retry each request until successful or the maximum retry limit
-has been reached.
+"""The scholar_flux.api.rate_limiting.retry_handler implements a basic RetryHandler that defines a variable period of
+time to wait in between successive unsuccessful requests to the same provider.
+
+This class is implemented by default within the `SearchCoordinator` class to verify and retry each request until
+successful or the maximum retry limit has been reached.
+
 """
 from email.utils import parsedate_to_datetime
 import time
@@ -19,10 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class RetryHandler:
-    """
-    Core class used for determining whether or not to retry failed requests when rate limiting,
-    backoff factors, and max backoff when enabled.
-    """
+    """Core class used for determining whether or not to retry failed requests when rate limiting, backoff factors, and
+    max backoff when enabled."""
 
     DEFAULT_VALID_STATUSES = {200}
     DEFAULT_RETRY_STATUSES = {429, 500, 503, 504}
@@ -36,11 +35,8 @@ class RetryHandler:
         retry_statuses: Optional[set[int] | list[int]] = None,
         raise_on_error: Optional[bool] = None,
     ):
-        """
-        Helper class to send and retry requests of a specific status code.
-        The RetryHandler also dynamically controls the
-        degree of rate limiting that occurs upon observing a rate limiting error
-        status code.
+        """Helper class to send and retry requests of a specific status code. The RetryHandler also dynamically controls
+        the degree of rate limiting that occurs upon observing a rate limiting error status code.
 
         Args:
             max_retries (int): indicates how many attempts should be performed before
@@ -67,8 +63,7 @@ class RetryHandler:
         *args,
         **kwargs,
     ) -> Optional[requests.Response | ResponseProtocol]:
-        """
-        Sends a request and retries on failure based on predefined criteria and validation function.
+        """Sends a request and retries on failure based on predefined criteria and validation function.
 
         Args:
             request_func: The function to send the request.
@@ -82,6 +77,7 @@ class RetryHandler:
         Raises:
             RequestFailedException: When a request raises an exception for whatever reason
             InvalidResponseException: When the number of retries has been exceeded and self.raise_on_error is True
+
         """
         attempts = 0
 
@@ -138,12 +134,14 @@ class RetryHandler:
 
     @classmethod
     def _default_validator_func(cls, response: requests.Response | ResponseProtocol) -> bool:
-        """
-        Defines a basic default validator that verifies type and status code.
-        It evaluates:
-            1) Whether the `response` is a requests.Response object or a (duck-typed) response-like object based
-               on whether it evaluates as a ResponseProtocol.
-            2) Whether the response status code is in the list of valid statuses: `RetryHandler.DEFAULT_VALID_STATUSES`
+        """Defines a basic default validator that verifies type and status code.
+
+        It evaluates:     1) Whether the `response` is a
+        requests.Response object or a (duck-typed) response-like object
+        based        on whether it evaluates as a ResponseProtocol.
+        2) Whether the response status code is in the list of valid
+        statuses: `RetryHandler.DEFAULT_VALID_STATUSES`
+
         """
         return (
             isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)
@@ -171,14 +169,14 @@ class RetryHandler:
         return min(self.backoff_factor * (2**attempt_count), self.max_backoff)
 
     def parse_retry_after(self, retry_after: str) -> Optional[int | float]:
-        """
-        Parse the 'Retry-After' header to calculate delay.
+        """Parse the 'Retry-After' header to calculate delay.
 
         Args:
             retry_after (str): The value of 'Retry-After' header.
 
         Returns:
             int: Delay time in seconds.
+
         """
         try:
             return int(retry_after)
@@ -206,9 +204,10 @@ class RetryHandler:
         logger.warning(message)
 
     def __repr__(self) -> str:
-        """
-        Helper method to generate a summary of the RetryHandler instance. This method
-        will show the name of the class in addition to the values used to create it
+        """Helper method to generate a summary of the RetryHandler instance.
+
+        This method will show the name of the class in addition to the values used to create it
+
         """
         return generate_repr(self)
 

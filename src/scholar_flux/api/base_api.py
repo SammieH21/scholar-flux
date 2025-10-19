@@ -1,7 +1,9 @@
 # /api/base_api.py
-"""
-Defines the BaseAPI that implements minimal features such as caching, request building, and response retrieval for
-later subclassing.
+"""Defines the BaseAPI that implements minimal features such as caching, requests, and response retrieval.
+
+The BaseAPI is subclassed by scholar_flux.api.SearchAPI to further build and formulate requests based on the parameters
+accepted by each API provider given their respective configurations.
+
 """
 from typing import Optional, Dict, Any
 import requests
@@ -21,9 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAPI:
-    """
-    Base API client that contains a minimal implementation that prepares requests and retrieve responses in a
-    user-friendly manner.
+    """Base API client that contains a minimal implementation that prepares requests and retrieve responses in a user-
+    friendly manner.
 
     Args:
         session (Optional[requests.Session]): A pre-configured requests or requests-cache session.
@@ -45,11 +46,11 @@ class BaseAPI:
         >>> response_page_1
         # OUTPUT: <Response [200]>
         >>> ml_page_1 = response_page_1.json()
-        # future requests automatically wait until te specified request delay passes to send another request:
+        # future requests automatically wait until the specified request delay passes to send another request:
         >>> response_page_2 = api.search(page = 2)
         >>> assert response_page_1.ok
         >>> response_page_2
-        # OUTPUT: <Response [200]
+        # OUTPUT: <Response [200]>
         >>> ml_page_2 = response_page_2.json()
         >>> ml_page_2
         # OUTPUT: {'response': {'numFound': '...', 'start': 21, 'docs': ['...']}} # redacted
@@ -66,10 +67,10 @@ class BaseAPI:
         timeout: Optional[int | float] = None,
         use_cache: Optional[bool] = None,
     ):
-        """
-        Initializes the Base Api by defining the url that will contain the necessary setup logic to
-        set up or use an existing session via dependency injection.
-        This class is designed to be subclassed for specific API implementations.
+        """Initializes the Base Api for response retrieval given the provided inputs.
+
+        The necessary attributes are prepared with a new or existing session (cached or uncached) via dependency
+        injection. This class is designed to be subclassed for specific API implementations.
 
         Args:
             base_url (str): The base URL for the API.
@@ -77,6 +78,7 @@ class BaseAPI:
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
             use_cache (Optional[bool]): Indicates whether or not to use cache. The default setting is to
                                         create a regular requests.Session unless a CachedSession is already provided.
+
         """
 
         self.session: requests.Session = self.configure_session(session, user_agent, use_cache)
@@ -84,16 +86,17 @@ class BaseAPI:
 
     @staticmethod
     def _validate_timeout(timeout: int | float) -> int | float:
-        """Helper method used to ensure that timeout values received are non-negative numeric values"""
+        """Helper method used to ensure that timeout values received are non-negative numeric values."""
         if not isinstance(timeout, (int, float)) or timeout <= 0:
             raise APIParameterException(f"Invalid timeout value: {timeout}")
         return timeout
 
     @property
     def user_agent(self) -> Optional[str]:
-        """
-        The User-Agent should always reflect what is used in the session:
-            this method retrieves the user agent from the session directly
+        """The User-Agent should always reflect what is used in the session:
+
+        this method retrieves the user agent from the session directly
+
         """
         user_agent = self.session.headers.get("User-Agent")
 
@@ -101,11 +104,11 @@ class BaseAPI:
 
     @user_agent.setter
     def user_agent(self, user_agent: Optional[str]) -> None:
-        """
-        This property setter is used to directly update the session header without
-        the need to update the user agent in both the session and the BaseAPI class.
-        By updating the session User-Agent header, the user_agent property updates
-        in addition.
+        """This property setter is used to directly update the session header without the need to update the user agent
+        in both the session and the BaseAPI class.
+
+        By updating the session User-Agent header, the user_agent property updates in addition.
+
         """
         if user_agent:
             self.session.headers.update(
@@ -179,8 +182,7 @@ class BaseAPI:
         endpoint: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
     ) -> requests.PreparedRequest:
-        """
-        Prepares a GET request for the specified endpoint with optional parameters.
+        """Prepares a GET request for the specified endpoint with optional parameters.
 
         Args:
             base_url (str): The base URL for the API.
@@ -189,6 +191,7 @@ class BaseAPI:
 
         Returns:
             prepared_request (PreparedRequest) : The prepared request object.
+
         """
         try:
             url = urljoin(base_url, endpoint) if endpoint else base_url
@@ -210,8 +213,7 @@ class BaseAPI:
         parameters: Optional[Dict[str, Any]] = None,
         timeout: Optional[int | float] = None,
     ) -> requests.Response:
-        """
-        Sends a GET request to the specified endpoint with optional parameters.
+        """Sends a GET request to the specified endpoint with optional parameters.
 
         Args:
             base_url (str): The base API to send the request to.
@@ -221,6 +223,7 @@ class BaseAPI:
 
         Returns:
             requests.Response: The response object.
+
         """
 
         timeout = self._validate_timeout(timeout if timeout is not None else self.timeout)
@@ -239,19 +242,18 @@ class BaseAPI:
 
     @staticmethod
     def _validate_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
-        """
-        Helper for validating parameters provided to the API at run-time:
-        in the event that the parameters are valid, the function returns them as is.
-        If not provided, an NoneType object is returned.
+        """Helper for validating parameters provided to the API at run-time: in the event that the parameters are valid,
+        the function returns them as is. If not provided, an NoneType object is returned.
 
         Args:
-            parameters dict[str, Any]: A dictionary of parameters to validate
+            parameters (dict[str, Any]): A dictionary of parameters to validate
 
         Returns:
             The original object that was provided, if no issues are found during validation
 
         Raises:
             APIParameterException: If the object is not a dictionary or contains a non-string key
+
         """
         if not isinstance(parameters, dict):
             raise APIParameterException(
@@ -264,21 +266,25 @@ class BaseAPI:
         return parameters
 
     def summary(self) -> str:
-        """Create a summary representation of the current structure of the API: Returns the original representation"""
+        """Create a summary representation of the current structure of the API:
+
+        Returns the original representation.
+
+        """
         return repr(self)
 
     def structure(self, flatten: bool = True, show_value_attributes: bool = False) -> str:
-        """
-        Base method for showing the structure of the current BaseAPI. This method reveals the configuration
-        settings of the API client that will be used to send requests.
+        """Base method for showing the structure of the current BaseAPI. This method reveals the configuration settings
+        of the API client that will be used to send requests.
 
         Returns:
             str: The current structure of the BaseAPI or its subclass.
+
         """
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
-        """Helper method for identifying the configuration for the BaseAPI"""
+        """Helper method for identifying the configuration for the BaseAPI."""
         return self.structure()
 
 

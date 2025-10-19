@@ -1,24 +1,28 @@
 # /api/providers
-"""
-The scholar_flux.api.providers module contains the pre-defined config settings that are used to make a set of API
-providers available by default. The module was designed for extensibility to enable the addition of new providers
-with as little effort as possible.
+"""The scholar_flux.api.providers module contains the pre-defined config settings that are used to make a set of API
+providers available by default. The module was designed for extensibility to enable the addition of new providers with
+as little effort as possible.
 
 Each individual sub-module within scholar_flux.api.providers defines a `ProviderConfig` that indicates the basic
 settings describing how requests to each provider will be built. It also defines parameters that may need to be
 included that are specific to that particular API that may not apply to other providers.
 
 Basic ProviderConfig Components:
-    parameter_map - Defines the specific parameter names within an BaseAPIParameterMap that will be required by the
-                    API provider to interact with their API in a predictable and robust manner.
-    provider_name - An name alias of an API or a service within an API. Indicates how the API will be referenced
-    base_url - Indicates the base URL of the API and where all requests will be sent (note that this may differ
-               from the organization's website slightly - or sometimes greatly - for a particular API service)
-    api_key_env_var - An indicator of the name of an environment variable that will be referenced if an API key is
-                      not specifically listed.
-    records_per_page - Indicates the default records per page that will be retrieved when a SearchAPI is created
-                       if this option isn't set by the user. Depending on the provider, most APIs require a hard
-                       limit on the total number of records that are retrieved if this total isn't already specified.
+    **parameter_map**:
+        Defines the specific parameter names within an BaseAPIParameterMap that will be required by the
+        API provider to interact with their API in a predictable and robust manner.
+    **provider_name**:
+        An name alias of an API or a service within an API. Indicates how the API will be referenced.
+    **base_url**:
+        Indicates the base URL of the API and where all requests will be sent (note that this may differ
+        from the organization's website slightly - or sometimes greatly - for a particular API service)
+    api_key_env_var:
+        An indicator of the name of an environment variable that will be referenced if an API key is
+        not specifically listed.
+    records_per_page:
+        Indicates the default records per page that will be retrieved when a SearchAPI is created by default
+        if otherwise left unspecified by the user. Depending on the provider, most APIs require a hard
+        limit on the total number of records that are retrieved if this total isn't already specified.
 
 
 Default Providers:

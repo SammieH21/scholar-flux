@@ -1,12 +1,12 @@
 # /utils/paths/path_discoverer.py
-"""
-The scholar_flux.utils.paths.path_discoverer module contains an implementation of a PathDiscoverer dataclass that
-facilitates the discovery of nested values within JSON data structures and the terminal path where each value is
-located within the data structure.
+"""The scholar_flux.utils.paths.path_discoverer module contains an implementation of a PathDiscoverer dataclass that
+facilitates the discovery of nested values within JSON data structures and the terminal path where each value is located
+within the data structure.
 
-This implementation recursively explores the JSON data set and adds to a dictionary of path mappings until the
-JSON data set is fully represented as path-data combinations that facilitate further processing of JSON data structures
-using Trie-based implementations.
+This implementation recursively explores the JSON data set and adds to a dictionary of path mappings until the JSON data
+set is fully represented as path-data combinations that facilitate further processing of JSON data structures using
+Trie-based implementations.
+
 """
 from __future__ import annotations
 from typing import Optional, Union, Any, Set, ClassVar, MutableSequence, MutableMapping
@@ -25,11 +25,8 @@ logger.setLevel(logging.WARNING)
 
 @dataclass
 class PathDiscoverer:
-    """
-    For both discovering paths and
-    flattening json files into a single
-    dictionary that simplifies the nested structure into the
-    path, the type of structure, and the terminal value.
+    """For both discovering paths and flattening json files into a single dictionary that simplifies the nested
+    structure into the path, the type of structure, and the terminal value.
 
     Args:
         records: Optional[Union[list[dict], dict]]: A list of dictionaries to be flattened
@@ -38,6 +35,7 @@ class PathDiscoverer:
     Attributes:
         records: The input data to be traversed and flattened.
         path_mappings: Holds a dictionary of values mapped to ProcessingPaths after processing
+
     """
 
     records: Optional[Union[list[dict], dict]] = None
@@ -46,7 +44,7 @@ class PathDiscoverer:
 
     @property
     def terminal_paths(self) -> Set[ProcessingPath]:
-        """Helper method for returning a list of all discovered paths from the PathDiscoverer"""
+        """Helper method for returning a list of all discovered paths from the PathDiscoverer."""
         return set(self.path_mappings.keys())
 
     def discover_path_elements(
@@ -56,10 +54,8 @@ class PathDiscoverer:
         max_depth: Optional[int] = None,
         inplace: bool = False,
     ) -> Optional[dict[ProcessingPath, Any]]:
-        """
-        Recursively traverses records to discover keys, their paths, and terminal status. Uses the
-        private method _discover_path_elements in order to add terminal path value pairs to the
-        path_mappings attribute.
+        """Recursively traverses records to discover keys, their paths, and terminal status. Uses the private method
+        _discover_path_elements in order to add terminal path value pairs to the path_mappings attribute.
 
         Args:
             records (Optional[Union[list[dict], dict]]): A list of dictionaries to be flattened if not already provided.
@@ -70,6 +66,7 @@ class PathDiscoverer:
             inplace (bool): Determines whether or not to save the inner state of the PathDiscoverer object.
                             When False: Returns the final object and clears the self.path_mappings attribute.
                             When True: Retains the self.path_mappings attribute and returns None
+
         """
 
         records = records or self.records
@@ -174,13 +171,13 @@ class PathDiscoverer:
 
     @staticmethod
     def _log_early_stop(path: ProcessingPath, value: Any, max_depth: Optional[int] = None):
-        """
-        Logs the resulting value after halting the addition of paths early by max depth.
+        """Logs the resulting value after halting the addition of paths early by max depth.
 
         Args:
             path (ProcessingPath): The path where traversal stopped.
             value (Any): The terminal value at this path.
             max_depth (Optional[int]): Maximum depth for recursion.
+
         """
         value_str = f"{str(value)[:30]}..." if len(str(value)) > 30 else str(value)
         logger.warning(
@@ -189,12 +186,12 @@ class PathDiscoverer:
 
     @staticmethod
     def _log_recorded_paths(path: ProcessingPath, value: Any):
-        """
-        Logs the resulting value after adding a terminal path.
+        """Logs the resulting value after adding a terminal path.
 
         Args:
             path (ProcessingPath): The path being logged.
             value (Any): The terminal value at this path.
+
         """
         value_str = f"{str(value)[:30]}..." if len(str(value)) > 30 else str(value)
         logger.debug(f"Recorded path {path}. Value ({type(value)}) = {value_str}...")

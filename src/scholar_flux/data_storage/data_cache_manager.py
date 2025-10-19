@@ -1,10 +1,10 @@
 # /data_storage/data_cache_manager.py
-"""
-The scholar_flux.data_storage.data_cache_manager implements a DataCacheManager that allows the storage and cached
+"""The scholar_flux.data_storage.data_cache_manager implements a DataCacheManager that allows the storage and cached
 retrieval of processed responses.
 
-This class is the user-interface that implements a unified interface for different cache storage devices that
-inherit from the ABCStorage class.
+This class is the user-interface that implements a unified interface for different cache storage devices that inherit
+from the ABCStorage class.
+
 """
 from __future__ import annotations
 import hashlib
@@ -32,8 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataCacheManager:
-    """
-    DataCacheManager class manages caching of API responses.
+    """DataCacheManager class manages caching of API responses.
 
     This class provides methods to generate cache keys, verify cache entries, check cache validity,
     update cache with new data, and retrieve data from the cache storage.
@@ -53,12 +52,12 @@ class DataCacheManager:
         >>> from scholar_flux.data_storage import DataCacheManager
         >>> from scholar_flux.api import SearchCoordinator
         # Factory method that creates a default redis connection to the service on localhost if available.
-        >>> redis_cache_manager = DataCacheManager.with_storage('redis') 
+        >>> redis_cache_manager = DataCacheManager.with_storage('redis')
         # Creates a search coordinator for retrieving API responses from the PLOS API provider
         >>> search_coordinator = SearchCoordinator(query = 'Computational Caching Strategies',
                                                    provider_name='plos',
                                                    cache_requests = True, # caches raw requests prior to processing
-                                                   cache_manager=redis_cache_manager) # caches response processing 
+                                                   cache_manager=redis_cache_manager) # caches response processing
         # Uses the cache manager to temporarily store cached responses for the default duration
         >>> processed_response = search_coordinator.search(page = 1)
         # On the next search, the processed response data can be retrieved directly for later response reconstruction
@@ -66,22 +65,21 @@ class DataCacheManager:
         # Serialized responses store the core response fields (content, URL, status code) associated with API responses
         >>> assert isinstance(retrieved_response_json, dict) and 'serialized_response' in retrieved_response_json
 
-
     """
 
     def __init__(self, cache_storage: Optional[ABCStorage] = None) -> None:
-        """Initializes the DataCacheManager with the selected cache storage"""
+        """Initializes the DataCacheManager with the selected cache storage."""
         self.cache_storage: ABCStorage = cache_storage if cache_storage is not None else InMemoryStorage()
 
     def verify_cache(self, cache_key: Optional[str]) -> bool:
-        """
-        Checks if the provided cache_key exists in the cache storage.
+        """Checks if the provided cache_key exists in the cache storage.
 
         Args:
             cache_key: A unique identifier for the cached data.
 
         Returns:
             bool: True if the cache key exists, False otherwise.
+
         """
         if cache_key is None:
             logger.warning("Cache key is None: No cache lookup was performed.")
@@ -100,9 +98,8 @@ class DataCacheManager:
         response: Optional[Response | ResponseProtocol] = None,
         cached_response: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """
-        Determines whether the cached data for a given key is still valid or needs reprocessing due
-        to missing fields or modified content when checked against the current response.
+        """Determines whether the cached data for a given key is still valid or needs reprocessing due to missing fields
+        or modified content when checked against the current response.
 
         If a cached_response dictionary was not directly passed, the cache key will be retrieved from
         storage before comparison.
@@ -115,6 +112,7 @@ class DataCacheManager:
 
         Returns:
             bool: True if the cache is valid, False otherwise.
+
         """
 
         if not cached_response and not self.verify_cache(cache_key):
@@ -143,8 +141,7 @@ class DataCacheManager:
         processed_records: Optional[Any] = None,
         **kwargs,
     ) -> None:
-        """
-        Updates the cache storage with new data.
+        """Updates the cache storage with new data.
 
         Args:
             cache_key: A unique identifier for the cached data.
@@ -154,6 +151,7 @@ class DataCacheManager:
             parsed_response: (Optional) The response data parsed into a structured format. Defaults to None.
             processed_records: (Optional) The response data processed for specific use. Defaults to None.
             kwargs: Optional additional hashable dictionary fields that can be stored using sql cattrs encodings or in-memory cache.
+
         """
         self.cache_storage.update(
             cache_key,
@@ -172,14 +170,14 @@ class DataCacheManager:
         logger.debug(f"Cache updated for key: {cache_key}")
 
     def retrieve(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves data from the cache storage based on the cache key.
+        """Retrieves data from the cache storage based on the cache key.
 
         Args:
             cache_key: A unique identifier for the cached data.
 
         Returns:
             Optional[Dict[str, Any]]: The cached data corresponding to the cache key if found, otherwise None.
+
         """
         try:
             result = self.cache_storage.retrieve(cache_key) or {}
@@ -193,27 +191,27 @@ class DataCacheManager:
             raise StorageCacheException
 
     def retrieve_from_response(self, response: Response | ResponseProtocol) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves data from the cache storage based on the response if within cache.
+        """Retrieves data from the cache storage based on the response if within cache.
 
         Args:
             response: The API response object.
 
         Returns:
             Optional[Dict[str, Any]]: The cached data corresponding to the response if found, otherwise None.
+
         """
         cache_key = self.generate_fallback_cache_key(response)
         return self.retrieve(cache_key)
 
     def delete(self, cache_key: str) -> None:
-        """
-        Deletes data from the cache storage based on the cache key.
+        """Deletes data from the cache storage based on the cache key.
 
         Args:
             cache_key: A unique identifier for the cached data.
 
         Returns:
             None: The cached data corresponding to the cache key if found, otherwise None.
+
         """
         logger.debug(f"deleting the record for cache key: {cache_key}")
         try:
@@ -224,14 +222,14 @@ class DataCacheManager:
 
     @classmethod
     def generate_fallback_cache_key(cls, response: Response | ResponseProtocol) -> str:
-        """
-        Generates a unique fallback cache key based on the response URL and status code.
+        """Generates a unique fallback cache key based on the response URL and status code.
 
         Args:
             response: The API response object.
 
         Returns:
             str: A unique fallback cache key.
+
         """
         if not response:
             msg = "A response or response-like object was expected but was not provided"
@@ -252,14 +250,14 @@ class DataCacheManager:
 
     @classmethod
     def generate_response_hash(cls, response: Response | ResponseProtocol) -> str:
-        """
-        Generates a hash of the response content.
+        """Generates a hash of the response content.
 
         Args:
             response: The API response object.
 
         Returns:
             str: A SHA-256 hash of the response content.
+
         """
         return hashlib.sha256(response.content).hexdigest()
 
@@ -294,10 +292,9 @@ class DataCacheManager:
 
     @classmethod
     def _verify_hash(cls, response: Response | ResponseProtocol, cached_response: Dict[str, Any]) -> bool:
-        """
-        Determines whether the cached data for a given key is still valid and the hashed content hasn't
-        significantly changed. If the hash between the current response and cached response_dict has
-        changed, True is returned, and False otherwise.
+        """Determines whether the cached data for a given key is still valid and the hashed content hasn't significantly
+        changed. If the hash between the current response and cached response_dict has changed, True is returned, and
+        False otherwise.
 
         Args:
             response: The API response or response-like object used to validate the cache.
@@ -305,6 +302,7 @@ class DataCacheManager:
 
         Returns:
             bool: True if the cache is valid, False otherwise.
+
         """
 
         current_hash = cls.generate_response_hash(response)
@@ -314,14 +312,14 @@ class DataCacheManager:
 
     @classmethod
     def null(cls) -> DataCacheManager:
-        """
-        Creates a DataCacheManager using a NullStorage (no storage.
+        """Creates a DataCacheManager using a NullStorage (no storage.
 
         This storage device has the effect of returning False when validating
         whether the current DataCacheManager is in operation or not
 
         Returns:
             DataCacheManager: The current class initialized without storage
+
         """
         return cls(NullStorage())
 
@@ -334,14 +332,14 @@ class DataCacheManager:
         *args,
         **kwargs,
     ) -> DataCacheManager:
-        """
-        Creates a DataCacheManager using a known storage device
+        """Creates a DataCacheManager using a known storage device.
 
         This is a convenience function allowing the user to create a DataCacheManager with
         redis, sql, mongodb, or inmemory storage with default settings or through the use of
         optional positional and keyword parameters to initialize the storage as needed.
         Returns:
             DataCacheManager: The current class initialized the chosen storage
+
         """
         if not isinstance(storage, str):
             raise StorageCacheException(
@@ -365,21 +363,17 @@ class DataCacheManager:
                 )
 
     def __bool__(self) -> bool:
-        """
-        This method has the effect of returning 'False' when
-        the DataCacheManager class is initialized with NullStorage()
-        and will return 'True' otherwise
-        """
+        """This method has the effect of returning 'False' when the DataCacheManager class is initialized with
+        NullStorage() and will return 'True' otherwise."""
         return bool(self.cache_storage)
 
     def isnull(self) -> bool:
-        """Helper method for determining whether the current cache manager uses a null storage"""
+        """Helper method for determining whether the current cache manager uses a null storage."""
         return not self
 
     @classmethod
     def cache_fingerprint(cls, obj: Optional[str | Any] = None, package_version: Optional[str] = __version__) -> str:
-        """
-        This method helps identify changes in class/configuration for later cache retrieval. It generates a unique
+        """This method helps identify changes in class/configuration for later cache retrieval. It generates a unique
         string based on the object and the package version.
 
         By default, a fingerprint is generated from the current package version and object representation, if provided.
@@ -395,6 +389,7 @@ class DataCacheManager:
 
         Returns:
             str: A human-readable string including the version, object identity
+
         """
 
         # coerce provided objects to a string representation if not already. Otherwise generate a new representation
@@ -404,46 +399,44 @@ class DataCacheManager:
         return f"{package_version}:{obj_repr}" if package_version is not None else obj_repr
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
-        """
-        Helper method for quickly showing a representation of the overall structure of the current DataCacheManager.
+        """Helper method for quickly showing a representation of the overall structure of the current DataCacheManager.
         The instance uses the generate_repr helper function to produce human-readable representations of the core
         structure of the storage subclass with its defaults.
 
         Returns:
             str: The structure of the current DataCacheManager as a string.
+
         """
 
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __copy__(self) -> DataCacheManager:
-        """
-        Helper method for creating a new instance of the the current DataCacheManager
-        """
+        """Helper method for creating a new instance of the the current DataCacheManager."""
         cls = self.__class__
         storage = copy.copy(self.cache_storage)
         return cls(cache_storage=storage)
 
     def clone(self) -> DataCacheManager:
-        """
-        Helper method for creating a newly cloned instance of the the current DataCacheManager
-        """
+        """Helper method for creating a newly cloned instance of the the current DataCacheManager."""
         cls = self.__class__
         storage_cls = self.cache_storage
         return cls(storage_cls.clone())
 
     def __deepcopy__(self, memo) -> DataCacheManager:
-        """
-        Helper method for creating a new DataCacheManager with the same configuration
-        as the original DataCacheManager. Note that many clients cannot be directly
-        deep-copied, and as a result, this implementation uses `clone` instead to
-        create a new instance with a similar configuration. For easier API compatibility
+        """Helper method for creating a new DataCacheManager with the same configuration as the original
+        DataCacheManager.
+
+        Note that many clients cannot be directly deep-copied, and as a result, this implementation uses `clone` instead
+        to create a new instance with a similar configuration. For easier API compatibility
+
         """
         return self.clone()
 
     def __repr__(self) -> str:
-        """
-        Helper for showing a representation of the current Cache Manager in the form of a string.
+        """Helper for showing a representation of the current Cache Manager in the form of a string.
+
         This class will indicate the current cache storage device that is being used for data caching.
+
         """
         return self.structure()
 
