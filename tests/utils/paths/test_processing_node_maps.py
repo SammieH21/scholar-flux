@@ -1,6 +1,7 @@
 from typing import MutableMapping, Generator
 import pytest
 from scholar_flux.utils import PathNode, PathNodeMap, ProcessingPath
+from scholar_flux.exceptions import PathNodeMapError
 
 
 @pytest.fixture
@@ -96,6 +97,22 @@ def test_pathnodemap_filter_and_cache(ref_test_nodes):
     m.use_cache = True
     filtered_cache = m.filter(ProcessingPath(["0", "data"]), from_cache=True)
     assert filtered_cache == filtered
+
+
+def test_negative_filter_depth(default_mapping):
+    """Verifies that negative filter depths will successfully raise a PathNodeMapError"""
+    # uses the first node as a test prop for verifying depth settings
+    first_node = list(default_mapping.values())[0]
+    err = "Minimum and Maximum depth must be None or greater than 0 or 1"
+
+    # verifies that the minimum depth and maximum depth, when negative raises a PathNodeMapError
+    with pytest.raises(PathNodeMapError) as excinfo:
+        _ = default_mapping.filter(first_node.path[:2], max_depth = -1)
+    assert err in str(excinfo.value)
+
+    with pytest.raises(PathNodeMapError) as excinfo:
+        _ = default_mapping.filter(first_node.path[:2], min_depth = -1)
+    assert err in str(excinfo.value)
 
 
 def test_cache_weakset_default_clear(ref_test_nodes):

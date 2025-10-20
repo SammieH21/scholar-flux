@@ -49,10 +49,9 @@ def test_sorted_page_list():
 def test_zero_indexed_page_list():
     """Tests whether 0 is treated as a valid page number.
 
-    A zero indexed page should be allowed and handled only at the
-    parameter building steps which will determine whether page=0 should
-    be allowed given the parameter configuration for the current API
-    Provider
+    A zero indexed page should be allowed and handled only at the parameter building steps which will determine whether
+    page=0 should be allowed given the parameter configuration for the current API Provider
+
     """
     pages = [0, 1, 2]
     page_list_input = PageListInput(pages)
@@ -76,8 +75,8 @@ def test_mixed_types():
 def test_invalid_inputs(caplog):
     """Tests whether inputs that include invalid page numbers will raise an error as intended.
 
-    Floats are flagged rather than coerced, and non-numeric strings
-    should also raise errors.
+    Floats are flagged rather than coerced, and non-numeric strings should also raise errors.
+
     """
     with pytest.raises(ValidationError):
         # floats in are invalid and PageListInput errors as a result

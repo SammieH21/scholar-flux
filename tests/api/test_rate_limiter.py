@@ -10,8 +10,8 @@ from scholar_flux.exceptions import APIParameterException
 def set_default_rate_limiter_interval():
     """This fixture is used to verify that the RateLimiter uses the DEFAULT_MIN_INTERVAL when otherwise not specified.
 
-    The default value is reset after the current test that uses
-    this dependency concludes.
+    The default value is reset after the current test that uses this dependency concludes.
+
     """
     default_min_interval = RateLimiter.DEFAULT_MIN_INTERVAL
     RateLimiter.DEFAULT_MIN_INTERVAL = 999
@@ -48,9 +48,9 @@ def test_wait_sleeps_when_needed_real_time(Limiter):
     """Tests the sleep function of the rate limiter to verify that the `wait` method executes successfully for the
     specified interval.
 
-    This function patches time.sleep to verify that the sleep argument
-    is called with the intended arguments while recording the time when
-    sleep was last performed.
+    This function patches time.sleep to verify that the sleep argument is called with the intended arguments while
+    recording the time when sleep was last performed.
+
     """
     limiter = Limiter(0.05)
     limiter._last_call = time.time()
@@ -80,6 +80,7 @@ def test_decorator_respects_rate_limit():
     A helper function (`fn`) is defined and decorated so that subsequent calls are both rate limited and recorded
 
     After patching sleep to record the call count, the test verifies that sleep never triggers due to `min_interval=0`.
+
     """
 
     limiter = RateLimiter(0)
@@ -102,8 +103,8 @@ def test_context_manager_calls_wait(mock_sleep):
     """Tests the total number of times that the `_wait` helper method is called when the rate limiter's min_interval
     parameter is set to a value of 1.
 
-    Patches the  `_wait` method to record the number of calls to the
-    sleep function.
+    Patches the  `_wait` method to record the number of calls to the sleep function.
+
     """
     limiter = RateLimiter(1)
     mock_sleep.side_effect = ["method called 0 times", "called 1 time"]

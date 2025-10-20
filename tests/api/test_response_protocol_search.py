@@ -12,8 +12,8 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
     """Tests whether the retrieved ProcessedResponse, once reprocessed, will return the same result. This test verifies
     idempotence of response processing when responses are not pulled from cache and are instead rehandled.
 
-    Both original and reconstructed responses should return identically
-    processed records.
+    Both original and reconstructed responses should return identically processed records.
+
     """
     plos_search_coordinator = SearchCoordinator(
         query="social wealth equity", search_api=plos_search_api, provider_name="plos", base_url=plos_page_1_url
@@ -65,6 +65,7 @@ def test_response_coordinated_validation(plos_search_api, plos_page_1_url, plos_
 
     In contrast, for invalid responses, the actual values for response attributes should be verified and raise
     an error when `validate=True`.
+
     """
 
     api_response = APIResponse.from_response(
@@ -102,9 +103,9 @@ def test_mocked_response_like_search(plos_search_api, plos_page_1_url, plos_page
     """Verifies that valid reconstructed (mocked) APIResponse objects, when checked against a ResponseProtocol, and
     validated using ReconstructedResponse.validate() are identified as response-like objects.
 
-    The DataParser should also recognize that the response is a
-    response-like object and successfully load the JSON data that had
-    been dumped and encoded as byte content in the response-like object.
+    The DataParser should also recognize that the response is a response-like object and successfully load the JSON data
+    that had been dumped and encoded as byte content in the response-like object.
+
     """
 
     response = APIResponse.from_response(
@@ -134,11 +135,10 @@ def test_mocked_response_like_search(plos_search_api, plos_page_1_url, plos_page
 def test_response_like_exception(monkeypatch):
     """The test first creates and verifies that the response-like object is valid.
 
-    The `validate` method is then patched to return None. As a result,
-    the ResponseCoordinator should then raise the
-    InvalidCoordinatorParameterException to indicate an invalid
-    APIResponse when calling the `_resolve_response` class method to
-    simulate unforeseen scenarios in response reconstruction.
+    The `validate` method is then patched to return None. As a result, the ResponseCoordinator should then raise the
+    InvalidCoordinatorParameterException to indicate an invalid APIResponse when calling the `_resolve_response` class
+    method to simulate unforeseen scenarios in response reconstruction.
+
     """
     response = APIResponse.from_response(
         cache_key="cache-key", status_code=200, content=b"success", url="https://google.com"

@@ -112,6 +112,7 @@ def test_secret_masking():
     The `register_secret_if_exists` method is also tested and expected to work similarly:
         With a secret as input, the value of the secret will be added as a masked text patterns and return True.
         Otherwise, no patterns are added, and False is returned to signify that nothing was added.
+
     """
     masker = SensitiveDataMasker(register_defaults=False)
     assert masker.mask_secret(None) is None
@@ -167,6 +168,7 @@ def test_pattern_identity():
 
     KeyMaskingPatterns should be identifiable based on the name assigned to a pattern, the associated field (or key)
     indicating the pattern to mask, and the secret values of their patterns.
+
     """
     string_pattern = StringMaskingPattern(name="abstract testing", pattern="abc")
     key_pattern = KeyMaskingPattern(name="key_patterns", field="identity", pattern="abc")

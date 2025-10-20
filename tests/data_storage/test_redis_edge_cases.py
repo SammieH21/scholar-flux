@@ -118,8 +118,7 @@ def test_redis_unavailable(redis_test_storage, caplog):
 
 
 def test_redis_server_unavailable(redis_test_storage, monkeypatch, caplog):
-    """Verifies that the behavior of the RedisStorage is as expected when attempting to create a preliminary
-    connection."""
+    """Verifies that the behavior of the RedisStorage is as expected when attempting to create a connection."""
     import redis
     from redis import ConnectionError
 
@@ -136,8 +135,8 @@ def test_redis_server_unavailable(redis_test_storage, monkeypatch, caplog):
 def test_missing_namespace(redis_test_storage, monkeypatch, caplog):
     """Tests whether delete_all will successfully retain data as intended.
 
-    this method uses a patch that should raise an error deletion is
-    attempted nonetheless
+    This method uses a patch that should raise an error deletion is attempted nonetheless
+
     """
 
     current_namespace = redis_test_storage.namespace

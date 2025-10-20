@@ -79,8 +79,9 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
     """Tests whether exceptions are successfully captured and formatted as an ErrorResponse within a API Response when
     an error is encountered.
 
-    The presence of a specific error should ideally halt the process,
-    especially relevant when encountering `400` status codes.
+    The presence of a specific error should ideally halt the process, especially relevant when encountering `400` status
+    codes.
+
     """
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")
 

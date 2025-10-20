@@ -22,8 +22,9 @@ def default_cache_filename():
 def default_seconds_cache_expiration():
     """Defines the time interval in seconds that should elapse before previously cached requests expire.
 
-    Cached requests are set to expire after 1 second to more quickly
-    validate cache invalidation settings during testing.
+    Cached requests are set to expire after 1 second to more quickly validate cache invalidation settings during
+    testing.
+
     """
     return 1
 
@@ -62,6 +63,7 @@ def default_cache_session(default_cache_session_manager):
     `default_cache_session_manager` factory class.
 
     By default, this session uses sqlite for backend request caching.
+
     """
     cached_session = default_cache_session_manager.configure_session()
     yield cached_session
@@ -83,6 +85,7 @@ def default_encryption_serializer_pipeline():
     deserialization pipeline if and only if the `cryptography` and `itsdangerous` package dependencies are installed.
 
     Otherwise pytest skips the creation of this fixture.
+
     """
     if not all(importlib.util.find_spec(pkg) for pkg in ("cryptography", "itsdangerous")):
         pytest.skip()
@@ -93,8 +96,8 @@ def default_encryption_serializer_pipeline():
 def default_secret_key():
     """Default secret key to use for both encrypting and caching responses from API providers.
 
-    The creation of this fixture is skipped when `cryptography` package
-    is not available.
+    The creation of this fixture is skipped when `cryptography` package is not available.
+
     """
     if not importlib.util.find_spec("cryptography"):
         pytest.skip()
@@ -115,8 +118,8 @@ def incorrect_secret_key():
     """Defines a new secret key to be used when simulating an attempt to access an encrypted cache storage that was
     instead created using the `default_secret_key` fixture.
 
-    Attempts to access a encrypted session cache with the wrong key
-    should fail and instead raise an InvalidToken error.
+    Attempts to access a encrypted session cache with the wrong key should fail and instead raise an InvalidToken error.
+
     """
     if not importlib.util.find_spec("cryptography"):
         pytest.skip()
@@ -130,9 +133,9 @@ def incorrect_secret_key():
 def incorrect_secret_salt():
     """Secret salt to be used in combination with a secret key to create an encrypted cached session.
 
-    This salt is used in subsequent tests to simulate an attempt to
-    access a previously created encrypted cache with the wrong secret
-    key.
+    This salt is used in subsequent tests to simulate an attempt to access a previously created encrypted cache with the
+    wrong secret key.
+
     """
     secret_salt = os.urandom(18)
     return secret_salt
@@ -149,9 +152,9 @@ def default_encryption_cache_session_manager(
     """Creates a new CachedSessionManager factory instance that, in turn, is used to generate a new cached session that
     encrypts cached requests.
 
-    This fixture is used by the `default_encryption_cache_session`
-    fixture in later testing to verify that cache encryption works as
-    intended.
+    This fixture is used by the `default_encryption_cache_session` fixture in later testing to verify that cache
+    encryption works as intended.
+
     """
     if not default_encryption_serializer_pipeline:
         pytest.skip()
@@ -198,6 +201,7 @@ def incorrect_secret_salt_encryption_cache_session_manager(
 
     Pytest will skip the creation of this fixture if the EncryptionPipelineFactory is not available due to missing
     `cryptography` and `itsdangerous` dependencies.
+
     """
     if not default_encryption_serializer_pipeline:
         pytest.skip()
@@ -231,9 +235,9 @@ def default_encryption_cache_session(default_encryption_cache_session_manager):
 def sqlite_db_url():
     """Fixture that defines a location and SQLite DB file for storing processing cache.
 
-    Used during response retrieval and processed response data storage
-    tests to validate both raw and processed response caching
-    capability.
+    Used during response retrieval and processed response data storage tests to validate both raw and processed response
+    caching capability.
+
     """
     sqlite_db_url = Path(__file__).resolve().parent.parent / "mocks/processing_cache.sqlite"
     return "sqlite:///" + str(sqlite_db_url)

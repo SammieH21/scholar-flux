@@ -37,7 +37,7 @@ def test_xml_data_parsing(mock_pubmed_search_response, xml_parsing_dependency):
 
 
 def test_yaml_data_parsing(academic_yaml_response, mock_academic_json, yaml_parsing_dependency):
-    """Verifies that an attempt to parse an YAML response will return a dictionary when available."""
+    """Verifies that an attempt to parse a YAML response will return a dictionary when available."""
     if not yaml_parsing_dependency:
         pytest.skip("YAML dependency not available for testing the data parser")
     assert isinstance(academic_yaml_response, requests.Response)

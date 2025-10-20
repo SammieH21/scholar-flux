@@ -72,6 +72,7 @@ def test_parameter_build_successful(provider_name, original_config_test_api_key)
 
     This test ensures that all required parameters and api keys (when required) are present in the final
     dictionary of parameter key-value pairs and does not send requests to the api provider.
+
     """
 
     # first ensures that we're dealing with the intended provider
@@ -187,6 +188,7 @@ def test_default_params():
     3. records per page defaults to 20
     4. mailto defaults to None
     5. timeout is correctly set to the default 20 seconds
+
     """
 
     parameter_config = APIParameterConfig.from_defaults("plos")
@@ -389,9 +391,9 @@ def test_search_api_parameter_ranges(page: int, records_per_page: int, default_a
 def test_cached_response_success(default_api_parameter_config, default_cache_session):
     """Tests whether responses are successfully cached when using a cached session.
 
-    For this purpose, requests_mock package is used to simulate a
-    request that can be cached to determine whether caching is working
-    as intended.
+    For this purpose, requests_mock package is used to simulate a request that can be cached to determine whether
+    caching is working as intended.
+
     """
     api = SearchAPI(
         query="test",
@@ -454,7 +456,7 @@ def test_missing_api_key(default_api_parameter_config, caplog):
 
 
 def test_cache_expiration(default_api_parameter_config, default_cache_session, default_seconds_cache_expiration):
-    """Tests the cache expiration time using requests_cache to ensure that the expiration field is sucessfully used."""
+    """Tests the cache expiration time using requests_cache to ensure that the expiration field is successfully used."""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -618,8 +620,8 @@ def test_with_config_precedence_over_provider(monkeypatch, new_config, original_
     """Tests and verifies that the SearchAPIConfig.from_defaults factory method is overridden as intended when the
     `with_config` method is called as a context manager to temporarily change the config.
 
-    The base URL should always take precedence over the provider unless
-    not explicitly provided.
+    The base URL should always take precedence over the provider unless not explicitly provided.
+
     """
     api = SearchAPI(
         query="test",
@@ -656,6 +658,7 @@ def test_updates():
     1. Calling update with only a SearchAPIConfig will return the identical config
     2. Calling update without a SearchAPI object will throw an error, because `update` is a classmethod and
        requires a SearchAPI for the first argument.
+
     """
     api = SearchAPI(query="test")
 
@@ -709,9 +712,9 @@ def test_from_provider_config(caplog):
     """Helper method for validating the functionality of the `from_provider_config` method. This method should allow the
     creation of a SearchAPI instance with a provider configuration by temporarily adding it to the registry.
 
-    If the provider already exists, then this method will temporarily
-    replace the current config while conserving the previous
-    configuration until the SearchAPI is created.
+    If the provider already exists, then this method will temporarily replace the current config while conserving the
+    previous configuration until the SearchAPI is created.
+
     """
     provider_name = "plos"
     query = "q"

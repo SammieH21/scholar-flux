@@ -32,9 +32,9 @@ def test_incorrect_config(param_overrides, caplog):
     """Verifies that the SearchCoordinator correctly raises an error on encountering an invalid value when setting an
     attribute.
 
-    This test parametrizes several individual fields to determine
-    whether whether values for each field raise an
+    This test parametrizes several individual fields to determine whether whether values for each field raise an
     InvalidCoordinatorParameterException.
+
     """
     params = {"query": "Computer Science Testing"} | param_overrides
     with pytest.raises(InvalidCoordinatorParameterException):
@@ -74,9 +74,9 @@ def test_build():
     """First attempts to build a new search coordinator from the previously created components as well as defaults to
     determine whether the structure of the coordinator is exactly the same as before.
 
-    The string representation of the coordinator will include a basic
-    overview on the structure of the coordinator which should use the
-    same api and response_coordinator while using the same defaults.
+    The string representation of the coordinator will include a basic overview on the structure of the coordinator which
+    should use the same api and response_coordinator while using the same defaults.
+
     """
     search_coordinator = SearchCoordinator(query="test_query")
     new_search_coordinator = SearchCoordinator.as_coordinator(
@@ -89,8 +89,8 @@ def test_workflow_called():
     """Validates whether the workflow for the search coordinator, when included, is correctly called when running
     `SearchCoordinator.search` if `use_workflow` is set to True.
 
-    Otherwise, a workflow should not be used when `use_workflow` is set
-    to False.
+    Otherwise, a workflow should not be used when `use_workflow` is set to False.
+
     """
 
     api = SearchAPI.from_defaults(
@@ -121,8 +121,8 @@ def test_workflow_called():
 def test_search_exception(monkeypatch, caplog):
     """Tests to verify that `search` correctly returns `None` when an unexpected error occurs during retrieval.
 
-    The `_search` private method is patched to raise an Exception to be
-    handled within the `search` method.
+    The `_search` private method is patched to raise an Exception to be handled within the `search` method.
+
     """
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")
 
@@ -163,10 +163,9 @@ def test_workflow_components():
     `pre_transform` is called with `None`. Also validates that the context of the workflow step is returned as is by
     default.
 
-    These basic configurations are used to provide the blueprint for
-    flexible modification of workflow steps before and after the
-    execution of a workflow step while not providing additional
-    functionality by default.
+    These basic configurations are used to provide the blueprint for flexible modification of workflow steps before and
+    after the execution of a workflow step while not providing additional functionality by default.
+
     """
     workflow_step = BaseWorkflowStep()
     assert workflow_step.__dict__ == workflow_step.pre_transform(None).__dict__
@@ -305,6 +304,7 @@ def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, capl
 
     In context, this would later prompt the  SearchCoordinator to retrieve the result from the API when `search`
     is called and cache retrieval fails.
+
     """
     search_coordinator = SearchCoordinator(
         query="new query", session=default_memory_cache_session, base_url="https://non-existent-http-url.com"
@@ -511,8 +511,8 @@ def test_base_coordinator_summary(Coordinator):
     """Validates whether the coordinator shows the correct representation of the structure when using the summary
     method.
 
-    The summaries for the BaseCoordinator and SearchCoordinator are
-    checked and tested using `parametrize` in pytest.
+    The summaries for the BaseCoordinator and SearchCoordinator are checked and tested using `parametrize` in pytest.
+
     """
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     response_coordinator = ResponseCoordinator.build()

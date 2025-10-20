@@ -12,8 +12,8 @@ def test_provider_config_validation(caplog):
     """Tests that the provider config, upon encountering both invalid base/documentation URLs, will log and raise an
     APIParameterException.
 
-    This test also verifies that valid URLs are not flagged and do not
-    raise errors.
+    This test also verifies that valid URLs are not flagged and do not raise errors.
+
     """
     invalid_url: dict = {}
     with pytest.raises(APIParameterException) as excinfo:
@@ -85,8 +85,8 @@ def test_provider_addition(caplog):
     """Tests whether the addition of a new provider occurs as intended when initialized with a string (key) and a
     ProviderConfig (value).
 
-    Upon registering the new provider, the provider should be
-    retrievable from the `provider_registry`.
+    Upon registering the new provider, the provider should be retrievable from the `provider_registry`.
+
     """
     provider_registry = ProviderRegistry.from_defaults()
     n = len(provider_registry)
@@ -174,8 +174,8 @@ def test_failed_import():
     """Tests and validates that any unsuccessful imports of provider configs do not preclude python from successfully
     loading the scholar_flux package.
 
-    Exceptions should be handled by the
-    `ProviderUtils.load_provider_config` method.
+    Exceptions should be handled by the `ProviderUtils.load_provider_config` method.
+
     """
     from scholar_flux.utils.provider_utils import importlib
 

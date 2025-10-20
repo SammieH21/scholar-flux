@@ -12,8 +12,8 @@ def test_initialization(caplog):
     """Tests both valid and invalid inputs to ensure that upon creating a BaseCoordinator, inputs are validated to
     accept only a SearchAPI and a ResponseCoordinator.
 
-    For all other possible input types, a
-    InvalidCoordinatorParameterException should be raised instead.
+    For all other possible input types, a InvalidCoordinatorParameterException should be raised instead.
+
     """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
@@ -37,9 +37,9 @@ def test_build():
     """Tests whether the `as_coordinator` argument creates a new BaseCoordinator as a classmethod that can be extended
     by subclasses.
 
-    Independent of whether the regular __init__ method or the
-    classmethod is used, the result should have the same structure as
-    indicated by its representation
+    Independent of whether the regular __init__ method or the classmethod is used, the result should have the same
+    structure as indicated by its representation
+
     """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
@@ -158,12 +158,13 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
     """Tests for whether the defaults are specified correctly and whether the mocked response is processed as intended
     throughout the coordinator.
 
-    Sucessfully received and processed responses should return a ProcessedResponse, even in the absence
-    of extracted record.
+    All successfully received and processed responses should return a ProcessedResponse object, even in the absence
+    of an extracted record.
 
-    For processed responses, the data attribute contains the records that has been parsed, and processed
+    For processed responses, the `.data` attribute should contain the records that have been parsed and processed.
 
     Errors that occur during retrieval or processing should instead be logged and recorded in an ErrorResponse.
+
     """
 
     session_manager = CachedSessionManager(user_agent="test-user", backend="memory")

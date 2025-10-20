@@ -88,9 +88,9 @@ def test_prepare_request_url_and_params():
 def test_validate_parameters(caplog):
     """Ensure that parameter validation occurs as intended.
 
-    When preparing a request, the _validate_parameters class method will
-    expect a dictionary with keys as strings: integers are not valid
-    keys and errors should be thrown in such cases.
+    When preparing a request, the _validate_parameters class method will expect a dictionary with keys as strings:
+    integers are not valid keys and errors should be thrown in such cases.
+
     """
     api = BaseAPI()
     parameters = "not a dictionary"

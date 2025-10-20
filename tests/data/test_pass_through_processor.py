@@ -19,6 +19,7 @@ def test_filter_keys(mock_api_parsed_json_records):
     Other keys such as `princip_invest` and `non-existent-key` should not be present.
 
     This test also validates with regular expressions which should work as intended with `regex=True`.
+
     """
     # fixed-string matching
     n_records = len(mock_api_parsed_json_records)
@@ -53,8 +54,8 @@ def test_filter_keys(mock_api_parsed_json_records):
 def test_blank_record_keys(mock_api_parsed_json_records):
     """Validates whether an attempt to retain keys that are blank results in an empty record as expected.
 
-    Ignoring a blank key should, by contrast, retain all records (since
-    no keys should match key == "").
+    Ignoring a blank key should, by contrast, retain all records (since no keys should match key == "").
+
     """
     processor = PassThroughDataProcessor(keep_keys=[""])
     results = processor.process_page(mock_api_parsed_json_records)

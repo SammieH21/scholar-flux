@@ -96,9 +96,9 @@ def test_basic_search_results(success_response, unauthorized_response, extracted
     """Tests the instantiation of SearchResults and verifies whether the attributes are maintained and retrievable as
     intended.
 
-    Also verifies whether processed responses contain the correct
-    extracted and processed records and whether error responses contain
-    the logged errors involved and associated messages.
+    Also verifies whether processed responses contain the correct extracted and processed records and whether error
+    responses contain the logged errors involved and associated messages.
+
     """
 
     search_result_success = SearchResult(

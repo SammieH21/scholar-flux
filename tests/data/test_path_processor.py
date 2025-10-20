@@ -2,8 +2,12 @@ from scholar_flux.data import PathDataProcessor
 
 
 def test_path_data_processor(sample_json):
-    """Verifies that the recursive data processor correctly filters keys as needed a custom KeyFilter and ensures that
-    the processed data, when flattened, returns the expected, flattened records."""
+    """Verifies that the recursive data processor correctly filters keys as required.
+
+    The data processor should use a custom KeyFilter to ensure that the processed data, when flattened, will return the
+    expected, flattened set of records.
+
+    """
     processor = PathDataProcessor(sample_json)
     assert isinstance(processor.json_data, list)
     processed = processor.process_page()

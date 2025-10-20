@@ -27,9 +27,9 @@ def test_process_page_with_list_of_paths(mock_api_parsed_json_records):
 def test_filter_keys(mock_api_parsed_json_records):
     """Tests whether filtering and retaining a subset of records by key works as intended.
 
-    The attributes, `keep_keys` and `ignore_keys` are used to determine
-    whether a record should be excluded based on the name each of nested
-    key in a path.
+    The attributes, `keep_keys` and `ignore_keys` are used to determine whether a record should be excluded based on the
+    name each of nested key in a path.
+
     """
     processor = DataProcessor(keep_keys=["principle_investigator"], regex=False)
     results = processor.process_page(mock_api_parsed_json_records)
@@ -54,8 +54,8 @@ def test_process_page_with_dict_keys(mock_api_parsed_json_records):
     """Verifies that using a dictionary of keys to dynamically rename the keys in the final dictionary works as
     intended.
 
-    For example, instead of using the final path name,
-    `authors.principle_investigator` as a key, `pi` is used instead.
+    For example, instead of using the final path name, `authors.principle_investigator` as a key, `pi` is used instead.
+
     """
     record_keys: dict = {
         "pi": ["authors", "principle_investigator"],

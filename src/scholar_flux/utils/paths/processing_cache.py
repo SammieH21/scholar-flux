@@ -175,7 +175,7 @@ class PathProcessingCache:
             min_depth (Optional[int]): The minimum depth to search for. Default is None.
             max_depth (Optional[int]): The maximum depth to search for. Default is None.
         Returns:
-            Set[ProcessingPath]: A list of paths with the given prefix.
+            Set[ProcessingPath]: A set of paths with the given prefix.
 
         """
         self.cache_update()

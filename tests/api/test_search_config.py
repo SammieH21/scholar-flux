@@ -27,9 +27,9 @@ import scholar_flux.api.models.search_api_config
 def test_non_provider_initialization(provider, basename):
     """Verifies that specifying a default provider successfully retrieves its corresponding config/parameter map.
 
-    This function uses a parametrized set of arguments to test different
-    combinations of providers to verify that it retrieves the expected
-    base name for the URL of the provider.
+    This function uses a parametrized set of arguments to test different combinations of providers to verify that it
+    retrieves the expected base name for the URL of the provider.
+
     """
     api_config = SearchAPIConfig.from_defaults(provider_name=provider.upper(), request_delay=None)
     default_provider = provider_registry.get(provider)
@@ -54,10 +54,9 @@ def test_non_provider_initialization(provider, basename):
 def test_api_key_format(api_key_dictionary, request):
     """Test that verifies whether all API keys, if available, are of the correct type (SecretStr or None).
 
-    This function uses parametrize to iteratively evaluate each
-    individual provider config to ascertain whether there are any
-    inconsistencies preventing the correct API key from being loaded and
-    used in the scholar_flux.config.
+    This function uses parametrize to iteratively evaluate each individual provider config to ascertain whether there
+    are any inconsistencies preventing the correct API key from being loaded and used in the scholar_flux.config.
+
     """
 
     # first ensures that we're dealing with the intended provider
@@ -86,9 +85,9 @@ def test_api_key_additions(provider):
     """Tests whether masked API keys that are validated via the SearchAPIConfig remain masked when included as an
     attribute the created SearchAPIConfig instance.
 
-    The config, which contains a masked list of environment variables
-    for providers, is patched to include the masked api key so that the
-    environment variable can be automatically retrieved from the config.
+    The config, which contains a masked list of environment variables for providers, is patched to include the masked
+    api key so that the environment variable can be automatically retrieved from the config.
+
     """
 
     provider_info = provider_registry.get(provider)
@@ -108,8 +107,8 @@ def test_api_default():
     """Verifies that the SearchAPIConfig allows for `None` the api_key parameter to be later validated in the parameter
     building steps as opposed to configuration creation.
 
-    PLOS does not require an API key, so the value is not populated with
-    a known default from the environment.
+    PLOS does not require an API key, so the value is not populated with a known default from the environment.
+
     """
     api = SearchAPIConfig.from_defaults("plos", api_key=None)  # API key should default to an empty string
     assert api.api_key is None
@@ -125,6 +124,7 @@ def test_search_api_config_validation(caplog):
       following `model_validation` step when possible.
     - Each individual parameter is further validated to ensure that errors are raised appropriately when encountering
       wrong types.
+
     """
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig.validate_api_key(v="")  # type:ignore
@@ -204,9 +204,9 @@ def test_api_key_modification(caplog):
     `config` dictionary is patched to include mock API keys for each provider and later checked to determine whether the
     API key matches the provider's assigned string/secret key.
 
-    This method also verifies that the provider api key is removed as
-    intended when it no longer applies to the current provider after a
-    configuration update.
+    This method also verifies that the provider api key is removed as intended when it no longer applies to the current
+    provider after a configuration update.
+
     """
     api_key = SensitiveDataMasker.mask_secret("A Secret")
     another_api_key = SensitiveDataMasker.mask_secret("Another Secret")
@@ -281,9 +281,9 @@ def test_missing_required_parameter():
     """Validates that, when a parameter is required but missing, it throws an error if a default is otherwise not
     specified.
 
-    Uses crossref to validate that a value error is thrown when a
-    SearchAPIConfig instance is created without the api specific
-    parameter being assigned a value.
+    Uses crossref to validate that a value error is thrown when a SearchAPIConfig instance is created without the api
+    specific parameter being assigned a value.
+
     """
     provider_name = "crossref"
     provider_from_url = provider_registry.get(provider_name)
@@ -319,8 +319,8 @@ def test_search_api_config_dynamic_provider_override(caplog):
     """Test that the SearchAPI handles dynamic provider overrides the base URL appropriately and replaces an invalid
     provider name with the provider name from the base url.
 
-    This test also validates that the logger prints the appropriate
-    warning message describing preference for the URL.
+    This test also validates that the logger prints the appropriate warning message describing preference for the URL.
+
     """
 
     plos_api_config = SearchAPIConfig()  # type: ignore

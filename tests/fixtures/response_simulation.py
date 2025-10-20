@@ -105,8 +105,8 @@ def academic_json_response(mock_academic_json) -> Response:
 def mock_academic_yaml_path() -> Path:
     """The path where the YAML data is stored.
 
-    Is used to simulate the retrieval/processing of uncommonly received
-    YAML content from an academic response API.
+    Is used to simulate the retrieval/processing of uncommonly received YAML content from an academic response API.
+
     """
     mock_academic_yaml_path = Path(__file__).resolve().parent.parent / "mocks" / "mock_article_response.yaml"
     return mock_academic_yaml_path

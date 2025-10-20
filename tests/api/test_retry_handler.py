@@ -73,8 +73,8 @@ def test_execute_with_retry_max_retries_and_raise(caplog):
 def test_execute_with_retry_non_retryable_status(caplog):
     """Tests whether an error is raised with the response message when `raise_on_error` is set to True.
 
-    Also verifies that the response is returned as is when
-    `raise_on_error` is False
+    Also verifies that the response is returned as is when `raise_on_error` is False
+
     """
     handler = RetryHandler(raise_on_error=True)
     message = "Cannot process the current request with your credentials"
@@ -117,8 +117,8 @@ def test_invalid_response_exception_non_json(caplog):
 def test_calculate_retry_delay_with_invalid_retry_after(caplog):
     """Validates the calculation of the retry delay when a `retry_after` value is available.
 
-    Also verifies whether the backoff is calculated as intended when
-    `retry_after` is not available.
+    Also verifies whether the backoff is calculated as intended when `retry_after` is not available.
+
     """
     handler = RetryHandler(backoff_factor=2, max_backoff=10)
     retry_after = "not-a-date"
@@ -198,6 +198,7 @@ def test_calculate_retry_delay_no_retry_after():
     """Verifies the calculation of the retry delay given the backoff_factor and default retry delay.
 
     given the calculation: delay = min(backoff_factor * 2^attempt_count, max_backoff).
+
     """
     handler = RetryHandler(backoff_factor=1, max_backoff=10)
     response = response_factory(503)

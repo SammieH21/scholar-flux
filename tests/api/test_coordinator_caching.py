@@ -19,6 +19,7 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
     Because the structure and options of the response_coordinator can have an impact the final result,
     schema validation should be performed to determine whether to pull from the processing cache
     (as opposed to the requests_cache)
+
     """
 
     response_coordinator = ResponseCoordinator.build(processor=PassThroughDataProcessor(), cache_results=True)
@@ -119,9 +120,9 @@ def test_cache_without_response(
     additional validation checks such as content hashes and response comparisons. Without this response, a
     ReconstructedResponse instance will be created from the core cached elements of the response.
 
-    This script also checks for idempotence when pulling from cache
-    using a ReconstructedResponse instead of a requests.Response
-    instance
+    This script also checks for idempotence when pulling from cache using a ReconstructedResponse instead of a
+    requests.Response instance
+
     """
     response_coordinator = ResponseCoordinator.build(processor=PassThroughDataProcessor(), cache_results=True)
     plos_search_coordinator = SearchCoordinator(

@@ -18,6 +18,7 @@ def core_api_key() -> Optional[SecretStr]:
 
     Returns:
         Optional[SecretStr]: The Core API key tha has been formatted as a secret string if available. Otherwise None.
+
     """
     if not isinstance(os.getenv("CORE_API_KEY"), str):
         pytest.skip()
@@ -34,6 +35,7 @@ def pubmed_api_key() -> Optional[SecretStr]:
 
     Returns:
         Optional[SecretStr]: The PubMed API key tha has been formatted as a secret string if available. Otherwise None.
+
     """
     if not isinstance(os.getenv("PUBMED_API_KEY"), str):
         pytest.skip()
@@ -50,6 +52,7 @@ def springer_nature_api_key() -> Optional[SecretStr]:
 
     Returns:
         Optional[SecretStr]: The Springer Nature API key, formatted as a secret string if available. Otherwise None.
+
     """
     if not isinstance(os.getenv("SPRINGER_NATURE_API_KEY"), str):
         pytest.skip()
@@ -66,6 +69,7 @@ def crossref_api_key() -> Optional[SecretStr]:
 
     Returns:
         Optional[SecretStr]: The Crossref API key, formatted as a secret string if available. Otherwise None.
+
     """
     if not isinstance(os.getenv("CROSSREF_API_KEY"), str):
         pytest.skip()
@@ -85,6 +89,7 @@ def original_config_test_api_key() -> SecretStr:
     """Helper API key used to later mock and test using a fake, yet consistent API key.
 
     SecretStr: The mocked API key tha has been formatted as a secret string.
+
     """
     return SecretStr("a fake api key")
 
@@ -96,6 +101,7 @@ def new_config_test_api_key() -> SecretStr:
 
     Returns:
         SecretStr: The mocked API key tha has been formatted as a secret string.
+
     """
     return SecretStr("a new fake api key")
 
@@ -123,8 +129,8 @@ def original_api_parameter_config():
     """Helper configuration used to mock the creation of api parameter configurations without requiring explicit
     settings.
 
-    This parameter configuration is used to mock the APIParameterConfig
-    for the mocked `https://original.com` API.
+    This parameter configuration is used to mock the APIParameterConfig for the mocked `https://original.com` API.
+
     """
     return APIParameterConfig.from_defaults("crossref")
 

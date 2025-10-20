@@ -17,6 +17,7 @@ def search_api() -> SearchAPI:
 
     Returns:
         SearchAPI: A search API configured for response testing and retrieval.
+
     """
     # basic setup
     search_api_config = SearchAPIConfig(
@@ -45,6 +46,7 @@ def initialize_mocker(search_api: SearchAPI, academic_json_response: Response) -
         >>> with initialize_mocker() as _:
         >>>     response = search_api.search(page = 1)
         >>> assert isinstance(response, Response)
+
     """
 
     @contextmanager
@@ -83,6 +85,7 @@ def create_search_coordinator(
     Returns:
         SearchCoordinator: A new SearchCoordinator that will retrieve, process, and cache processed responses depending
                            on the selected options used during instantiation.
+
     """
 
     # uses the DataCacheManager to directly setup caching with additional default arguments
@@ -116,6 +119,7 @@ def test_response_cache(
     correctly retrieves cached data as needed with the appropriate backend.
 
     `pytest.mark.parametrize` is used to test each backend in sequence.
+
     """
     # Skip if required dependency is missing
     if db_dependency_unavailable(cache_backend):

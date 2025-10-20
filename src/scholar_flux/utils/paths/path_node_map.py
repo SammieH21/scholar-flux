@@ -167,7 +167,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             return terminal_nodes
 
         except Exception as e:
-            raise PathNodeMapError(f"Error filtering paths with prefix {prefix}:") from e
+            raise PathNodeMapError(f"Error filtering paths with prefix {prefix}: {e}") from e
 
     def _filter(
         self,
@@ -266,7 +266,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             terminal_nodes = {path: self.data[path] for path in terminal_node_list}
             return terminal_nodes
         except Exception as e:
-            raise PathNodeMapError(f"Error filtering paths with prefix {prefix} at max_depth {max_depth}") from e
+            raise PathNodeMapError(f"Error filtering paths with prefix {prefix} at max_depth {max_depth}: {e}") from e
 
     def _validate_key_value_pair(self, processing_path: ProcessingPath, node: PathNode) -> None:
         """

@@ -13,8 +13,8 @@ from scholar_flux.exceptions.data_exceptions import DataParsingException
 def test_default_cache():
     """Tests whether the response coordinator builds with an in-memory cache as intended with the defaults.
 
-    null cache managers, should always be replaced when directly
-    specifying a value for cache_results.
+    null cache managers, should always be replaced when directly specifying a value for cache_results.
+
     """
     response_coordinator = ResponseCoordinator.build()
     assert response_coordinator.cache_manager
@@ -28,9 +28,9 @@ def test_plos_handling(plos_page_1_response, monkeypatch, caplog):
     intended. handle_response, when successful returns a ProcessedResponse while the handle_response_data method returns
     the underlying list of dictionary records from the response.
 
-    The code also verifies whether caching occurs as intended and
-    whether, if an error occurs, the response result will catch and log
-    the error while returning None as intended.
+    The code also verifies whether caching occurs as intended and whether, if an error occurs, the response result will
+    catch and log the error while returning None as intended.
+
     """
     assert isinstance(plos_page_1_response, requests.Response)
 
@@ -61,9 +61,9 @@ def test_error_handling(plos_page_1_response, monkeypatch):
     """Test whether errors in responses are handled as intended to aid the creation of an ErrorResponse when
     encountering errors at any point in the response handling process.
 
-    The _process_response function is parsed to throw an
-    DataParsingException to simulate an error occurring in the response
-    handling process.
+    The _process_response function is parsed to throw an DataParsingException to simulate an error occurring in the
+    response handling process.
+
     """
 
     response_coordinator = ResponseCoordinator.build(cache_results=True)
@@ -95,9 +95,9 @@ def test_error_handling(plos_page_1_response, monkeypatch):
 def test_data_parsing_exception(plos_page_1_response, monkeypatch, caplog):
     """Tests whether exceptions are caught and handled as intended upon encountering errors in data parsing.
 
-    This function patches the parser to throw an error upon being called
-    in order to determine whether an ErrorResponse is returned as
-    intended, stating the error message encountered.
+    This function patches the parser to throw an error upon being called in order to determine whether an ErrorResponse
+    is returned as intended, stating the error message encountered.
+
     """
 
     response_coordinator = ResponseCoordinator.build(cache_results=True)
@@ -177,9 +177,9 @@ def test_invalid_response_validation(mock_unauthorized_response):
 def test_response_content_validation(plos_page_1_response, caplog):
     """Tests whether the ResponseValidator verifies whether the response object contains application/json in the header.
 
-    On `raise_on_error`=False, a boolean should be returned while an
-    error should be raised otherwise when a JSON, XML, or YAML-based
-    response is not provided based on the content headers.
+    On `raise_on_error`=False, a boolean should be returned while an error should be raised otherwise when a JSON, XML,
+    or YAML-based response is not provided based on the content headers.
+
     """
     assert ResponseValidator.validate_content(plos_page_1_response, expected_format="application/json") is True
 

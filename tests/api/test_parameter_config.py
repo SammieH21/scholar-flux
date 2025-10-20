@@ -377,8 +377,8 @@ def test_zero_indexed_pagination(page, caplog):
     """Tests if the zero indexed pagination field operates as intended to ensure that `0`, when zero_indexed_pagination
     is True, works as intended.
 
-    Other page numbers are checked with a default records per page to
-    ensure that the calculated page number is correct.
+    Other page numbers are checked with a default records per page to ensure that the calculated page number is correct.
+
     """
     parameter_config = APIParameterConfig.as_config(
         {
@@ -409,6 +409,7 @@ def test_records_per_page_start_index_exception(basic_parameter_config, records_
     """Tests the calculation of records_per_page when encountering invalid values.
 
     In such scenarios, an error should be raised.
+
     """
     basic_parameter_config = APIParameterConfig.as_config(
         {

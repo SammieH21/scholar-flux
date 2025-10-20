@@ -12,8 +12,9 @@ import re
 def test_extract_with_manual_paths(mock_academic_json):
     """Verifies that DataExtractor correctly splits the parsed response content when explicit paths are provided.
 
-    The JSON response contains a top‑level `data` key that holds the
-    list of records, and the remaining keys are considered metadata.
+    The JSON response contains a top‑level `data` key that holds the list of records, and the remaining keys are
+    considered metadata.
+
     """
     record_path = ["data"]
     # Use the real metadata keys that exist in the payload
@@ -89,6 +90,7 @@ def extractor_manual_paths() -> DataExtractor:
 
     * data – a list of records
     * total, query, etc. – metadata
+
     """
     return DataExtractor(
         record_path=["data"],
@@ -191,8 +193,9 @@ def test_extractor_invalid_nested_configuration():
 def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, mock_academic_json, caplog):
     """Verifies that an attempt to provide an invalid record path type returns None.
 
-    Also verifies that, when a metadata path cannot be found, a
-    dictionary is still returned with a value of `None` for the key.
+    Also verifies that, when a metadata path cannot be found, a dictionary is still returned with a value of `None` for
+    the key.
+
     """
     # point to a key that contains a string instead of a list
     extractor_manual_paths.record_path = ["start"]

@@ -5,6 +5,7 @@ import requests
 
 
 def test_plos_api(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers):
+    """Verifies that, with requests_mock, the PLOS API can be successfully queried with `SearchAPI.search()`."""
     assert isinstance(plos_search_api, SearchAPI)
 
     with requests_mock.Mocker() as m:
@@ -21,6 +22,7 @@ def test_plos_api(plos_search_api, plos_page_1_url, plos_page_1_data, plos_heade
 
 
 def test_plos_coordinator(plos_coordinator, plos_page_2_url, plos_page_2_data, plos_headers):
+    """Verifies that, with requests_mock, the PLOS API can be successfully queried with `SearchCoordinator.search()`."""
     assert isinstance(plos_coordinator, SearchCoordinator)
     with requests_mock.Mocker() as m:
         m.get(

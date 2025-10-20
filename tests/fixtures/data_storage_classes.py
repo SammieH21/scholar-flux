@@ -60,8 +60,9 @@ def mongo_test_storage(mongo_test_config):
 def mongo_nm_test_storage(mongo_test_config, storage_test_namespace):
     """Create a MongoDB Data Storage instance to use for later testing at the module level.
 
-    This storage instance uses a separate namespace than the original
-    `mongo_test_storage` to validate namespace filtering for MongoDB.
+    This storage instance uses a separate namespace than the original `mongo_test_storage` to validate namespace
+    filtering for MongoDB.
+
     """
     return MongoDBStorage(namespace=storage_test_namespace, **mongo_test_config)
 
@@ -76,8 +77,9 @@ def sqlite_test_storage(sqlite_test_config):
 def sqlite_nm_test_storage(sqlite_test_config, storage_test_namespace):
     """Create a SQL Data Storage instance.
 
-    This storage instance uses a separate namespace than the original
-    `sqlite_test_storage` to validate namespace filtering for SQLite.
+    This storage instance uses a separate namespace than the original `sqlite_test_storage` to validate namespace
+    filtering for SQLite.
+
     """
     return SQLAlchemyStorage(namespace=storage_test_namespace, **sqlite_test_config)
 
@@ -92,9 +94,9 @@ def in_memory_test_storage():
 def in_memory_nm_test_storage(storage_test_namespace):
     """Create an in-memory Data Storage instance.
 
-    This storage instance uses a separate namespace than the original
-    `in_memory_test_storage` to validate namespace filtering for in-
-    memory caching.
+    This storage instance uses a separate namespace than the original `in_memory_test_storage` to validate namespace
+    filtering for in- memory caching.
+
     """
     return InMemoryStorage(namespace=storage_test_namespace)
 
