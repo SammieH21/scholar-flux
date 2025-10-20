@@ -3,10 +3,10 @@ import pytest
 
 
 class Dummy:
-    """Class used to test and verify the representation of classes with repr utils"""
+    """Class used to test and verify the representation of classes with repr utils."""
 
     def __init__(self):
-        """Initializes the dummy class for testing"""
+        """Initializes the dummy class for testing."""
         self.attr1: int = 1
         self.attr2: int = 2
 
@@ -18,20 +18,20 @@ class Dummy:
 
 
 class DummyNoPad:
-    """Class used to test and verify the representation of classes with repr utils in the absence of padding"""
+    """Class used to test and verify the representation of classes with repr utils in the absence of padding."""
 
     def __init__(self):
-        """Initializes the dummy class for testing"""
+        """Initializes the dummy class for testing."""
         self.attr1: int = 1
         self.attr2: int = 2
 
     def __repr__(self) -> str:
-        """Simply returns the attributes of the class in the absence of spaces"""
+        """Simply returns the attributes of the class in the absence of spaces."""
         return "DummyNoPad(\nattr1=1,\nattr2=2\n)"
 
 
 def test_single_line_representation_padding():
-    """Verifies that simple primitive objects are not padded"""
+    """Verifies that simple primitive objects are not padded."""
     obj = 123
     obj_string = str(obj)
     obj_list = list(str(obj))
@@ -42,10 +42,8 @@ def test_single_line_representation_padding():
 
 
 def test_multi_line_representation_padding():
-    """
-    The basic `adjust_repr_padding` function, by default, only adjusts padding according to the length of the
-    object name and where newline characters can be found
-    """
+    """The basic `adjust_repr_padding` function, by default, only adjusts padding according to the length of the object
+    name and where newline characters can be found."""
     obj = Dummy()
     result = adjust_repr_padding(obj, pad_length=4)
     expected = "Dummy(\n        attr1=1,\n        attr2=2\n)"
@@ -53,7 +51,7 @@ def test_multi_line_representation_padding():
 
 
 def test_multi_line_representation_no_padding():
-    """Verifies that the representation of non-padded classes, in the absence of separating spaces, will not change"""
+    """Verifies that the representation of non-padded classes, in the absence of separating spaces, will not change."""
     obj = DummyNoPad()
     result = adjust_repr_padding(obj, pad_length=2)
     # No leading spaces to adjust, should remain unchanged
@@ -62,7 +60,7 @@ def test_multi_line_representation_no_padding():
 
 
 def test_different_pad_length():
-    """Verifies that representation of variables with differing lengths successfully adds the required padding"""
+    """Verifies that representation of variables with differing lengths successfully adds the required padding."""
     obj = Dummy()
     result = adjust_repr_padding(obj, pad_length=2)
     expected = "Dummy(\n      attr1=1,\n      attr2=2\n)"
@@ -71,7 +69,7 @@ def test_different_pad_length():
 
 @pytest.mark.parametrize("DummyClass", (Dummy, DummyNoPad))
 def test_generated_representation(DummyClass):
-    """Verifies that the default representation of the Dummy classes are generated based on its name and attributes"""
+    """Verifies that the default representation of the Dummy classes are generated based on its name and attributes."""
     dummy = DummyClass()
 
     # retrieves the name of the class
@@ -90,7 +88,7 @@ def test_generated_representation(DummyClass):
 
 @pytest.mark.parametrize("DummyClass", (Dummy, DummyNoPad))
 def test_single_line_generated_representation(DummyClass):
-    """Verifies that the default flattened representation of the Dummy classes are represented on a single line"""
+    """Verifies that the default flattened representation of the Dummy classes are represented on a single line."""
     dummy = DummyClass()
 
     # retrieves the name of the class

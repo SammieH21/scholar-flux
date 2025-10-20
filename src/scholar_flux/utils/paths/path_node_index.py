@@ -1,11 +1,11 @@
 # /utils/paths/path_node_index.py
-"""
-The scholar_flux.utils.paths.path_node_index module implements the PathNodeIndex class that uses trie-based logic
-to facilitate the processing of JSON data structures.
+"""The scholar_flux.utils.paths.path_node_index module implements the PathNodeIndex class that uses trie-based logic to
+facilitate the processing of JSON data structures.
 
-The PathNodeIndex is responsible for orchestrating JSON data discovery, processing, and flattening to abstract JSON
-data into path-node pairs indicate the location of terminal values and the path location of the terminal-values within
-within a nested JSON data structure.
+The PathNodeIndex is responsible for orchestrating JSON data discovery, processing, and flattening to abstract JSON data
+into path-node pairs indicate the location of terminal values and the path location of the terminal-values within
+a nested JSON data structure.
+
 """
 from __future__ import annotations
 import re
@@ -34,10 +34,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PathNodeIndex:
-    """
-    The PathNodeIndex is a dataclass that enables the efficient processing of nested key value
-    pairs from JSON data commonly received from APIs providing records, articles, and other forms
-    of data.
+    """The PathNodeIndex is a dataclass that enables the efficient processing of nested key value pairs from JSON data
+    commonly received from APIs providing records, articles, and other forms of data.
 
     This index enables the orchestration of both parsing, flattening, and the simplification of
     JSON data structures.
@@ -104,25 +102,24 @@ class PathNodeIndex:
     use_cache: Optional[bool] = None
 
     def __post_init__(self):
-        """
-        Method automatically used after initialization, to validate and set the index and simplifier.
+        """Method automatically used after initialization, to validate and set the index and simplifier.
 
-        The index represents the preprocessed json data that has been transformed into a dictionary
-        of path-node mappings whereas the validated simplifier is then used to flatten the the
-        index into a list of dictionaries.
+        The index represents the preprocessed json data that has been transformed into a dictionary of path-node
+        mappings whereas the validated simplifier is then used to flatten the index into a list of dictionaries.
+
         """
         object.__setattr__(self, "index", self._validate_index(self.node_map, self.use_cache))
         object.__setattr__(self, "simplifier", self._validate_simplifier(self.simplifier))
 
     @classmethod
     def _validate_simplifier(cls, simplifier: PathSimplifier) -> PathSimplifier:
-        """
-        Determine whether the argument provided to the simplifier parameter
-        Is of type PathSimplifier.
+        """Determine whether the argument provided to the simplifier parameter Is of type PathSimplifier.
+
         Args:
             simplifier (PathSimplifier): A simplifier object for normalizing records
         Raises:
             PathNodeIndexError in the event that the expected type is not a PathSimplifier
+
         """
         if not isinstance(simplifier, PathSimplifier):
             raise PathNodeIndexError(
@@ -136,12 +133,13 @@ class PathNodeIndex:
         node_map: Union[PathNodeMap, RecordPathChainMap, dict[ProcessingPath, PathNode]],
         use_cache: Optional[bool] = None,
     ) -> PathNodeMap | RecordPathChainMap:
-        """
-        Determine whether the current path is an index of paths and nodes.
+        """Determine whether the current path is an index of paths and nodes.
+
         Args:
             node_map (dict[ProcessingPath, PathNode])
         Raises:
             PathNodeIndexError in the event that the expected type is not a dictionary of paths
+
         """
         if not node_map:
             return PathNodeMap(use_cache=use_cache)  # set directly if empty
@@ -156,16 +154,15 @@ class PathNodeIndex:
     def from_path_mappings(
         cls, path_mappings: dict[ProcessingPath, Any], chain_map: bool = False, use_cache: Optional[bool] = None
     ) -> PathNodeIndex:
-        """
-        Takes a dictionary of path:value mappings and transforms the dictionary into
-        a list of PathNodes: useful for later path manipulations such as grouping and
-        consolidating paths into a flattened dictionary.
+        """Takes a dictionary of path:value mappings and transforms the dictionary into a list of PathNodes: useful for
+        later path manipulations such as grouping and consolidating paths into a flattened dictionary.
 
         If use_cache is not specified, then the Mapping will use the class default to determine whether
         or not to cache.
 
         Returns:
             PathNodeIndex: An index of PathNodes created from a dictionary
+
         """
 
         Map = RecordPathChainMap if chain_map else PathNodeMap
@@ -173,19 +170,19 @@ class PathNodeIndex:
         return cls(Map(*nodes, use_cache=use_cache), use_cache=use_cache)
 
     def __repr__(self) -> str:
-        """Helper method for simply returning the name of the current class and the count of elements in the index"""
+        """Helper method for simply returning the name of the current class and the count of elements in the index."""
         class_name = self.__class__.__name__
         return f"{class_name}(index(len={len(self.node_map)}))"
 
     def get_node(self, path: Union[ProcessingPath, str]) -> Optional[PathNode]:
-        """
-        Try to retrieve a path node with the given path.
+        """Try to retrieve a path node with the given path.
 
         Args:
             The exact path of to search for in the index
         Returns:
             Optional[PathNode]: The exact node that matches the provided path.
                                 Returns None if a match is not found
+
         """
         return self.node_map.get_node(path)
 
@@ -225,13 +222,14 @@ class PathNodeIndex:
         max_components: Optional[int] = None,
         remove_noninformative: bool = True,
     ) -> list[dict[str, Any]]:
-        """
-        Simplify indexed nodes into a paginated data structure.
+        """Simplify indexed nodes into a paginated data structure.
+
         Args:
             object_delimiter (str): The separator to use when collapsing multiple values into a single string.
             parallel (bool): Whether or not the simplification into a flattened structure should occur in parallel
         Returns:
             list[dict[str, Any]]: A list of dictionaries representing the paginated data structure.
+
         """
         sorted_nodes = sorted(self.node_map.nodes, key=lambda node: (node.path_keys, node.path))
 
@@ -261,8 +259,7 @@ class PathNodeIndex:
         return normalized_rows
 
     def combine_keys(self, skip_keys: Optional[list] = None) -> None:
-        """
-        Combine nodes with values in their paths by updating the paths of count nodes.
+        """Combine nodes with values in their paths by updating the paths of count nodes.
 
         This method searches for paths ending with values and count, identifies related nodes,
         and updates the paths by combining the value with the count node.
@@ -275,6 +272,7 @@ class PathNodeIndex:
 
         Raises:
             PathCombinationError: If an error occurs during the combination process.
+
         """
         try:
             skip_keys = skip_keys or []
@@ -355,9 +353,9 @@ class PathNodeIndex:
         object_delimiter: Optional[str] = ";",
         parallel: bool = False,
     ) -> list[dict[str, Any]]:
-        """
-        Full pipeline for processing a loaded JSON structure into a list of dictionaries where
-        each individual list element is a processed and normalized record.
+        """Full pipeline for processing a loaded JSON structure into a list of dictionaries where each individual list
+        element is a processed and normalized record.
+
         Args:
             json_records (dict[str,Any] | list[dict[str,Any]]): The JSON structure to normalize. If this structure
                          is a dictionary, it will first be nested in a list as a single element before processing.
@@ -369,6 +367,7 @@ class PathNodeIndex:
             parallel (bool): Whether or not the simplification into a flattened structure should occur in parallel
         Returns:
             list[dict[str,Any]]:
+
         """
 
         if not isinstance(json_records, (dict, list)):
@@ -395,29 +394,28 @@ class PathNodeIndex:
 
     @property
     def nodes(self) -> list[PathNode]:
-        """
-        Returns a list of PathNodes stored within the index
+        """Returns a list of PathNodes stored within the index.
 
         Returns:
             list[PathNode]: The complete list of all PathNodes that have been registered in the PathIndex
+
         """
         return self.node_map.nodes
 
     @property
     def paths(self) -> list[ProcessingPath]:
-        """
-        Returns a list of Paths stored within the index
+        """Returns a list of Paths stored within the index.
 
         Returns:
             list[ProcessingPath]: The complete list of all paths that have been registered in the PathIndex
+
         """
         return self.node_map.paths
 
     @property
     def record_indices(self) -> list[int]:
-        """
-        Helper property for retrieving the full list of all record indices across the current
-        mapping of paths to nodes for the current index.
+        """Helper property for retrieving the full list of all record indices across the current mapping of paths to
+        nodes for the current index.
 
         This property is a helper method to quickly retrieve the full list of sorted record_indices.
 
@@ -425,6 +423,7 @@ class PathNodeIndex:
 
         Returns:
             list[int]: A list containing integers denoting individual records found in each path.
+
         """
         return self.node_map.record_indices
 

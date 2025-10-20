@@ -1,13 +1,13 @@
 # /utils/models/session.py
-"""
-The scholar_flux.utils.models.session module defines the pydantic-based configuration models and
-BaseSessionManager abstract base class that is a key building block in the creation of new sessions.
+"""The scholar_flux.utils.models.session module defines the pydantic-based configuration models and BaseSessionManager
+abstract base class that is a key building block in the creation of new sessions.
 
 Classes:
     BaseSessionManager: Defines the core, abstract methods necessary to create a new session object from session
                         manager subclasses.
     CachedSessionConfig: Defines the underlying logic necessary to validate the configuration used when creating CachedSession
                          objects using a CachedSessionManager.
+
 """
 import datetime
 import importlib.util
@@ -26,9 +26,10 @@ logger = logging.getLogger(__name__)
 
 
 class BaseSessionManager(ABC):
-    """
-    An abstract base class used as a factory to create session objects.
+    """An abstract base class used as a factory to create session objects.
+
     This base class can be extended to validate inputs to sessions and abstract the complexity of their creation
+
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -37,21 +38,28 @@ class BaseSessionManager(ABC):
 
     @abstractmethod
     def configure_session(self, *args, **kwargs) -> requests.Session | requests_cache.CachedSession:
-        """Configure the session. Should be overridden by subclasses."""
+        """Configure the session.
+
+        Should be overridden by subclasses.
+
+        """
         raise NotImplementedError("configure_session must be implemented by subclasses")
 
     @classmethod
     def get_cache_directory(cls, *args, **kwargs) -> Optional[Path]:
-        """
-        Defines defaults used in the creation of subclasses.
+        """Defines defaults used in the creation of subclasses.
+
         Can be optionally overridden in the creation of cached session managers
+
         """
         raise NotImplementedError
 
     def __call__(self) -> requests.Session | requests_cache.CachedSession:
-        """
-        Method that makes an instantiated session manager callable, enabling the creation of new cached sessions with
-        a specific configuration. Calls the self.configure_session() method to return the created session object.
+        """Method that makes an instantiated session manager callable, enabling the creation of new cached sessions with
+        a specific configuration.
+
+        Calls the self.configure_session() method to return the created session object.
+
         """
         return self.configure_session()
 
@@ -68,9 +76,10 @@ BACKEND_DEPENDENCIES = {
 
 
 class CachedSessionConfig(BaseModel):
-    """
-    A helper model used to validate the inputs provided when creating a CachedSessionManager.
+    """A helper model used to validate the inputs provided when creating a CachedSessionManager.
+
     This config is used to validate the inputs to the session manager prior to attempting its creation.
+
     """
 
     cache_name: str
@@ -124,9 +133,10 @@ class CachedSessionConfig(BaseModel):
 
     @field_validator("backend", mode="before")
     def validate_backend_dependency(cls, v):
-        """
-        Validates the choice of backend to and raises an error if its dependency is missing.
+        """Validates the choice of backend to and raises an error if its dependency is missing.
+
         If the backend has unmet dependencies, this validator will trigger a ValidationError.
+
         """
 
         if isinstance(v, requests_cache.BaseCache):
@@ -187,9 +197,10 @@ class CachedSessionConfig(BaseModel):
 
     @property
     def cache_path(self) -> str:
-        """
-        Helper method for retrieving the path that the cache will be written to or named, depending on the backend.
+        """Helper method for retrieving the path that the cache will be written to or named, depending on the backend.
+
         Assumes that the cache_name is provided to the config is not `None`.
+
         """
         return str(self.cache_directory / self.cache_name) if self.cache_directory else self.cache_name
 

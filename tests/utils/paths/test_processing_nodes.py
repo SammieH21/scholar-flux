@@ -8,7 +8,7 @@ from scholar_flux.utils.paths import (
 
 
 def test_node_deep_copy():
-    """Testing the deep copying method for the PathNode"""
+    """Testing the deep copying method for the PathNode."""
     test_value = [1, 2, 3]
     node = PathNode.to_path_node(path="a.b.c", value=test_value)
     new_node = deepcopy(node)
@@ -18,7 +18,7 @@ def test_node_deep_copy():
 
 
 def test_pathnode_creation_and_properties():
-    """Validates the initialization of a new path node and determines whether properties are accessible"""
+    """Validates the initialization of a new path node and determines whether properties are accessible."""
     path_components = ["0", "data", "0", "title"]
     node_value = "Correction: Mitochondrial flux impacts tumor cell survival under hypoxic conditions"
     path = ProcessingPath(path_components)
@@ -39,7 +39,7 @@ def test_pathnode_creation_and_properties():
 
 
 def test_invalid_node_creation():
-    """Verifies that attempting to create nodes with invalid values raises an error as intended"""
+    """Verifies that attempting to create nodes with invalid values raises an error as intended."""
     with pytest.raises(InvalidPathNodeError):
         _ = PathNode(None, value=1)  # type:ignore
 
@@ -51,7 +51,7 @@ def test_invalid_node_creation():
 
 
 def test_pathnode_update_and_equality():
-    """Verifies that updates to path nodes wll create new nodes entirely without the modification of the previous"""
+    """Verifies that updates to path nodes will create new nodes entirely without the modification of the previous."""
     path = ProcessingPath(["0", "data", "0", "title"])
     node = PathNode(path, "A")
     copied_node = node.copy()

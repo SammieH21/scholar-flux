@@ -10,43 +10,43 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="session")
 def session_encryption_dependency() -> bool:
-    """For determining whether to set up and test a cached session with encrypted storage"""
+    """For determining whether to set up and test a cached session with encrypted storage."""
     return all(importlib.util.find_spec(pkg) for pkg in ["cryptography", "itsdangerous"])
 
 
 @pytest.fixture(scope="session")
 def xml_parsing_dependency() -> bool:
-    """For determining whether xml can be implemented to parse xml responses into a json dictionary structure"""
+    """For determining whether xml can be implemented to parse xml responses into a json dictionary structure."""
     return all(importlib.util.find_spec(pkg) for pkg in ["xmltodict"])
 
 
 @pytest.fixture(scope="session")
 def yaml_parsing_dependency() -> bool:
-    """For determining whether yaml can be implemented to parse yaml responses into a json dictionary structure"""
+    """For determining whether yaml can be implemented to parse yaml responses into a json dictionary structure."""
     return all(importlib.util.find_spec(pkg) for pkg in ["yaml"])
 
 
 @pytest.fixture(scope="session")
 def redis_dependency() -> bool:
-    """Indicates whether the redis module is available"""
+    """Indicates whether the redis module is available."""
     return bool(importlib.util.find_spec("redis"))
 
 
 @pytest.fixture(scope="session")
 def mongodb_dependency() -> bool:
-    """Indicates whether the pymongo module is available"""
+    """Indicates whether the pymongo module is available."""
     return bool(importlib.util.find_spec("pymongo"))
 
 
 @pytest.fixture(scope="session")
 def sqlalchemy_dependency() -> bool:
-    """Indicates whether the sqlalchemy module is available"""
+    """Indicates whether the sqlalchemy module is available."""
     return bool(importlib.util.find_spec("sqlalchemy"))
 
 
 @lru_cache(maxsize=1)
 def mongodb_available(host: str = "localhost", port: int = 27017) -> bool:
-    """Helper function for determining whether MongoDB is available"""
+    """Helper function for determining whether MongoDB is available."""
     available = MongoDBStorage.is_available(host=host, port=port)
     if not available:
         logger.warning("Skipping tests for MongoDB")
@@ -55,7 +55,7 @@ def mongodb_available(host: str = "localhost", port: int = 27017) -> bool:
 
 @lru_cache(maxsize=1)
 def sqlalchemy_available(url: Optional[str] = None) -> bool:
-    """Helper function for determining whether SQL Alchemy is available"""
+    """Helper function for determining whether SQL Alchemy is available."""
     available = SQLAlchemyStorage.is_available(url=url)
     if not available:
         logger.warning("Skipping tests for SQL Alchemy")
@@ -64,7 +64,7 @@ def sqlalchemy_available(url: Optional[str] = None) -> bool:
 
 @lru_cache(maxsize=1)
 def redis_available(host: str = "localhost", port: int = 6379) -> bool:
-    """Helper function for determining whether the Redis Service is available"""
+    """Helper function for determining whether the Redis Service is available."""
     available = RedisStorage.is_available(host=host, port=port)
     if not available:
         logger.warning("Skipping tests for Redis")
@@ -73,10 +73,10 @@ def redis_available(host: str = "localhost", port: int = 6379) -> bool:
 
 @pytest.fixture(scope="session")
 def db_dependency_unavailable():
-    """Provides a factory method for determining whether a db can be accessed"""
+    """Provides a factory method for determining whether a db can be accessed."""
 
     def dependency_match(storage, **kwargs) -> bool:
-        """Used to determine whether the requested storage is supported but unavailable"""
+        """Used to determine whether the requested storage is supported but unavailable."""
         match storage.lower():
             case "sql" | "sqlalchemy":
                 return not sqlalchemy_available(**kwargs)

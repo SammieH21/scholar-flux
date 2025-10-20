@@ -20,14 +20,14 @@ from scholar_flux.exceptions import QueryValidationException, APIParameterExcept
 
 @pytest.mark.parametrize("query", (None, ""))
 def test_missing_query(query):
-    """Tests whether a query validation exception is raised when an empty value is supplied to a query"""
+    """Tests whether a query validation exception is raised when an empty value is supplied to a query."""
     with pytest.raises(QueryValidationException):
         # an empty query should error
         _ = SearchAPI.from_defaults(provider_name="plos", query=query)
 
 
 def test_describe_api():
-    """Verifies that the representation of the SearchAPI in a command line interface contains the expected fields"""
+    """Verifies that the representation of the SearchAPI in a command line interface contains the expected fields."""
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     assert isinstance(api.describe(), dict)
     representation = repr(api)
@@ -40,7 +40,7 @@ def test_describe_api():
 
 
 def test_api_summary():
-    """Verifies that the summary of the SearchAPI contains the expected fields and structure"""
+    """Verifies that the summary of the SearchAPI contains the expected fields and structure."""
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     assert isinstance(api.describe(), dict)
     representation = api.summary()
@@ -64,15 +64,15 @@ def test_session_mod():
 
 @pytest.mark.parametrize("provider_name", ("plos", "pubmed", "springernature", "crossref", "core"))
 def test_parameter_build_successful(provider_name, original_config_test_api_key):
-    """
-    Verifies that the `build_parameters` method successfully prepares all required fields and, when required, API keys
-    and mailto addresses for each individual provider.
+    """Verifies that the `build_parameters` method successfully prepares all required fields and, when required, API
+    keys and mailto addresses for each individual provider.
 
     This method uses the pytest's `parametrize` feature to validate parameters generated automatically by
     `SearchAPI.build_parameters()` against the configuration and parameter map required by each provider.
 
     This test ensures that all required parameters and api keys (when required) are present in the final
     dictionary of parameter key-value pairs and does not send requests to the api provider.
+
     """
 
     # first ensures that we're dealing with the intended provider
@@ -144,7 +144,7 @@ def test_incorrect_config(param_overrides):
 
 
 def test_incorrect_property_settings():
-    """Verifies that an API parameter exception is raised when an invalid parameter config value is encountered"""
+    """Verifies that an API parameter exception is raised when an invalid parameter config value is encountered."""
     api = SearchAPI(query="another valid query", use_cache=False)
     value = "not a parameter config"
     with pytest.raises(APIParameterException) as excinfo:
@@ -159,10 +159,8 @@ def test_cache_storage_off():
 
 
 def test_incorrect_base_url(caplog):
-    """
-    Verifies that providing an invalid base URL will raise an APIParameterException indicating an issue
-    in the URL
-    """
+    """Verifies that providing an invalid base URL will raise an APIParameterException indicating an issue in the
+    URL."""
     with pytest.raises(APIParameterException) as excinfo:
         _ = SearchAPI("valid query", base_url="invalid_base_url")
     assert "The value, 'invalid_base_url' is not a valid URL" in str(caplog.text)
@@ -170,10 +168,8 @@ def test_incorrect_base_url(caplog):
 
 
 def test_incorrect_config_type():
-    """
-    Verifies that an incorrect configuration raises an APIParameterException
-    when a dictionary is provided inplace of a SearchAPIConfig
-    """
+    """Verifies that an incorrect configuration raises an APIParameterException when a dictionary is provided inplace of
+    a SearchAPIConfig."""
     api = SearchAPI.from_defaults(query="no-query", provider_name="plos")
     config_dict = api.config.model_dump()
     with pytest.raises(APIParameterException):
@@ -185,13 +181,14 @@ def test_incorrect_config_type():
 
 
 def test_default_params():
-    """
-    Test for whether the defaults are specified correctly:
-        1. api key stays null
-        2. session defaults to a requests.Session object
-        3. records per page defaults to 20
-        4. mailto defaults to None
-        5. timeout is correctly set to the default 20 seconds
+    """Test for whether the defaults are specified correctly:
+
+    1. api key stays null
+    2. session defaults to a requests.Session object
+    3. records per page defaults to 20
+    4. mailto defaults to None
+    5. timeout is correctly set to the default 20 seconds
+
     """
 
     parameter_config = APIParameterConfig.from_defaults("plos")
@@ -215,7 +212,7 @@ def test_default_params():
 
 
 def test_api_specific_parameter_specification(caplog):
-    """Crossref requires an email, the SearchAPI should send the mailto field to the config for validation"""
+    """Crossref requires an email, the SearchAPI should send the mailto field to the config for validation."""
     bad_mailto = "dsdn2#"
     with pytest.raises(APIParameterException) as excinfo:
         api = SearchAPI(query="test", provider_name="crossref", mailto=bad_mailto, api_key=None)
@@ -232,7 +229,7 @@ def test_api_specific_parameter_specification(caplog):
 
 
 def test_validate_url(caplog):
-    """Verifies that the underlying api validator for URLs correctly identifies missing schemas/protocols"""
+    """Verifies that the underlying api validator for URLs correctly identifies missing schemas/protocols."""
     crossref = provider_registry.get("crossref")
     assert crossref is not None
     crossref_url = crossref.base_url
@@ -246,7 +243,7 @@ def test_validate_url(caplog):
 
 
 def test_search_api_url_mailto_validation(caplog):
-    """Validates the URL of the SearchAPI to verify that both invalid and valid mailto/URLs are identified as such"""
+    """Validates the URL of the SearchAPI to verify that both invalid and valid mailto/URLs are identified as such."""
     bad_mailto = "dsdn2#"
     crossref = provider_registry.get("crossref")
     assert crossref is not None
@@ -266,10 +263,8 @@ def test_search_api_url_mailto_validation(caplog):
 
 
 def test_basic_parameter_overrides(caplog):
-    """
-    Validates and verifies that basic parameters are overridden as needed when preparing the parameters needed to
-    retrieve data from each API
-    """
+    """Validates and verifies that basic parameters are overridden as needed when preparing the parameters needed to
+    retrieve data from each API."""
     mailto = "atestemail@anaddress.com"
     api = SearchAPI(query="test", provider_name="crossref", mailto=mailto, api_key=None)
     params = api.build_parameters(page=1, additional_parameters={"new_parameter": 1})
@@ -335,7 +330,7 @@ def test_search_api_initialization(default_api_parameter_config):
 
 
 def test_cached_session(default_api_parameter_config, default_cache_session):
-    """Verifies that a cached session is used when specified in the SearchAPI arguments"""
+    """Verifies that a cached session is used when specified in the SearchAPI arguments."""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -350,10 +345,8 @@ def test_cached_session(default_api_parameter_config, default_cache_session):
 
 @patch.object(SearchAPI, "search", return_value=MagicMock(status_code=200, json={"page": 1, "results": ["record1"]}))
 def test_search_by_page(_, default_api_parameter_config):
-    """
-    Tests and verifies that the features needed to prepare a request and receive a response via a SearchAPI instance
-    are working as intended and return the MagicMock object.
-    """
+    """Tests and verifies that the features needed to prepare a request and receive a response via a SearchAPI instance
+    are working as intended and return the MagicMock object."""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -368,11 +361,8 @@ def test_search_by_page(_, default_api_parameter_config):
 
 @pytest.mark.parametrize("page, records_per_page", [(1, 1), (2, 5), (1, 20), (2, 10)])
 def test_search_api_parameter_ranges(page: int, records_per_page: int, default_api_parameter_config):
-    """
-    Verifies that, when attempting to retrieve a page, the page start is successfully calculated
-    and fields such as `api_key` and `records_per_page` are mapped to their respective values according
-    to the APIParameterConfig.
-    """
+    """Verifies that, when attempting to retrieve a page, the page start is successfully calculated and fields such as
+    `api_key` and `records_per_page` are mapped to their respective values according to the APIParameterConfig."""
     api = SearchAPI(
         query="test",
         records_per_page=records_per_page,
@@ -399,10 +389,11 @@ def test_search_api_parameter_ranges(page: int, records_per_page: int, default_a
 
 
 def test_cached_response_success(default_api_parameter_config, default_cache_session):
-    """
-    Tests whether responses are successfully cached when using a cached session. For this purpose,
-    requests_mock package is used to simulate a request that can be cached to determine whether caching
-    is working as intended.
+    """Tests whether responses are successfully cached when using a cached session.
+
+    For this purpose, requests_mock package is used to simulate a request that can be cached to determine whether
+    caching is working as intended.
+
     """
     api = SearchAPI(
         query="test",
@@ -432,10 +423,8 @@ def test_cached_response_success(default_api_parameter_config, default_cache_ses
 
 @pytest.mark.parametrize("unsuccessful_response_code", [400, 402, 404, 500])
 def test_cached_response_failure(unsuccessful_response_code, default_api_parameter_config, default_cache_session):
-    """
-    Tests and verifies that unsuccessful_response_codes are received but not cached when requesting a response via a
-    requests_mock mocker.
-    """
+    """Tests and verifies that unsuccessful_response_codes are received but not cached when requesting a response via a
+    requests_mock mocker."""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -459,7 +448,7 @@ def test_cached_response_failure(unsuccessful_response_code, default_api_paramet
 
 
 def test_missing_api_key(default_api_parameter_config, caplog):
-    """Verifies that an error is raised when an API key is required according to the ParamConfig but is not set"""
+    """Verifies that an error is raised when an API key is required according to the ParamConfig but is not set."""
     # default_api_parameter_config requires an API key
     with caplog.at_level(logging.WARNING):
         _ = SearchAPI(query="test", parameter_config=default_api_parameter_config)
@@ -467,7 +456,7 @@ def test_missing_api_key(default_api_parameter_config, caplog):
 
 
 def test_cache_expiration(default_api_parameter_config, default_cache_session, default_seconds_cache_expiration):
-    """Tests the cache expiration time using requests_cache to ensure that the expiration field is sucessfully used"""
+    """Tests the cache expiration time using requests_cache to ensure that the expiration field is successfully used."""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -501,7 +490,7 @@ def test_cache_expiration(default_api_parameter_config, default_cache_session, d
 
 
 def test_prepare_search_url_and_params():
-    """Ensures that the URL used in requests preparation can be overriden prior to being sent"""
+    """Ensures that the URL used in requests preparation can be overridden prior to being sent."""
     api = SearchAPI.from_defaults(query="test", provider_name="core", api_key="this_is_a_fake_api_key")
     req = api.prepare_request("https://api.example.com", "endpoint", {"foo": "bar"}, api_key="123")
     assert isinstance(req.url, str) and req.url.startswith("https://api.example.com/endpoint")
@@ -547,10 +536,8 @@ def test_core_api_filtering(monkeypatch, caplog, scholar_flux_logger):
 
 
 def test_api_key_exists_true_and_false():
-    """
-    Verifies that the `api_key_exists` method is working as intended to ensure that API keys are identified
-    with booleans when parameters are built and requests prepared.
-    """
+    """Verifies that the `api_key_exists` method is working as intended to ensure that API keys are identified with
+    booleans when parameters are built and requests prepared."""
     assert SearchAPI._api_key_exists({"api_key": "123"})
     assert SearchAPI._api_key_exists({"apikey": "123"})
     assert SearchAPI._api_key_exists({"API_KEY": "123"})
@@ -559,11 +546,9 @@ def test_api_key_exists_true_and_false():
 
 
 def test_with_config_parameters_temporary_override(original_config, original_api_parameter_config):
-    """
-    Tests and verifies that the API's SearchAPIConfig can be temporarily overridden with a context manager and
-    the `with_api_parameters` method and identically reverted back to the previous SearchAPIConfig after the
-    context manager closes
-    """
+    """Tests and verifies that the API's SearchAPIConfig can be temporarily overridden with a context manager and the
+    `with_api_parameters` method and identically reverted back to the previous SearchAPIConfig after the context manager
+    closes."""
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -582,10 +567,7 @@ def test_with_config_parameters_temporary_override(original_config, original_api
 
 
 def test_with_config_parameters_invalid_field_ignored(original_config, original_api_parameter_config):
-    """
-    Verifies that fields unknown to the APIParameterConfig are ignored when building parameters
-    for a new request
-    """
+    """Verifies that fields unknown to the APIParameterConfig are ignored when building parameters for a new request."""
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -618,7 +600,7 @@ def test_with_config_parameters_invalid_field_ignored(original_config, original_
 
 
 def test_with_config_parameters_exception_restores(original_config, original_api_parameter_config):
-    """Tests and verifies that the configuration can temporarily be modified and restored with the context maanger"""
+    """Tests and verifies that the configuration can temporarily be modified and restored with the context manager."""
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -635,10 +617,11 @@ def test_with_config_parameters_exception_restores(original_config, original_api
 
 
 def test_with_config_precedence_over_provider(monkeypatch, new_config, original_api_parameter_config):
-    """
-    Tests and verifies that the SearchAPIConfig.from_defaults factory method is overridden as intended
-    when the `with_config` method is called as a context manager to temporarily change the config.
+    """Tests and verifies that the SearchAPIConfig.from_defaults factory method is overridden as intended when the
+    `with_config` method is called as a context manager to temporarily change the config.
+
     The base URL should always take precedence over the provider unless not explicitly provided.
+
     """
     api = SearchAPI(
         query="test",
@@ -670,11 +653,12 @@ def test_with_config_precedence_over_provider(monkeypatch, new_config, original_
 
 
 def test_updates():
-    """
-    Ensures that updates to the API occur in the intended manner:
-        1. Calling update with only a SearchAPIConfig will return the identical config
-        2. Calling update without a SearchAPI object will throw an error, because `update` is a classmethod and
-           requires a SearchAPI for the first argument.
+    """Ensures that updates to the API occur in the intended manner:
+
+    1. Calling update with only a SearchAPIConfig will return the identical config
+    2. Calling update without a SearchAPI object will throw an error, because `update` is a classmethod and
+       requires a SearchAPI for the first argument.
+
     """
     api = SearchAPI(query="test")
 
@@ -691,10 +675,8 @@ def test_updates():
 def test_nested_with_config_and_with_config_parameters(
     original_config, new_config, original_api_parameter_config, new_api_parameter_config
 ):
-    """
-    Verifies that nested context managers modifies the current config with precedence given to the latest context
-    that modifies the configuration and other parameters for the SearchAPI.
-    """
+    """Verifies that nested context managers modifies the current config with precedence given to the latest context
+    that modifies the configuration and other parameters for the SearchAPI."""
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
@@ -727,13 +709,12 @@ def test_nested_with_config_and_with_config_parameters(
 
 
 def test_from_provider_config(caplog):
-    """
-    Helper method for validating the functionality of the `from_provider_config` method.
-    This method should allow the creation of a SearchAPI instance with a provider configuration
-    by temporarily adding it to the registry.
+    """Helper method for validating the functionality of the `from_provider_config` method. This method should allow the
+    creation of a SearchAPI instance with a provider configuration by temporarily adding it to the registry.
 
-    If the provider already exists, then this method will temporarily replace the current config
-    while conserving the previous configuration until the SearchAPI is created.
+    If the provider already exists, then this method will temporarily replace the current config while conserving the
+    previous configuration until the SearchAPI is created.
+
     """
     provider_name = "plos"
     query = "q"
@@ -775,7 +756,7 @@ def test_from_provider_config(caplog):
 
 
 def test_missing_parameters():
-    """Validates that an APIParameterException is thrown when neither page nor parameter is provided"""
+    """Validates that an APIParameterException is thrown when neither page nor parameter is provided."""
     api = SearchAPI(query="new query")
     with pytest.raises(APIParameterException) as excinfo:
         api.search()
@@ -783,10 +764,8 @@ def test_missing_parameters():
 
 
 def test_parameter_exceptions(monkeypatch, mock_successful_response):
-    """
-    Tests whether an APIParameterException is raised when the `parameters` argument
-    to `prepare_request` is not a dictionary as intended.
-    """
+    """Tests whether an APIParameterException is raised when the `parameters` argument to `prepare_request` is not a
+    dictionary as intended."""
     minimum_request_delay = 0.5  # second interval between requests minimum
 
     api = SearchAPI.from_defaults(
@@ -805,10 +784,8 @@ def test_parameter_exceptions(monkeypatch, mock_successful_response):
 
 
 def test_base_url_omission(default_api_parameter_config):
-    """
-    Validates that the omission of a base URL in the preparation of a request will return the
-    automatically same URL value for the API as when it is specified explicitly.
-    """
+    """Validates that the omission of a base URL in the preparation of a request will return the automatically same URL
+    value for the API as when it is specified explicitly."""
     api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -825,10 +802,8 @@ def test_base_url_omission(default_api_parameter_config):
 
 
 def test_rate_limiter_use(monkeypatch, mock_successful_response):
-    """
-    Validates and tests whether the request delay, when modified with a context manager,
-    successfully changes the duration between requests for the duration of the context
-    """
+    """Validates and tests whether the request delay, when modified with a context manager, successfully changes the
+    duration between requests for the duration of the context."""
     minimum_request_delay = 0.5  # second interval between requests minimum
 
     api = SearchAPI.from_defaults(

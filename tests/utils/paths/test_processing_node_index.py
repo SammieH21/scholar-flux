@@ -15,7 +15,7 @@ import pytest
 
 @pytest.fixture
 def extracted_records(mock_academic_json):
-    """Extracts valid records from the `mock_academic_json` for further testing using a list of dictionary records"""
+    """Extracts valid records from the `mock_academic_json` for further testing using a list of dictionary records."""
     extractor = DataExtractor()
     records, _ = extractor.extract(mock_academic_json)
     return records
@@ -23,7 +23,7 @@ def extracted_records(mock_academic_json):
 
 @pytest.fixture
 def path_nodes(extracted_records):
-    """Uses the extracted records to generate a set of path-value pairs for further testing"""
+    """Uses the extracted records to generate a set of path-value pairs for further testing."""
     path_discoverer = PathDiscoverer(extracted_records)
     path_dict = path_discoverer.discover_path_elements() or {}
     path_nodes = {PathNode(path, value) for path, value in path_dict.items()}
@@ -31,12 +31,12 @@ def path_nodes(extracted_records):
 
 
 def test_index_mapping_validation(extracted_records):
-    """
-    Tests whether the method that creates and/or validates node mappings in a PathNodeIndex
-    correctly prepares both RecordPathChainMap and PathNodeMaps.
+    """Tests whether the method that creates and/or validates node mappings in a PathNodeIndex correctly prepares both
+    RecordPathChainMap and PathNodeMaps.
 
-    Independent of the modality that prepares the mappings, each should contain the same
-    range of nodes when comparing the list of nodes within each mapping.
+    Independent of the modality that prepares the mappings, each should
+    contain the same range of nodes when comparing the list of nodes
+    within each mapping.
     """
     path_discoverer = PathDiscoverer(extracted_records)
     path_dict = path_discoverer.discover_path_elements()
@@ -57,11 +57,11 @@ def test_index_mapping_validation(extracted_records):
 
 
 def test_chain_map_creation(path_nodes):
-    """
-    Validates whether the creation of a chain map with an iterable of nodes correctly
-    instantiates a new RecordPathChainMap.
+    """Validates whether the creation of a chain map with an iterable of nodes correctly instantiates a new
+    RecordPathChainMap.
 
-    The final chain map should include the full range of nodes from the `path_nodes` fixture.
+    The final chain map should include the full range of nodes from the
+    `path_nodes` fixture.
     """
     assert path_nodes
     chain_map = RecordPathChainMap(*path_nodes)
@@ -78,10 +78,8 @@ def test_chain_map_creation(path_nodes):
 
 
 def test_map_method_equality(path_nodes):
-    """
-    Tests whether the instantiation and processing of PathNodeMaps and RecordPathChainMaps correctly
-    processes and flattens both PathNodeMaps and RecordPathChainMaps in an identical manner.
-    """
+    """Tests whether the instantiation and processing of PathNodeMaps and RecordPathChainMaps correctly processes and
+    flattens both PathNodeMaps and RecordPathChainMaps in an identical manner."""
     map1 = PathNodeMap(*path_nodes)
     map2 = RecordPathChainMap(*path_nodes)
     assert sorted(map1.nodes) == sorted(map2.nodes)
@@ -93,7 +91,7 @@ def test_map_method_equality(path_nodes):
 
 
 def test_path_node_index_from_path_mappings_and_search():
-    """validates whether the use of path node indices correctly retrieves and searches relevant nodes"""
+    """validates whether the use of path node indices correctly retrieves and searches relevant nodes."""
     mappings = {ProcessingPath(["0", "data", "0", "title"]): "A"}
     path_node_index = PathNodeIndex.from_path_mappings(mappings)
     retrieved_index = path_node_index.get_node(ProcessingPath(["0", "data", "0", "title"]))
@@ -103,12 +101,13 @@ def test_path_node_index_from_path_mappings_and_search():
 
 
 def test_path_node_index_pattern_search_and_combine_keys():
-    """
-    Tests the simplifier to Verify that combining keys works as intended.
+    """Tests the simplifier to Verify that combining keys works as intended.
 
-    When combining paths containing categories and their corresponding counts in two separate nodes,
-    the category name is extracted from the `category` node and appended to the path of a new node.
-    Similarly, the `value` attribute in the new node originates from the value from the `count` node.
+    When combining paths containing categories and their corresponding
+    counts in two separate nodes, the category name is extracted from
+    the `category` node and appended to the path of a new node.
+    Similarly, the `value` attribute in the new node originates from the
+    value from the `count` node.
     """
     mappings = {
         ProcessingPath(["0", "data", "0", "values", "value"]): "X",
@@ -128,11 +127,8 @@ def test_path_node_index_pattern_search_and_combine_keys():
 
 
 def test_path_simplifier_simplify_paths_and_rows():
-    """
-    Verifies that using the `PathSimplifier` correctly simplifies the names
-    for each path using a maximum of two of last components in each path to
-    format the path string where each value from the JSON can be found.
-    """
+    """Verifies that using the `PathSimplifier` correctly simplifies the names for each path using a maximum of two of
+    last components in each path to format the path string where each value from the JSON can be found."""
     path = [ProcessingPath(["0", "data", str(i), "title"]) for i in range(3)]
     nodes = [PathNode(p, f"title_{i}") for i, p in enumerate(path)]
     node_groups: list[ProcessingPath | str] = [node.path_group for node in nodes]
@@ -144,11 +140,9 @@ def test_path_simplifier_simplify_paths_and_rows():
 
 
 def test_integration_flatten_and_simplify(mock_academic_json):
-    """
-    Tests that flattening the mocked json data set using PathDiscoverer and PathNodeIndex
-    produces the intended result when manually applying the individual components that
-    integrate to process the JSON into a list of dictionaries.
-    """
+    """Tests that flattening the mocked json data set using PathDiscoverer and PathNodeIndex produces the intended
+    result when manually applying the individual components that integrate to process the JSON into a list of
+    dictionaries."""
     discoverer = PathDiscoverer(mock_academic_json["data"])
     path_mappings = discoverer.discover_path_elements()
     assert isinstance(path_mappings, dict)
@@ -164,7 +158,7 @@ def test_integration_flatten_and_simplify(mock_academic_json):
 
 
 def test_index_parallel_normalization(extracted_records, caplog):
-    """Validates whether index normalization correctly operates in parallel using multiprocessing"""
+    """Validates whether index normalization correctly operates in parallel using multiprocessing."""
     assert isinstance(extracted_records, list)
     normalized_records = PathNodeIndex.normalize_records(extracted_records, parallel=True)
     assert isinstance(normalized_records, list) and all(isinstance(r, dict) and len(r) > 0 for r in normalized_records)

@@ -1,10 +1,10 @@
 # /data/path_data_processor.py
-"""
-The scholar_flux.data.recursive_data_processor implements the PathDataProcessor that uses a custom path processing
+"""The scholar_flux.data.recursive_data_processor implements the PathDataProcessor that uses a custom path processing
 implementation to dynamically flatten and format JSON records to retrieve nested-key value pairs.
 
 Similar to the RecursiveDataProcessor, the PathDataProcessor can be used to dynamically filter, process, and flatten
 nested paths while formatting the output based on its specification.
+
 """
 
 from typing import Any, Optional, Union
@@ -21,10 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class PathDataProcessor(ABCDataProcessor):
-    """
-    The PathDataProcessor uses a custom implementation of Trie-based processing to abstract nested key-value
-    combinations into path-node pairs where the path defines the full range of nested keys that need to be
-    traversed to arrive at each terminal field within each individual record.
+    """The PathDataProcessor uses a custom implementation of Trie-based processing to abstract nested key-value
+    combinations into path-node pairs where the path defines the full range of nested keys that need to be traversed to
+    arrive at each terminal field within each individual record.
 
     This implementation automatically and dynamically flattens and filters a single page of records (a list
     of dictionary-based records) extracted from a response at a time to return the processed record data.
@@ -37,6 +36,7 @@ class PathDataProcessor(ABCDataProcessor):
         >>> result = path_data_processor(data) # recursively flattens and processes by default
         >>> print(result)
         # OUTPUT: [{'id': '1', 'a.b': 'c'}, {'id': '2', 'b.f': 'e'}, {'id': '2', 'c.h': 'g'}]
+
     """
 
     def __init__(
@@ -48,9 +48,7 @@ class PathDataProcessor(ABCDataProcessor):
         regex: Optional[bool] = True,
         use_cache: Optional[bool] = True,
     ) -> None:
-        """
-        Initializes the data processor with JSON data and optional parameters for processing.
-        """
+        """Initializes the data processor with JSON data and optional parameters for processing."""
         super().__init__()
         self._validate_inputs(ignore_keys, keep_keys, regex, value_delimiter=value_delimiter)
         self.value_delimiter = value_delimiter
@@ -66,19 +64,19 @@ class PathDataProcessor(ABCDataProcessor):
 
     @property
     def cached(self) -> bool:
-        """Property indicating whether the underlying path node index uses a cache of weakreferences to nodes"""
+        """Property indicating whether the underlying path node index uses a cache of weakreferences to nodes."""
         return self.path_node_index.node_map.use_cache
 
     def load_data(self, json_data: Optional[dict | list[dict]] = None) -> bool:
-        """
-        Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
-        from. If `json_data` is missing or the json input is equal to the current `json_data` attribute, then
-        the `json_data` attribute will not be updated from the json input.
+        """Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
+        from. If `json_data` is missing or the json input is equal to the current `json_data` attribute, then the
+        `json_data` attribute will not be updated from the json input.
 
         Args:
             json_data (Optional[dict | list[dict]]) The json data to be loaded as an attribute
         Returns:
             bool: Indicates whether the data was successfully loaded (True) or not (False)
+
         """
 
         if not json_data and not self.json_data:
@@ -111,10 +109,11 @@ class PathDataProcessor(ABCDataProcessor):
         ignore_keys: Optional[list] = None,
         regex=None,
     ) -> None:
-        """
-        Processes a record dictionary to extract record data and article content, creating a processed
-        record dictionary with an abstract field. Determines whether or not to retain a specific record
-        at the index.
+        """Processes a record dictionary to extract record data and article content, creating a processed record
+        dictionary with an abstract field.
+
+        Determines whether or not to retain a specific record at the index.
+
         """
         logger.debug("Processing next record...")
 
@@ -143,9 +142,7 @@ class PathDataProcessor(ABCDataProcessor):
         combine_keys: bool = True,
         regex: Optional[bool] = None,
     ) -> list[dict]:
-        """
-        Processes each individual record dict from the JSON data.
-        """
+        """Processes each individual record dict from the JSON data."""
         self._validate_inputs(ignore_keys, keep_keys, regex, value_delimiter=self.value_delimiter)
 
         try:
@@ -186,9 +183,8 @@ class PathDataProcessor(ABCDataProcessor):
         record_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
     ) -> bool:
-        """
-        Indicates whether a record contains a path (key) indicating whether the record as a whole should be retained or dropped.
-        """
+        """Indicates whether a record contains a path (key) indicating whether the record as a whole should be retained
+        or dropped."""
 
         if not record_keys:
             return False
@@ -204,25 +200,25 @@ class PathDataProcessor(ABCDataProcessor):
         return bool(contains_record_pattern)
 
     def discover_keys(self) -> Optional[dict[str, Any]]:
-        """
-        Discovers all keys within the JSON data.
-        """
+        """Discovers all keys within the JSON data."""
         return {str(node.path): node for node in self.path_node_index.nodes}
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
-        """
-        Method for showing the structure of the current PathDataProcessor and identifying the current
-        configuration. Useful for showing the options being used to process the api response records
+        """Method for showing the structure of the current PathDataProcessor and identifying the current configuration.
+
+        Useful for showing the options being used to process the api response records
+
         """
         return generate_repr(
             self, flatten=flatten, show_value_attributes=show_value_attributes, exclude={"json_data", "use_cache"}
         )
 
     def __call__(self, *args, **kwargs) -> list[dict]:
-        """
-        Convenience method that calls process_page while also locking the class for
-        processing while a single page is processed. Useful in a threading context
-        where multiple SearchCoordinators may be using the same PathDataProcessor.
+        """Convenience method that calls process_page while also locking the class for processing while a single page is
+        processed.
+
+        Useful in a threading context where multiple SearchCoordinators may be using the same PathDataProcessor.
+
         """
         with self.lock:
             return self.process_page(*args, **kwargs)

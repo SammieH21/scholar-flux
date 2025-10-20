@@ -1,8 +1,6 @@
 # /utils
-"""
-
-The scholar_flux.utils module contains a comprehensive set of utility tools used to simplify the re-implementation
-of common design patterns.
+"""The scholar_flux.utils module contains a comprehensive set of utility tools used to simplify the re-implementation of
+common design patterns.
 
 Modules:
     - initializer.py: Contains the tools used to initialize (or reinitialize) the scholar_flux package.
@@ -12,7 +10,7 @@ Modules:
                         - masker: identifies and masks sensitive data from logs such as api keys and email addresses
 
     - logger.py: Contains the setup_logging that is used to set the logging level and output location for logs when
-                 using the the scholar_flux package
+                 using the scholar_flux package
 
     - config.py: Holds the ConfigLoader class that starts from the scholar_flux defaults and reads from an .env and
                  environment variables to automatically apply API keys, encryption settings, the default provider, etc.
@@ -112,10 +110,8 @@ _lazy_imports = {("scholar_flux.utils.provider_utils", "ProviderUtils")}
 
 
 def __getattr__(name: str):
-    """
-    Enables the lazy retrieval of objects within the `scholar_flux.utils` module's namespace that are not loaded
-    until they are explicitly needed by a package resource or by user.
-    """
+    """Enables the lazy retrieval of objects within the `scholar_flux.utils` module's namespace that are not loaded
+    until they are explicitly needed by a package resource or by user."""
     try:
         module, object_name = next(
             ((module, object_name) for (module, object_name) in _lazy_imports if object_name == name)
@@ -151,6 +147,12 @@ __all__ = [
     "quote_numeric",
     "quote_if_string",
     "JsonFileUtils",
+    "KeyDiscoverer",
+    "KeyFilter",
+    "RecursiveJsonProcessor",
+    "JsonNormalizer",
+    "JsonRecordData",
+    "PathUtils",
     "ProcessingPath",
     "PathNode",
     "PathSimplifier",
@@ -160,12 +162,6 @@ __all__ = [
     "PathNodeIndex",
     "PathProcessingCache",
     "PathDiscoverer",
-    "PathUtils",
-    "KeyDiscoverer",
-    "KeyFilter",
-    "RecursiveJsonProcessor",
-    "JsonNormalizer",
-    "JsonRecordData",
     "generate_repr",
     "generate_repr_from_string",
     "format_repr_value",
@@ -181,8 +177,9 @@ __all__ = [
 
 
 def __dir__() -> list[str]:
-    """
-    Implements a basic `dir` method for the current directory. Represents the available modules and objects that
-    are available for import and use within the current module.
+    """Implements a basic `dir` method for the current directory.
+
+    Represents the available modules and objects that are available for import and use within the current module.
+
     """
     return list(globals().keys()) + [object_name for (_, object_name) in _lazy_imports]  # noqa: C417

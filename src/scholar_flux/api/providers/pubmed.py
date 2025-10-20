@@ -1,7 +1,5 @@
 # /api/providers/pubmed.py
-"""
-Defines the core configuration necessary to interact with the PubMed eSearch API using the scholar_flux package.
-"""
+"""Defines the core configuration necessary to interact with the PubMed eSearch API using the scholar_flux package."""
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 

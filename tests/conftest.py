@@ -1,8 +1,9 @@
 # /tests/conftest.py
-"""
-Helper script that contains the complete list of fixtures that were made globally available to pytest for testing the
-scholar_flux package. The test suite fixtures are prepared to aid the testing of both simulated and known provider
-configurations.
+"""Helper script that contains the complete list of fixtures that were made globally available to pytest for testing the
+scholar_flux package.
+
+The test suite fixtures are prepared to aid the testing of both simulated and known provider configurations.
+
 """
 
 from tests.fixtures.plos_api import (

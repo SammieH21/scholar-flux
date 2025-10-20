@@ -6,10 +6,8 @@ from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonRespons
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
 def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exceeded_response, caplog):
-    """
-    Test for whether the defaults are specified correctly and whether the mocked response is processed
-    as intended throughout the coordinator
-    """
+    """Test for whether the defaults are specified correctly and whether the mocked response is processed as intended
+    throughout the coordinator."""
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
     success_response = ProcessedResponse(response=mock_successful_response, extracted_records=extracted_records)
     rate_limit_response = ErrorResponse(response=mock_rate_limit_exceeded_response, message="Rate limit exceeded")
@@ -42,10 +40,8 @@ def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exce
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
 def test_last_response_page(mock_search, mock_successful_response, mock_unauthorized_response, caplog):
-    """
-    Test for whether the defaults are specified correctly and whether the mocked response is processed
-    as intended throughout the coordinator.
-    """
+    """Test for whether the defaults are specified correctly and whether the mocked response is processed as intended
+    throughout the coordinator."""
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
     success_response = ProcessedResponse(response=mock_successful_response, extracted_records=extracted_records)
     no_response = None
@@ -80,10 +76,12 @@ def test_last_response_page(mock_search, mock_successful_response, mock_unauthor
 
 
 def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
-    """
-    Tests whether exceptions are successfully captured and formatted as an ErrorResponse within a
-    API Response when an error is encountered. The presence of a specific error should ideally
-    halt the process, especially relevant when encountering `400` status codes.
+    """Tests whether exceptions are successfully captured and formatted as an ErrorResponse within a API Response when
+    an error is encountered.
+
+    The presence of a specific error should ideally halt the process, especially relevant when encountering `400` status
+    codes.
+
     """
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")
 

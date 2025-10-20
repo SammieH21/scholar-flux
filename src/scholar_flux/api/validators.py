@@ -1,15 +1,20 @@
 # /api/validators.py
-"""
-The scholar_flux.api.validators module implements methods that are used within the validation
-of scholar_flux API configurations to ensure that valid and invalid inputs are received as such.
+"""The scholar_flux.api.validators module implements methods that are used within the validation of scholar_flux API
+configurations to ensure that valid and invalid inputs are received as such.
 
 Functions:
-    validate_email: Used to verify whether an email matches the expected pattern
-    validate_and_validate_and_process_email: Attempts to masks valid emails and raises an error on invalid input
-    validate_url: Used to verify whether an url is a valid string
-    normalize_url: Uses regular expressions to format the URL in a consistent format for string comparisons
-    validate_and_process_url: validates URLs to ensure that it matches the expected format and normalizes the
-                              URL for later use
+
+    validate_email:
+        Used to verify whether an email matches the expected pattern
+    validate_and_validate_and_process_email:
+        Attempts to masks valid emails and raises an error on invalid input
+    validate_url:
+        Used to verify whether an url is a valid string
+    normalize_url:
+        Uses regular expressions to format the URL in a consistent format for string comparisons
+    validate_and_process_url:
+        validates URLs to ensure that it matches the expected format and normalizes the URL for later use
+
 """
 import re
 from urllib.parse import urlparse
@@ -22,13 +27,14 @@ logger = logging.getLogger(__name__)
 
 
 def validate_email(email: str) -> bool:
-    """
-    Uses regex to determine whether the provided value is an email
+    """Uses regex to determine whether the provided value is an email.
 
     Args:
         email (str): The email string to validate
+
     Returns:
         True if the email is valid, and False Otherwise
+
     """
     regex = r"^[a-zA-Z0-9._%+-]+(%40|@)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if isinstance(email, str) and re.match(regex, email):
@@ -38,13 +44,20 @@ def validate_email(email: str) -> bool:
 
 
 def validate_and_process_email(email: Optional[SecretStr | str]) -> Optional[SecretStr]:
-    """
-    If a string value is provided, determine whether the email is valid
-    using regex - uses the validate_email function for the actual implementation
+    """If a string value is provided, determine whether the email is valid.
+
+    This function first uses the validate_email function for the validation of the email.
+    If the value is not an email, this implementation will raise an Error
+
     Args:
         email (Optional[str]): an email to validate if non-missing
+
     Returns:
         True if the email is valid or is not provided, and False Otherwise
+
+    Raises:
+        ValueError: If the current value is not an email
+
     """
     if email is None:
         return None
@@ -58,13 +71,14 @@ def validate_and_process_email(email: Optional[SecretStr | str]) -> Optional[Sec
 
 
 def validate_url(url: str) -> bool:
-    """
-    Uses urlparse to determine whether the provided value is an url
+    """Uses urlparse to determine whether the provided value is an url.
 
     Args:
         url (str): The url string to validate
+
     Returns:
         True if the url is valid, and False Otherwise
+
     """
     try:
         result = urlparse(url)
@@ -83,16 +97,18 @@ def validate_url(url: str) -> bool:
 
 
 def normalize_url(url: str, normalize_https: bool = True) -> str:
-    """
-    Helper class to aid in comparisons of string urls. Normalizes a URL for consistent
-    comparisons by converting to https:// and stripping right-most forward slashes ('/').
+    """Helper class to aid in comparisons of string urls. Normalizes a URL for consistent comparisons by converting to
+    https:// and stripping right-most forward slashes ('/').
 
     Args:
-        url (str): The url to normalize into a consistent structure for later comparison
-        normalize_https (bool): indicates whether to normalize the http identifier on the URL.
-                                This is True by default.
+        url (str):
+            The url to normalize into a consistent structure for later comparison
+        normalize_https (bool):
+            indicates whether to normalize the http identifier on the URL. This is True by default.
+
     Returns:
         str: The normalized url
+
     """
     url = url.rstrip("/")
     if normalize_https:
@@ -101,13 +117,16 @@ def normalize_url(url: str, normalize_https: bool = True) -> str:
 
 
 def validate_and_process_url(url: Optional[str]) -> Optional[str]:
-    """
-    If a string value is provided, determine whether the url is valid
-    using regex - uses the validate_url function for the actual implementation
+    """If a string value is provided, determine whether the url is valid.
+
+    This function first uses the validate_url function for the validation of the url.
+
     Args:
         url (Optional[str]): an url to validate if non-missing
+
     Returns:
         True if the url is valid or is not provided, and False Otherwise
+
     """
     if url is None:
         return None

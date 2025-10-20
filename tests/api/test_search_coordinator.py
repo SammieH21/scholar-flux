@@ -29,10 +29,12 @@ from scholar_flux.exceptions import (
     ],
 )
 def test_incorrect_config(param_overrides, caplog):
-    """
-    Verifies that the SearchCoordinator correctly raises an error on encountering an invalid value
-    when setting an attribute. This test parametrizes several individual fields to determine whether
-    whether values for each field raise an InvalidCoordinatorParameterException.
+    """Verifies that the SearchCoordinator correctly raises an error on encountering an invalid value when setting an
+    attribute.
+
+    This test parametrizes several individual fields to determine whether whether values for each field raise an
+    InvalidCoordinatorParameterException.
+
     """
     params = {"query": "Computer Science Testing"} | param_overrides
     with pytest.raises(InvalidCoordinatorParameterException):
@@ -61,22 +63,20 @@ def test_incorrect_config(param_overrides, caplog):
 
 
 def test_blank_create_api():
-    """
-    Validates whether an attempt to create a Search API without any arguments correctly raises
-    a QueryValidationError.
-    """
+    """Validates whether an attempt to create a Search API without any arguments correctly raises a
+    QueryValidationError."""
     with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
         _ = SearchCoordinator._create_search_api()
     assert "Either 'query' or 'search_api' must be provided." in str(excinfo.value)
 
 
 def test_build():
-    """
-    First attempts to build a new search coordinator from the previously created components as well as
-    defaults to determine whether the structure of the coordinator is exactly the same as before.
+    """First attempts to build a new search coordinator from the previously created components as well as defaults to
+    determine whether the structure of the coordinator is exactly the same as before.
 
-    The string representation of the coordinator will include a basic overview on the structure of the coordinator
-    which should use the same api and response_coordinator while using the same defaults.
+    The string representation of the coordinator will include a basic overview on the structure of the coordinator which
+    should use the same api and response_coordinator while using the same defaults.
+
     """
     search_coordinator = SearchCoordinator(query="test_query")
     new_search_coordinator = SearchCoordinator.as_coordinator(
@@ -86,10 +86,11 @@ def test_build():
 
 
 def test_workflow_called():
-    """
-    Validates whether the workflow for the search coordinator, when included, is correctly
-    called when running `SearchCoordinator.search` if `use_workflow` is set to True. Otherwise,
-    a workflow should not be used when `use_workflow` is set to False.
+    """Validates whether the workflow for the search coordinator, when included, is correctly called when running
+    `SearchCoordinator.search` if `use_workflow` is set to True.
+
+    Otherwise, a workflow should not be used when `use_workflow` is set to False.
+
     """
 
     api = SearchAPI.from_defaults(
@@ -118,9 +119,10 @@ def test_workflow_called():
 
 
 def test_search_exception(monkeypatch, caplog):
-    """
-    Tests to verify that `search` correctly returns `None` when an unexpected error occurs during retrieval.
+    """Tests to verify that `search` correctly returns `None` when an unexpected error occurs during retrieval.
+
     The `_search` private method is patched to raise an Exception to be handled within the `search` method.
+
     """
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")
 
@@ -157,13 +159,13 @@ def test_search_exception(monkeypatch, caplog):
 
 
 def test_workflow_components():
-    """
-    Validates the preset configuration for a BaseWorkflowStep that, by default, should not
-    be modified when `pre_transform` is called with `None`. Also validates that the context of the workflow step
-    is returned as is by default.
+    """Validates the preset configuration for a BaseWorkflowStep that, by default, should not be modified when
+    `pre_transform` is called with `None`. Also validates that the context of the workflow step is returned as is by
+    default.
 
-    These basic configurations are used to provide the blueprint for flexible modification of workflow steps
-    before and after the execution of a workflow step while not providing additional functionality by default.
+    These basic configurations are used to provide the blueprint for flexible modification of workflow steps before and
+    after the execution of a workflow step while not providing additional functionality by default.
+
     """
     workflow_step = BaseWorkflowStep()
     assert workflow_step.__dict__ == workflow_step.pre_transform(None).__dict__
@@ -178,10 +180,8 @@ def test_workflow_components():
 
 
 def test_with_workflow_error(monkeypatch, caplog):
-    """
-    Validates whether errors in a workflow are successfully caught when attempting to retrieve and process
-    a response using a `SearchWorkflow`
-    """
+    """Validates whether errors in a workflow are successfully caught when attempting to retrieve and process a response
+    using a `SearchWorkflow`"""
     basic_workflow_step = WorkflowStep()
     basic_workflow = SearchWorkflow(steps=[basic_workflow_step])
     api = SearchAPI.from_defaults(
@@ -214,10 +214,8 @@ def test_with_workflow_error(monkeypatch, caplog):
 
 
 def test_initialization_updates():
-    """
-    Verifies that the input parameters successfully initialize a new SearchCoordinator as intended
-    while ensuring that unspecified defaults are automatically created.
-    """
+    """Verifies that the input parameters successfully initialize a new SearchCoordinator as intended while ensuring
+    that unspecified defaults are automatically created."""
     # create a new SearchCoordinator specifying only an API and a query override
     api = SearchAPI.from_defaults(provider_name="crossref", query="testing_query")
     search_coordinator = SearchCoordinator(api, query="new_query", request_delay=api.request_delay + 5)
@@ -258,10 +256,8 @@ def test_initialization_updates():
 
 
 def test_request_failed_exception(monkeypatch, caplog):
-    """
-    Verifies that, when a request fails to generate a response and, instead, throws an error, the error is logged
-    and the response result is `None`.
-    """
+    """Verifies that, when a request fails to generate a response and, instead, throws an error, the error is logged and
+    the response result is `None`."""
     coordinator = SearchCoordinator(query="Computer Science Testing", request_delay=0)
     monkeypatch.setattr(
         coordinator, "robust_request", lambda *a, **kw: (_ for _ in ()).throw(RequestFailedException("fail"))
@@ -275,9 +271,8 @@ def test_request_failed_exception(monkeypatch, caplog):
 
 
 def test_none_type_fetch(monkeypatch, caplog):
-    """
-    Tests to verify that a NonResponse is returned when a retry_handler receives None in the request retrieval step
-    """
+    """Tests to verify that a NonResponse is returned when a retry_handler receives None in the request retrieval
+    step."""
     search_coordinator = SearchCoordinator(
         query="new query", base_url="https://example-example-example-url.com", request_delay=0
     )
@@ -301,8 +296,7 @@ def test_none_type_fetch(monkeypatch, caplog):
 
 
 def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, caplog):
-    """
-    Test for validating exception handling when errors occur in the retrieval of cached responses.
+    """Test for validating exception handling when errors occur in the retrieval of cached responses.
 
     The function first validates that the `default_memory_cache_session` session object is cached as intended.
     Afterward, the `create_key` function of the API cache is patched to raise an error, which is then logged
@@ -310,6 +304,7 @@ def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, capl
 
     In context, this would later prompt the  SearchCoordinator to retrieve the result from the API when `search`
     is called and cache retrieval fails.
+
     """
     search_coordinator = SearchCoordinator(
         query="new query", session=default_memory_cache_session, base_url="https://non-existent-http-url.com"
@@ -340,7 +335,8 @@ def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, capl
 
 
 def test_no_result_caching(caplog):
-    """Validates that, when request caching and response processing is off, each associated method should return None"""
+    """Validates that, when request caching and response processing is off, each associated method should return
+    None."""
     search_coordinator = SearchCoordinator(query="comp sci", cache_requests=False, cache_results=False)
     # should be a falsy NullCacheManager
     assert search_coordinator.response_coordinator.cache_manager is not None
@@ -355,10 +351,8 @@ def test_no_result_caching(caplog):
 
 
 def test_cache_deletions(monkeypatch, caplog):
-    """
-    Tests to validate whether cached request/response deletions for non-existent keys will return None by default
-    and logs missing keys.
-    """
+    """Tests to validate whether cached request/response deletions for non-existent keys will return None by default and
+    logs missing keys."""
     search_coordinator = SearchCoordinator(query="Computer Science Testing", cache_requests=True, request_delay=0)
     # search_coordinator = SearchCoordinator(query = 'hi', cache_requests = True)
     search_coordinator._delete_cached_request(page=4)  # type: ignore
@@ -390,10 +384,8 @@ def test_cache_deletions(monkeypatch, caplog):
 
 @pytest.mark.parametrize("page", [(0), (1), (2)])
 def test_parameter_building(page):
-    """
-    Integration test to determine whether, at the level of the coordinator, requests are built with the
-    correct parameter values prior to the preparation of the URL string and before the request is sent
-    """
+    """Integration test to determine whether, at the level of the coordinator, requests are built with the correct
+    parameter values prior to the preparation of the URL string and before the request is sent."""
     basic_parameter_config = APIParameterConfig.as_config(
         {
             "query": "q",
@@ -417,7 +409,7 @@ def test_parameter_building(page):
 
 
 def test_basic_fetch():
-    """Tests the basic searching feature of the SearchCoordinator to determine its behavior when fetching from APIs"""
+    """Tests the basic searching feature of the SearchCoordinator to determine its behavior when fetching from APIs."""
     api = SearchAPI.from_defaults(
         provider_name="plos",
         query="test",
@@ -454,10 +446,8 @@ def test_basic_fetch():
 
 
 def test_basic_coordinator_search(default_memory_cache_session, academic_json_response, caplog):
-    """
-    Test for whether the defaults are specified correctly and whether the mocked response is processed
-    as intended throughout the coordinator
-    """
+    """Test for whether the defaults are specified correctly and whether the mocked response is processed as intended
+    throughout the coordinator."""
 
     api = SearchAPI.from_defaults(
         provider_name="plos",
@@ -518,9 +508,11 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
 
 @pytest.mark.parametrize("Coordinator", (BaseCoordinator, SearchCoordinator))
 def test_base_coordinator_summary(Coordinator):
-    """
-    Validates whether the coordinator shows the correct representation of the structure when using the summary method.
+    """Validates whether the coordinator shows the correct representation of the structure when using the summary
+    method.
+
     The summaries for the BaseCoordinator and SearchCoordinator are checked and tested using `parametrize` in pytest.
+
     """
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF")
     response_coordinator = ResponseCoordinator.build()

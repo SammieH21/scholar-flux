@@ -9,9 +9,8 @@ import pytest
 
 
 def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers, caplog):
-    """
-    Test whether caching occurs as intended with the underlying response coordinator and accounts for
-    both common and special cases.
+    """Test whether caching occurs as intended with the underlying response coordinator and accounts for both common and
+    special cases.
 
     First, the search should be successful and afterward, cache the response.
 
@@ -20,6 +19,7 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
     Because the structure and options of the response_coordinator can have an impact the final result,
     schema validation should be performed to determine whether to pull from the processing cache
     (as opposed to the requests_cache)
+
     """
 
     response_coordinator = ResponseCoordinator.build(processor=PassThroughDataProcessor(), cache_results=True)
@@ -98,10 +98,8 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
 
 
 def cache_without_keys(caplog):
-    """
-    Tests whether attempts to retrieve from cache without a key returns nothing, as expected,
-    and verify that logs operate as intended when unsuccessfully retrieving an invalid cache key
-    """
+    """Tests whether attempts to retrieve from cache without a key returns nothing, as expected, and verify that logs
+    operate as intended when unsuccessfully retrieving an invalid cache key."""
     response_coordinator = ResponseCoordinator.build(processor=PassThroughDataProcessor(), cache_results=True)
     response_without_cache_key = response_coordinator._from_cache(cache_key=None)  # type: ignore
     assert response_without_cache_key is None
@@ -118,13 +116,13 @@ def cache_without_keys(caplog):
 def test_cache_without_response(
     plos_search_api, plos_page_1_url, plos_page_1_data, plos_page_2_url, plos_page_2_data, plos_headers, caplog
 ):
-    """
-    Tests whether pulling from cache without using a valid response will still return a value, except without
-    additional validation checks such as content hashes and response comparisons. Without this response,
-    a ReconstructedResponse instance will be created from the core cached elements of the response.
+    """Tests whether pulling from cache without using a valid response will still return a value, except without
+    additional validation checks such as content hashes and response comparisons. Without this response, a
+    ReconstructedResponse instance will be created from the core cached elements of the response.
 
-    This script also checks for idempotence when pulling from cache using a ReconstructedResponse instead of
-    a requests.Response instance
+    This script also checks for idempotence when pulling from cache using a ReconstructedResponse instead of a
+    requests.Response instance
+
     """
     response_coordinator = ResponseCoordinator.build(processor=PassThroughDataProcessor(), cache_results=True)
     plos_search_coordinator = SearchCoordinator(
@@ -177,10 +175,8 @@ def test_cache_without_response(
 
 
 def test_rebuild_processed_response_missing(caplog):
-    """
-    Tests and verifies that an attempt to rebuild a processed response will return the expected error and log message
-    without the specification of a cache key
-    """
+    """Tests and verifies that an attempt to rebuild a processed response will return the expected error and log message
+    without the specification of a cache key."""
 
     with pytest.raises(InvalidResponseStructureException) as excinfo:
         _ = ResponseCoordinator._rebuild_processed_response(cache_key=None)  # type: ignore

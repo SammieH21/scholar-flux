@@ -21,22 +21,22 @@ from scholar_flux.utils import unlist_1d
     ],
 )
 def test_path_name(level_names, expected):
-    """Verifies that basic path string utility functions work as intended for lightweight processing of JSON path"""
+    """Verifies that basic path string utility functions work as intended for lightweight processing of JSON path."""
     assert PathUtils.path_name(level_names) == expected
 
 
 def test_path_str():
-    """Validates that the conversion of a list into a period delimited string works as intended"""
+    """Validates that the conversion of a list into a period delimited string works as intended."""
     assert PathUtils.path_str(["a", 1, "b"]) == "a.1.b"
 
 
 def test_remove_path_indices():
-    """Validates whether the removal of path indices (sometimes necessary for grouping) produces the expected result"""
+    """Validates whether the removal of path indices (sometimes necessary for grouping) produces the expected result."""
     assert PathUtils.remove_path_indices(["a", 1, "b", "value", 2]) == ["a", "b"]
 
 
 def test_constant_path_indices():
-    """Validates whether numeric values are successfully converted into the intended constant for grouping paths"""
+    """Validates whether numeric values are successfully converted into the intended constant for grouping paths."""
     assert PathUtils.constant_path_indices(["a", 1, "b", 2]) == ["a", "i", "b", "i"]
     assert PathUtils.constant_path_indices(["a", 1, "b", 2], constant="x") == ["a", "x", "b", "x"]
 
@@ -46,10 +46,8 @@ def join_as_str(values: list[list[str]]) -> str:
 
 
 def test_group_path_assignments():
-    """
-    Validates whether grouped path assignments returns the expected values after converting numeric values into strings
-    and attempting to convert nested list elements (paths) into a string representation.
-    """
+    """Validates whether grouped path assignments returns the expected values after converting numeric values into
+    strings and attempting to convert nested list elements (paths) into a string representation."""
     # each list within each group of lists indicates a path
     group_one = [["a", i, "b"] for i in range(3)]
     group_two = [["b", i, "c"] for i in range(3)]
@@ -75,10 +73,8 @@ def test_group_path_assignments():
 
 @pytest.fixture
 def discovered_keys():
-    """
-    Helper fixture designed to evaluate whether the identification of keys and their corresponding path values
-    works as intended.
-    """
+    """Helper fixture designed to evaluate whether the identification of keys and their corresponding path values works
+    as intended."""
     return {
         "John Doe": ["user.profile.name"],
         "johndoe@example.com": ["user.profile.email"],
@@ -90,46 +86,44 @@ def discovered_keys():
 
 
 def test_filter_by_prefix(discovered_keys):
-    """
-    The keys in this scenario represents the terminal value within each path while each list represents the necessary
-    path taken to find the value. Using the prefix, the path is identifiable.
+    """The keys in this scenario represents the terminal value within each path while each list represents the necessary
+    path taken to find the value.
+
+    Using the prefix, the path is identifiable.
+
     """
     filtered = KeyFilter.filter_keys(discovered_keys, prefix="John")
     assert filtered == {"John Doe": ["user.profile.name"]}
 
 
 def test_filter_by_min_length(discovered_keys):
-    """
-    Validates whether the length of each list of discovered paths can be used to efficiently identify values with
-    paths of a specific depth (min_length).
-    """
+    """Validates whether the length of each list of discovered paths can be used to efficiently identify values with
+    paths of a specific depth (min_length)."""
     filtered = KeyFilter.filter_keys(discovered_keys, min_length=3)
     assert filtered == discovered_keys
 
 
 def test_filter_by_substring(discovered_keys):
-    """Verifies that attempts to filter paths using substring names operates as intended"""
+    """Verifies that attempts to filter paths using substring names operates as intended."""
     filtered = KeyFilter.filter_keys(discovered_keys, substring="catalog")
     assert filtered == {"Widget X": ["product.catalog.item123.name"], "$19.99": ["product.catalog.item456.price"]}
 
 
 def test_filter_by_pattern(discovered_keys):
-    """Verifies whether regex pattern matching correctly identifies paths with matching components"""
+    """Verifies whether regex pattern matching correctly identifies paths with matching components."""
     filtered = KeyFilter.filter_keys(discovered_keys, pattern=r"[a-z]+\d+")
     assert filtered == {"Widget X": ["product.catalog.item123.name"], "$19.99": ["product.catalog.item456.price"]}
 
 
 def test_filter_with_multiple_criteria(discovered_keys):
-    """Validates that filtering paths and terminal values based on multiple matching criteria operates as expected"""
+    """Validates that filtering paths and terminal values based on multiple matching criteria operates as expected."""
     filtered = KeyFilter.filter_keys(discovered_keys, substring="product.catalog.item123", min_length=4, prefix="19")
     assert filtered == {"Widget X": ["product.catalog.item123.name"], "$19.99": ["product.catalog.item456.price"]}
 
 
 def test_filter_with_include_false(discovered_keys):
-    """
-    Verifies that using `include_matches=False` successfully removes matches from the final list of filtered value-path
-    pairs.
-    """
+    """Verifies that using `include_matches=False` successfully removes matches from the final list of filtered value-
+    path pairs."""
     filtered = KeyFilter.filter_keys(discovered_keys, substring="product", include_matches=False)
     assert filtered == {
         "John Doe": ["user.profile.name"],
@@ -144,7 +138,7 @@ def test_filter_with_include_false(discovered_keys):
 
 @pytest.fixture
 def sample_json():
-    """Fixture used to test the identification of keys and corresponding paths with nested components"""
+    """Fixture used to test the identification of keys and corresponding paths with nested components."""
     return {
         "name": "John",
         "address": {"street": "123 Maple Street", "city": "Springfield", "state": "IL"},
@@ -153,13 +147,12 @@ def sample_json():
 
 
 def test_key_discoverer_get_all_keys(sample_json):
-    """
-    Tests whether key-path identification via the `KeyDiscoverer` occurs as intended to identify path taken
-    to arrive at nested values.
+    """Tests whether key-path identification via the `KeyDiscoverer` occurs as intended to identify path taken to arrive
+    at nested values.
 
-    For nested json data with multiple nested components, the identified key indicates the
-    name of the last key of a particular terminal path while the value represents the traversed paths taken
-    to arrive at that key.
+    For nested json data with multiple nested components, the identified key indicates the name of the last key of a
+    particular terminal path while the value represents the traversed paths taken to arrive at that key.
+
     """
     expected_keys = {
         "name": ["name"],
@@ -176,19 +169,19 @@ def test_key_discoverer_get_all_keys(sample_json):
 
 
 def test_key_discoverer_terminal_keys(sample_json):
-    """Verifies that the key discoverer can similarly identify terminal keys even when the json is nested in a list"""
+    """Verifies that the key discoverer can similarly identify terminal keys even when the json is nested in a list."""
     kd = KeyDiscoverer([sample_json])
     terminal_keys = kd.get_terminal_keys()
     assert set(terminal_keys.keys()) == {"name", "street", "city", "state", "type", "number"}
 
 
 def test_key_discoverer_terminal_paths(sample_json):
-    """
-    Validates whether discovered terminal paths consist of a list of strings where each list represents the same
-    set of keys found under a particular name, except with a different index used to traverse lists that arrive
-    at a value with the same keys for example,  {'b': ['a.1.b', 'a.2.b', 'a.3.b']}, etc.
+    """Validates whether discovered terminal paths consist of a list of strings where each list represents the same set
+    of keys found under a particular name, except with a different index used to traverse lists that arrive at a value
+    with the same keys for example,  {'b': ['a.1.b', 'a.2.b', 'a.3.b']}, etc.
 
     The type for all terminal paths are verified to determine whether this is the case for all discovered keys.
+
     """
 
     kd = KeyDiscoverer([sample_json])
@@ -198,17 +191,15 @@ def test_key_discoverer_terminal_paths(sample_json):
 
 
 def test_key_discoverer_keys_with_path(sample_json):
-    """Validates that the paths identified in the sample json fixture successfully match the actual observed paths"""
+    """Validates that the paths identified in the sample json fixture successfully match the actual observed paths."""
     kd = KeyDiscoverer([sample_json])
     assert kd.get_keys_with_path("type") == ["phones.0.type", "phones.1.type"]
     assert kd.get_keys_with_path("missing") == []
 
 
 def test_key_discoverer_filter_keys(sample_json):
-    """
-    Verifies whether using `filter_keys` results in the expected value when the `KeyFilter` is called from
-    the current `KeyDiscoverer`.
-    """
+    """Verifies whether using `filter_keys` results in the expected value when the `KeyFilter` is called from the
+    current `KeyDiscoverer`."""
     kd = KeyDiscoverer([sample_json])
     filtered = kd.filter_keys(prefix="name")
     assert filtered == {"name": ["name"]}
@@ -218,12 +209,12 @@ def test_key_discoverer_filter_keys(sample_json):
 
 
 def test_flatten_json(sample_json):
-    """
-    Verifies whether the RecursiveJsonProcessor, created fromm each of the above tested classes, will successfully
+    """Verifies whether the RecursiveJsonProcessor, created fromm each of the above tested classes, will successfully
     parse and flatten the sample json data as intended.
 
-    `process_dictionary` is used to take a dictionary (or a single nested dictionary in a list of dictionaries))
-    to process and subsequently flatten the result.
+    `process_dictionary` is used to take a dictionary (or a single nested dictionary in a list of dictionaries)) to
+    process and subsequently flatten the result.
+
     """
     expected_flattened = {
         "name": "John",
@@ -239,10 +230,11 @@ def test_flatten_json(sample_json):
 
 
 def test_combine_normalized():
-    """
-    Validates whether an attempt to combine normalized components from a sample JSON will combine each component
-    as intended. If specified, the object delimiter should be used to successfully join lists into a single string
-    where applicable.
+    """Validates whether an attempt to combine normalized components from a sample JSON will combine each component as
+    intended.
+
+    If specified, the object delimiter should be used to successfully join lists into a single string where applicable.
+
     """
     sample_json = {
         "name": "John",
@@ -264,7 +256,7 @@ def test_combine_normalized():
 
 
 def test_filter_extracted():
-    """Validates whether the processed and flattened components of the dictionary can be successfully filtered"""
+    """Validates whether the processed and flattened components of the dictionary can be successfully filtered."""
     sample_json = {"name": "John", "age": 30, "city": "Springfield"}
     processor = RecursiveJsonProcessor(sample_json)
     processor.process_dictionary()
@@ -274,11 +266,11 @@ def test_filter_extracted():
 
 
 def test_process_and_flatten():
-    """
-    Validates the capability and output of the RecursiveJsonProcessor when processing and flattening a sample JSON.
+    """Validates the capability and output of the RecursiveJsonProcessor when processing and flattening a sample JSON.
 
-    The final result should be a list of keys that contains all items other than `age` which should be excluded
-    from the final output.
+    The final result should be a list of keys that contains all items other than `age` which should be excluded from the
+    final output.
+
     """
     sample_json = {"name": "John", "age": 30, "city": "Springfield"}
     processor = RecursiveJsonProcessor()
@@ -289,17 +281,15 @@ def test_process_and_flatten():
 
 
 def test_unlist():
-    """Verifies that unlisting a list containing an singular element of any type extracts that element"""
+    """Verifies that unlisting a list containing an singular element of any type extracts that element."""
     assert RecursiveJsonProcessor.unlist([{"a": 1}]) == {"a": 1}
     assert RecursiveJsonProcessor.unlist([1, 2]) == [1, 2]
     assert RecursiveJsonProcessor.unlist({"a": 1}) == {"a": 1}
 
 
 def test_process_dictionary_raises():
-    """
-    Verifies that attempting to process a dictionary without input will raise a value error if
-    data was neither specified on instantiation nor when calling `process_dictionary`
-    """
+    """Verifies that attempting to process a dictionary without input will raise a value error if data was neither
+    specified on instantiation nor when calling `process_dictionary`"""
     processor = RecursiveJsonProcessor()
     with pytest.raises(ValueError):
         processor.process_dictionary()
@@ -309,11 +299,8 @@ def test_process_dictionary_raises():
 
 
 def test_json_normalizer_with_nested_dicts():
-    """
-    Validates that processing dictionaries with nested components with the RecursiveJsonProcessor
-    will return the processed result that maps the names of terminal to the paths where the unique terminal path
-    keys can be located.
-    """
+    """Validates that processing dictionaries with nested components with the RecursiveJsonProcessor will return the
+    processed result that maps the names of terminal to the paths where the unique terminal path keys can be located."""
     sample_json = {
         "users": [{"name": "Alice", "email": "alice@example.com"}, {"name": "Bob", "email": "bob@example.com"}],
         "meta": {"count": 2},
@@ -340,12 +327,12 @@ def test_json_normalizer_with_nested_dicts():
 
 
 def test_recursive_dict_with_path_collisions():
-    """
-    Validates whether path collisions are accounted for when flattening path-data pairs with the same name of a
+    """Validates whether path collisions are accounted for when flattening path-data pairs with the same name of a
     terminal key at different groups of paths (as identified by replacing numeric values with a constant)
 
     When path collisions occur, the smallest name for a key that makes it distinguishable from another colliding key
     should be used.
+
     """
     sample_json = {
         "users": [

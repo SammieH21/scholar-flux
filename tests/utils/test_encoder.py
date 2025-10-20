@@ -12,7 +12,7 @@ T = TypeVar("T")
 
 @pytest.fixture
 def turn_off_hash_prefix():
-    """Hash prefix modification for future tests that validate without a prefix"""
+    """Hash prefix modification for future tests that validate without a prefix."""
     default_hash_prefix = CacheDataEncoder.DEFAULT_HASH_PREFIX
     CacheDataEncoder.DEFAULT_HASH_PREFIX = ""
     yield
@@ -25,15 +25,15 @@ def default_hash_prefix():
 
 
 def round_trip_data_encoder(data: T) -> T:
-    """
-    Helper function used to verify whether, after encoding, dumping, and recovering the initial data,
-    The original result is returned.
+    """Helper function used to verify whether, after encoding, dumping, and recovering the initial data, The original
+    result is returned.
 
     Args:
         data (T): A value encode and dump into a JSON string and reload and decode afterward
 
     Returns:
         T: The original type entered into the round_trip_data_encoder assuming the encoding and decoding is successful.
+
     """
     encoded = CacheDataEncoder.encode(data)
     json_string = json.dumps(encoded)
@@ -43,15 +43,15 @@ def round_trip_data_encoder(data: T) -> T:
 
 
 def round_trip_json_encoder(data: T) -> T:
-    """
-    Helper function used to serialize and deserialize data into the original input:
-        This should produce the same result as the `round_trip_data_encoder` and is provided for testing purposes.
+    """Helper function used to serialize and deserialize data into the original input: This should produce the same
+    result as the `round_trip_data_encoder` and is provided for testing purposes.
 
     Args:
         data (T): A value encode and dump into a JSON string and reload and decode afterward
 
     Returns:
         T: The original type entered into the round_trip_data_encoder assuming the encoding and decoding is successful.
+
     """
     serialized = JsonDataEncoder.serialize(data)
     deserialized = JsonDataEncoder.deserialize(serialized)
@@ -78,21 +78,22 @@ def round_trip_json_encoder(data: T) -> T:
     ),
 )
 def test_encode_decode_roundtrip(data):
-    """
-    Verifies that the CacheDataEncoder, when encoding and decoding bytes results in the same value, even
-    after being dumped into a JSON string and subsequently loaded.
+    """Verifies that the CacheDataEncoder, when encoding and decoding bytes results in the same value, even after being
+    dumped into a JSON string and subsequently loaded.
 
-    This test uses `pytest.mark.parametrize` in order to validate the different types of data that can
-    be expected
+    This test uses `pytest.mark.parametrize` in order to validate the different types of data that can be expected
+
     """
     result = round_trip_data_encoder(data)
     assert data == result == round_trip_json_encoder(data)
 
 
 def test_tuple_roundtrip():
-    """
-    Verifies that tuples and sets can safely be encoded and decoded as needed when creating json dumpable data encoding.
+    """Verifies that tuples and sets can safely be encoded and decoded as needed when creating json dumpable data
+    encoding.
+
     Note that, because types cannot be directly dumped via JSON, they must be coerced into lists instead.
+
     """
 
     # attempt to encode, dump and reload a tuple (coerced into a list)
@@ -104,9 +105,7 @@ def test_tuple_roundtrip():
 
 @pytest.mark.parametrize("DictType", (UserDict, CaseInsensitiveDict, OrderedDict))
 def test_mapping_roundtrip(DictType, caplog):
-    """
-    Validates the use of the CacheDataEncoder when encoding dictionaries"
-    """
+    """Validates the use of the CacheDataEncoder when encoding dictionaries"."""
     dict_data = {"a": b"bytes", "b": "string"}
     data = DictType(dict_data)
     with caplog.at_level("WARNING"):
@@ -118,9 +117,7 @@ def test_mapping_roundtrip(DictType, caplog):
 
 @pytest.mark.parametrize("SequenceType", (set, deque))
 def test_sequence_roundtrip(SequenceType, caplog):
-    """
-    Validates the use of the CacheDataEncoder when encoding sequences"
-    """
+    """Validates the use of the CacheDataEncoder when encoding sequences"."""
     list_data = {"a": b"bytes", "b": "string"}
     data = SequenceType(list_data)
     with caplog.at_level("WARNING"):
@@ -147,7 +144,7 @@ def test_base64():
 
 
 def test_large_nested_structure():
-    """Ensure encoder handles deeply nested structures"""
+    """Ensure encoder handles deeply nested structures."""
     data = {"level": 0}
     current: dict = data
     for i in range(100):  # 100 levels deep
@@ -159,13 +156,12 @@ def test_large_nested_structure():
 
 
 def test_nonreadable_character_identification():
-    """
-    Tests the CacheDataEncoder.is_nonreadable class method to determine whether it correctly identifies non-readable
+    """Tests the CacheDataEncoder.is_nonreadable class method to determine whether it correctly identifies non-readable
     characters.
 
-    This test verifies that the classification of readable vs nonreadable characters also depends on `p`
-    which is the proportion of non-readable byte characters, defined as unicode characters not between
-    the range of (32 <= c <= 126)
+    This test verifies that the classification of readable vs nonreadable characters also depends on `p` which is the
+    proportion of non-readable byte characters, defined as unicode characters not between the range of (32 <= c <= 126)
+
     """
     nonreadable_character = b"\xc2\x80"
     assert not CacheDataEncoder.is_nonreadable(b"readable characters" + nonreadable_character, prop=0.1)
@@ -174,10 +170,10 @@ def test_nonreadable_character_identification():
 
 
 def test_json_roundtrip(mock_academic_json):
-    """
-    Simulates and tests the CacheDataEncoder/JsonDataEncoder against simulated JSON data to be encoded and decoded.
+    """Simulates and tests the CacheDataEncoder/JsonDataEncoder against simulated JSON data to be encoded and decoded.
 
     The final result should be exactly equal to the initial result to ensure the robustness of encoding/decoding.
+
     """
     round_trip_result = round_trip_data_encoder(mock_academic_json)
     assert mock_academic_json == round_trip_result
@@ -188,7 +184,7 @@ def test_json_roundtrip(mock_academic_json):
 
 
 def test_no_hash_prefix(default_hash_prefix, turn_off_hash_prefix, mock_academic_json):
-    """Validates whether hash prefixes are successfully omitted when `DEFAULT_HASH_PREFIX` is turned off"""
+    """Validates whether hash prefixes are successfully omitted when `DEFAULT_HASH_PREFIX` is turned off."""
     if not default_hash_prefix:
         pytest.skip(
             "A comparison of non hashed prefix behavior in the CacheDataEncoder must be performed only "
@@ -206,20 +202,16 @@ def test_no_hash_prefix(default_hash_prefix, turn_off_hash_prefix, mock_academic
 
 
 def test_no_hash_prefix_roundtrip(turn_off_hash_prefix, mock_academic_json):
-    """
-    Validates whether the CacheDataEncoder successfully encodes and decodes the json as is without modificaation when
-    the CacheDataEncoder prefix is set to None
-    """
+    """Validates whether the CacheDataEncoder successfully encodes and decodes the json as is without modificaation when
+    the CacheDataEncoder prefix is set to None."""
     assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
     result = round_trip_json_encoder(mock_academic_json)
     assert mock_academic_json == result
 
 
 def test_plos_page_roundtrip(turn_off_hash_prefix, plos_page_1_data, plos_page_2_data):
-    """
-    Verifies that without the use of a hash prefix, the round trip data encoder successfully encodes and decodes text
-    to and from JSON serialized strings without data modification
-    """
+    """Verifies that without the use of a hash prefix, the round trip data encoder successfully encodes and decodes text
+    to and from JSON serialized strings without data modification."""
     assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
     result = round_trip_json_encoder(plos_page_1_data)
     assert plos_page_1_data == result
@@ -265,10 +257,12 @@ def test_plos_page_roundtrip(turn_off_hash_prefix, plos_page_1_data, plos_page_2
     ),
 )
 def test_exception_handling(transform, value, error_type, caplog):
-    """
-    Tests a wide range of possible error scenarios where a value of a specific type cannot be encoded or decoded as intended.
+    """Tests a wide range of possible error scenarios where a value of a specific type cannot be encoded or decoded as
+    intended.
 
-    This test validates the error that is raised as well as the logged error message used to indicate the raised exception
+    This test validates the error that is raised as well as the logged error message used to indicate the raised
+    exception
+
     """
     with pytest.raises(ValueError) as excinfo:
         _ = transform(value)
@@ -279,12 +273,13 @@ def test_exception_handling(transform, value, error_type, caplog):
 
 
 def test_decode_string_exception(monkeypatch, caplog):
-    """
-    Helper method to validate the result returned by the CacheDataEncoder before and after accounting for possible errors.
+    """Helper method to validate the result returned by the CacheDataEncoder before and after accounting for possible
+    errors.
 
-    This function works by patching the `_is_nonreadable` helper function to raise a ValueError.
-    As a result, possible scenarios are simulated where decoding bytes as string objects fails for whatever reason such as
-    bad bytes and other TypeErrors/ValueErrors.
+    This function works by patching the `_is_nonreadable` helper function to raise a ValueError. As a result, possible
+    scenarios are simulated where decoding bytes as string objects fails for whatever reason such as bad bytes and other
+    TypeErrors/ValueErrors.
+
     """
     original_object = b"32"
     bytes_object = b64encode(original_object)

@@ -20,11 +20,11 @@ from scholar_flux.api.models import ProviderConfig
     ],
 )
 def test_match(provider, expected_type):
-    """
-    Tests attribute membership for the scholar_flux provider_registry which is dynamically populated at runtime.
+    """Tests attribute membership for the scholar_flux provider_registry which is dynamically populated at runtime.
 
     This test uses the parametrize decorator from pytest to iteratively verify whether each attribute is a
     `ProviderConfig` typed variable or `None` based on the provider name and its expected_type inputs.
+
     """
     provider_config = provider_registry.get(provider)
     assert isinstance(provider_config, expected_type)

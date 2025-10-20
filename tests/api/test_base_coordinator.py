@@ -9,11 +9,11 @@ from scholar_flux.data import BaseDataParser, DataExtractor, PassThroughDataProc
 
 
 def test_initialization(caplog):
-    """
-    Tests both valid and invalid inputs to ensure that upon creating a BaseCoordinator, inputs are validated to
+    """Tests both valid and invalid inputs to ensure that upon creating a BaseCoordinator, inputs are validated to
     accept only a SearchAPI and a ResponseCoordinator.
 
     For all other possible input types, a InvalidCoordinatorParameterException should be raised instead.
+
     """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
@@ -34,10 +34,12 @@ def test_initialization(caplog):
 
 
 def test_build():
-    """
-    Tests whether the `as_coordinator` argument creates a new BaseCoordinator as a classmethod that can be
-    extended by subclasses. Independent of whether the regular __init__ method or the classmethod is used,
-    the result should have the same structure as indicated by its representation
+    """Tests whether the `as_coordinator` argument creates a new BaseCoordinator as a classmethod that can be extended
+    by subclasses.
+
+    Independent of whether the regular __init__ method or the classmethod is used, the result should have the same
+    structure as indicated by its representation
+
     """
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
@@ -48,11 +50,9 @@ def test_build():
 
 
 def test_override_build():
-    """
-    All additional parameters should override previous configurations as requested with updates to
-    the properties that hold the search_api and response_coordinator while simultaneously not allowing
-    bad inputs for components when set directly
-    """
+    """All additional parameters should override previous configurations as requested with updates to the properties
+    that hold the search_api and response_coordinator while simultaneously not allowing bad inputs for components when
+    set directly."""
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
     base_search_coordinator = BaseCoordinator.as_coordinator(api, response_coordinator)
@@ -120,10 +120,8 @@ def test_override_build():
 
 
 def test_initialization_updates():
-    """
-    Ensure that updates to core components don't directly impact the configuration of an existing base coordinator,
-    and instead create new objects without changing the original
-    """
+    """Ensure that updates to core components don't directly impact the configuration of an existing base coordinator,
+    and instead create new objects without changing the original."""
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build(cache_results=True)
     base_search_coordinator = BaseCoordinator.as_coordinator(api, response_coordinator)
@@ -141,10 +139,8 @@ def test_initialization_updates():
 
 
 def test_request_failed_exception(monkeypatch, caplog):
-    """
-    Ensure that, when searching for a request, the exception is caught
-    and returned as None with the user-facing `base_coordinator.search` method
-    """
+    """Ensure that, when searching for a request, the exception is caught and returned as None with the user-facing
+    `base_coordinator.search` method."""
 
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
@@ -159,16 +155,16 @@ def test_request_failed_exception(monkeypatch, caplog):
 
 
 def test_basic_coordinator_search(default_memory_cache_session, academic_json_response):
-    """
-    Tests for whether the defaults are specified correctly and whether the mocked response is processed
-    as intended throughout the coordinator.
+    """Tests for whether the defaults are specified correctly and whether the mocked response is processed as intended
+    throughout the coordinator.
 
-    Sucessfully received and processed responses should return a ProcessedResponse, even in the absence
-    of extracted record.
+    All successfully received and processed responses should return a ProcessedResponse object, even in the absence
+    of an extracted record.
 
-    For processed responses, the data attribute contains the records that has been parsed, and processed
+    For processed responses, the `.data` attribute should contain the records that have been parsed and processed.
 
     Errors that occur during retrieval or processing should instead be logged and recorded in an ErrorResponse.
+
     """
 
     session_manager = CachedSessionManager(user_agent="test-user", backend="memory")
