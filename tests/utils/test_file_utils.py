@@ -54,6 +54,7 @@ def test_is_jsonable(mock_academic_json):
     """Verifies that dictionaries containing integers, lists, strings, floats.
 
     can be serialized
+
     """
     assert JsonFileUtils.is_jsonable({"a": 1})
     assert JsonFileUtils.is_jsonable([1, 2, 3])

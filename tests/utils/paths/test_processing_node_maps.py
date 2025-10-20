@@ -99,7 +99,7 @@ def test_pathnodemap_filter_and_cache(ref_test_nodes):
 
 
 def test_cache_weakset_default_clear(ref_test_nodes):
-    """Verifies whether filtering node maps will returns the intended result independent of the use of caching."""
+    """Verifies that lazily specifying paths to remove will correctly remove paths as intended on `.cache_update()`"""
     mapping = PathNodeMap(use_cache=True)
     mapping.update(ref_test_nodes)
 
@@ -118,6 +118,7 @@ def test_cache_weakset_default_clear(ref_test_nodes):
 
 
 def test_map_cache_autoclear(ref_test_nodes):
+    """Verifies whether the weak-sets, used under-the-hood for caching, will clear when the nodes no longer exist."""
     # direct clearing
     mapping = PathNodeMap(ref_test_nodes)
     mapping.clear()

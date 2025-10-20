@@ -191,8 +191,8 @@ def test_coerce_int(value, expected):
     """Verifies that an attempt to coerce both strings, NoneType values, and integers into an integer will result in the
     expected integer.
 
-    This function will return an integer when the result is valid and
-    None otherwise.
+    This function will return an integer when the result is valid and None otherwise.
+
     """
     assert coerce_int(value) == expected
 
@@ -201,8 +201,8 @@ def test_try_int_success():
     """Verifies that an attempt to coerce both strings, NoneType values, and integers into an integer will result in the
     expected integer.
 
-    This function will return the original value if conversion is not
-    successful.
+    This function will return the original value if conversion is not successful.
+
     """
     assert try_int("10") == 10
     assert try_int("xyz") == "xyz"
@@ -232,8 +232,9 @@ def test_try_pop_existing_and_missing():
 def test_try_dict_cases():
     """Validates the functionality of `try_dict` to verify attempted dict conversions against expected values.
 
-    Unsuccessful conversions are coerced into `None` while items such as
-    lists are coerced into dictionaries with enumerated keys.
+    Unsuccessful conversions are coerced into `None` while items such as lists are coerced into dictionaries with
+    enumerated keys.
+
     """
     assert try_dict({"a": 1}) == {"a": 1}
     assert try_dict([{"a": 1}, {"b": 2}]) == {0: {"a": 1}, 1: {"b": 2}}
@@ -339,6 +340,7 @@ def test_try_call_non_callable(caplog):
     should successfully catch the error and default to a value specified by the user and None if not directly specified.
 
     This test also verifies that the exception, if caught, will also display in the logger if configured and specified.
+
     """
     default = "not callable"
     logger = logging.getLogger("test_logger")

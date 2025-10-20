@@ -33,6 +33,7 @@ def round_trip_data_encoder(data: T) -> T:
 
     Returns:
         T: The original type entered into the round_trip_data_encoder assuming the encoding and decoding is successful.
+
     """
     encoded = CacheDataEncoder.encode(data)
     json_string = json.dumps(encoded)
@@ -50,6 +51,7 @@ def round_trip_json_encoder(data: T) -> T:
 
     Returns:
         T: The original type entered into the round_trip_data_encoder assuming the encoding and decoding is successful.
+
     """
     serialized = JsonDataEncoder.serialize(data)
     deserialized = JsonDataEncoder.deserialize(serialized)
@@ -79,8 +81,8 @@ def test_encode_decode_roundtrip(data):
     """Verifies that the CacheDataEncoder, when encoding and decoding bytes results in the same value, even after being
     dumped into a JSON string and subsequently loaded.
 
-    This test uses `pytest.mark.parametrize` in order to validate the
-    different types of data that can be expected
+    This test uses `pytest.mark.parametrize` in order to validate the different types of data that can be expected
+
     """
     result = round_trip_data_encoder(data)
     assert data == result == round_trip_json_encoder(data)
@@ -90,8 +92,8 @@ def test_tuple_roundtrip():
     """Verifies that tuples and sets can safely be encoded and decoded as needed when creating json dumpable data
     encoding.
 
-    Note that, because types cannot be directly dumped via JSON, they
-    must be coerced into lists instead.
+    Note that, because types cannot be directly dumped via JSON, they must be coerced into lists instead.
+
     """
 
     # attempt to encode, dump and reload a tuple (coerced into a list)
@@ -157,10 +159,9 @@ def test_nonreadable_character_identification():
     """Tests the CacheDataEncoder.is_nonreadable class method to determine whether it correctly identifies non-readable
     characters.
 
-    This test verifies that the classification of readable vs
-    nonreadable characters also depends on `p` which is the proportion
-    of non-readable byte characters, defined as unicode characters not
-    between the range of (32 <= c <= 126)
+    This test verifies that the classification of readable vs nonreadable characters also depends on `p` which is the
+    proportion of non-readable byte characters, defined as unicode characters not between the range of (32 <= c <= 126)
+
     """
     nonreadable_character = b"\xc2\x80"
     assert not CacheDataEncoder.is_nonreadable(b"readable characters" + nonreadable_character, prop=0.1)
@@ -171,8 +172,8 @@ def test_nonreadable_character_identification():
 def test_json_roundtrip(mock_academic_json):
     """Simulates and tests the CacheDataEncoder/JsonDataEncoder against simulated JSON data to be encoded and decoded.
 
-    The final result should be exactly equal to the initial result to
-    ensure the robustness of encoding/decoding.
+    The final result should be exactly equal to the initial result to ensure the robustness of encoding/decoding.
+
     """
     round_trip_result = round_trip_data_encoder(mock_academic_json)
     assert mock_academic_json == round_trip_result
@@ -259,8 +260,9 @@ def test_exception_handling(transform, value, error_type, caplog):
     """Tests a wide range of possible error scenarios where a value of a specific type cannot be encoded or decoded as
     intended.
 
-    This test validates the error that is raised as well as the logged
-    error message used to indicate the raised exception
+    This test validates the error that is raised as well as the logged error message used to indicate the raised
+    exception
+
     """
     with pytest.raises(ValueError) as excinfo:
         _ = transform(value)
@@ -274,10 +276,10 @@ def test_decode_string_exception(monkeypatch, caplog):
     """Helper method to validate the result returned by the CacheDataEncoder before and after accounting for possible
     errors.
 
-    This function works by patching the `_is_nonreadable` helper
-    function to raise a ValueError. As a result, possible scenarios are
-    simulated where decoding bytes as string objects fails for whatever
-    reason such as bad bytes and other TypeErrors/ValueErrors.
+    This function works by patching the `_is_nonreadable` helper function to raise a ValueError. As a result, possible
+    scenarios are simulated where decoding bytes as string objects fails for whatever reason such as bad bytes and other
+    TypeErrors/ValueErrors.
+
     """
     original_object = b"32"
     bytes_object = b64encode(original_object)

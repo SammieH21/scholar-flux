@@ -70,6 +70,7 @@ def test_session_manager_invalid(param_overrides):
         - directly specified `NoneType` backends
 
     All scenarios should raise a SessionCreationError.
+
     """
     with pytest.raises(SessionCreationError):
         # a negative expire_after value should raise a validation error which triggers the session creation error
@@ -89,6 +90,7 @@ def test_session_manager_raise(caplog):
 
     When creating a new session from the cached session manager, a SessionCreationError should be raised if
     the path still doesn't exist at this point.
+
     """
 
     mgr = sm.CachedSessionManager(
@@ -114,8 +116,8 @@ def test_path_edge_case():
     """Verifies whether the circumstance where a cache_name is preceded by a `./' indicating that the current directory
     is accounted for and ignored/removed when initializing the `CachedSessionManager`.
 
-    Instantiation should not fail and the cache name will not contain
-    the preceding `./`
+    Instantiation should not fail and the cache name will not contain the preceding `./`
+
     """
     cache_name = "./cache"
     cache_directory = Path("/tmp")
@@ -155,8 +157,8 @@ def test_cached_session_manager_properties(tmp_path):
 def test_get_cache_directory_package_and_home(monkeypatch, tmp_path):
     """Tests directory behavior by simulating a scenario where the package directory is not writeable.
 
-    In such cases, the directory used must fallback to home if it is
-    writeable.
+    In such cases, the directory used must fallback to home if it is writeable.
+
     """
     monkeypatch.setattr(sm.session_models, "__file__", str(tmp_path / "fake.py"))
     monkeypatch.setattr(Path, "mkdir", lambda self, **kwargs: None)
@@ -170,9 +172,9 @@ def test_get_cache_directory_package_and_home(monkeypatch, tmp_path):
 def test_get_cache_directory_package_with_env(monkeypatch, tmp_path):
     """Tests the behavior of the `SCHOLAR_FLUX_CACHE_DIRECTORY` environment variable when provided.
 
-    This test verifies that cache directory specified in the environment
-    variable will be used when set and confirmed as loaded within the
-    package config.
+    This test verifies that cache directory specified in the environment variable will be used when set and confirmed as
+    loaded within the package config.
+
     """
     env_var_name = "SCHOLAR_FLUX_CACHE_DIRECTORY"
     env_var_value = str(tmp_path)

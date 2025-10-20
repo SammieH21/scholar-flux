@@ -90,6 +90,7 @@ def test_filter_by_prefix(discovered_keys):
     path taken to find the value.
 
     Using the prefix, the path is identifiable.
+
     """
     filtered = KeyFilter.filter_keys(discovered_keys, prefix="John")
     assert filtered == {"John Doe": ["user.profile.name"]}
@@ -149,10 +150,9 @@ def test_key_discoverer_get_all_keys(sample_json):
     """Tests whether key-path identification via the `KeyDiscoverer` occurs as intended to identify path taken to arrive
     at nested values.
 
-    For nested json data with multiple nested components, the identified
-    key indicates the name of the last key of a particular terminal path
-    while the value represents the traversed paths taken to arrive at
-    that key.
+    For nested json data with multiple nested components, the identified key indicates the name of the last key of a
+    particular terminal path while the value represents the traversed paths taken to arrive at that key.
+
     """
     expected_keys = {
         "name": ["name"],
@@ -180,8 +180,8 @@ def test_key_discoverer_terminal_paths(sample_json):
     of keys found under a particular name, except with a different index used to traverse lists that arrive at a value
     with the same keys for example,  {'b': ['a.1.b', 'a.2.b', 'a.3.b']}, etc.
 
-    The type for all terminal paths are verified to determine whether
-    this is the case for all discovered keys.
+    The type for all terminal paths are verified to determine whether this is the case for all discovered keys.
+
     """
 
     kd = KeyDiscoverer([sample_json])
@@ -212,9 +212,9 @@ def test_flatten_json(sample_json):
     """Verifies whether the RecursiveJsonProcessor, created fromm each of the above tested classes, will successfully
     parse and flatten the sample json data as intended.
 
-    `process_dictionary` is used to take a dictionary (or a single
-    nested dictionary in a list of dictionaries)) to process and
-    subsequently flatten the result.
+    `process_dictionary` is used to take a dictionary (or a single nested dictionary in a list of dictionaries)) to
+    process and subsequently flatten the result.
+
     """
     expected_flattened = {
         "name": "John",
@@ -233,8 +233,8 @@ def test_combine_normalized():
     """Validates whether an attempt to combine normalized components from a sample JSON will combine each component as
     intended.
 
-    If specified, the object delimiter should be used to successfully
-    join lists into a single string where applicable.
+    If specified, the object delimiter should be used to successfully join lists into a single string where applicable.
+
     """
     sample_json = {
         "name": "John",
@@ -268,8 +268,9 @@ def test_filter_extracted():
 def test_process_and_flatten():
     """Validates the capability and output of the RecursiveJsonProcessor when processing and flattening a sample JSON.
 
-    The final result should be a list of keys that contains all items
-    other than `age` which should be excluded from the final output.
+    The final result should be a list of keys that contains all items other than `age` which should be excluded from the
+    final output.
+
     """
     sample_json = {"name": "John", "age": 30, "city": "Springfield"}
     processor = RecursiveJsonProcessor()
@@ -329,8 +330,9 @@ def test_recursive_dict_with_path_collisions():
     """Validates whether path collisions are accounted for when flattening path-data pairs with the same name of a
     terminal key at different groups of paths (as identified by replacing numeric values with a constant)
 
-    When path collisions occur, the smallest name for a key that makes
-    it distinguishable from another colliding key should be used.
+    When path collisions occur, the smallest name for a key that makes it distinguishable from another colliding key
+    should be used.
+
     """
     sample_json = {
         "users": [

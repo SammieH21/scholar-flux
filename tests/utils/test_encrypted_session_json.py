@@ -25,6 +25,7 @@ def test_validate_key_error():
     a key is provided.
 
     Otherwise it should generate it automatically.
+
     """
     with pytest.raises(SecretKeyError):
         key = " " * 44
@@ -34,8 +35,8 @@ def test_validate_key_error():
 def test_generate_secret_key(skip_missing_encryption_dependency):
     """Tests the generation of a new Fernet key and verifies the type.
 
-    Fernet keys should be URL encoded bytes with a of a length
-    `len(fernet) == 44`
+    Fernet keys should be URL encoded bytes with a of a length `len(fernet) == 44`
+
     """
     fernet = EncryptionPipelineFactory.generate_secret_key()
     assert isinstance(fernet, bytes) and len(fernet) == 44
@@ -58,8 +59,8 @@ def test_env_key_loader(skip_missing_encryption_dependency, caplog):
 def test_encryption_factory_secret_initialization(session_encryption_dependency):
     """Tests whether the initialization of a faulty and secret keys will raise the intended error.
 
-    Also validates whether valid secret keys are successfully used in
-    the EncryptionPipelineFactory
+    Also validates whether valid secret keys are successfully used in the EncryptionPipelineFactory
+
     """
     if not session_encryption_dependency:
         pytest.skip()
@@ -113,11 +114,10 @@ def test_encrypted_cached_session_initialization(
     """Verifies that, when available, the EncryptionPipelineFactory works as intended to encrypt session cache when
     using the initial fernet key for session encryption and decryption.
 
-    Also validates that, when a new fernet key is used to attempt to
-    access the same encrypted cache sql file with a a session encryption
-    pipeline, the SearchAPI will instead raise an InvalidToken error
-    indicating that the previously accessible resource can't be accessed
-    with the current, incorrect Fernet key.
+    Also validates that, when a new fernet key is used to attempt to access the same encrypted cache sql file with a a
+    session encryption pipeline, the SearchAPI will instead raise an InvalidToken error indicating that the previously
+    accessible resource can't be accessed with the current, incorrect Fernet key.
+
     """
 
     if not session_encryption_dependency:

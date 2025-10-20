@@ -6,10 +6,10 @@ import scholar_flux.utils as utils
 def test_lazy_import_provider_utils():
     """Testing whether ProviderUtils can be accessed by lazy importing.
 
-    This utility was lazy loaded to account for issues with potential
-    partial initialization of the `scholar_flux` module, and the method
-    of lazy loading ensures that the module is only loaded when needed
-    for when provider default configs re dynamically loaded at runtime.
+    This utility was lazy loaded to account for issues with potential partial initialization of the `scholar_flux`
+    module, and the method of lazy loading ensures that the module is only loaded when needed for when provider default
+    configs re dynamically loaded at runtime.
+
     """
     ProviderUtils = utils.ProviderUtils
     assert ProviderUtils is not None
@@ -30,8 +30,8 @@ def test_lazy_import_caching():
 def test_nonexistent_import():
     """Tests the behavior of the dynamically retrieved lazy imports when attempting to load a non-existent module.
 
-    Validates whether attempting to load a non-existent `ProvUtilities`
-    module will raise the expected AttributeError.
+    Validates whether attempting to load a non-existent `ProvUtilities` module will raise the expected AttributeError.
+
     """
     with pytest.raises(ImportError):
         from scholar_flux.utils import ProvUtilities  # noqa: F401
