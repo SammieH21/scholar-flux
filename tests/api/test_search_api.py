@@ -600,7 +600,7 @@ def test_with_config_parameters_invalid_field_ignored(original_config, original_
 
 
 def test_with_config_parameters_exception_restores(original_config, original_api_parameter_config):
-    """Tests and verifies that the configuration can temporarily be modified and restored with the context maanger."""
+    """Tests and verifies that the configuration can temporarily be modified and restored with the context manager."""
     api = SearchAPI(
         query="test",
         base_url=original_config.base_url,

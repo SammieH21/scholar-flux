@@ -1,4 +1,4 @@
-# /utils/paths/path_chain_map
+# /utils/paths/record_path_chain_map.py
 """The scholar_flux.utils.paths.path_node_map module builds on top of the original PathNodeMap to further specialize the
 map implementation toward the nested dictionary records that can be found within paginated data.
 

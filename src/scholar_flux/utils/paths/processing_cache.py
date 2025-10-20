@@ -1,4 +1,4 @@
-# /utils/paths/processing_cache
+# /utils/paths/processing_cache.py
 """The scholar_flux.utils.paths.path_cache class implements the PathProcessingCache to cache path processing operations.
 
 By caching terminal paths and their parent paths, the PathProcessingCache class facilitates the faster, more efficient
