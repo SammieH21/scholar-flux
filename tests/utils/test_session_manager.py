@@ -2,6 +2,7 @@ import pytest
 import requests
 from requests_cache import CachedSession
 from pathlib import Path
+import os
 
 import logging
 
@@ -81,6 +82,7 @@ def test_session_manager_invalid(param_overrides):
         sm.CachedSessionManager(**params)
 
 
+@pytest.mark.skipif(os.geteuid() == 0, reason="Test requires non-root user (root can write anywhere)")
 def test_session_manager_raise(caplog):
     """Evaluates and determines whether the expected error in initialization is caught and handled correctly in error
     scenarios where the write directory doesn't exist and is required.
