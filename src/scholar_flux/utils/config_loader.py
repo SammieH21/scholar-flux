@@ -31,7 +31,9 @@ class ConfigLoader:
         Package Level Settings:
             - SCHOLAR_FLUX_DEFAULT_PROVIDER: Defines the provider to use by default when creating a SearchAPI instance
         API_KEYS:
-            - SPRINGER_NATURE_API_KEY: API Key used when retrieving academic data from Springer Nature
+            - ARXIV_API_KEY: API key used when retrieving academic data from arXiv
+            - OPEN_ALEX_API_KEY: API key used when retrieving academic data from OpenAlex
+            - SPRINGER_NATURE_API_KEY: API key used when retrieving academic data from Springer Nature
             - CROSSREF_API_KEY: API key used to retrieve academic metadata from Crossref (API key not required)
             - CORE_API_KEY: API key used to retrieve metadata and full-text publications from the CORE API
             - PUBMED_API_KEY: API key used to retrieve publications from the NIH PubMed database
@@ -65,6 +67,8 @@ class ConfigLoader:
 
     # Values already present within the environment before loading
     DEFAULT_ENV: Dict[str, Any] = {
+        "ARXIV_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("ARXIV_API_KEY")),
+        "OPEN_ALEX_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("OPEN_ALEX_API_KEY")),
         "SPRINGER_NATURE_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("SPRINGER_NATURE_API_KEY")),
         "CROSSREF_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("CROSSREF_API_KEY")),
         "CORE_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("CORE_API_KEY")),
