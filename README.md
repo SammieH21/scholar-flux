@@ -40,8 +40,6 @@ for scholarly articles, journals, and publications. In addition, this API has bu
 
 ### Installation
 
-The ScholarFlux
-
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/SammieH21/scholar-flux.git
