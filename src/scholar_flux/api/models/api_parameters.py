@@ -167,6 +167,7 @@ class APIParameterConfig:
         parameter_map (APIParameterMap): The mapping of universal to API-specific parameter names.
 
     """
+
     parameter_map: APIParameterMap
 
     @property

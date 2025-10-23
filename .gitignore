@@ -119,6 +119,7 @@ dmypy.json
 
 # Other Directories
 notes/
+examples/
 archived/
 /profiling
 **/secrets/

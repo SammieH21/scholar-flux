@@ -388,7 +388,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
                 )
         return mapped_groups
 
-    def update(  # type: ignore
+    def update(
         self,
         *args,
         overwrite: Optional[bool] = None,

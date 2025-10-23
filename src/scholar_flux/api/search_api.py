@@ -338,7 +338,7 @@ class SearchAPI(BaseAPI):
         """Uses the private method, __query to update the current query and uses validation to ensure that the query is
         a non-empty string."""
         if not query or not isinstance(query, str):
-            raise QueryValidationException(f"Query must be a non empty string., received empty string: {query}")
+            raise QueryValidationException(f"Query must be a non empty string., received: {query}")
         self.__query = query
 
     @property

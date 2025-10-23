@@ -475,11 +475,8 @@ class SearchAPIConfig(BaseModel):
             # logger.info(f"Retrieved api key from config for provider: {provider_info.provider_name}")
             return SecretStr(api_key) if isinstance(api_key, str) else api_key
 
-        # logger.warning(f"An API key is required for the provider, {provider_info.provider_name} "
-        #                "and was not specified. API keys from the previous provider, if provided "
-        #                "may be invalid.")
-
-        logger.warning(f"Could not load the required api key for: {provider_info.provider_name}")
+        if provider_info.parameter_map.api_key_required:
+            logger.warning(f"Could not load the required api key for: {provider_info.provider_name}")
         return None
 
     @classmethod

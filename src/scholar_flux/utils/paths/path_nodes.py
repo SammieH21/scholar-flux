@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PathNode:
-    """A dataclass acts as a wrapper for path-terminal value pairs in nested JSON structures. 
+    """A dataclass acts as a wrapper for path-terminal value pairs in nested JSON structures.
 
     The PathNode consists of a value of any type and a ProcessingPath instance that indicates where a terminal-value was
     found. This class simplifies the process of manipulating and flattening data structures originating from JSON data

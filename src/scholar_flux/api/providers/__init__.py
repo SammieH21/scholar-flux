@@ -26,6 +26,20 @@ Basic ProviderConfig Components:
 
 
 Default Providers:
+    **arXiv**:
+        - website: https://arxiv.org/
+        - purpose: An open access archive and repository allowing access to scientific papers in several
+                   fields such as engineering, mathematics, and computer science.
+        - access:  Allows access to metadata/research papers without an API key. Note that the use of the
+                   works found through arXiv may require contacting the authors for re-use.
+
+    **OpenAlex**:
+        - website: https://openalex.org/
+        - purpose: A comprehensive index and a worldwide, open access database consisting of scientific
+                   papers and bibliographic materials available to the public.
+        - access:  Allows access to metadata/research papers without an API key for use-cases inside
+                   the terms of service
+
     **Core**:
         - website: https://core.ac.uk/services
         - purpose: Contains a vast corpus of searchable papers - both full-text papers and abstracts

@@ -62,7 +62,7 @@ def test_session_mod():
     assert api.cache is None
 
 
-@pytest.mark.parametrize("provider_name", ("plos", "pubmed", "springernature", "crossref", "core"))
+@pytest.mark.parametrize("provider_name", ("plos", "arxiv", "openalex", "pubmed", "springernature", "crossref", "core"))
 def test_parameter_build_successful(provider_name, original_config_test_api_key):
     """Verifies that the `build_parameters` method successfully prepares all required fields and, when required, API
     keys and mailto addresses for each individual provider.

@@ -7,12 +7,16 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Beta](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/SammieH21/scholar-flux)
 
+## Overview
 
-The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications.
-In addition, this API has built in extension capabilities for applications in News retrieval and other domains.
+The ScholarFlux API is an open-source client library designed to streamline access to academic and scholarly resources across several databases and APIs.
+It offers a unified platform that simplifies the process of querying academic databases, retrieving metadata, and performing comprehensive, concurrent searches
+for scholarly articles, journals, and publications. In addition, this API has built-in extension capabilities for applications in news retrieval as well as other domains.
+
+## Table of Contents
 
 - **Home**: https://github.com/SammieH21/scholar-flux
-- **Documentation**: https://sammieh21.github.io/scholar-flux/
+- **Documentation**: https://SammieH21.github.io/scholar-flux/
 - **Source Code**: https://github.com/SammieH21/scholar-flux/tree/main/src/scholar_flux
 - **Contributing**: https://github.com/SammieH21/scholar-flux/blob/main/CONTRIBUTING.md
 - **Code Of Conduct**: https://github.com/SammieH21/scholar-flux/blob/main/CODE_OF_CONDUCT.md
@@ -38,16 +42,15 @@ In addition, this API has built in extension capabilities for applications in Ne
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/sammih21/scholar-flux.git
+   git clone https://github.com/SammieH21/scholar-flux.git
    ```
-2.  Navigate to the project directory:
 
+2.  Navigate to the project directory:
     ```bash
     cd ScholarFlux
     ```
    
-3  Install dependencies using Poetry:
-
+3.  Install dependencies using Poetry:
     ```bash
     poetry install
     ```
@@ -104,7 +107,7 @@ We welcome contributions from the community! If you have suggestions for improve
 Apache License 2.0
 
 
-This project is licensed under the Apache License 2.0 and to link to the `LICENSE` file in your repository. This informs users and contributors about the legal terms under which your software is provided here:
+This project is licensed under the Apache License 2.0.
 
 [Apache License 2.0 Official Text](http://www.apache.org/licenses/LICENSE-2.0)
 
@@ -113,7 +116,7 @@ See the LICENSE file for the full terms.
 
 ### NOTICE
 
-The Apache License 2.0 applies only to the code only and gives no rights to the underlying data. Be sure to reference the terms of use for each provider to ensure that your use is within their terms.
+The Apache License 2.0 applies only to the code and gives no rights to the underlying data. Be sure to reference the terms of use for each provider to ensure that your use is within their terms.
 
 
 ### Acknowledgments

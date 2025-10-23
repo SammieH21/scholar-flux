@@ -14,17 +14,16 @@ import scholar_flux.api.models.search_api_config
     ["provider", "basename"],
     [
         ("plos", "plos"),
+        ("openalex", "openalex"),
+        ("arxiv", "arxiv"),
         ("pubmed_efetch", "nih"),
         ("pubmed", "nih"),
-        (
-            "springernature",
-            "springernature",
-        ),
+        ("springernature", "springernature"),
         ("crossref", "crossref"),
         ("core", "core"),
     ],
 )
-def test_non_provider_initialization(provider, basename):
+def test_default_provider_initialization(provider, basename):
     """Verifies that specifying a default provider successfully retrieves its corresponding config/parameter map.
 
     This function uses a parametrized set of arguments to test different combinations of providers to verify that it
@@ -44,6 +43,8 @@ def test_non_provider_initialization(provider, basename):
     "api_key_dictionary",
     (
         {"plos": None},
+        {"openalex": "open_alex_api_key"},
+        {"arxiv": "arxiv_api_key"},
         {"pubmed": "pubmed_api_key"},
         {"pubmed_efetch": "pubmed_api_key"},
         {"springernature": "springer_nature_api_key"},

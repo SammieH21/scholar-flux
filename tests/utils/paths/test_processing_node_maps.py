@@ -107,11 +107,11 @@ def test_negative_filter_depth(default_mapping):
 
     # verifies that the minimum depth and maximum depth, when negative raises a PathNodeMapError
     with pytest.raises(PathNodeMapError) as excinfo:
-        _ = default_mapping.filter(first_node.path[:2], max_depth = -1)
+        _ = default_mapping.filter(first_node.path[:2], max_depth=-1)
     assert err in str(excinfo.value)
 
     with pytest.raises(PathNodeMapError) as excinfo:
-        _ = default_mapping.filter(first_node.path[:2], min_depth = -1)
+        _ = default_mapping.filter(first_node.path[:2], min_depth=-1)
     assert err in str(excinfo.value)
 
 

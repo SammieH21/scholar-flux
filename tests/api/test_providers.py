@@ -11,6 +11,8 @@ from scholar_flux.api.models import ProviderConfig
         ("pubmed_efetch", ProviderConfig),
         ("crossref ", ProviderConfig),
         ("Core", ProviderConfig),
+        ("arXiv", ProviderConfig),
+        ("OpenAlex", ProviderConfig),
         ("SpringerNature", ProviderConfig),
         ("plos ", ProviderConfig),
         ("non_existent_provider ", NoneType),

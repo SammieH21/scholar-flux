@@ -17,13 +17,47 @@ def core_api_key() -> Optional[SecretStr]:
     is instead validated to ensure it is registered as a valid secret key in the config
 
     Returns:
-        Optional[SecretStr]: The Core API key tha has been formatted as a secret string if available. Otherwise None.
+        Optional[SecretStr]: The Core API key that has been formatted as a secret string if available. Otherwise None.
 
     """
     if not isinstance(os.getenv("CORE_API_KEY"), str):
         pytest.skip()
 
     return SecretUtils.mask_secret(config.get("CORE_API_KEY"))
+
+
+@pytest.fixture
+def open_alex_api_key() -> Optional[SecretStr]:
+    """Masked API key that is otherwise required for testing and retrieval of data from the OpenAlex API.
+
+    To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
+    is instead validated to ensure it is registered as a valid secret key in the config
+
+    Returns:
+        Optional[SecretStr]: The OpenAlex API key formatted as a secret string if available. Otherwise None.
+
+    """
+    if not isinstance(os.getenv("OPEN_ALEX_API_KEY"), str):
+        pytest.skip()
+
+    return SecretUtils.mask_secret(config.get("OPEN_ALEX_API_KEY"))
+
+
+@pytest.fixture
+def arxiv_api_key() -> Optional[SecretStr]:
+    """Masked API key that is otherwise required for testing and retrieval of data from the arXiv API.
+
+    To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
+    is instead validated to ensure it is registered as a valid secret key in the config
+
+    Returns:
+        Optional[SecretStr]: The arXiv API key that has been formatted as a secret string if available. Otherwise None.
+
+    """
+    if not isinstance(os.getenv("ARXIV_API_KEY"), str):
+        pytest.skip()
+
+    return SecretUtils.mask_secret(config.get("ARXIV_API_KEY"))
 
 
 @pytest.fixture
@@ -34,7 +68,7 @@ def pubmed_api_key() -> Optional[SecretStr]:
     is instead validated to ensure it is registered as a valid secret key in the config
 
     Returns:
-        Optional[SecretStr]: The PubMed API key tha has been formatted as a secret string if available. Otherwise None.
+        Optional[SecretStr]: The PubMed API key that has been formatted as a secret string if available. Otherwise None.
 
     """
     if not isinstance(os.getenv("PUBMED_API_KEY"), str):
@@ -88,7 +122,7 @@ def scholar_flux_logger() -> logging.Logger:
 def original_config_test_api_key() -> SecretStr:
     """Helper API key used to later mock and test using a fake, yet consistent API key.
 
-    SecretStr: The mocked API key tha has been formatted as a secret string.
+    SecretStr: The mocked API key that has been formatted as a secret string.
 
     """
     return SecretStr("a fake api key")
@@ -100,7 +134,7 @@ def new_config_test_api_key() -> SecretStr:
     mocked API key.
 
     Returns:
-        SecretStr: The mocked API key tha has been formatted as a secret string.
+        SecretStr: The mocked API key that has been formatted as a secret string.
 
     """
     return SecretStr("a new fake api key")
@@ -151,6 +185,8 @@ __all__ = [
     "original_api_parameter_config",
     "new_api_parameter_config",
     "core_api_key",
+    "arxiv_api_key",
+    "open_alex_api_key",
     "pubmed_api_key",
     "springer_nature_api_key",
     "crossref_api_key",
