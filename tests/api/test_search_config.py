@@ -104,6 +104,26 @@ def test_api_key_additions(provider):
             assert not config.api_key
 
 
+def test_api_key_missing(monkeypatch, caplog):
+    """Tests whether missing API keys correctly trigger the expected log message and return None before use.
+
+    This test uses SpringerNature to validate whether the warning message is triggered when no API key can
+    be found.
+    """
+
+    provider = "springernature"
+    provider_info = provider_registry.get(provider)
+    assert provider_info
+
+    api_key = None
+    monkeypatch.setenv(provider_info.api_key_env_var, "")
+    with patch.dict(scholar_flux.api.models.search_api_config.config, {provider_info.api_key_env_var: api_key}):
+        config = SearchAPIConfig.from_defaults(provider)
+
+    assert config.api_key is None
+    assert f"Could not load the required api key for: {provider_info.provider_name}" in caplog.text
+
+
 def test_api_default():
     """Verifies that the SearchAPIConfig allows for `None` the api_key parameter to be later validated in the parameter
     building steps as opposed to configuration creation.

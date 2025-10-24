@@ -5,22 +5,6 @@ from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpec
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 
 
-@pytest.fixture
-def basic_parameter_config():
-    """Fixture that uses an APIParameterConfig to indicate the parameters accepted by a mock API provider."""
-    basic_parameter_config = APIParameterConfig.as_config(
-        {
-            "query": "q",
-            "start": "start",
-            "records_per_page": "pagesize",
-            "api_key_parameter": None,
-            "api_key_required": False,
-            "auto_calculate_page": True,
-        }
-    )
-    return basic_parameter_config
-
-
 def test_api_specific_parameter_model():
     """Test the APISpecificParameter class to ensure that it accepts the intended classes."""
     param = APISpecificParameter(
@@ -203,7 +187,10 @@ def test_api_specific_parameter_default_and_required():
 
 
 def test_set_default_api_key_parameter_sets_default():
-    """When an api key parameter is not specified but is required by the API, it should be autoset to `api_key`"""
+    """Tests if APIParameterMap.api_key_parameter can default to "api_key" when an api key is required
+
+    This test covers scenarios when a partially incomplete parameter map is created and the `api_key_parameter` is
+    not specified."""
     parameter_map = APIParameterMap(
         query="q",
         start="start",
@@ -351,10 +338,16 @@ def test_manual_page_start_index(page_number, records_per_page, expected_index):
     )
 
 
-@pytest.mark.parametrize("page", [(None), (0), (-1), (-10)])
-def test_page_start_index_exception(page, caplog):
-    """Verifies that exceptions are raised when encountering values such as `None`, 0 (when zero_indexed_pagination is
-    False), and negative page."""
+@pytest.mark.parametrize(
+    ("page", "zero_indexed"),
+    [(None, True), (0, True), (-1, True), (-10, True), (None, True), (0, False), (-1, False), (-10, False)],
+)
+def test_page_start_index_exception(page, zero_indexed, caplog):
+    """Verifies that exceptions are raised when encountering values such as `None`, 0.
+
+    This test accounts for when zero_indexed_pagination is True/False and when DEFAULT_CORRECT_ZERO_INDEX is
+    enabled (this setting is enabled by default).
+    """
     parameter_config = APIParameterConfig.as_config(
         {
             "query": "q",
@@ -363,6 +356,7 @@ def test_page_start_index_exception(page, caplog):
             "api_key_parameter": None,
             "api_key_required": False,
             "auto_calculate_page": False,
+            "zero_indexed_pagination": zero_indexed,
         }
     )
 
@@ -373,35 +367,54 @@ def test_page_start_index_exception(page, caplog):
 
 
 @pytest.mark.parametrize("page", [(0), (1), (2)])
-def test_zero_indexed_pagination(page, caplog):
-    """Tests if the zero indexed pagination field operates as intended to ensure that `0`, when zero_indexed_pagination
-    is True, works as intended.
+def test_zero_indexed_pagination(page, zero_indexed_parameter_config, default_zero_indexed_config, caplog):
+    """Verifies that zero-indexed pagination accepts non-negative page numbers when correction is disabled.
+
+    This test temporarily sets `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = False` to verify that zero
+    is an acceptable page number when correction is disabled.
 
     Other page numbers are checked with a default records per page to ensure that the calculated page number is correct.
 
     """
-    parameter_config = APIParameterConfig.as_config(
-        {
-            "query": "q",
-            "start": "start",
-            "records_per_page": "pagesize",
-            "api_key_parameter": None,
-            "api_key_required": False,
-            "auto_calculate_page": True,
-            "zero_indexed_pagination": True,
-        }
-    )
 
     RECORDS_PER_PAGE = 6
-    start = parameter_config._calculate_start_index(page=page, records_per_page=RECORDS_PER_PAGE)
+    start = zero_indexed_parameter_config._calculate_start_index(page=page, records_per_page=RECORDS_PER_PAGE)
     assert start == page * RECORDS_PER_PAGE
 
-    parameter_config.map.auto_calculate_page = False
-    start = parameter_config._calculate_start_index(page=page, records_per_page=RECORDS_PER_PAGE)
+    zero_indexed_parameter_config.map.auto_calculate_page = False
+    start = zero_indexed_parameter_config._calculate_start_index(page=page, records_per_page=RECORDS_PER_PAGE)
     assert start == page
 
     if page == 0:
         assert "Expected a positive integer for page" not in caplog.text
+
+
+@pytest.mark.parametrize("page", [(0), (1), (2)])
+def test_zero_indexed_pagination_with_correction(
+    page, zero_indexed_parameter_config, default_correct_zero_index_config
+):
+    """Verifies that, with page correction, zero indexed pagination will treat only positive page numbers (1+) as valid.
+
+    This test temporarily sets `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = True` to verify that valid page numbers
+    will begin at `page=1` when correction is enabled.
+
+    Other page numbers are checked with a default records per page to ensure that the calculated page number is correct.
+
+    """
+    RECORDS_PER_PAGE = 6
+    zero_indexed_parameter_config.map.auto_calculate_page = True
+
+    adjusted_page = page + 1
+    adjusted_start = zero_indexed_parameter_config._calculate_start_index(
+        page=adjusted_page, records_per_page=RECORDS_PER_PAGE
+    )
+    assert adjusted_start == page * RECORDS_PER_PAGE
+
+    zero_indexed_parameter_config.map.auto_calculate_page = False
+    adjusted_start = zero_indexed_parameter_config._calculate_start_index(
+        page=adjusted_page, records_per_page=RECORDS_PER_PAGE
+    )
+    assert adjusted_start == page
 
 
 @pytest.mark.parametrize("records_per_page", [(None), (0), (-1), (-10)])
@@ -411,17 +424,6 @@ def test_records_per_page_start_index_exception(basic_parameter_config, records_
     In such scenarios, an error should be raised.
 
     """
-    basic_parameter_config = APIParameterConfig.as_config(
-        {
-            "query": "q",
-            "start": "start",
-            "records_per_page": "pagesize",
-            "api_key_parameter": None,
-            "api_key_required": False,
-            "auto_calculate_page": False,
-        }
-    )
-
     with pytest.raises(APIParameterException):
         basic_parameter_config._calculate_start_index(page=1, records_per_page=records_per_page)
     assert f"Expected a non-zero integer for records_per_page. Received '{records_per_page}'" in caplog.text
@@ -448,27 +450,17 @@ def test_show_parameters(basic_parameter_config):
     )
 
 
-def test_get_api_key(caplog):
+def test_get_incorrect_api_key(default_api_parameter_config, caplog):
     """Verifies that the `test_get_api_key` function appropriately raises errors as intended."""
-    parameter_config = APIParameterConfig.as_config(
-        {
-            "query": "q",
-            "start": "start",
-            "records_per_page": "pagesize",
-            "api_key_parameter": "apikey",
-            "api_key_required": True,
-            "auto_calculate_page": True,
-        }
-    )
 
     # a list should be invalid:
     with pytest.raises(APIParameterException) as excinfo:
-        parameter_config._get_api_key([])  # type: ignore
+        default_api_parameter_config._get_api_key([])  # type: ignore
     assert f"Expected `parameters` to be a dictionary, instead received {type([])}" in str(excinfo.value)
 
     # a dictionary should also raise an error:
     with pytest.raises(APIParameterException) as excinfo:
-        parameter_config._get_api_key({})  # type: ignore
+        default_api_parameter_config._get_api_key({})  # type: ignore
     msg = "An API key is required but not provided"
     assert msg in str(excinfo.value)
     assert msg in caplog.text
