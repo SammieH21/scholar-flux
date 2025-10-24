@@ -1,6 +1,8 @@
 # /data_storage/mongo_storage.py
-"""The scholar_flux.data_storage.mongodb_storage module implements the MongoDBStorage class that implements the abstract
-methods required for compatibility with the DataCacheManager in the scholar_flux package.
+"""The scholar_flux.data_storage.mongodb_storage module implements the MongoDBStorage backend for the DataCacheManager.
+
+This class implements the abstract methods required for compatibility with the scholar_flux.DataCacheManager to
+ensure that each method can be injected as a dependency.
 
 This class implements caching by using the prebuilt features available in MongoDB to store ProcessedResponse fields
 within the database for later CRUD operations.
@@ -11,6 +13,7 @@ from typing import Dict, Any, List, Optional, TYPE_CHECKING
 
 from scholar_flux.exceptions import MongoDBImportError
 from scholar_flux.data_storage.abc_storage import ABCStorage
+from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
 
 import threading
 import logging
@@ -38,12 +41,13 @@ else:
 
 
 class MongoDBStorage(ABCStorage):
-    """Implements the storage methods necessary to interact with MongoDB with a similar interface as other storage
-    methods. This implementation is designed to use a key-value store as a cache by which data can be stored and
-    retrieved in a relatively straightforward manner similar to the In-Memory Storage.
+    """Implements the storage methods necessary to interact with MongoDB with a unified backend interface.
+
+    The MongoDBStorage uses the same underlying interface as other scholar_flux storage classes for use with the
+    DataCacheManager. This implementation is designed to use a key-value store as a cache by which data can be
+    stored and retrieved in a relatively straightforward manner similar to the In-Memory Storage.
 
     Examples:
-
         >>> from scholar_flux.data_storage import MongoDBStorage
         # Defaults to connecting to locally (mongodb://127.0.0.1) on the default port for MongoDB (27017)
         # Verifies that a mongodb service is actually available locally on the default port
@@ -72,8 +76,8 @@ class MongoDBStorage(ABCStorage):
     """
 
     DEFAULT_CONFIG: Dict[str, Any] = {
-        "host": "mongodb://127.0.0.1",
-        "port": 27017,
+        "host": config_settings.config.get("SCHOLAR_FLUX_MONGODB_HOST") or "mongodb://127.0.0.1",
+        "port": config_settings.config.get("SCHOLAR_FLUX_MONGODB_PORT") or 27017,
         "db": "storage_manager_db",
         "collection": "result_page",
     }
@@ -90,10 +94,24 @@ class MongoDBStorage(ABCStorage):
     ):
         """Initialize the Mongo DB storage backend and connect to the Mongo DB server.
 
+        If no parameters are specified, the MongoDB storage will default to the parameters derived from the
+        scholar_flux.utils.config_settings.config dictionary, which, in turn, resolves the host and port from
+        environment variables or the default MongoDB host/port in the following order of priority:
+
+            - SCHOLAR_FLUX_MONGODB_HOST > MONGODB_HOST > 'mongodb://127.0.0.1' (localhost)
+            - SCHOLAR_FLUX_MONGODB_PORT > MONGODB_PORT > 27017
+
         Args:
             host (Optional[str]):
                 The host address where the Mongo Database can be found. The default is
                 `'mongodb://127.0.0.1'`, which is the mongo server on the localhost.
+
+                Each of the following are valid values for host:
+
+                    - Simple hostname: 'localhost' (uses port parameter)
+                    - Full URI: 'mongodb://localhost:27017' (ignores port parameter)
+                    - Complex URI: 'mongodb://user:pass@host:27017/db?options'
+
             namespace (Optional[str]):
                 The prefix associated with each cache key. By default, this is None.
             ttl (Optional[int]):
@@ -104,9 +122,7 @@ class MongoDBStorage(ABCStorage):
 
         Raises:
             MongoDBImportError: If db module is not available or fails to load.
-
         """
-
         if not pymongo:
             raise MongoDBImportError
 
@@ -308,13 +324,18 @@ class MongoDBStorage(ABCStorage):
         return found_data is not None
 
     @classmethod
-    def is_available(cls, host: str = "localhost", port: int = 27017, verbose: bool = True) -> bool:
-        """Helper method that indicates whether the service is available or not. It attempts to establish a connection
-        on the provided host and port and returns a boolean indicating if the connection was successful.
+    def is_available(cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True) -> bool:
+        """Helper method that indicates whether the MongoDB service is available or not.
+
+        It attempts to establish a connection on the provided host and port and returns a boolean indicating if the
+        connection was successful.
 
         Args:
-            host (str): The IP of the host of the MongoDB service. Defaults to localhost (the local computer).
-            port (int): The port where the service is hosted. Defaults to the default port 6379.
+            host (Optional[str]): The IP of the host of the MongoDB service. If None or an empty string,
+                                  Defaults to localhost (the local computer) or the "host" entry from the class variable,
+                                  DEFAULT_CONFIG.
+            port (Optional[int]): The port where the service is hosted. If None or 0, defaults to port, 27017  or the
+                                  "port" entry from the DEFAULT_CONFIG class variable.
             verbose (bool): Indicates whether to log status messages. Defaults to True
 
         Returns:
@@ -327,21 +348,23 @@ class MongoDBStorage(ABCStorage):
             ConnectionFailure: If a connection cannot be established
 
         """
-
         if not pymongo:
             logger.warning("The pymongo module is not available")
             return False
 
+        mongodb_host = host or cls.DEFAULT_CONFIG["host"]
+        mongodb_port = port or cls.DEFAULT_CONFIG["port"]
+
         try:
-            client: MongoClient = MongoClient(f"mongodb://{host}:{port}", serverSelectionTimeoutMS=1000)
+            client: MongoClient = MongoClient(host=mongodb_host, port=mongodb_port, serverSelectionTimeoutMS=1000)
             client.server_info()
 
             if verbose:
-                logger.info(f"The MongoDB service is available at {host}:{port}")
+                logger.info(f"The MongoDB service is available at {mongodb_host}:{mongodb_port}")
             return True
 
         except (ServerSelectionTimeoutError, ConnectionFailure) as e:
-            logger.warning(f"An active MongoDB service could not be found at {host}:{port}: {e}")
+            logger.warning(f"An active MongoDB service could not be found at {mongodb_host}:{mongodb_port}: {e}")
             return False
 
 

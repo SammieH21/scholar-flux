@@ -139,8 +139,9 @@ class SQLAlchemyStorage(ABCStorage):
         ttl: None = None,
         **sqlalchemy_config,
     ) -> None:
-        """Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter. This
-        class uses the innate flexibility of SQLAlchemy to support backends such as SQLite, Postgres, DuckDB, etc.
+        """Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter.
+
+        This class uses the innate flexibility of SQLAlchemy to support backends such as SQLite, Postgres, DuckDB, etc.
 
         Args:
             url (Optional[str]):

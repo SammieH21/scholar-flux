@@ -123,7 +123,7 @@ def test_redis_server_unavailable(redis_test_storage, monkeypatch, caplog):
     from redis import ConnectionError
 
     msg = "Won't connect"
-    host, port = RedisStorage.DEFAULT_REDIS_CONFIG["host"], RedisStorage.DEFAULT_REDIS_CONFIG["port"]
+    host, port = RedisStorage.DEFAULT_CONFIG["host"], RedisStorage.DEFAULT_CONFIG["port"]
 
     monkeypatch.setattr(redis, "Redis", lambda *args, **kwargs: (_ for _ in ()).throw(ConnectionError(msg)))
 

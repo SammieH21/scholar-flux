@@ -17,6 +17,7 @@ from pydantic import SecretStr
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 from scholar_flux.security import SensitiveDataMasker
+from scholar_flux.utils.helpers import coerce_int, try_int
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -76,6 +77,13 @@ class ConfigLoader:
         "SCHOLAR_FLUX_CACHE_SECRET_KEY": SensitiveDataMasker.mask_secret(os.getenv("SCHOLAR_FLUX_CACHE_SECRET_KEY")),
         "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY"),
         "SCHOLAR_FLUX_LOG_DIRECTORY": os.getenv("SCHOLAR_FLUX_LOG_DIRECTORY"),
+        "SCHOLAR_FLUX_MONGODB_HOST": os.getenv(
+            "SCHOLAR_FLUX_MONGODB_HOST", os.getenv("MONGODB_HOST", "mongodb://127.0.0.1")
+        ),
+        "SCHOLAR_FLUX_MONGODB_PORT": coerce_int(os.getenv("SCHOLAR_FLUX_MONGODB_PORT", os.getenv("MONGODB_PORT")))
+        or 27017,
+        "SCHOLAR_FLUX_REDIS_HOST": os.getenv("SCHOLAR_FLUX_REDIS_HOST", os.getenv("REDIS_HOST", "localhost")),
+        "SCHOLAR_FLUX_REDIS_PORT": coerce_int(os.getenv("SCHOLAR_FLUX_REDIS_PORT", os.getenv("REDIS_PORT"))) or 6379,
         "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL") or "DEBUG",
         "SCHOLAR_FLUX_DEFAULT_PROVIDER": os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
     }
@@ -131,7 +139,7 @@ class ConfigLoader:
     @staticmethod
     def _guard_secret(
         value: Any,
-        key: str | int,
+        key: Optional[str] = None,
         matches: list[str] | tuple = ("API_KEY", "SECRET", "MAIL"),
     ) -> Any | SecretStr:
         """Helper method to flag and guard the values of api keys, secrets, and likely email addresses by transforming
@@ -139,7 +147,8 @@ class ConfigLoader:
 
         Args:
             value (Any): The value to convert to a string if its key contains any match
-            key (str): The value to verify if it contains any match to keys containing API/SECRET/MAIL
+            key (Optional[str]): The value to verify if it contains any match to keys containing API_KEY/SECRET/MAIL. If
+                                 key is left blank, the value will be converted into a secret string by default.
             matches (str): The substrings used to indicate whether a secret should be guarded
 
         Returns:
@@ -149,10 +158,25 @@ class ConfigLoader:
         if isinstance(value, str) and matches is not None:
             return (
                 SensitiveDataMasker.mask_secret(value)
-                if re.search("|".join(matches), str(key)) and value is not None
+                if (key is None or re.search("|".join(matches), str(key))) and value is not None
                 else value
             )
         return value
+
+    @classmethod
+    def load_os_env_key(cls, key: str, **kwargs) -> None | str | SecretStr:
+        """Loads the provided key from the global environment. Converts API_KEY variables to secret strings by default.
+
+        Args:
+            key (str): The key to load from the environment. This key will be guarded if it contains any of
+                       the following substrings: "API_KEY", "SECRET", "MAIL"
+            matches (str): The substrings used to indicate whether the loaded environment variable should be guarded
+
+        Returns:
+            Optional[str | SecretStr]: The value of the environment variable, possibly wrapped as a secret string
+
+        """
+        return cls._guard_secret(os.environ.get(key), key, **kwargs)
 
     def load_os_env(self, replace_all: bool = False, verbose: bool = False) -> dict:
         """Load any updated configuration settings from variables set within the system environment. The configuration
@@ -212,7 +236,8 @@ class ConfigLoader:
 
         config_env_variables = os_config | dotenv_config
 
-        self.update_config(config_env_variables, verbose=verbose)
+        # coerce integer strings into numeric values, failing gracefully and returning the original value if impossible
+        self.update_config({key: try_int(value) for key, value in config_env_variables.items()}, verbose=verbose)
 
     def update_config(self, env_dict: dict[str, Any], verbose: bool = False) -> None:
         """Helper method for both logging and updating the config dictionary with the provided dictionary of environment
@@ -244,7 +269,12 @@ class ConfigLoader:
         try:
             if create and not env_path.exists():
                 env_path.touch()
-            set_key(str(env_path), key_name, key_value)
+
+            set_key(
+                dotenv_path = str(env_path),
+                key_to_set = key_name,
+                value_to_set = str(SensitiveDataMasker.unmask_secret(key_value)) if key_value is not None else ''
+            )
         except (IOError, PermissionError) as e:
             config_logger.error(f"Failed to create .env file at {env_path}: {e}")
 

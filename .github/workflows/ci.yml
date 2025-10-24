@@ -11,11 +11,26 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
 
+    env:
+      # Accesses the hostnames via the names of the containers
+      SCHOLAR_FLUX_MONGODB_HOST: mongodb://localhost
+      SCHOLAR_FLUX_REDIS_HOST: localhost
+      SCHOLAR_FLUX_MONGODB_PORT: 27018
+      SCHOLAR_FLUX_REDIS_PORT: 6380
+      # Mock API keys for testing (tests should use mocked responses, not live APIs)
+      ARXIV_API_KEY: "MOCK_ARXIV_API_KEY_01"
+      OPEN_ALEX_API_KEY: "MOCK_OPEN_ALEX_API_KEY_02"
+      SPRINGER_NATURE_API_KEY: "MOCK_SPRINGER_NATURE_API_KEY_03"
+      CROSSREF_API_KEY: "MOCK_CROSSREF_API_KEY_04"
+      CORE_API_KEY: "MOCK_CORE_API_KEY_05"
+      PUBMED_API_KEY: "MOCK_PUBMED_API_KEY_06"
+
+
     services:
       mongodb:
         image: mongo:7
         ports:
-          - 27017
+          - 27018:27017
         options: >-
           --health-cmd="mongosh --eval 'db.adminCommand(\"ping\")'" 
           --health-interval=10s 
@@ -25,7 +40,7 @@ jobs:
       redis:
         image: redis:7
         ports:
-          - 6379
+          - 6380:6379
         options: >-
           --health-cmd="redis-cli ping"
           --health-interval=10s
@@ -35,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Install all Python versions needed for tox
+      # Installs all Python versions needed for tox
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -56,6 +71,7 @@ jobs:
         with:
           python-version: "3.13"
       
+      # After poetry and tox are installed, tox handles the rest for testing
       - name: Install Poetry
         uses: snok/install-poetry@v1
       
@@ -65,6 +81,7 @@ jobs:
       - name: Run tests with tox
         run: poetry run tox
 
+      # Generates the statistics needed to verify coverage
       - name: Generate coverage report
         run: poetry run tox -e coverage
       

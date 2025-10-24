@@ -14,6 +14,7 @@ from time import time, sleep
 from scholar_flux.api.validators import validate_and_process_url, validate_url
 from scholar_flux.api import SearchAPI, APIParameterMap, SearchAPIConfig, APIParameterConfig, provider_registry
 from scholar_flux.security import SecretUtils
+from scholar_flux.utils import config_settings
 
 from scholar_flux.exceptions import QueryValidationException, APIParameterException, RequestCreationException
 
@@ -248,23 +249,22 @@ def test_search_api_url_mailto_validation(caplog):
     crossref = provider_registry.get("crossref")
     assert crossref is not None
     crossref_url = crossref.base_url
-    # will skip api mailto validation altogether if it doesn't recognize crossref from its url
+    # Will skip api mailto validation altogether if it doesn't recognize crossref from its url
     with pytest.raises(APIParameterException) as excinfo:
         _ = SearchAPI(query="test", base_url=crossref_url, mailto=bad_mailto)
     assert f"The provided email is invalid, received {bad_mailto}" in str(excinfo.value)
-    # if the error is raised, crossref was recognized. now if we malform the url:
+    # If the error is raised, crossref was recognized. now if we malform the url:
     bad_crossref_url = crossref_url.replace("https", "httpz")
 
-    # should recognize the error:
+    # Should recognize the error:
     with pytest.raises(APIParameterException) as excinfo:
         _ = SearchAPI(query="test", base_url=bad_crossref_url)
     assert (f"The value, '{bad_crossref_url}' is not a valid URL:") in caplog.text
     assert f"The URL provided to the SearchAPIConfig is invalid: {bad_crossref_url}" in str(excinfo.value)
 
 
-def test_basic_parameter_overrides(caplog):
-    """Validates and verifies that basic parameters are overridden as needed when preparing the parameters needed to
-    retrieve data from each API."""
+def test_build_with_additional_parameters(caplog):
+    """Verifies that additional parameters can be added during the parameter building step."""
     mailto = "atestemail@anaddress.com"
     api = SearchAPI(query="test", provider_name="crossref", mailto=mailto, api_key=None)
     params = api.build_parameters(page=1, additional_parameters={"new_parameter": 1})
@@ -275,23 +275,46 @@ def test_basic_parameter_overrides(caplog):
     assert params.get(mapping.records_per_page) is not None
     mailto_secretstr = params.get("mailto")
     assert isinstance(mailto_secretstr, SecretStr) and mailto_secretstr.get_secret_value() == mailto
-    assert api.parameter_config.parameter_map.api_key_parameter not in params  # won't show in the map if `None`
+
+    # won't show in the map if config["CROSSREF_API_KEY"] is None
+    assert api.parameter_config.map.api_key_parameter not in params or isinstance(
+        config_settings.config["CROSSREF_API_KEY"], SecretStr
+    )
+
+    assert "new_parameter" in params
+
+    # ensures that unrecognized parameter names are logged if unknown
+    assert (
+        "The following additional parameters are not associated with the current API config: {'new_parameter': 1}"
+        in caplog.text
+    )
+
+
+def test_basic_parameter_overrides(monkeypatch, caplog):
+    """Verifies that additional parameters (api keys/emails) can be overridden during the parameter building step."""
+    mailto = "atestemail@anaddress.com"
+
+    api = SearchAPI(query="test", provider_name="crossref", mailto=mailto, api_key=None)
+    # mock a scenario where a crossref api key is not available
+    api.config.api_key = None
 
     key = SecretStr("A nonmissing api key")
-    params = api.build_parameters(page=1, api_key=key, mailto="another@validemail.com")
+    updated_mailto = "another@validemail.com"
+    # An api key can be swapped mid parameter build, but not encouraged
+    params = api.build_parameters(page=1, api_key=key, mailto=updated_mailto)
     secret_api_key = params.get(api.parameter_config.parameter_map.api_key_parameter or "")
+
     assert isinstance(secret_api_key, SecretStr) and secret_api_key == key
+    assert params["mailto"] == updated_mailto
     assert (
         "Note that, while dynamic changes to a missing API key is possible in request building, "
         "is not encouraged. Instead, redefine the `api_key` parameter as an "
         "attribute in the current SearchAPI."
     ) in caplog.text
+
+    # Verifies that the mailto attribute can be successfully overridden
     assert (
         "The following additional parameters will be used to override the current parameter list: {'mailto': '***'}"
-        in caplog.text
-    )
-    assert (
-        "The following additional parameters are not associated with the current API config: {'new_parameter': 1}"
         in caplog.text
     )
 

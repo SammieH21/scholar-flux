@@ -26,8 +26,7 @@ from scholar_flux.exceptions import (
     MissingAPISpecificParameterException,
     MissingProviderException,
 )
-from scholar_flux import config
-import os
+from scholar_flux.utils import config_settings
 import re
 import logging
 
@@ -470,7 +469,10 @@ class SearchAPIConfig(BaseModel):
         )
 
         # attempt to load the api key if a variable is referenced in the provider config
-        if api_key := config.get(provider_info.api_key_env_var) or os.environ.get(provider_info.api_key_env_var):
+        if api_key := (
+            config_settings.config.get(provider_info.api_key_env_var)
+            or config_settings.load_os_env_key(provider_info.api_key_env_var)
+        ):
             logger.info(f"API key successfully loaded for the provider, {provider_info.provider_name}")
             # logger.info(f"Retrieved api key from config for provider: {provider_info.provider_name}")
             return SecretStr(api_key) if isinstance(api_key, str) else api_key

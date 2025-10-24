@@ -1,6 +1,7 @@
 # /data_storage/redis_storage.py
-"""The scholar_flux.data_storage.redis_storage module implements the RedisStorage class that implements the abstract
-methods required for compatibility with the DataCacheManager in the scholar_flux package.
+"""The scholar_flux.data_storage.redis_storage module implements the RedisStorage backend for the DataCacheManager.
+
+This class implements the abstract methods required for compatibility with the scholar_flux.DataCacheManager.
 
 This class implements caching by using the serialization-deserialization and caching features available in Redis
 to store ProcessedResponse fields within the database for later CRUD operations.
@@ -8,13 +9,13 @@ to store ProcessedResponse fields within the database for later CRUD operations.
 WARNING: Ensure that the 'namespace' parameter is set to a non-empty, unique value for each logical cache.
 Using an empty or shared namespace may result in accidental deletion or overwriting of unrelated data. For that reason,
 the `delete_all` method does not perform any deletions unless a namespace exists
-
 """
 
 from __future__ import annotations
 from scholar_flux.exceptions import RedisImportError
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils.encoder import JsonDataEncoder
+from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
 from typing import Any, Dict, List, Optional, cast, TYPE_CHECKING
 
 import logging
@@ -37,12 +38,13 @@ else:
 
 
 class RedisStorage(ABCStorage):
-    """Implements the storage methods necessary to interact with Redis with a similar interface as other storage
-    methods. This implementation is designed to use a key-value store as a cache by which data can be stored and
+    """Implements the storage methods necessary to interact with Redis using a unified backend interface.
+
+    The RedisStorage implements the abstract methods from the ABCStorage class for use with the DataCacheManager.
+    This implementation is designed to use a key-value store as a cache by which data can be stored and
     retrieved in a relatively straightforward manner similar to the In-Memory Storage.
 
     Examples:
-
         >>> from scholar_flux.data_storage import RedisStorage
         # Defaults to connecting to locally (localhost) on the default port for Redis services (6379)
         # Verifies that a Redis service is locally available.
@@ -71,7 +73,10 @@ class RedisStorage(ABCStorage):
     """
 
     DEFAULT_NAMESPACE: str = "SFAPI"
-    DEFAULT_REDIS_CONFIG = {"host": "localhost", "port": 6379, "db": 0}
+    DEFAULT_CONFIG: dict = {
+        "host": config_settings.config.get("SCHOLAR_FLUX_REDIS_HOST") or "localhost",
+        "port": config_settings.config.get("SCHOLAR_FLUX_REDIS_PORT") or 6379,
+    }
 
     def __init__(
         self,
@@ -82,18 +87,27 @@ class RedisStorage(ABCStorage):
     ):
         """Initialize the Redis storage backend and connect to the Redis server.
 
+        If no parameters are specified, the Redis storage will attempt to resolve the host and port using
+        variables from the environment (loaded into scholar_flux.utils.config_settings at runtime).
+
+        The resolved host and port are resolved from environment variables/defaults in the following order of priority:
+
+            - SCHOLAR_FLUX_REDIS_HOST > REDIS_HOST > 'localhost'
+            - SCHOLAR_FLUX_REDIS_PORT > REDIS_PORT > 6379
+
         Args:
             host (Optional[str]):
                 Redis server host. Can be provided positionally or as a keyword argument. Defaults to
                 'localhost' if not specified.
-            namespace Optional[str]:
+            namespace (Optional[str]):
                 The prefix associated with each cache key. Defaults to DEFAULT_NAMESPACE if left `None`.
-            ttl Optional[int]:
+            ttl (Optional[int]):
                 The total number of seconds that must elapse for a cache record to expire. If not provided,
                 ttl defaults to None.
-            **redis_config Optional(Dict[Any, Any]):
+            **redis_config (Optional[Dict[Any, Any]]):
                 Configuration parameters required to connect to the Redis server. Typically includes parameters
                 such as host, port, db, etc.
+
         Raises:
             RedisImportError: If redis module is not available or fails to load.
 
@@ -103,7 +117,7 @@ class RedisStorage(ABCStorage):
         if not redis:
             raise RedisImportError
 
-        self.config: dict = self.DEFAULT_REDIS_CONFIG | redis_config
+        self.config: dict = self.DEFAULT_CONFIG | redis_config
 
         if host:
             self.config["host"] = host
@@ -163,6 +177,7 @@ class RedisStorage(ABCStorage):
         Returns:
             dict:
                 Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
+
         Raises:
             RedisError: If there is an error during the retrieval of records under the namespace
 
@@ -250,9 +265,7 @@ class RedisStorage(ABCStorage):
 
         Raises:
             RedisError: If there an error occurred when deleting records from the collection
-
         """
-
         # this function requires a namespace to avoid deleting unrelated data
         try:
             if not self.namespace:
@@ -303,13 +316,18 @@ class RedisStorage(ABCStorage):
         return False
 
     @classmethod
-    def is_available(cls, host: str = "localhost", port: int = 6379, verbose: bool = True) -> bool:
-        """Helper class method for testing whether the Redis service can be accessed. If so, this function returns True,
-        otherwise False.
+    def is_available(cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True) -> bool:
+        """Helper class method for testing whether the Redis service is available and can be accessed.
+
+        If Redis can be successfully reached, this function returns True, otherwise False.
 
         Args:
-            host (str): Indicates the location to attempt a connection
-            port (int): Indicates the port where the service can be accessed
+            host (Optional[str]): Indicates the location to attempt a connection. If None or an empty string, Defaults
+                                  to localhost (the local computer) or the "host" entry from the class variable,
+                                  DEFAULT_CONFIG.
+            port (Optional[int]): Indicates the port where the service can be accessed If None or 0,
+                                  Defaults to port 6379 or the "port" entry from the DEFAULT_CONFIG class
+                                  variable.
             verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
 
         Raises:
@@ -321,16 +339,20 @@ class RedisStorage(ABCStorage):
             logger.warning("The redis module is not available")
             return False
 
+        redis_host = host or cls.DEFAULT_CONFIG["host"]
+        redis_port = port or cls.DEFAULT_CONFIG["port"]
+
         try:
-            client = redis.Redis(host=host, port=port, socket_connect_timeout=1)
+
+            client = redis.Redis(host=redis_host, port=redis_port, socket_connect_timeout=1)
             client.ping()
 
             if verbose:
-                logger.info(f"The Redis service is available at {host}:{port}")
+                logger.info(f"The Redis service is available at {redis_host}:{redis_port}")
             return True
 
         except (TimeoutError, ConnectionError) as e:
-            logger.warning(f"An active Redis service could not be found at {host}:{port}: {e}")
+            logger.warning(f"An active Redis service could not be found at {redis_host}:{redis_port}: {e}")
             return False
 
 
