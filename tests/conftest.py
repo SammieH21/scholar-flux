@@ -29,7 +29,14 @@ from tests.fixtures.pubmed_api import (
     mock_pubmed_fetch_response,
 )
 
-from tests.fixtures.api_parameter_config import default_api_parameter_map, default_api_parameter_config
+from tests.fixtures.api_parameter_config import (
+    basic_parameter_config,
+    default_api_parameter_map,
+    default_api_parameter_config,
+    zero_indexed_parameter_config,
+    default_zero_indexed_config,
+    default_correct_zero_index_config,
+)
 
 from tests.fixtures.config import (
     scholar_flux_logger,
@@ -153,8 +160,12 @@ __all__ = [
     "cleanup",
     "sample_json",
     "mock_api_parsed_json_records",
+    "basic_parameter_config",
     "default_api_parameter_map",
     "default_api_parameter_config",
+    "zero_indexed_parameter_config",
+    "default_zero_indexed_config",
+    "default_correct_zero_index_config",
     "redis_dependency",
     "mongodb_dependency",
     "sqlalchemy_dependency",

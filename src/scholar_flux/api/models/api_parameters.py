@@ -15,7 +15,7 @@ Classes:
 """
 from __future__ import annotations
 from pydantic import model_validator, ValidationError
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, ClassVar
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
@@ -166,9 +166,14 @@ class APIParameterConfig:
     Args:
         parameter_map (APIParameterMap): The mapping of universal to API-specific parameter names.
 
+    Class Attributes:
+        DEFAULT_CORRECT_ZERO_INDEX (bool): Autocorrects zero-indexed API parameter building specifications to only
+                                           accept positive values when true. If otherwise False, page calculation
+                                           APIs will start from page 0 if zero-indexed (i.e arXiv).
     """
 
     parameter_map: APIParameterMap
+    DEFAULT_CORRECT_ZERO_INDEX: ClassVar[bool] = True
 
     @property
     def map(self) -> APIParameterMap:
@@ -252,9 +257,10 @@ class APIParameterConfig:
             return None
 
         zero_indexed = self.parameter_map.zero_indexed_pagination
+        adjusted_page = page - 1 if zero_indexed and isinstance(page, int) and self.DEFAULT_CORRECT_ZERO_INDEX else page
         start = int(not zero_indexed)  # 0 if zero-indexed, 1 if one-indexed
-        if not isinstance(page, int) or (page < start):
-            expected = "non-negative" if zero_indexed else "positive"
+        if not isinstance(adjusted_page, int) or (adjusted_page < start):
+            expected = "non-negative" if zero_indexed and not self.DEFAULT_CORRECT_ZERO_INDEX else "positive"
             logger.error(f"Expected a {expected} integer for page. Received '{page}'")
             raise APIParameterException(f"Expected a {expected} integer for page. Received '{page}'")
 
@@ -266,9 +272,9 @@ class APIParameterConfig:
 
         if not self.parameter_map.auto_calculate_page:
 
-            return page
+            return adjusted_page
 
-        return start + (page - start) * records_per_page
+        return start + (adjusted_page - start) * records_per_page
 
     def _get_api_specific_parameters(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
         """Helper method for extracting api specific parameters from additional keyword arguments.

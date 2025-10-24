@@ -5,7 +5,7 @@ import requests_mock
 
 from requests import Response
 from requests_cache import CachedResponse
-from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator, APIParameterConfig
+from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator
 from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse
@@ -383,22 +383,43 @@ def test_cache_deletions(monkeypatch, caplog):
 
 
 @pytest.mark.parametrize("page", [(0), (1), (2)])
-def test_parameter_building(page):
-    """Integration test to determine whether, at the level of the coordinator, requests are built with the correct
-    parameter values prior to the preparation of the URL string and before the request is sent."""
-    basic_parameter_config = APIParameterConfig.as_config(
-        {
-            "query": "q",
-            "start": "start",
-            "records_per_page": "pagesize",
-            "api_key_parameter": None,
-            "api_key_required": False,
-            "auto_calculate_page": True,
-            "zero_indexed_pagination": True,
-        }
-    )
+def test_parameter_building(page, zero_indexed_parameter_config, default_correct_zero_index_config):
+    """Integration test to determine whether parameters are built correctly to always start at page 1.
+
+    With APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = True, the first page should always be page 1,
+    despite whether an API is zero indexed or not. The building and preparation of parameter values happens
+    prior to the preparation of the URL string and before the request is sent.
+
+    """
+
     RECORDS_PER_PAGE = 10
-    api = SearchAPI(query="new query", parameter_config=basic_parameter_config, records_per_page=RECORDS_PER_PAGE)
+    api = SearchAPI(
+        query="new query", parameter_config=zero_indexed_parameter_config, records_per_page=RECORDS_PER_PAGE
+    )
+    search_coordinator = SearchCoordinator(api)
+
+    adjusted_page = page + 1
+    parameters = search_coordinator.api.build_parameters(page=adjusted_page)
+
+    assert parameters["q"] == "new query"
+    assert parameters["start"] == page * RECORDS_PER_PAGE
+    assert parameters["pagesize"] == RECORDS_PER_PAGE
+
+
+@pytest.mark.parametrize("page", [(0), (1), (2)])
+def test_parameter_building_with_zero_indexing(page, zero_indexed_parameter_config, default_zero_indexed_config):
+    """Integration test to determine whether the page start varies based on zero indexed pagination.
+
+    With APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = False, the first page for zero indexed APIs will be 0, and
+    1 for non-zero indexed APIs. The building and preparation of parameter values happens
+    prior to the preparation of the URL string and before the request is sent.
+
+    """
+
+    RECORDS_PER_PAGE = 10
+    api = SearchAPI(
+        query="new query", parameter_config=zero_indexed_parameter_config, records_per_page=RECORDS_PER_PAGE
+    )
     search_coordinator = SearchCoordinator(api)
 
     parameters = search_coordinator.api.build_parameters(page=page)
