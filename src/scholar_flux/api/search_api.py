@@ -14,7 +14,8 @@ from pydantic import SecretStr
 import logging
 import requests
 from requests import Response
-from scholar_flux import config, masker as default_masker
+from scholar_flux import masker as default_masker
+from scholar_flux.utils import config_settings
 from scholar_flux.api.models import BaseAPIParameterMap
 from scholar_flux.api import BaseAPI, APIParameterConfig, APIParameterMap, SearchAPIConfig, RateLimiter
 from scholar_flux.api.providers import provider_registry
@@ -550,7 +551,7 @@ class SearchAPI(BaseAPI):
 
         """
         try:
-            default_provider_name = provider_name or config.get("SCHOLAR_FLUX_DEFAULT_PROVIDER", "PLOS")
+            default_provider_name = provider_name or config_settings.config.get("SCHOLAR_FLUX_DEFAULT_PROVIDER", "PLOS")
             search_api_config = SearchAPIConfig.from_defaults(
                 provider_name=default_provider_name, **api_specific_parameters
             )

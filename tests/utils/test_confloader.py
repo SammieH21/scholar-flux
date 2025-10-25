@@ -89,6 +89,23 @@ def test_write_key_creates_env_file_if_missing(cleanup, tmp_path):
     assert env_vars[key]
 
 
+def test_env_key_loader(monkeypatch):
+    """Tests whether environment variables can be safely loaded as secret strings when using `load_os_env_key`"""
+    api_key_variable_name = "MY_VERY_SECRET_API_KEY"
+    api_key = "this_is_my_api_key_1234"
+    monkeypatch.setenv(api_key_variable_name, api_key)
+
+    loaded_key = ConfigLoader.load_os_env_key(api_key_variable_name)
+    assert isinstance(loaded_key, SecretStr) and loaded_key.get_secret_value() == api_key
+
+    # should work as intended and return nothing
+    assert ConfigLoader.load_os_env_key("") is None
+
+    # default error expected when using os.environ.get under the hood
+    with pytest.raises(TypeError):
+        ConfigLoader.load_os_env_key(None)  # type: ignore
+
+
 def test_write_key_on_error(cleanup, tmp_path, monkeypatch, caplog):
     """Validates whether expected errors when creating/writing a new env file on `self.write_key` will handle errors
     gracefully."""

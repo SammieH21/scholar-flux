@@ -17,8 +17,11 @@ from scholar_flux.utils.repr_utils import generate_repr_from_string
 
 
 class InMemoryStorage(ABCStorage):
-    """Default storage class that implements in-memory cache using a dictionary. This class provides methods to check
-    the cache, delete from the cache, update the cache with new data, and retrieve data from the cache storage.
+    """Default storage class that implements an in-memory storage cache using a dictionary.
+
+    This class implements the required abstract methods from the ABCStorage base class to ensure compatibility with
+    the scholar_flux.DataCacheManager. Methods are provided to delete from the cache, update the cache with new data,
+    and retrieve data from the cache.
 
     Args:
         namespace (Optional[str]): Prefix for cache keys. Defaults to None.

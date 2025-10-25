@@ -45,7 +45,7 @@ def sqlalchemy_dependency() -> bool:
 
 
 @lru_cache(maxsize=1)
-def mongodb_available(host: str = "localhost", port: int = 27017) -> bool:
+def mongodb_available(host: Optional[str] = None, port: Optional[int] = None) -> bool:
     """Helper function for determining whether MongoDB is available."""
     available = MongoDBStorage.is_available(host=host, port=port)
     if not available:
@@ -63,7 +63,7 @@ def sqlalchemy_available(url: Optional[str] = None) -> bool:
 
 
 @lru_cache(maxsize=1)
-def redis_available(host: str = "localhost", port: int = 6379) -> bool:
+def redis_available(host: Optional[str] = None, port: Optional[int] = None) -> bool:
     """Helper function for determining whether the Redis Service is available."""
     available = RedisStorage.is_available(host=host, port=port)
     if not available:

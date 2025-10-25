@@ -12,8 +12,8 @@ from pathlib import Path
 def redis_test_config():
     """Redis configuration for testing."""
     return {
-        "host": "localhost",
-        "port": 6379,
+        "host": RedisStorage.DEFAULT_CONFIG["host"],
+        "port": RedisStorage.DEFAULT_CONFIG["port"],
         "db": 0,
     }
 
@@ -28,8 +28,8 @@ def storage_test_namespace():
 def mongo_test_config():
     """MongoDB configuration for testing."""
     return {
-        "host": "mongodb://127.0.0.1",
-        "port": 27017,
+        "host": MongoDBStorage.DEFAULT_CONFIG["host"],
+        "port": MongoDBStorage.DEFAULT_CONFIG["port"],
         "database": "sf_data_storage_tests",
         "collection": "cache_collection",
     }
