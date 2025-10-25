@@ -164,7 +164,7 @@ class ConfigLoader:
         return value
 
     @classmethod
-    def load_os_env_key(cls, key: str, **kwargs) -> None | str | SecretStr:
+    def load_os_env_key(cls, key: str, **kwargs) -> Optional[str | SecretStr]:
         """Loads the provided key from the global environment. Converts API_KEY variables to secret strings by default.
 
         Args:

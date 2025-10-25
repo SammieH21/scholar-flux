@@ -344,8 +344,8 @@ class RedisStorage(ABCStorage):
 
         try:
 
-            client = redis.Redis(host=redis_host, port=redis_port, socket_connect_timeout=1)
-            client.ping()
+            with redis.Redis(host=redis_host, port=redis_port, socket_connect_timeout=1) as client:
+                client.ping()
 
             if verbose:
                 logger.info(f"The Redis service is available at {redis_host}:{redis_port}")

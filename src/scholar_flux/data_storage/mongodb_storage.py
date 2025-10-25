@@ -330,6 +330,9 @@ class MongoDBStorage(ABCStorage):
         It attempts to establish a connection on the provided host and port and returns a boolean indicating if the
         connection was successful.
 
+        Note that if the input to the `host` is a URI (e.g. mongodb://localhost:27017), any input provided to the
+        `port` variable  will be ignored when `MongoClient` initializes the connection and use the URI exclusively.
+
         Args:
             host (Optional[str]): The IP of the host of the MongoDB service. If None or an empty string,
                                   Defaults to localhost (the local computer) or the "host" entry from the class variable,
@@ -356,8 +359,9 @@ class MongoDBStorage(ABCStorage):
         mongodb_port = port or cls.DEFAULT_CONFIG["port"]
 
         try:
-            client: MongoClient = MongoClient(host=mongodb_host, port=mongodb_port, serverSelectionTimeoutMS=1000)
-            client.server_info()
+            client: MongoClient
+            with MongoClient(host=mongodb_host, port=mongodb_port, serverSelectionTimeoutMS=1000) as client:
+                client.server_info()
 
             if verbose:
                 logger.info(f"The MongoDB service is available at {mongodb_host}:{mongodb_port}")
