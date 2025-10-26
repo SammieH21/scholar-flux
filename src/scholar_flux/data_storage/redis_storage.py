@@ -9,6 +9,7 @@ to store ProcessedResponse fields within the database for later CRUD operations.
 WARNING: Ensure that the 'namespace' parameter is set to a non-empty, unique value for each logical cache.
 Using an empty or shared namespace may result in accidental deletion or overwriting of unrelated data. For that reason,
 the `delete_all` method does not perform any deletions unless a namespace exists
+
 """
 
 from __future__ import annotations
@@ -265,6 +266,7 @@ class RedisStorage(ABCStorage):
 
         Raises:
             RedisError: If there an error occurred when deleting records from the collection
+
         """
         # this function requires a namespace to avoid deleting unrelated data
         try:

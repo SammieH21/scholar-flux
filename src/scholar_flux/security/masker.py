@@ -14,6 +14,7 @@ from scholar_flux.security.patterns import (
     MaskingPattern,
     MaskingPatternSet,
     KeyMaskingPattern,
+    FuzzyKeyMaskingPattern,
     StringMaskingPattern,
 )
 from scholar_flux.security.utils import SecretUtils
@@ -107,7 +108,7 @@ class SensitiveDataMasker:
         """Get all patterns with a specific name."""
         return {p for p in self.patterns if p.name == name}
 
-    def add_sensitive_key_patterns(self, name: str, fields: List[str] | str, **kwargs) -> None:
+    def add_sensitive_key_patterns(self, name: str, fields: List[str] | str, fuzzy: bool = False, **kwargs) -> None:
         """Adds patterns that identify potentially sensitive strings with the aim of filtering them from logs.
 
         The parameters provided to the method are used to create new string patterns.
@@ -120,6 +121,8 @@ class SensitiveDataMasker:
             pattern (str):
                 An optional parameter for filtering and removing sensitive fields that match a given pattern.
                 By default this is already set to remove api keys that are typically denoted by alpha numeric fields
+            fuzzy (bool): If true, regular expressions are used to identify keys. Otherwise the fixed (field) key
+                          matching is used through the implementation of a basic KeyMaskingPattern.
             **kwargs:
                 Other fields, specifiable via additional keyword arguments that are passed to KeyMaskingPattern
 
@@ -128,8 +131,10 @@ class SensitiveDataMasker:
         if isinstance(fields, str):
             fields = [fields]
 
+        Pattern = KeyMaskingPattern if not fuzzy else FuzzyKeyMaskingPattern
+
         for field in fields:
-            pattern = KeyMaskingPattern(name=name, field=field, **kwargs)
+            pattern = Pattern(name=name, field=field, **kwargs)
             self.add_pattern(pattern)
 
     def add_sensitive_string_patterns(self, name: str, patterns: List[str] | str, **kwargs) -> None:
@@ -220,8 +225,9 @@ class SensitiveDataMasker:
         )
         self.add_sensitive_key_patterns(
             name="emails",
-            fields=["email", "mail", "mailto"],
+            fields=["[eE]?mail", "[E]?MAIL", "mailto", "MAILTO"],
             pattern=r"[a-zA-Z0-9._%+-]+(@|%40)[a-zA-Z0-9.-]+\.[a-zA-Z]+",
+            fuzzy=True,
         )
         self.add_sensitive_string_patterns(
             name="auth_headers",
