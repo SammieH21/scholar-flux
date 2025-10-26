@@ -42,7 +42,7 @@ class PubMedSearchStep(WorkflowStep):
 
 
 class PubMedFetchStep(WorkflowStep):
-    """Next and final step of the PubMed workflow that uses the eFetch API to resolve article/abstract Ids. These Ids
+    """Next and final step of the PubMed workflow that uses the eFetch API to resolve article/abstract Ids. These ids
     are retrieved from the metadata of the previous step and are used as input to eFetch to retrieve their associated
     articles and/or abstracts.
 
@@ -61,16 +61,15 @@ class PubMedFetchStep(WorkflowStep):
         search_parameters: Optional[dict] = None,
         config_parameters: Optional[dict] = None,
     ) -> "PubMedFetchStep":
-        """Overrides the `pre_transform of the SearchWorkflow step to use the IDs retrieved from the previous step as
+        """Overrides the `pre_transform` of the SearchWorkflow step to use the IDs retrieved from the previous step as
         input parameters for the PubMed eFetch API request.
 
         Args:
-            ctx (Optional[StepContext]):
-                Defines the inputs that are used by the current PubmedWorkflowStep to modify its function
-                before execution.
+            ctx (Optional[StepContext]): Defines the inputs that are used by the current PubmedWorkflowStep to modify
+                                         its function before execution.
             provider_name: Optional[str]: Provided for API compatibility. Is uses `pubmedefetch` by default.
-            **search_parameters: defines optional keyword arguments to pass to SearchCoordinator._search()
-            **config_parameters: defines optional keyword arguments that modify the step's SearchAPIConfig
+            search_parameters: defines optional keyword arguments to pass to SearchCoordinator._search()
+            config_parameters: defines optional keyword arguments that modify the step's SearchAPIConfig
 
         Returns:
             PubmedFetchWorkflowStep: A modified or copied version of the current pubmed workflow step

@@ -377,8 +377,9 @@ class SearchAPI(BaseAPI):
 
     @property
     def request_delay(self) -> float:
-        """Indicates how long we should wait in-between requests. Helpful for ensuring compliance with
-        the rate-limiting requirements of various APIs.
+        """Indicates how long we should wait in-between requests.
+
+        Helpful for ensuring compliance with the rate-limiting requirements of various APIs.
 
         Returns:
             float: The number of seconds to wait at minimum between each request

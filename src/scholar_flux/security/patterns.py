@@ -1,6 +1,6 @@
 # /security/patterns.py
 """The scholar_flux.security.patterns module implements the foundational patterns required to implement a light-weight
-fixed/regex pattern matching utility that determines keys to mask in both text and json-formatted parameter
+fixed/regex pattern matching utility that determines keys to mask in both text and JSON-formatted parameter
 dictionaries.
 
 Classes:
@@ -61,21 +61,34 @@ class MaskingPattern(ABC):
         to other patterns of the same type."""
         pass
 
+    @classmethod
+    def _split_pattern(cls, pattern: str) -> list[str]:
+        """Helper method that splits fields by `pipe` to separate patterns as a list of strings."""
+        return re.split(r"(?<!\\)\|", pattern)
+
 
 @dataclass(frozen=True)
 class KeyMaskingPattern(MaskingPattern):
     """Masks values associated with specific keys/fields/parameters in text and API requests.
 
+    The KeyMaskingPattern identifies fields in dumped JSON-formatted data that are commonly prepared in the
+    creation of request URLs. After identifying the assigned fixed-string field or key in a request URL or
+    string-formatted dictionary, the pattern conditionally masks its associated value using a fixed or regular
+    expression pattern.
+
+    By default, the masking pattern is set to filter string combinations of dashes and alphanumeric fields that
+    are commonly observed in API keys, secrets, etc. The `pattern` parameter can be overridden to identify sensitive
+    text such as birthdays, combinations of digits, and addresses using regular expressions.
+
     Attributes:
         name (str):
-            The name to be associated with a particular pattern - can help in later identification and
-            retrieval of rules associated with pattern masks of a particular category.
+            The name to be associated with a particular pattern. Facilitates the identification and
+            retrieval of pattern masks by name/category in later steps.
         field (str):
-            The field to look for when determining whether to mask a specific parameter
+            The fixed field string to look for when determining whether to mask a specific parameter.
         pattern (str):
-            The pattern to use to remove sensitive fields, contingent on a parameter being defined. By default, the
-            pattern is set to allow for the removal dashes and alphanumeric fields but can be overridden based on API
-            specific specifications.
+            The pattern that will be used to identify and mask sensitive fields when its corresponding field/JSON key
+            has been located.
         replacement (str):
             Indicates the replacement string for the value in the key-value pair if matched ('***' by default)
         use_regex (bool):
@@ -97,7 +110,11 @@ class KeyMaskingPattern(MaskingPattern):
     mask_pattern: bool = True
 
     def __post_init__(self):
-        """Uses the mask_pattern field to determine whether or not to mask a particular string."""
+        """Post initialization step that prepares  `mask_pattern` and other attributes for use with `.apply_masking()`.
+
+        This implementation can optionally mask the pattern attribute on post initialization to ensure that the current
+        pattern, itself, doesn't inadvertently link sensitive patterns to logs.
+        """
         if self.mask_pattern and not isinstance(self.pattern, SecretStr):
             object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))
 
@@ -122,6 +139,55 @@ class KeyMaskingPattern(MaskingPattern):
     def _identity_key(self) -> str:
         """Identifies the current pattern based on name, field, pattern, and class."""
         return str((type(self).__name__, self.name, self.field, SecretUtils.unmask_secret(self.pattern)))
+
+
+class FuzzyKeyMaskingPattern(KeyMaskingPattern):
+    """A KeyMaskingPattern subclass that allows the field parameter to use regular expressions field pattern matching.
+
+    Attributes:
+        name (str):
+            The name to be associated with a particular pattern - can help in later identification and
+            retrieval of rules associated with pattern masks of a particular category.
+        field (str):
+            The regular expression field to look for when determining whether to mask a specific parameter.
+        pattern (str):
+            The pattern to use to remove sensitive fields, contingent on a parameter being defined. By default, the
+            pattern is set to allow for the removal dashes and alphanumeric fields but can be overridden based on API
+            specific specifications.
+        replacement (str):
+            Indicates the replacement string for the value in the key-value pair if matched ('***' by default)
+        use_regex (bool):
+            Indicates whether the current function should use regular expressions
+        ignore_case (bool):
+            whether we should consider case when determining whether or not to filter a string. (True by default)
+        mask_pattern (bool):
+            Indicates whether we should, by default, mask pattern strings that are registered in the MaskingPattern.
+            This is True by default.
+
+    """
+
+    def apply_masking(self, text: str) -> str:
+        """Uses fuzzy field matching to identify fields containing sensitive data  to from text.
+
+        This method is revised to account for circumstances where several fields might be present in the same
+        text string using the `|` delimiter. The masker can be customized using the following fields:
+        `field`, `pattern`, `replacement`, and `ignore_case`.
+
+        Args:
+            text (str): The text to clean of sensitive fields
+
+        """
+        flags = re.IGNORECASE if self.ignore_case else 0
+        value_pattern = SecretUtils.unmask_secret(self.pattern)
+        if not self.use_regex:
+            value_pattern = re.escape(value_pattern)
+
+        replacement = rf"\g<field>{self.replacement}\g<endpattern>"
+        for field in sorted(self._split_pattern(self.field), key=len, reverse=True):
+            pattern = rf"""(?P<field>["']?{field}["']?\s*[:\=]\s*["']?){value_pattern}(?P<endpattern>["']?)"""
+            text = re.sub(pattern, replacement, text, flags=flags)
+
+        return text
 
 
 @dataclass(frozen=True)
@@ -162,7 +228,7 @@ class StringMaskingPattern(MaskingPattern):
 
     def apply_masking(self, text: str) -> str:
         """Uses the defined settings in order to remove sensitive fields from text based on the attributes specified for
-        pattern, replacement, use_regex, and ignore case.
+        `pattern`, `replacement`, `use_regex`, and `ignore_case`.
 
         Args:
             text (str): The text to clean of sensitive fields
@@ -214,4 +280,4 @@ class MaskingPatternSet(set[MaskingPattern]):
                 super().update(patterns)
 
 
-__all__ = ["MaskingPattern", "KeyMaskingPattern", "StringMaskingPattern", "MaskingPatternSet"]
+__all__ = ["MaskingPattern", "KeyMaskingPattern", "FuzzyKeyMaskingPattern", "StringMaskingPattern", "MaskingPatternSet"]

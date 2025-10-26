@@ -20,11 +20,11 @@ Getting Started
 Installation
 ------------
 
-The scholar-flux module is currently in beta, and is available right now for testing and preliminary use! Install Scholar Flux using pypi index for testing:
+The scholar-flux module is currently in beta, and is available right now for testing and preliminary use! Install Scholar Flux using the pypi index for testing:
 
 .. code-block:: bash
 
-   pip install --extra-index-url https://test.pypi.org/simple/ scholar-flux --pre
+   pip install scholar-flux
 
 Quick Start Example
 ===================

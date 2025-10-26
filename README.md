@@ -88,10 +88,11 @@ Other components are designed to support the orchestration of each step in the p
 **SensitiveDataMasker**: Uses pattern matching to identify, mask, and register sensitive strings such as API Keys and Authorization Bearer tokens during critical steps before and after response retrieval
 **DataParser**: Parses responses of different types (XML, JSON, and YAML) into dictionaries to support later response handling processes
 **DataExtractor**: Extracts and separates both records and response metadata from parsed responses
-**DataProcessor**:  Optionally filters and flattens records extracted from previous steps
+**DataProcessor**: Optionally filters and flattens records extracted from previous steps
 **DataCacheManager**: Provides storage abstraction supporting in-memory, Redis, MongoDB, and SQLAlchemy backends. The ResponseCoordinator detects schema changes and stale responses to determine whether or not to pull from cache
 
 ## Getting Started
+
 
 ### Prerequisites
 
@@ -99,13 +100,23 @@ Other components are designed to support the orchestration of each step in the p
 - [Poetry](https://python-poetry.org/) for dependency management
 - An API key depending on the API Service Provider. This may be available through your academic institution or by registering directly with the API Provider
 
+### Provider Access
+
+While some API keys require an API key, the majority of Providers do not.
+OpenAlex, PLOS API, Crossref, and arXiv are four resources that work out-of-the-box and seamlessly for both single page and multi-page/provider retrieval, even with the default settings.
+
+APIs such as PubMed, Core, and SpringerNature do, however, provide API access without payment or subscription for uses within the terms of service.
+
+All sources do, however, have rate limits that users should abide by to prevent `Too Many Requests` status codes when requesting data.
+Luckily, ScholarFlux handles this part automatically for you, as we'll see later!
+
 ## Installation
 
-ScholarFlux is in the beta stage and is now available for testing! You can install scholar-flux using the following command:
+ScholarFlux is in the beta stage and is now available for testing on PyPI! You can install scholar-flux using the following command:
 
 
 ```python
-pip install --index-url https://pypi.org/simple/ --extra-index-url https://test.pypi.org/simple/ scholar-flux --pre
+pip install scholar-flux
 ```
 
 
@@ -425,7 +436,7 @@ result.data # contains the final processed data set, including abstracts and met
 Sometimes, for more advanced data retrieval scenarios, you may need to implement multi-step data retrieval and processing procedures using workflows.
 You can build your own multi-step workflows by subclassing `WorkflowStep`.
 
-The following example displays how step of the PubMed workflow, after creation, is used in the backend
+The following example displays how each step of the PubMed workflow, after creation, is used in the backend
 
 ```python
 from scholar_flux.api.workflows import SearchWorkflow, PubMedSearchStep, PubMedFetchStep

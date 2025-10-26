@@ -1,0 +1,136 @@
+name: Publish to TestPyPI
+
+on:
+  push:
+    branches: [ develop ]
+    tags: [ 'v*' ]
+    paths:
+      - 'src/scholar_flux/**'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+  workflow_dispatch:
+
+jobs:
+  validate-version:
+    name: Validate Version Match
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: false
+    
+    - name: Validate tag matches pyproject.toml version
+      run: |
+        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        TOML_VERSION=$(poetry version -s)
+        
+        echo "Tag version: v$TAG_VERSION"
+        echo "pyproject.toml version: $TOML_VERSION"
+        
+        if [ "$TAG_VERSION" != "$TOML_VERSION" ]; then
+          echo "❌ Error: Tag version (v$TAG_VERSION) does not match pyproject.toml version ($TOML_VERSION)"
+          exit 1
+        fi
+        
+        echo "✅ Version validation passed"
+
+  build-and-publish:
+    name: Build and Publish to TestPyPI
+    needs: validate-version
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/scholar-flux
+    
+    permissions:
+      id-token: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Display current version
+      run: |
+        echo "🧪 Publishing to TestPyPI"
+        echo "Building version: $(poetry version -s)"
+        echo "Tag: ${GITHUB_REF#refs/tags/}"
+    
+    - name: Build package
+      run: poetry build
+    
+    - name: Show build artifacts
+      run: ls -la dist/
+    
+    - name: Publish to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        print-hash: true
+        verbose: true
+
+  verify-installation:
+    name: Verify TestPyPI Installation
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    
+    - name: Wait for TestPyPI to index
+      run: |
+        echo "Waiting 60 seconds for TestPyPI to index the new package..."
+        sleep 60
+    
+    - name: Install from TestPyPI
+      run: |
+        pip install --index-url https://test.pypi.org/simple/ \
+                    --extra-index-url https://pypi.org/simple/ \
+                    scholar-flux
+    
+    - name: Verify import and version
+      run: |
+        python -c "
+        import scholar_flux
+        print('✅ Successfully imported scholar-flux')
+        try:
+            print(f'📦 Version: {scholar_flux.__version__}')
+        except AttributeError:
+            print('⚠️ Version attribute not found')
+        "
+    
+    - name: Test basic functionality
+      run: |
+        python -c "
+        from scholar_flux import SearchAPI
+        api = SearchAPI(query = 'successful', use_cache = True)
+        print('✅ Core module imported successfully')
+        "
