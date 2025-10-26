@@ -5,6 +5,7 @@ from scholar_flux.security import (
     MaskingPattern,
     MaskingPatternSet,
     KeyMaskingPattern,
+    FuzzyKeyMaskingPattern,
     StringMaskingPattern,
     SensitiveDataMasker,
 )
@@ -45,6 +46,53 @@ def test_regex_string_pattern():
     string = f"He was born in {birthdate} on a sunny day"
     masked_string = string.replace(birthdate, masking_text)
     assert masker.mask_text(string) == masked_string
+
+
+def test_split_pattern_with_escaped_pipe():
+    """Verifies that pattern splitting is only performed when pipes in patterns are not escaped."""
+    pattern = r"a|b\|c"
+    expected_split_pattern = ["a", r"b\|c"]
+    assert expected_split_pattern == KeyMaskingPattern._split_pattern(pattern)
+
+    pattern_two = r"|_/\|_|op"
+    expected_split_pattern_two = ["", r"_/\|_", "op"]
+    assert expected_split_pattern_two == KeyMaskingPattern._split_pattern(pattern_two)
+
+    pattern_three = "generic_field"
+    assert [pattern_three] == KeyMaskingPattern._split_pattern(pattern_three)
+
+
+def test_fuzzy_key_pattern():
+    """Verifies that fuzzy field matching can be performed to mask unknown, fuzzy fields before entry."""
+    masker = SensitiveDataMasker(register_defaults=False)
+    masking_text = "<redacted>"
+    fuzzy_field_pattern = "[a-z_]*birth[a-z_]*|dob|[a-z_]*bday[a-z_]*|[a-z_]*born"
+    fuzzy_key_pattern = FuzzyKeyMaskingPattern(
+        name="birthdate", field=fuzzy_field_pattern, pattern=r"\d\d\d\d-\d\d-\d\d", replacement=masking_text
+    )
+    masker.add_pattern(fuzzy_key_pattern)
+
+    birthday_keys = ["birthday", "birth", "date_of_birth", "dob", "my_dob", "my_bday", "date_born"]
+    test_dictionary = {key: "1122-34-56" for key in birthday_keys}
+    birthday_json = json.dumps(test_dictionary)
+    masked_json = masker.mask_text(birthday_json)
+    loaded_masked_dictionary = json.loads(masked_json)
+    assert loaded_masked_dictionary == {key: masking_text for key in birthday_keys}
+
+
+def test_sensitive_key_pattern_type():
+    """Verifies that the masker uses fuzzy field matching when `fuzzy=True` and, otherwise, uses a KeyMaskingPattern."""
+    masker = SensitiveDataMasker(register_defaults=False)
+
+    masker.add_sensitive_key_patterns(name="test", fields=["test_key1", "test_key2"], fuzzy=True)
+    assert all(isinstance(pattern, FuzzyKeyMaskingPattern) for pattern in masker.get_patterns_by_name("test"))
+    masker.remove_pattern_by_name(name="test")
+
+    masker.add_sensitive_key_patterns(name="test", fields=["test_key1", "test_key2"], fuzzy=False)
+    assert all(
+        isinstance(pattern, KeyMaskingPattern) and not isinstance(pattern, FuzzyKeyMaskingPattern)
+        for pattern in masker.get_patterns_by_name("test")
+    )
 
 
 def test_basic_key_pattern():

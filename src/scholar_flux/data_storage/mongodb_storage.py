@@ -122,6 +122,7 @@ class MongoDBStorage(ABCStorage):
 
         Raises:
             MongoDBImportError: If db module is not available or fails to load.
+
         """
         if not pymongo:
             raise MongoDBImportError

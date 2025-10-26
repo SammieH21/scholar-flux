@@ -3,13 +3,14 @@ logs do not contain sensitive data. The set of modules uses pattern matching to 
 request, any known API keys are filtered from the logs.
 
 Core classes:
-    - SecretUtils: Class with basic static methods for masking and unmasking non missing strings with pydantic.SecretStr
+    - SecretUtils: Class with basic static methods for masking and unmasking nonmissing strings with pydantic.SecretStr
     - MaskingPattern: Basic pattern from which all subclasses inherit from in order to define rules for masking strings
-    - KeyMaskingPattern: Used for matching key-value pairs for commonly sensitive fields - includes api_key and mailto
-    - StringMaskingPattern: Used for identifying strings to mask from based on regex and fixed string matching
+    - KeyMaskingPattern: Matches key-value pairs for commonly sensitive fixed string fields (e.g. api_key, mailto)
+    - FuzzyKeyMaskingPattern: Extends the KeyMaskingPattern for fuzzy field matching when parameter names may vary
+    - StringMaskingPattern: Identifies and masks known sensitive strings using either regex or fixed string matching
     - MaskingFilter: Defines the core logging filter used by the dedicated scholar_flux.logger to hide sensitive info
-    - MaskingPatternSet: Container that will hold a list of all String and Key-based patterns used in the package
-    - SensitiveDataMasker: Main entrypoint to managing/adding to/deleting from the list of all patterns to be filtered
+    - MaskingPatternSet: Container that will hold a set of all String- and Key-based patterns used in the package
+    - SensitiveDataMasker: Main entry point for managing/adding to/deleting from the list of all patterns to be filtered
 
 Note that the global package level SensitiveDataMasker is instantiated on package loading and can be imported:
     >>> from scholar_flux import masker
@@ -27,6 +28,7 @@ from scholar_flux.security.utils import SecretUtils
 from scholar_flux.security.patterns import (
     MaskingPattern,
     KeyMaskingPattern,
+    FuzzyKeyMaskingPattern,
     StringMaskingPattern,
     MaskingPatternSet,
 )
@@ -38,6 +40,7 @@ __all__ = [
     "SecretUtils",
     "MaskingPattern",
     "KeyMaskingPattern",
+    "FuzzyKeyMaskingPattern",
     "StringMaskingPattern",
     "MaskingPatternSet",
     "SensitiveDataMasker",

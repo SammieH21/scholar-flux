@@ -95,7 +95,8 @@ class BaseWorkflowStep(BaseModel):
     def _verify_context(self, ctx: Any) -> None:
         """Helper method for verifying the context to ensure that the correct inputs are received before step execution.
 
-        ctx (Any): Item to be checked and verifies as a BaseWorkflowStep or subclass
+        Args:
+            ctx (Any): Item to be checked and verified as a BaseWorkflowStep or subclass
 
         Returns:
             None: If the current context is the correct type
