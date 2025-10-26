@@ -11,7 +11,8 @@ Classes:
 """
 from __future__ import annotations
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from contextlib import contextmanager
+from typing import Dict, Generator, Any
 from abc import ABC
 from typing_extensions import Self
 import logging
@@ -47,13 +48,34 @@ class BaseWorkflowStep(BaseModel):
         Args:
             ctx (Any): Defines the inputs that are used by the BaseWorkflowStep to modify its function before execution
             *args: Optional positional arguments to pass to change runtime behavior
-            **args: Optional keyword arguments to pass to change runtime behavior
+            **kwargs: Optional keyword arguments to pass to change runtime behavior
 
         Returns:
             BaseWorkflowStep: A modified or copied version of the original BaseWorkflowStep
 
         """
         return self.model_copy()
+
+    def _run(self, *args, **kwargs) -> Any:
+        """Basic method that executes the current step of the workflow. This step is to be overridden in subclasses.
+
+        Args:
+            *args: Positional input parameters used to modify the behavior of the workflow step at runtime
+            **kwargs: keyword_parameters input parameters used to modify the behavior of the workflow step at runtime
+        """
+        raise NotImplementedError()
+
+    def __call__(self, *args, **kwargs) -> Any:
+        """Enables the current workflow step instance to be executed like a function.
+
+        This method calls the `BaseWorkflowStep._run()` private method under the hood to run the current step.
+
+        Args:
+            *args: Positional input parameters used to modify the behavior of the workflow step at runtime
+            **kwargs: keyword_parameters input parameters used to modify the behavior of the workflow step at runtime
+
+        """
+        return self._run(*args, **kwargs)
 
     def post_transform(self, ctx: Any, *args, **kwargs) -> Any:
         """Defines the optional transformation to the results that are retrieved after executing the workflow step to
@@ -71,8 +93,7 @@ class BaseWorkflowStep(BaseModel):
         return ctx
 
     def _verify_context(self, ctx: Any) -> None:
-        """Helper method for verifying the context received to ensure that the correct inputs are received before step
-        execution.
+        """Helper method for verifying the context to ensure that the correct inputs are received before step execution.
 
         ctx (Any): Item to be checked and verifies as a BaseWorkflowStep or subclass
 
@@ -87,6 +108,19 @@ class BaseWorkflowStep(BaseModel):
             msg = f"Expected the `ctx` of the current workflow to be a StepContext. " f"Received: {type(ctx).__name__}"
             logger.error(msg)
             raise TypeError(msg)
+
+    @contextmanager
+    def with_context(self, *args, **kwargs) -> Generator[Self, None, None]:
+        """Helper method to be overridden by subclasses to customize the behavior of the workflow step.
+
+        Base classes implementing `with_context` should ideally use a context manager to be fully compatible
+        as an override for current method.
+
+        Yields:
+            Self: The current workflow step within a context
+
+        """
+        yield self
 
 
 class BaseWorkflowResult(BaseModel):
@@ -118,7 +152,7 @@ class BaseWorkflow(BaseModel, ABC):
 
         Args:
             *args: Positional input parameters used to modify the behavior of a workflow at runtime
-            *kwargs: keyword_parameters input parameters used to modify the behavior of a workflow at runtime
+            **kwargs: keyword_parameters input parameters used to modify the behavior of a workflow at runtime
 
         Returns:
             BaseWorkflowResult: The final result of a workflow when its execution is successful.

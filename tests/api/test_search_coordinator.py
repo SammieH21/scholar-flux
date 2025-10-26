@@ -178,6 +178,14 @@ def test_workflow_components():
         basic_workflow = BaseWorkflow()
         basic_workflow()
 
+    basic_workflow_step = BaseWorkflowStep()
+    with pytest.raises(NotImplementedError):
+        basic_workflow_step()
+
+    # a simple context manager that has no side effects and only yields itself for the duration of the context
+    with basic_workflow_step.with_context() as context_step:
+        assert basic_workflow_step is context_step
+
 
 def test_with_workflow_error(monkeypatch, caplog):
     """Validates whether errors in a workflow are successfully caught when attempting to retrieve and process a response

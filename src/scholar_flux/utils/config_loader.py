@@ -271,9 +271,9 @@ class ConfigLoader:
                 env_path.touch()
 
             set_key(
-                dotenv_path = str(env_path),
-                key_to_set = key_name,
-                value_to_set = str(SensitiveDataMasker.unmask_secret(key_value)) if key_value is not None else ''
+                dotenv_path=str(env_path),
+                key_to_set=key_name,
+                value_to_set=str(SensitiveDataMasker.unmask_secret(key_value)) if key_value is not None else "",
             )
         except (IOError, PermissionError) as e:
             config_logger.error(f"Failed to create .env file at {env_path}: {e}")

@@ -14,7 +14,8 @@ Classes:
 from __future__ import annotations
 from pydantic import Field, PrivateAttr, field_validator
 from scholar_flux.api.models import ProviderConfig
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Generator
+from contextlib import contextmanager
 from typing_extensions import Self
 import logging
 from scholar_flux.api.workflows.models import (
@@ -92,6 +93,51 @@ class WorkflowStep(BaseWorkflowStep):
             )
         )
 
+    def _run(
+        self,
+        step_number: int,
+        search_coordinator: BaseCoordinator,
+        ctx: Optional[StepContext] = None,
+        verbose: Optional[bool] = True,
+        **keyword_parameters,
+    ) -> StepContext:
+        """Executes the current workflow step using the provided search coordinator and the context from past searches.
+
+        Args:
+            step_number (int): Indicates the order in which the current step is ran in a workflow
+            search_coordinator (BaseCoordinator): The search coordinator to use for executing the workflow.
+            ctx (Optional[StepContext]): The context from a previous step, if available.
+            verbose (bool): Indicates whether logs of each step should be printed to the console.
+            **keyword_parameters (bool): keyword mappings that are passed directly to `search_coordinator.search()`.
+        """
+        i = ctx.step_number if ctx is not None else step_number
+        step_search_parameters = self.search_parameters | keyword_parameters | self.additional_kwargs
+        if verbose:
+            logger.debug(f"step {i}: Config Parameters =  {search_coordinator.api.config}")
+            logger.debug(f"step {i}: Search Parameters = {step_search_parameters}")
+
+        search_result = search_coordinator._search(**step_search_parameters)
+        step_ctx = StepContext(step_number=i, step=self.model_copy(), result=search_result)
+        return step_ctx
+
+    @contextmanager
+    def with_context(self, search_coordinator: BaseCoordinator) -> Generator[Self, None, None]:
+        """Helper method that briefly changes the configuration of the search_coordinator with the step configuration.
+
+        This method uses a context manager in addition to the `with_config_parameters` method of the SearchAPI to
+        modify the search location, default api-specific parameters used, and other possible options that have an
+        effect on SearchAPIConfig. This step is associated with the configuration for greater flexibility in overriding
+        behavior.
+
+        Args:
+            search_coordinator (BaseCoordinator): The search coordinator to modify the configuration for
+
+        Yields:
+            WorkflowStep: The current step with the modification applied
+        """
+        with search_coordinator.api.with_config_parameters(**self.config_parameters):
+            yield self
+
     def post_transform(self, ctx: StepContext, *args, **kwargs) -> StepContext:
         """Helper method that validates whether the current `ctx` is a StepContext before returning the result.
 
@@ -114,7 +160,7 @@ class StepContext(BaseStepContext):
     of the functioning of each step at runtime.
 
     Args:
-        step_number (int): Indicate the order in which the step is executed for a particular step context
+        step_number (int): Indicates the order in which the step is executed for a particular step context
         step (WorkflowStep): Defines the instructions for response retrieval, processing, and pre/post transforms for
                              each step of a workflow. This value defines both the step taken to arrive at the result.
         result (Optional[ProcessedResponse | ErrorResponse]): Indicates the result that was retrieved and processed in
@@ -179,31 +225,35 @@ class SearchWorkflow(BaseWorkflow):
         try:
             self._history.clear()
             ctx = None
-            for i, step in enumerate(self.steps):
+            for i, workflow_step in enumerate(self.steps):
                 # Apply pre-transform if it exists
-                step = step.pre_transform(
+                workflow_step = workflow_step.pre_transform(
                     ctx,
-                    provider_name=step.provider_name,
-                    search_parameters=step.search_parameters,
-                    config_parameters=step.config_parameters,
+                    provider_name=workflow_step.provider_name,
+                    search_parameters=workflow_step.search_parameters,
+                    config_parameters=workflow_step.config_parameters,
                 )
 
-                with search_coordinator.api.with_config_parameters(**step.config_parameters):
-                    step_search_parameters = step.search_parameters | keyword_parameters | step.additional_kwargs
-                    if verbose:
-                        logger.debug(f"step {i}: Config Parameters =  {search_coordinator.api.config}")
-                        logger.debug(f"step {i}: Search Parameters = {step_search_parameters}")
+                # apply the execution workflow_step while temporarily changing config parameters
+                with workflow_step.with_context(search_coordinator):
 
-                    # step_search_parameters |= dict(use_workflow=None)
-                    search_result = search_coordinator._search(**step_search_parameters)
+                    # performs the search using the configuration
+                    preprocessed_ctx = workflow_step(
+                        step_number=i,
+                        search_coordinator=search_coordinator,
+                        ctx=ctx,
+                        verbose=verbose,
+                        **keyword_parameters,
+                    )
 
-                    ctx = step.post_transform(StepContext(step_number=i, step=step.model_copy(), result=search_result))
+                    # apply post processing workflow_steps
+                    ctx = workflow_step.post_transform(preprocessed_ctx)
 
-                    self._history.append(ctx)
-                    result = ctx.result
+                self._history.append(ctx)
+                result = ctx.result
 
         except Exception as e:
-            raise RuntimeError(f"An unexpected error occurred during processing step {i}") from e
+            raise RuntimeError(f"An unexpected error occurred during processing step {i}: {e}") from e
 
         return WorkflowResult(history=self._history, result=result)
 
