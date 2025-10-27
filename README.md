@@ -102,7 +102,7 @@ Other components are designed to support the orchestration of each step in the p
 
 ### Provider Access
 
-While some API keys require an API key, the majority of Providers do not.
+While some APIs may require an API key, the majority of Providers do not.
 OpenAlex, PLOS API, Crossref, and arXiv are four resources that work out-of-the-box and seamlessly for both single page and multi-page/provider retrieval, even with the default settings.
 
 APIs such as PubMed, Core, and SpringerNature do, however, provide API access without payment or subscription for uses within the terms of service.

@@ -167,7 +167,7 @@ class FuzzyKeyMaskingPattern(KeyMaskingPattern):
     """
 
     def apply_masking(self, text: str) -> str:
-        """Uses fuzzy field matching to identify fields containing sensitive data  to from text.
+        """Uses fuzzy field matching to identify fields containing sensitive data in text.
 
         This method is revised to account for circumstances where several fields might be present in the same
         text string using the `|` delimiter. The masker can be customized using the following fields:

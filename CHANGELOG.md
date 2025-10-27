@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.1.0] - 10/26/2025
 ### Added
 - Github Workflows now support uploads to pypi
-- In future patches, We'll aim to document and continue working toward backward compatibility in future releases to minimize breaking changes on updates
+- In future patches, we'll aim to document and continue working toward backward compatibility in future releases to minimize breaking changes on updates
 
 ### Security
 - The pre-initialized scholar_flux.masker now uses a `FuzzyKeyMaskingPattern` to mask email strings in parameter
