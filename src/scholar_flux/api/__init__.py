@@ -1,13 +1,13 @@
 # api/
 """The scholar_flux.api module includes the core classes and functionality necessary to interact with APIs in a
-universally applicable manner. This module defines the methods necessary to retrieve the raw responses from APIs based
+universally applicable manner. This module defines the methods necessary to retrieve raw responses from APIs based
 on the configuration used for the API client (SearchAPI).
 
 Sub-modules:
     models: Contains the classes used to set up new configurations in addition to the API utility models
             and modules necessary to interact with APIs
     providers: Defines the default provider specifications to easily create a new client for a specific
-               provider with minimal code. (e.g, plos.py contains the necessary config settings for the PLOS API)
+               provider with minimal code. (e.g., plos.py contains the necessary config settings for the PLOS API)
     workflows: Defines custom workflows for APIs requiring API-specific logic modifications for easier record retrieval.
                This includes the PubMed Workflow which searches IDs and then fetches the records
     rate_limiting: Defines the methods and classes used to ensure that the rate limits associated with each API

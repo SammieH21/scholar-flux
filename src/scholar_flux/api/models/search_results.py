@@ -30,15 +30,12 @@ class SearchResult(BaseModel):
     """Core class used in order to store data in the retrieval and processing of API Searches when iterating and
     searching over a range of pages, queries, and providers at a time. This class uses pydantic to ensure that field
     validation is automatic for ensuring integrity and reliability of response processing.
-
-    The SearchResult class is especially important when using the SearchCoordinator.search_pages
-    method to record the query, provider name, and page for a particular search across pages
-    in addition to recording the result.
+    multi-page searches that link each response result to a particular query, page, and provider.
 
     Args:
-        query (str): THe query used to retrieve records and response metadata
-        provider_name (str): The provider where data is being retrieved
-        page (int): THe page number indicating the records to retrieve when creating a response
+        query (str): The query used to retrieve records and response metadata
+        provider_name (str): The name of the provider where data is being retrieved
+        page (int): The page number associated with the request for data
         response_result (Optional[ProcessedResponse | ErrorResponse]):
             The response result containing the specifics of the data retrieved from the response
             or the error messages recorded if the request is not successful.

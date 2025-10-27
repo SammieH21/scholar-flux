@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from scholar_flux.api import SearchAPI, SearchCoordinator, APIParameterMap, MultiSearchCoordinator
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
 from scholar_flux.utils import parse_iso_timestamp
+from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api.models import SearchResultList, ProcessedResponse, ErrorResponse, PageListInput
 from unittest.mock import patch
 from warnings import warn
@@ -478,8 +479,9 @@ def test_rate_limiter_normalization(
 
     grouped_provider_dict = multisearch_coordinator.group_by_provider()
 
-    for coordinator in multisearch_coordinator.values():
-        coordinator.api.config.request_delay = MIN_REQUEST_DELAY_INTERVAL
+    # change the threaded_rate_limiter_registry interval that is prioritized during multi-provider searches
+    for provider in unique_providers:
+        threaded_rate_limiter_registry[provider].min_interval = MIN_REQUEST_DELAY_INTERVAL
 
     # test to ensure all providers use one rate limiter each
     for provider in grouped_provider_dict:

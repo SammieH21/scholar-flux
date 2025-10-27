@@ -125,7 +125,7 @@ class SearchAPI(BaseAPI):
         # Create SearchAPIConfig internally with defaults and validation
         try:
 
-            # if neither the provider nor a base url is provided, fall back to using the default URL
+            # if neither the provider nor a base URL is provided, fall back to using the default URL
             if not base_url and not provider_name:
                 base_url = self.DEFAULT_URL
 
@@ -357,10 +357,10 @@ class SearchAPI(BaseAPI):
 
     @property
     def base_url(self) -> str:
-        """Corresponds to the base url of the current API.
+        """Corresponds to the base URL of the current API.
 
         Returns:
-            The base url corresponding to the API Provider
+            The base URL corresponding to the API Provider
 
         """
         return self.config.base_url
@@ -716,7 +716,11 @@ class SearchAPI(BaseAPI):
         # note that some parameters above can be None. These parameters are removed prior to returning the dictionary
         return {parameter: value for parameter, value in all_parameters.items() if value is not None}
 
-    def search(self, page: Optional[int] = None, parameters: Optional[Dict[str, Any]] = None) -> Response:
+    def search(self,
+               page: Optional[int] = None,
+               parameters: Optional[Dict[str, Any]] = None,
+               request_delay: Optional[float] = None, 
+              ) -> Response:
         """Public method to perform a search for the selected page with the current API configuration.
 
         A search can be performed by specifying either the page to query with the preselected defaults and additional
@@ -730,6 +734,7 @@ class SearchAPI(BaseAPI):
                 If provided alone, used as the full parameter set for the request.
                 If provided together with `page`, these act as additional or overriding parameters on top of
                 the built config.
+            request_delay (Optional[float]): Overrides the configured request delay for the current request only.
 
         Returns:
             requests.Response: A response object from the API containing articles and metadata
@@ -738,15 +743,19 @@ class SearchAPI(BaseAPI):
 
         if page is None and parameters is not None:
 
-            with self._rate_limiter.rate(self.config.request_delay):
+            with self._rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
                 return self.send_request(self.base_url, parameters=parameters)
 
         elif page is not None:
-            return self.make_request(page, parameters)
+            return self.make_request(page, parameters, request_delay = request_delay)
         else:
             raise APIParameterException("One of 'page' or 'parameters' must be provided")
 
-    def make_request(self, current_page: int, additional_parameters: Optional[dict[str, Any]] = None) -> Response:
+    def make_request(self,
+                     current_page: int, 
+                     additional_parameters: Optional[dict[str, Any]] = None,
+                     request_delay: Optional[float] = None, 
+                    ) -> Response:
         """Constructs and sends a request to the chosen api:
 
         The parameters are built based on the default/chosen config and parameter map
@@ -754,6 +763,7 @@ class SearchAPI(BaseAPI):
             page (int): The page number to request.
             additional_parameters Optional[dict]:
                 A dictionary of additional overrides not included in the original SearchAPIConfig
+            request_delay (Optional[float]): Overrides the configured request delay for the current request only.
         Returns:
             requests.Response: The API's response to the request.
 
@@ -761,7 +771,7 @@ class SearchAPI(BaseAPI):
 
         parameters = self.build_parameters(current_page, additional_parameters=additional_parameters)
 
-        with self._rate_limiter.rate(self.config.request_delay):
+        with self._rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
             response = self.send_request(self.base_url, parameters=parameters)
 
         return response

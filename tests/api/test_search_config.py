@@ -125,7 +125,7 @@ def test_api_key_missing(monkeypatch, caplog):
         config = SearchAPIConfig.from_defaults(provider)
 
     assert config.api_key is None
-    assert f"Could not load the required api key for: {provider_info.provider_name}" in caplog.text
+    assert f"Could not load the required API key for: {provider_info.provider_name}" in caplog.text
 
 
 def test_api_default():
@@ -210,9 +210,9 @@ def test_missing_provider_information(caplog):
     SearchAPIConfig.DEFAULT_PROVIDER = None  # type: ignore
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig._prepare_provider_info("", "")
-    assert "Neither a base url nor a provider name was provided - falling back to default: None" in caplog.text
+    assert "Neither a base URL nor a provider name was provided - falling back to default: None" in caplog.text
     assert (
-        f"Either a base url or a valid provider name must be specified. SearchAPIConfig could not fall back "
+        f"Either a base URL or a valid provider name must be specified. SearchAPIConfig could not fall back "
         f"to the default, {SearchAPIConfig.DEFAULT_PROVIDER}"
     ) in str(excinfo.value)
     SearchAPIConfig.DEFAULT_PROVIDER = original_default_provider
@@ -342,7 +342,7 @@ def test_nonneeded_api_key(caplog):
 
 def test_search_api_config_dynamic_provider_override(caplog):
     """Test that the SearchAPI handles dynamic provider overrides the base URL appropriately and replaces an invalid
-    provider name with the provider name from the base url.
+    provider name with the provider name from the base URL.
 
     This test also validates that the logger prints the appropriate warning message describing preference for the URL.
 

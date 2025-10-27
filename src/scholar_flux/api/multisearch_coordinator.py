@@ -24,13 +24,53 @@ logger = logging.getLogger(__name__)
 
 
 class MultiSearchCoordinator(UserDict):
-    """The MultiSearchCoordinator is a utility method for orchestrating searches for multiple providers, pages, and
-    queries in sequence. This coordinator uses the overall structure of the SearchCoordinator in order to orchestrate
-    searches for articles from APIs in a consistently rate-limited manner.
+    """The MultiSearchCoordinator is a utility class for orchestrating searches across multiple providers, pages,
+    and queries sequentially or using multithreading. This coordinator builds on the SearchCoordinator's core structure
+    to ensure consistent, rate-limited API requests.
 
-    The multi-search coordinator makes heavy use of normalized rate limiters where requests to the same providers, even
-    across different queries, use the same rate limiter. For new providers, the minimum request delay can be
-    directly set by overriding the `MultiSearchCoordinator.DEFAULT_THREADED_REQUEST_DELAY` class variable.
+    The multi-search coordinator uses shared rate limiters to ensure that requests to the same provider (even across
+    different queries) will use the same rate limiter. 
+
+    This implementation uses the `ThreadedRateLimiter.min_interval` parameter from the shared rate limiter of each
+    provider to determine the `request_delay` across all queries. These settings can be found and modified in the
+    `scholar_flux.api.providers.threaded_rate_limiter_registry` by `provider_name`.
+
+    For new, unregistered providers, users can override the `MultiSearchCoordinator.DEFAULT_THREADED_REQUEST_DELAY`
+    class variable to adjust the shared request_delay.
+
+    # Examples:
+        
+        >>> from scholar_flux import MultiSearchCoordinator, SearchCoordinator, RecursiveDataProcessor
+        >>> from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
+        >>> multi_search_coordinator = MultiSearchCoordinator()
+        >>> threaded_rate_limiter_registry['arxiv'].min_interval = 6 # arbitrary rate limit (seconds per request)
+        >>>
+        >>> # Create coordinators for different queries and providers
+        >>> coordinators = [
+        ...     SearchCoordinator(
+        ...         provider_name=provider,
+        ...         query=query,
+        ...         processor=RecursiveDataProcessor(),
+        ...         user_agent="SammieH",
+        ...         cache_requests=True
+        ...     )
+        ...     for query in ('ml', 'nlp')
+        ...     for provider in ('plos', 'arxiv', 'openalex', 'crossref')
+        ... ]
+        >>>
+        >>> # Add coordinators to the multi-search coordinator
+        >>> multi_search_coordinator.add_coordinators(coordinators)
+        >>>
+        >>> # Execute searches across multiple pages
+        >>> all_pages = multi_search_coordinator.search_pages(pages=[1, 2, 3])
+        >>>
+        >>> # filters and retains successful requests from the multi-provider search
+        >>> filtered_pages = all_pages.filter() 
+        >>> # The results will contain successfully processed responses across all queries, pages, and providers
+        >>> print(filtered_pages)  # Output will be a list of SearchResult objects
+        >>> # Extracts successfully processed records into a list of records where each record is a dictionary
+        >>> record_dict = filtered_pages.join() # retrieves a list of records
+        >>> print(record_dict)  # Output will be a flattened list of all records 
 
     """
 
@@ -427,8 +467,12 @@ class MultiSearchCoordinator(UserDict):
                 )
                 break
 
+            # retrieve the rate from within the threaded rate limiter
+            default_request_delay = search_coordinator.api._rate_limiter.min_interval
+            request_delay = kwargs.pop('request_delay', default_request_delay)
+
             # iterate over the current coordinator given its session, query, and settings
-            for page in search_coordinator.iter_pages(pages, **kwargs):
+            for page in search_coordinator.iter_pages(pages, **kwargs, request_delay = request_delay):
                 if isinstance(page, SearchResult):
                     last_response = page.response_result
                 yield page
