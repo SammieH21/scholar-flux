@@ -17,6 +17,7 @@ provider = ProviderConfig(
     base_url="https://export.arxiv.org/api/query/",
     api_key_env_var="ARXIV_API_KEY",
     records_per_page=25,
+    request_delay=4,
     docs_url="https://info.arxiv.org/help/api/basics.html",
 )
 

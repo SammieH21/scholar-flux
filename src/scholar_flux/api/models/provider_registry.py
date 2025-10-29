@@ -9,16 +9,16 @@ is instantiated and referenced to retrieve the necessary configuration for easie
 from __future__ import annotations
 from typing import Optional
 from scholar_flux.api.models.provider_config import ProviderConfig
+from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 from scholar_flux.api.validators import validate_and_process_url, normalize_url
 from scholar_flux.utils.provider_utils import ProviderUtils
 from scholar_flux.exceptions import APIParameterException
-from collections import UserDict
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class ProviderRegistry(UserDict[str, ProviderConfig]):
+class ProviderRegistry(BaseProviderDict):
     """The ProviderRegistry implementation allows the smooth and efficient retrieval of API parameter maps and default
     configuration settings to aid in the creation of a SearchAPI that is specific to the current API.
 
@@ -32,35 +32,16 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
 
     """
 
-    def __contains__(self, key: object) -> bool:
-        """Helper method for determining whether a specific provider name after normalization can be found within the
-        current ProviderRegistry.
-
-        Args:
-            key (str): Name of the default Provider
-
-        Returns:
-            bool: indicates the presence or absence of a key in the registry
-
-        """
-
-        if isinstance(key, str):
-            key = ProviderConfig._normalize_name(key)
-            return key in self.data
-        return False
-
     def __getitem__(self, key: str) -> ProviderConfig:
         """Attempt to retrieve a ProviderConfig instance for the given provider name.
 
         Args:
-            provider_name (str): Name of the default Provider
+            provider_name (str): Name of the default provider
 
         Returns:
             ProviderConfig: instance configuration for the provider if it exists
 
         """
-
-        key = ProviderConfig._normalize_name(key) if isinstance(key, str) else key
         return super().__getitem__(key)
 
     def __setitem__(
@@ -76,22 +57,41 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
             value (ProviderConfig): The configuration of the API Provider
 
         """
+        try:
+            if not isinstance(value, ProviderConfig):
+                raise TypeError(
+                    f"The value provided to the ProviderRegistry is invalid. "
+                    f"Expected a ProviderConfig, received {type(value)}"
+                )
 
-        # Check if the key already exists and handle overwriting behavior
-        if not isinstance(key, str):
+            super().__setitem__(key, value)
+        except (TypeError, ValueError) as e:
+            raise APIParameterException(e) from e
+
+    def create(self, provider_name: str, **kwargs) -> ProviderConfig:
+        """Helper method that creates and registers a new ProviderConfig with the current provider registry.
+
+        Args:
+            key (str):
+                The name of the provider to create a new provider_config for.
+            `**kwargs`:
+                Additional keyword arguments to pass to `scholar_flux.api.models.ProviderConfig`
+
+        """
+        try:
+
+            # Creates a new provider configuration with keyword
+            provider_config = ProviderConfig(provider_name=provider_name, **kwargs)
+
+            # adds the provider configuration to the registry
+            self.add(provider_config)
+
+            return provider_config
+        except Exception as e:
             raise APIParameterException(
-                f"The key provided to the ProviderRegistry is invalid. Expected a string, received {type(key)}"
+                "Encountered an error when creating a new ProviderConfig with the provider name, "
+                f"'{provider_name}': {e}"
             )
-
-        if not isinstance(value, ProviderConfig):
-            raise APIParameterException(
-                f"The value provided to the ProviderRegistry is invalid. "
-                f"Expected a ProviderConfig, received {type(ProviderConfig)}"
-            )
-
-        # normalizing as insurance for name normalization in cases where a config is manually added:
-        normalized_key = ProviderConfig._normalize_name(key)
-        super().__setitem__(normalized_key, value)
 
     def add(self, provider_config: ProviderConfig) -> None:
         """Helper method for adding a new provider to the provider registry."""
@@ -113,28 +113,17 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
         provider_name = ProviderConfig._normalize_name(provider_name)
         if config := self.data.pop(provider_name, None):
             logger.info(
-                f"Removed the provider config for the provider, '{config.provider_name}' " "from the provider registry"
+                f"Removed the provider config for the provider, '{config.provider_name}' from the provider registry"
             )
         else:
             logger.warning(f"A ProviderConfig with the provider name, '{provider_name}' was not found")
-
-    def __delitem__(self, key: str) -> None:
-        """Attempt to delete an element from a ProviderConfig instance for the given provider name.
-
-        Args:
-            provider_name (str): Name of the default Provider
-
-        """
-
-        key = ProviderConfig._normalize_name(key) if isinstance(key, str) else key
-        return super().__delitem__(key)
 
     def get_from_url(self, provider_url: Optional[str]) -> Optional[ProviderConfig]:
         """Attempt to retrieve a ProviderConfig instance for the given provider by resolving the provided url to the
         provider's. Will not throw an error in the event that the provider does not exist.
 
         Args:
-            provider_url (Optional[str]): Name of the default Provider
+            provider_url (Optional[str]): Name of the default provider
 
         Returns:
             Optional[ProviderConfig]: Instance configuration for the provider if it exists, else None
@@ -160,7 +149,7 @@ class ProviderRegistry(UserDict[str, ProviderConfig]):
         reserved for default provider configs.
 
         Returns:
-            ProviderRegistry: A pydantic model holding a single dictionary under `root` which holds all loaded configs
+            ProviderRegistry: A new registry containing the loaded default provider configurations
 
         """
         provider_dict = ProviderUtils.load_provider_config_dict()

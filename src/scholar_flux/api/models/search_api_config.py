@@ -32,6 +32,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class SearchAPIConfig(BaseModel):
     """The SearchAPIConfig class provides the core tools necessary to set and interact with the API. The SearchAPI uses
     this class to retrieve data from an API using universal parameters to simplify the process of retrieving raw
@@ -58,7 +59,7 @@ class SearchAPIConfig(BaseModel):
                    An optional email address for receiving feedback on usage from providers, This parameter is
                    currently applicable only to the Crossref API.
             2. db: (str):
-                The parameter use by the `NIH` to direct requests for data to the pubmed database. THis parameter
+                The parameter use by the `NIH` to direct requests for data to the pubmed database. This parameter
                 defaults to pubmed and does not require direct specification
 
 
@@ -71,7 +72,7 @@ class SearchAPIConfig(BaseModel):
         >>> api = SearchAPI.from_settings(query = 'q', config = config)
         >>> assert api.config == config
         # to retrieve all defaults associated with a provider and automatically read an API key if needed
-        >>> config = SearchAPIConfig.from_defaults(provider_name = 'pubmed', api_key = 'your api key goes here') 
+        >>> config = SearchAPIConfig.from_defaults(provider_name = 'pubmed', api_key = 'your api key goes here')
         # the API key is retrieved automatically if you have the API key specified as an environment variable
         >>> assert config.api_key is not None
         # Default provider API specifications are already pre-populated if they are set with defaults
@@ -137,6 +138,7 @@ class SearchAPIConfig(BaseModel):
         validation is performed by `cls.default_request_delay` to retrieve the provider's default request delay.
 
         If not available, SearchAPIConfig.DEFAULT_REQUEST_DELAY is used.
+
         """
         if v is not None and not isinstance(v, (int, float)):
             raise ValueError(
@@ -166,6 +168,7 @@ class SearchAPIConfig(BaseModel):
         Returns:
             float: The inputted non-negative request delay, the retrieved rate limit for the current provider
                    if available, or the SearchAPIConfig.DEFAULT_REQUEST_DELAY - all in order of priority.
+
         """
         if isinstance(v, (int, float)) and v >= 0:
             return v
@@ -180,6 +183,7 @@ class SearchAPIConfig(BaseModel):
 
         Triggers a validation error when request delay is an invalid type. Otherwise uses the `DEFAULT_RECORDS_PER_PAGE`
         class attribute if the supplied value is missing or is a negative number.
+
         """
         if v is not None and not isinstance(v, int):
             raise ValueError(
@@ -222,6 +226,7 @@ class SearchAPIConfig(BaseModel):
         explicitly provided.
 
         Occurs as the last step in the validation process.
+
         """
         self.base_url, self.provider_name, provider_info = self._prepare_provider_info(
             self.base_url, self.provider_name
@@ -283,6 +288,7 @@ class SearchAPIConfig(BaseModel):
         """Helper method to identify the base_url or provider_name in addition to provider info when one is missing.
 
         The provider information is also returned if available to assist with later validation steps.
+
         """
         provider_info = None
         # account for incomplete information in the SearchAPIConfig
@@ -339,6 +345,7 @@ class SearchAPIConfig(BaseModel):
             provider config in that order.
 
             If neither the base URL and provider name resolve to a known provider, they will be returned as is.
+
         """
         # if both provider name and information is provided, prioritize the url first.
         provider_from_url = provider_registry.get_from_url(base_url) if base_url else None
@@ -410,6 +417,7 @@ class SearchAPIConfig(BaseModel):
 
         Returns:
             str: The main site name.
+
         """
         # Parse the URL to extract the hostname
         parsed_url = urlparse(url)
@@ -449,6 +457,7 @@ class SearchAPIConfig(BaseModel):
                 potentially load and by what name.
         Returns:
             Optional[SecretStr]: A key converted to a SecretStr if successfully read, otherwise None
+
         """
         # skip attempting to load an API key altogether if an environment variable for the config does not exist
         if not isinstance(provider_info, ProviderConfig) or provider_info.api_key_env_var is None:
@@ -483,6 +492,7 @@ class SearchAPIConfig(BaseModel):
 
         Returns:
             SearchAPIConfig: A new config with the merged and prioritized values.
+
         """
         # Start with the current config as a dict, omitting base_url if switching providers
         config_dict = current_config.model_dump() or {}
@@ -553,6 +563,7 @@ class SearchAPIConfig(BaseModel):
         Returns:
             The original dictionary that now includes all API-specific parameters as a separate dictionary field.
             If the original config is empty or None, this method will return an empty dictionary instead.
+
         """
         if not config_dict:
             return {}
@@ -573,8 +584,8 @@ class SearchAPIConfig(BaseModel):
     @classmethod
     def from_defaults(cls, provider_name: str, **overrides) -> SearchAPIConfig:
         """Uses the default configuration for the chosen provider to create a SearchAPIConfig object containing
-        configuration parameters. Note that additional parameters and field overrides can be added via the
-        `**overrides` field.
+        configuration parameters. Note that additional parameters and field overrides can be added via the `**overrides`
+        field.
 
         Args:
             provider_name (str): The name of the provider to create the config
@@ -582,6 +593,7 @@ class SearchAPIConfig(BaseModel):
 
         Returns:
             SearchAPIConfig: A default APIConfig object based on the chosen parameters
+
         """
         provider = provider_registry.get(provider_name)
 
@@ -607,5 +619,6 @@ class SearchAPIConfig(BaseModel):
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner."""
         return self.structure()
+
 
 __all__ = ["SearchAPIConfig"]

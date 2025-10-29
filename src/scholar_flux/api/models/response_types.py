@@ -2,7 +2,7 @@
 """Helper module used to define response types returned by scholar-flux after API response retrieval and processing.
 
 The APIResponseType is a union of different possible response types that can be received from a SearchCoordinator:
-    - ProcessedResponse: A successfully processed response containing parsed reponse metadata, and processed records.
+    - ProcessedResponse: A successfully processed response containing parsed response metadata, and processed records.
     - ErrorResponse: Indicates that an error has occurred during response retrieval and/or processing when unsuccessful.
     - NonResponse: `ErrorResponse` subclass indicating when an error prevents the successful retrieval of a response.
 

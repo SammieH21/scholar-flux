@@ -94,6 +94,7 @@ class BaseAPI:
         """The User-Agent should always reflect what is used in the session.
 
         This method retrieves the User-Agent from the session directly.
+
         """
         user_agent = self.session.headers.get("User-Agent")
         return user_agent.decode("utf-8") if isinstance(user_agent, bytes) else user_agent
@@ -104,6 +105,7 @@ class BaseAPI:
         in both the session and the BaseAPI class.
 
         By updating the session User-Agent header, the user_agent property updates in addition.
+
         """
         if user_agent:
             self.session.headers.update(
@@ -124,8 +126,9 @@ class BaseAPI:
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
             user_agent (Optional[str]): Optional user-agent string for the session.
             use_cache (Optional[bool]): Indicates whether or not to use cache if a cached session doesn't yet exist.
-                                        If `use_cache` is True and a cached session has already been passed, the previosuly
-                                        created cached session is returned. Otherwise, a new CachedSession is created.
+                                        If `use_cache` is True and a cached session has already been passed, the
+                                        previously created cached session is returned. Otherwise, a new CachedSession
+                                        is created.
 
         Returns:
             requests.Session: The configured session.

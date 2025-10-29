@@ -55,7 +55,7 @@ class SearchAPI(BaseAPI):
         >>> response_page_1
         # OUTPUT: <Response [200]>
         >>> ml_page_1 = response_page_1.json()
-        # future requests automatically wait until te specified request delay passes to send another request:
+        # future requests automatically wait until the specified request delay passes to send another request:
         >>> response_page_2 = api.search(page = 2)
         >>> assert response_page_1.ok
         >>> response_page_2
@@ -716,11 +716,12 @@ class SearchAPI(BaseAPI):
         # note that some parameters above can be None. These parameters are removed prior to returning the dictionary
         return {parameter: value for parameter, value in all_parameters.items() if value is not None}
 
-    def search(self,
-               page: Optional[int] = None,
-               parameters: Optional[Dict[str, Any]] = None,
-               request_delay: Optional[float] = None, 
-              ) -> Response:
+    def search(
+        self,
+        page: Optional[int] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        request_delay: Optional[float] = None,
+    ) -> Response:
         """Public method to perform a search for the selected page with the current API configuration.
 
         A search can be performed by specifying either the page to query with the preselected defaults and additional
@@ -747,15 +748,47 @@ class SearchAPI(BaseAPI):
                 return self.send_request(self.base_url, parameters=parameters)
 
         elif page is not None:
-            return self.make_request(page, parameters, request_delay = request_delay)
+            return self.make_request(page, parameters, request_delay=request_delay)
         else:
             raise APIParameterException("One of 'page' or 'parameters' must be provided")
 
-    def make_request(self,
-                     current_page: int, 
-                     additional_parameters: Optional[dict[str, Any]] = None,
-                     request_delay: Optional[float] = None, 
-                    ) -> Response:
+    def prepare_search(
+        self,
+        page: Optional[int] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> requests.PreparedRequest:
+        """Prepares the current request given the provided page and parameters.
+
+        The prepared request object can be sent using the `SearchAPI.session.send` method with `requests.Session` and
+        `requests_cache.CachedSession`objects.
+
+        Args:
+            page (Optional[int]): Page number to query. If provided, parameters are built from the config and this page.
+            parameters (Optional[Dict[str, Any]]):
+                If provided alone, used as the full parameter set to build the current request.
+                If provided together with `page`, these act as additional or overriding parameters on top of
+                the built config.
+
+        Returns:
+            requests.PreparedRequest:
+                A request object that can be sent via `api.session.send`.
+
+        """
+
+        if page is None and parameters is not None:
+            return self.prepare_request(self.base_url, parameters=parameters)
+        elif page is not None:
+            parameters = self.build_parameters(page, additional_parameters=parameters)
+            return self.prepare_request(self.base_url, parameters=parameters)
+        else:
+            raise APIParameterException("One of 'page' or 'parameters' must be provided")
+
+    def make_request(
+        self,
+        current_page: int,
+        additional_parameters: Optional[dict[str, Any]] = None,
+        request_delay: Optional[float] = None,
+    ) -> Response:
         """Constructs and sends a request to the chosen api:
 
         The parameters are built based on the default/chosen config and parameter map
@@ -907,7 +940,7 @@ class SearchAPI(BaseAPI):
         self, provider_name: Optional[str] = None, query: Optional[str] = None, **api_specific_parameters
     ) -> Iterator[SearchAPI]:
         """Allows for the temporary modification of the search configuration, and parameter mappings, and cache
-        namespace. for the current API. Uses a contextmanager to temporarily change the provided parameters without
+        namespace. For the current API. Uses a `contextmanager` to temporarily change the provided parameters without
         persisting the changes.
 
         Args:

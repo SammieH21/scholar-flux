@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 class SearchResult(BaseModel):
     """Core class used in order to store data in the retrieval and processing of API Searches when iterating and
     searching over a range of pages, queries, and providers at a time. This class uses pydantic to ensure that field
-    validation is automatic for ensuring integrity and reliability of response processing.
-    multi-page searches that link each response result to a particular query, page, and provider.
+    validation is automatic for ensuring integrity and reliability of response processing. multi-page searches that link
+    each response result to a particular query, page, and provider.
 
     Args:
         query (str): The query used to retrieve records and response metadata
@@ -57,8 +57,8 @@ class SearchResult(BaseModel):
     def __len__(self) -> int:
         """Returns the total number of successfully processed records from the ProcessedResponse.
 
-        If the received Response was an ErrorResponse or None, then this value will be 0, indicating that no
-        records were processed successfully.
+        If the received Response was an ErrorResponse or None, then this value will be 0, indicating that no records
+        were processed successfully.
 
         """
         return len(self.response_result) if isinstance(self.response_result, ProcessedResponse) else 0

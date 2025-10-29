@@ -235,7 +235,7 @@ class RedisStorage(ABCStorage):
 
                 if self.ttl is not None:
                     self.client.expire(namespace_key, self.ttl)
-                logger.debug(f"Cache updated for key: {namespace_key}")
+                logger.debug(f"Cache updated for key: '{namespace_key}'")
 
         except RedisError as e:
             logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}")
@@ -284,7 +284,7 @@ class RedisStorage(ABCStorage):
                     self.client.delete(key)
 
         except RedisError as e:
-            logger.error(f"Error during attempted deletion of all keys from namespace '{self.namespace}': {e}")
+            logger.error(f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}")
 
     def verify_cache(self, key: str) -> bool:
         """Check if specific cache key exists.

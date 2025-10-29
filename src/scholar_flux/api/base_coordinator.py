@@ -20,6 +20,7 @@ from scholar_flux.utils.repr_utils import generate_repr_from_string
 
 logger = logging.getLogger(__name__)
 
+
 class BaseCoordinator:
     """BaseCoordinator providing the minimum functionality for requesting and retrieving records and metadata from APIs.
 
@@ -251,5 +252,6 @@ class BaseCoordinator:
 
         """
         return self.structure()
+
 
 __all__ = ["BaseCoordinator"]

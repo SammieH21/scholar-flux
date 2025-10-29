@@ -15,7 +15,7 @@ from collections import UserDict, defaultdict
 from scholar_flux.api import ProviderConfig
 from scholar_flux.utils import generate_repr_from_string
 from scholar_flux.api.models import SearchResultList, SearchResult, PageListInput
-from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry, ThreadedRateLimiter
+from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api import SearchAPI, SearchCoordinator, ErrorResponse, APIResponse, NonResponse
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
 
@@ -24,12 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 class MultiSearchCoordinator(UserDict):
-    """The MultiSearchCoordinator is a utility class for orchestrating searches across multiple providers, pages,
-    and queries sequentially or using multithreading. This coordinator builds on the SearchCoordinator's core structure
-    to ensure consistent, rate-limited API requests.
+    """The MultiSearchCoordinator is a utility class for orchestrating searches across multiple providers, pages, and
+    queries sequentially or using multithreading. This coordinator builds on the SearchCoordinator's core structure to
+    ensure consistent, rate-limited API requests.
 
     The multi-search coordinator uses shared rate limiters to ensure that requests to the same provider (even across
-    different queries) will use the same rate limiter. 
+    different queries) will use the same rate limiter.
 
     This implementation uses the `ThreadedRateLimiter.min_interval` parameter from the shared rate limiter of each
     provider to determine the `request_delay` across all queries. These settings can be found and modified in the
@@ -39,7 +39,7 @@ class MultiSearchCoordinator(UserDict):
     class variable to adjust the shared request_delay.
 
     # Examples:
-        
+
         >>> from scholar_flux import MultiSearchCoordinator, SearchCoordinator, RecursiveDataProcessor
         >>> from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
         >>> multi_search_coordinator = MultiSearchCoordinator()
@@ -65,12 +65,12 @@ class MultiSearchCoordinator(UserDict):
         >>> all_pages = multi_search_coordinator.search_pages(pages=[1, 2, 3])
         >>>
         >>> # filters and retains successful requests from the multi-provider search
-        >>> filtered_pages = all_pages.filter() 
+        >>> filtered_pages = all_pages.filter()
         >>> # The results will contain successfully processed responses across all queries, pages, and providers
         >>> print(filtered_pages)  # Output will be a list of SearchResult objects
         >>> # Extracts successfully processed records into a list of records where each record is a dictionary
         >>> record_dict = filtered_pages.join() # retrieves a list of records
-        >>> print(record_dict)  # Output will be a flattened list of all records 
+        >>> print(record_dict)  # Output will be a flattened list of all records
 
     """
 
@@ -469,10 +469,10 @@ class MultiSearchCoordinator(UserDict):
 
             # retrieve the rate from within the threaded rate limiter
             default_request_delay = search_coordinator.api._rate_limiter.min_interval
-            request_delay = kwargs.pop('request_delay', default_request_delay)
+            request_delay = kwargs.pop("request_delay", default_request_delay)
 
             # iterate over the current coordinator given its session, query, and settings
-            for page in search_coordinator.iter_pages(pages, **kwargs, request_delay = request_delay):
+            for page in search_coordinator.iter_pages(pages, **kwargs, request_delay=request_delay):
                 if isinstance(page, SearchResult):
                     last_response = page.response_result
                 yield page
@@ -507,8 +507,8 @@ class MultiSearchCoordinator(UserDict):
 
         # ensure that the same rate limiter is used with threading if needed to ensure rate limiting across providers
         # if the provider doesn't already exist, initialize the provider rate limiter in the registry
-        threaded_rate_limiter = threaded_rate_limiter_registry.setdefault(
-            provider_name, ThreadedRateLimiter(self.DEFAULT_THREADED_REQUEST_DELAY)
+        threaded_rate_limiter = threaded_rate_limiter_registry.get_or_create(
+            provider_name, self.DEFAULT_THREADED_REQUEST_DELAY
         )
 
         if threaded_rate_limiter:

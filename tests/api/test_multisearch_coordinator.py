@@ -54,6 +54,23 @@ def pause_rate_limiting():
     MultiSearchCoordinator.DEFAULT_THREADED_REQUEST_DELAY = default_rate_limit
 
 
+@pytest.fixture(scope="session", autouse=True)
+def restore_rate_limiter_registry():
+    """Fixture for resetting any changes made to the `threaded_rate_limiter_registry` after the conclusion of the test.
+
+    Used to remove newly added, non-default providers after each test.
+
+    """
+    from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
+
+    assert threaded_rate_limiter_registry
+    original_rate_limiter_registry = threaded_rate_limiter_registry.copy()
+    yield
+    threaded_rate_limiter_registry.clear()
+    for key, rate_limiter in original_rate_limiter_registry.items():
+        threaded_rate_limiter_registry[key] = rate_limiter
+
+
 def get_path_components(json_page_path: Path, url_prefix="") -> dict[str, Any]:
     """Helper function for quickly generating a dictionary where each element corresponds to some aspect of the provider
     including the page number, URL, and corresponding content from the provider."""
@@ -196,7 +213,7 @@ def initialize_mocker(
     path_component_dict,
     path_component_dict_rate,
 ):
-    """Helper function for quickly initializing each url to return simulated data for testing the MultiCoordinator.
+    """Helper function for quickly initializing each url to return simulated data for testing the `MultiCoordinator`.
 
     This function uses a context manager to set up mocking for each of the following sites.
 
@@ -209,7 +226,7 @@ def initialize_mocker(
 
     The `patch_provider_url` helper function is used to patch requests sent by each coordinator within a dictionary of
     coordinators. This helper function uses requests_mock to simulate responses to requests for validation of the
-    functionality of the MultiSearchCoordinator.
+    functionality of the `MultiSearchCoordinator`.
 
     It can be used as follows:
         >>> with initialize_mocker() as _:
@@ -268,10 +285,14 @@ def test_mocked_initialization(coordinator_dict, path_component_dict, initialize
 
 
 def test_multisearch_initialization(coordinator_dict, pause_rate_limiting):
-    """Test whether a multisearch_coordinator is created as intended and that individual components can be added
-    independent on the method used to populate the MultiSearchCoordinator object.
+    """Test whether the `MultiSearchCoordinator` can be created as intended.
 
-    Also tests whether the addition of non-coordinators will fail as expected when added.
+    This test verifies:
+
+    1. Whether the initialization the `MultiSearchCoordinator` through different methods and components will produce the
+       same result
+    2. whether basic dictionary functionality will still operate as intended for class customization.
+    3. If the addition of non-coordinators will fail as expected when added.
 
     """
     multisearch_coordinator_one = MultiSearchCoordinator()
@@ -561,8 +582,9 @@ def test_rate_limiter_normalization(
         # The second condition verifies the time.sleep arguments in case the first step fails due to this.
         assert all(
             time_elapsed >= MIN_REQUEST_DELAY_INTERVAL * TOLERANCE for time_elapsed in time_betweeen_requests
-        ) or min(arg for arg in sleep_args) <= min(
-            coordinator.api.request_delay for coordinator in multisearch_coordinator.coordinators
+        ) or min(arg for arg in sleep_args) >= min(
+            threaded_rate_limiter_registry[coordinator.api.provider_name].min_interval
+            for coordinator in multisearch_coordinator.coordinators
         )
 
 

@@ -213,7 +213,7 @@ class SQLAlchemyStorage(ABCStorage):
                     return structured_data
                 return None
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error retrieving key {key}: {e}")
+                logger.error(f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}")
                 return None
 
     def retrieve_all(self) -> Dict[str, Any]:
@@ -234,7 +234,7 @@ class SQLAlchemyStorage(ABCStorage):
                     if not self.namespace or str(record.key).startswith(self.namespace)
                 }
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error retrieving all records: {e}")
+                logger.error(f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}")
             return cache
 
     def retrieve_keys(self) -> List[str]:
@@ -253,7 +253,7 @@ class SQLAlchemyStorage(ABCStorage):
                     if not self.namespace or str(record.key).startswith(self.namespace)
                 ]
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error retrieving keys: {e}")
+                logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}")
                 keys = []
             return keys
 
@@ -278,10 +278,11 @@ class SQLAlchemyStorage(ABCStorage):
                 else:
                     record = CacheTable(key=namespace_key, cache=unstructured_data)
                     session.add(record)
+                    logger.debug(f"Cache updated for key: {namespace_key}")
                 session.commit()
 
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error updating key {key}: {e}")
+                logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}")
                 session.rollback()
 
     def delete(self, key: str) -> None:
@@ -298,8 +299,10 @@ class SQLAlchemyStorage(ABCStorage):
                 if record:
                     session.delete(record)
                     session.commit()
+                else:
+                    logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error deleting key {key}: {e}")
+                logger.error(f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}")
                 session.rollback()
 
     def delete_all(self) -> None:
@@ -314,7 +317,7 @@ class SQLAlchemyStorage(ABCStorage):
                     session.commit()
                     logger.debug(f"Deleted {num_deleted} records.")
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error deleting all records: {e}")
+                logger.error(f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}")
                 session.rollback()
 
     def _serialize_data(self, record_data: Any) -> Any:
@@ -366,7 +369,7 @@ class SQLAlchemyStorage(ABCStorage):
         """
 
         if not key:
-            raise ValueError(f"Key invalid. Received {key}")
+            raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
         return self.retrieve(key) is not None
 
     @classmethod

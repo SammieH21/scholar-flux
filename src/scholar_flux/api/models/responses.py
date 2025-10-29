@@ -14,6 +14,7 @@ Classes:
     NonResponse:
         Inherits from ErrorResponse and is designed to indicate that an error occurred in the preparation of a
         request or the sending/retrieval of a response.
+
 """
 from typing import Optional, Dict, List, Any, MutableMapping
 from scholar_flux.exceptions import InvalidResponseReconstructionException
@@ -71,6 +72,7 @@ class APIResponse(BaseModel):
         # OUTPUT: True
         >>> assert response.validate_response()
         # OUTPUT: True
+
     """
 
     cache_key: Optional[str] = None
@@ -129,6 +131,7 @@ class APIResponse(BaseModel):
 
         Returns:
             Optional[int]: The status code associated with the response (if available)
+
         """
         try:
             status_code = getattr(self.response, "status_code", None)
@@ -143,6 +146,7 @@ class APIResponse(BaseModel):
 
         Returns:
             Optional[str]: The status description associated with the response.
+
         """
         reason = getattr(self.response, "reason", None)
         reason = reason if reason else responses.get(self.status_code or -1)
@@ -156,6 +160,7 @@ class APIResponse(BaseModel):
 
         Returns:
             Optional[int]: The status description associated with the response (if available).
+
         """
         return self.reason or getattr(self.response, "status", None) or responses.get(self.status_code or -1)
 
@@ -165,6 +170,7 @@ class APIResponse(BaseModel):
 
         Returns:
             MutableMapping[str, str]: A dictionary of headers from the response
+
         """
         if self.response is not None:
             headers = getattr(self.response, "headers", None)
@@ -179,6 +185,7 @@ class APIResponse(BaseModel):
 
         Returns:
             (bytes): The bytes from the original response content
+
         """
         if self.response is not None:
             content = getattr(self.response, "content", None)
@@ -196,6 +203,7 @@ class APIResponse(BaseModel):
 
         Returns:
             Optional[str]: A text string if the text is available in the correct format, otherwise None
+
         """
         if self.response is not None:
             #
@@ -213,6 +221,7 @@ class APIResponse(BaseModel):
         Returns:
             str: A string of the original URL if available. Accounts for objects that
                  that indicate the original url when converted as a string
+
         """
         url = getattr(self.response, "url", None)
 
@@ -231,6 +240,7 @@ class APIResponse(BaseModel):
         Returns:
             bool: An indicator of whether the current APIResponse.response attribute is
                   actually a response
+
         """
         if isinstance(self.response, requests.Response):
             return True
@@ -249,6 +259,7 @@ class APIResponse(BaseModel):
             3. headers: dictionary
             4. content: bytes
             5. url: string or URL-like field
+
         """
         if not isinstance(response, ResponseProtocol):
             return False
@@ -270,6 +281,7 @@ class APIResponse(BaseModel):
         """Construct an APIResponse from a response object or from keyword arguments.
 
         If response is not a valid response object, builds a minimal response-like object from kwargs.
+
         """
 
         model_kwargs = {field: kwargs.pop(field, None) for field in cls.model_fields if field in kwargs}
@@ -288,6 +300,7 @@ class APIResponse(BaseModel):
         CaseInsensitiveDict fields that are otherwise unserializable.
 
         From this step, pydantic can safely use json internally to dump the encoded response fields
+
         """
         if isinstance(response, (requests.Response, ReconstructedResponse)) or self._is_response_like(response):
             return self._encode_response(response)
@@ -300,6 +313,7 @@ class APIResponse(BaseModel):
 
         Args:
             response (Response, ResponseProtocol)
+
         """
         try:
             encoded_response = cls._encode_response(response)
@@ -335,6 +349,7 @@ class APIResponse(BaseModel):
             Dict[str, Any]: A dictionary formatted in a way that enables core fields to be encoded
                             using json.dumps function from the json module in the standard library that
                             serializes dictionaries into strings.
+
         """
         reconstructed_response = ReconstructedResponse.build(response)
         response_dictionary = CacheDataEncoder.encode(reconstructed_response.asdict())
@@ -358,6 +373,7 @@ class APIResponse(BaseModel):
         Returns:
             Optional[ReconstructedResponse]:
                 Creates a reconstructed response with from the original encoded fields.
+
         """
         field_set = set(ReconstructedResponse.fields())
 
@@ -391,6 +407,7 @@ class APIResponse(BaseModel):
 
         Returns:
             Optional[ReconstructedResponse]: A reconstructed response object, if possible. Otherwise returns None
+
         """
 
         if isinstance(response, str):
@@ -412,6 +429,7 @@ class APIResponse(BaseModel):
         Returns:
             ReconstructedResponse: A minimal response object that contains the core attributes needed to support
                                    other processes in the scholar_flux module such as response parsing and caching.
+
         """
 
         if isinstance(response, APIResponse):
@@ -428,6 +446,7 @@ class APIResponse(BaseModel):
 
         Returns:
             bool: True if the value is equal to the current APIResponse object, otherwise False
+
         """
         # accounting for subclasses:
         if not isinstance(other, self.__class__):
@@ -440,6 +459,7 @@ class APIResponse(BaseModel):
         """Helper method for deserializing the dumped model json.
 
         Attempts to load json data from a string if possible. Otherwise returns None
+
         """
         try:
             deserialized_dict = json.loads(serialized_response_dict)
@@ -453,6 +473,7 @@ class APIResponse(BaseModel):
 
         If the attribute isn't a response or reconstructed response, the code will coerce the class into a response
         object to verify the status code for the request URL and response.
+
         """
 
         if self.response is not None and isinstance(self.response, (requests.Response, ReconstructedResponse)):
@@ -474,6 +495,7 @@ class ErrorResponse(APIResponse):
     """Returned when something goes wrong, but we don’t want to throw immediately—just hand back failure details.
 
     The class is formatted for compatibility with the ProcessedResponse,
+
     """
 
     message: Optional[str] = None
@@ -496,6 +518,7 @@ class ErrorResponse(APIResponse):
         Returns:
             ErrorResponse: A Dataclass Object that contains the error response data
                             and background information on what precipitated the error.
+
         """
 
         creation_timestamp = generate_iso_timestamp()
@@ -540,6 +563,7 @@ class ErrorResponse(APIResponse):
         """Helper method added for compatibility with the use-case of the ProcessedResponse.
 
         Always returns 0, indicating that no records were successfully processed.
+
         """
         return 0
 
@@ -554,6 +578,7 @@ class NonResponse(ErrorResponse):
 
     This class is used to signify the error that occurred within the search process using a similar interface as the
     other scholar_flux Response dataclasses.
+
     """
 
     response: None = None
@@ -570,6 +595,7 @@ class ProcessedResponse(APIResponse):
 
     1) parsed responses     2) extracted records and metadata     3) processed records (aliased as data)     4) any
     additional messages An error field is provided for compatibility with the ErrorResponse class.
+
     """
 
     parsed_response: Optional[Any] = None

@@ -446,8 +446,7 @@ def test_basic_fetch():
     )
     coordinator = SearchCoordinator(api, request_delay=0)
     coordinator.retry_handler.max_backoff = 0
-    params = api.build_parameters(page=1)
-    prepared_request = api.prepare_request(api.base_url, parameters=params)
+    prepared_request = api.prepare_search(page=1)
 
     with requests_mock.Mocker() as m:
         m.get(
@@ -488,8 +487,7 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
     )
     coordinator = SearchCoordinator(api)
     coordinator.retry_handler.max_retries = 0
-    params = api.build_parameters(page=1)
-    prepared_request = api.prepare_request(api.base_url, parameters=params)
+    prepared_request = api.prepare_search(page=1)
 
     assert coordinator.get_cached_request(page=1) is None
     assert coordinator.get_cached_response(page=1) is None

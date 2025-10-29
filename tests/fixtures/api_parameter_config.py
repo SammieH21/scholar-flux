@@ -61,7 +61,7 @@ def zero_indexed_parameter_config():
 
 @pytest.fixture
 def default_zero_indexed_config():
-    """Fixture that sets the APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX class variable to False.
+    """Fixture that sets the `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX` class variable to False.
 
     After testing, the fixture restores the default value after the conclusion of the test.
     """
@@ -73,7 +73,7 @@ def default_zero_indexed_config():
 
 @pytest.fixture
 def default_correct_zero_index_config():
-    """Fixture that sets the APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX class variable to True.
+    """Fixture that sets the `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX` class variable to True.
 
     This is the default behavior of the APIParameterConfig. After testing, the fixture restores the default
     value after the conclusion of the test.

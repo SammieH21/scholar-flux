@@ -114,6 +114,7 @@ class KeyMaskingPattern(MaskingPattern):
 
         This implementation can optionally mask the pattern attribute on post initialization to ensure that the current
         pattern, itself, doesn't inadvertently link sensitive patterns to logs.
+
         """
         if self.mask_pattern and not isinstance(self.pattern, SecretStr):
             object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))

@@ -181,8 +181,7 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
     response_coordinator = ResponseCoordinator.build(cache_results=True)
     coordinator = BaseCoordinator(api, response_coordinator)
 
-    params = api.build_parameters(page=1)
-    prepared_request = api.prepare_request(api.base_url, parameters=params)
+    prepared_request = api.prepare_search(page=1)
     assert prepared_request.url is not None
 
     with requests_mock.Mocker() as m:

@@ -3,6 +3,7 @@
 
 The PageListInput model is designed to validate and prepare lists and iterables of page numbers for multi-page retrieval
 using the `SearchCoordinator.search_pages` method.
+
 """
 
 from typing import Sequence
@@ -10,6 +11,7 @@ from pydantic import RootModel, field_validator
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class PageListInput(RootModel[Sequence[int]]):
     """Helper class for processing page information in a predictable manner. The PageListInput class expects to receive
@@ -36,7 +38,7 @@ class PageListInput(RootModel[Sequence[int]]):
         Args:
             v (str | int | Sequence[int | str]): A page or sequence of pages to be formatted as a list of pages.
         Returns:
-            list[int]: A list of page numbers assuming successful page validation
+            Sequence[int]: A validated, formatted sequence of page numbers assuming successful page validation
 
         Raises:
             ValidationError: Internally raised via pydantic if a ValueError is encountered
@@ -89,5 +91,6 @@ class PageListInput(RootModel[Sequence[int]]):
     def page_numbers(self) -> Sequence[int]:
         """Returns the sequence of validated page numbers as a list."""
         return list(self.root)
+
 
 __all__ = ["PageListInput"]

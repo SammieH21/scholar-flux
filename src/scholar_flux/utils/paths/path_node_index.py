@@ -3,8 +3,8 @@
 facilitate the processing of JSON data structures.
 
 The PathNodeIndex is responsible for orchestrating JSON data discovery, processing, and flattening to abstract JSON data
-into path-node pairs indicate the location of terminal values and the path location of the terminal-values within
-a nested JSON data structure.
+into path-node pairs indicate the location of terminal values and the path location of the terminal-values within a
+nested JSON data structure.
 
 """
 from __future__ import annotations

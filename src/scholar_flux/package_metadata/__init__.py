@@ -16,6 +16,7 @@ And otherwise:
 2. The ~/.scholar_flux/package_cache directory for cache and ~/.scholar_flux/logs for logging
 
 The first writeable directory will then be used for setting up default locations for requests and response cache.
+
 """
 
 from importlib.metadata import PackageNotFoundError

@@ -81,6 +81,22 @@ def test_provider_removal(caplog):
     ) in caplog.text
 
 
+def test_provider_creation(caplog):
+    """Tests whether the addition of a new provider occurs as intended when initialized with a string (key) and a
+    ProviderConfig (value).
+
+    Upon registering the new provider, the provider should be retrievable from the `provider_registry`.
+
+    """
+    provider_registry = ProviderRegistry.from_defaults()
+
+    plos_config = provider_registry.pop("plos")
+    plos_config_parameters = plos_config.model_dump()
+
+    assert provider_registry.create(**plos_config_parameters).model_dump() == plos_config_parameters
+    assert plos_config == provider_registry[plos_config.provider_name]
+
+
 def test_provider_addition(caplog):
     """Tests whether the addition of a new provider occurs as intended when initialized with a string (key) and a
     ProviderConfig (value).
@@ -149,6 +165,10 @@ def test_invalid_provider_addition():
         f"The value could not be added to the provider registry: "
         f"Expected a ProviderConfig, received {type(empty_provider_config)}"
     ) in str(excinfo.value)
+
+    with pytest.raises(APIParameterException) as excinfo:
+        provider_registry.create(empty_provider_config)  # type: ignore
+    assert ("Encountered an error when creating a new ProviderConfig with the provider name, ") in str(excinfo.value)
 
     invalid_key: set = set()
     with pytest.raises(APIParameterException) as excinfo:
