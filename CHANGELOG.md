@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.2] - 10/30/2025
+### Changed
+- **BREAKING**: Detailed step-by-step logging reports are now opt-in. Set `SCHOLAR_FLUX_ENABLE_LOGGING=TRUE` for file-based logs. Console logs at WARNING and above remain.
+- The Default log level is now `WARNING` (was `DEBUG`). You can also modify this with `SCHOLAR_FLUX_LOG_LEVEL=DEBUG`.
+- Log messages are cleaner and no longer include the module path.
+- Testing and coverage reports now run in parallel for Python 3.10, 3.11, 3.12, and 3.13. We’ll add 3.14 support once dependencies are ready.
+
+
+### Added
+- User and Developer documentation on opt-in logging and optional dependencies
+- Enhanced CONTRIBUTING.md with comprehensive logging setup instructions for developers.
+
+
 ## [0.1.1] - 10/29/2025
 ### Added
 - Introduced `scholar_flux.api.models.BaseProviderDict`: a normalization-aware dictionary that resolves minor variations in provider names spelling to the right provider.

@@ -81,6 +81,16 @@ def test_api_key_format(api_key_dictionary, request):
         assert (api_key is None and env_api_key is None) or env_api_key == api_key == config_api_key
 
 
+def test_url_parse_error_config(caplog):
+    """Tests whether the configuration only prints a warning on URL extraction when the input is not empty."""
+    assert SearchAPIConfig._extract_url_basename("") == ""
+    assert "Couldn't extract the base URL for the URL" not in caplog.text
+
+    url = "https://notanurl.xyz"
+    assert SearchAPIConfig._extract_url_basename(url) == url.replace("https://", "")
+    assert f"Couldn't extract the base URL for the URL, '{url}'. Falling back to using the host name" in caplog.text
+
+
 @pytest.mark.parametrize("provider", ["plos", "pubmed_efetch", "pubmed", "springernature", "crossref", "core"])
 def test_api_key_additions(provider):
     """Tests whether masked API keys that are validated via the SearchAPIConfig remain masked when included as an
