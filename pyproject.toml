@@ -2,7 +2,7 @@
 name = "scholar-flux"
 authors = ["Sammie L. Haskin <44345113+SammieH21@users.noreply.github.com>"]
 description = "The ScholarFlux API is an open-source project designed to streamline access to academic and scholarly resources across various platforms for discovery and analyses. It offers a unified API that simplifies querying academic databases, retrieving metadata, and performing comprehensive searches within scholarly articles, journals, and publications."
-version = "0.1.1"
+version = "0.1.2"
 readme = "README.md"
 license = "Apache-2.0"
 packages = [{include = "scholar_flux", from="src"}]

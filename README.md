@@ -115,10 +115,27 @@ Luckily, ScholarFlux handles this part automatically for you, as we'll see later
 ScholarFlux is in the beta stage and is now available for testing on PyPI! You can install scholar-flux using the following command:
 
 
-```python
+```bash
 pip install scholar-flux
 ```
 
+For out-of-the-box usability with minimal dependencies, ScholarFlux only requires a core set of packages by default. Several providers rely on different data processing strategies and may require additional dependencies. As a result, ScholarFlux makes these dependencies optional.
+
+```bash
+pip install scholar-flux[parsing,database,cryptography]
+```
+
+Or install specific features:
+```bash
+# Just parsing support
+pip install scholar-flux[parsing]
+
+# Database backends only
+pip install scholar-flux[database]
+
+# All extras (recommended for development)
+pip install scholar-flux[parsing,database,cryptography]
+```
 
 ### Or, To download the source code and documentation for testing and development:
 
@@ -129,7 +146,7 @@ git clone https://github.com/SammieH21/scholar-flux.git
 
 2.  Navigate to the project directory:
 ```bash
-cd ScholarFlux
+cd scholar-flux
 ```
    
 3.  Install dependencies using Poetry:
@@ -152,6 +169,22 @@ poetry install --with dev --with tests --all-extras
 - PubMed: API key for rate limit increase (3 req/sec → 10 req/sec)
 - Springer Nature: API key required
 - Crossref: `mailto` parameter recommended for faster rate limits
+
+
+**Optional Dependencies**
+- **XML Parsing** (`parsing` extra): Required for providers like `PubMed` and `arXiv` that return XML responses
+  - Installs: `xmltodict`, `pyyaml`
+  
+- **Encrypted Cache** (`cryptography` extra): Required for encrypted session caching
+  - Installs: `cryptography`
+  
+- **Storage Backends** (`database` extra): Required for advanced caching strategies
+  - `scholar_flux.data_storage.RedisStorage` → `redis`
+  - `scholar_flux.data_storage.MongoDBStorage` → `pymongo`
+  - `scholar_flux.data_storage.SQLAlchemyStorage` → `sqlalchemy`
+
+
+**Note:** Tests automatically install all extras to ensure comprehensive testing across all features.
 
 ## Quick Start
 
@@ -205,7 +238,7 @@ print(response.cache_key)              # 'plos_sleep_1_50'
 successful_responses = results.filter()
 print(f"Success rate: {len(successful_responses)}/{len(results)}")
 
-# Aggregate into DataFrame
+# Aggregate response records into a DataFrame (this requires `pandas` to be installed)
 import pandas as pd
 df = pd.DataFrame(successful_responses.join())
 print(df.columns)
@@ -504,9 +537,6 @@ Visit the [Sphinx documentation](https://SammieH21.github.io/scholar-flux/).
 We welcome contributions from the community! If you have suggestions for improvements or new features, please feel free to fork the repository and submit a pull request. Please refer to our Contributing Guidelines for more information on how you can contribute to the ScholarFlux API.
 
 ### License
-
-Apache License 2.0
-
 
 This project is licensed under the Apache License 2.0.
 

@@ -126,7 +126,7 @@ ScholarFlux integrates with multiple academic APIs. For full testing, you may ne
 
 ### Setup
 
-1. Create a `.env` file in the project root (never commit this!)
+1. Create a `.env` file in the project root or in `$HOME/.scholar_flux` (never commit this!)
 2. Add your API keys (optional - tests use mocked responses by default)
 3. Before sending a pull request, verify that, after each commit, you haven't inadvertently committed an api key: `git grep $PUBMED_API_KEY $(git rev-list --all)`
 4. See our [Security Policy](SECURITY.md) for best practices on handling credentials
@@ -134,6 +134,58 @@ ScholarFlux integrates with multiple academic APIs. For full testing, you may ne
 **Note:** All tests use mocked responses, so API keys are optional for basic development. They're only required if you're testing actual API integrations on live data from PubMed, Core, and SpringerNature.
 OpenAlex, PLOS API, Crossref, and arXiv are four resources that don't, however, require API Keys and work out-of-the-box.
 
+### Enabling Debug Logging
+
+By default, ScholarFlux runs with minimal logging (WARNING level and above). If you need detailed logs for development or debugging:
+
+### Method 1: Environment Variables (Recommended)
+
+Set these before importing ScholarFlux:
+```bash
+export SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
+export SCHOLAR_FLUX_LOG_LEVEL=DEBUG
+```
+
+Or in your Python code:
+
+```python
+import os
+os.environ["SCHOLAR_FLUX_ENABLE_LOGGING"] = "TRUE"
+os.environ["SCHOLAR_FLUX_LOG_LEVEL"] = "DEBUG"
+
+import scholar_flux
+```
+
+### Method 2: Direct Configuration
+
+Use the `setup_logging` function directly for more fine-grained control:
+
+```python
+import logging
+from scholar_flux.utils import setup_logging
+from scholar_flux import masker
+from scholar_flux.security import MaskingFilter
+
+# Enable console logging only without file rotation
+setup_logging(
+    log_level=logging.DEBUG,
+    log_file=None  # Console only
+)
+
+# Or with file rotation
+setup_logging(
+    log_directory="./logs", # leave blank to create and use default $HOME/.scholar_flux directory for logging
+    log_file="debug.log",
+    log_level=logging.DEBUG,
+    logging_filter=MaskingFilter(masker), # keeps known api keys from displaying in the console
+    max_bytes=10485760,  # 10MB
+    backup_count=3
+)
+```
+
+**Available Log Levels:** `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+
+**Note:** The environment variable method is preferred for tests and CI/CD, while direct configuration is useful for custom logging requirements.
 
 ## Testing & Code Quality
 
@@ -153,10 +205,45 @@ poetry run tox
 
 **With coverage report:**
 ```bash
-poetry run tox -e py313-coverage
+poetry run tox -e coverage
 ```
 
 Coverage reports are generated as both terminal output and XML format in `coverage.xml`.
+
+**GitHub Workflow Testing Locally**
+
+For testing GitHub Actions workflows locally, users can use [`act`](https://github.com/nektos/act) if workflow functionality needs to be vetted before implementation. 
+
+**Installation:**
+```bash
+# macOS
+brew install act
+
+# Linux/Windows
+curl -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+```
+
+**Important Note for CI Workflow Testing:**
+
+When testing `.github/workflows/ci.yml`, which runs pytest for multiple Python versions in parallel, you may encounter port conflicts with Redis and MongoDB service containers. Since `act` runs all matrix jobs on your local machine (unlike GitHub Actions which uses separate VMs), the services will try to bind to the same ports.
+
+**Solutions:**
+
+1. **Run one Python version at a time** (recommended):
+```bash
+   act -W .github/workflows/ci.yml --matrix python-version:3.13
+```
+
+2. **Run sequentially instead of in parallel**:
+   Temporarily modify the workflow to remove the matrix strategy
+
+3. **Use dynamic port mapping**:
+   Modify the workflow to use dynamic ports (see GitHub Actions service container documentation)
+
+**Note:** If you run the full matrix workflow with `act` without addressing port conflicts, MongoDB and Redis tests may be skipped for all but one Python version.
+
+For more information on `act`, see the [official documentation](https://github.com/nektos/act).
+
 
 ### Code Quality Checks
 
@@ -515,7 +602,7 @@ Find the code of conduct [**here**](https://github.com/SammieH21/scholar-flux/bl
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.1.0). This means:
+ScholarFlux is currently in **beta** (v0.1.2). This means:
 
 - APIs may change between versions
 - We're actively seeking feedback

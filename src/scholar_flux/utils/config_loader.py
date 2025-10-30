@@ -44,7 +44,8 @@ class ConfigLoader:
             - SCHOLAR_FLUX_CACHE_SECRET_KEY: defines the secret key used to create encrypted session cache for request
                                              retrieval
         Logging:
-            - SCHOLAR_FLUX_LOG_DIRECTORY: defines where rotatable logs will be stored when logging is enabled
+            - SCHOLAR_FLUX_ENABLE_LOGGING: defines whether logging should be enabled or not
+            - SCHOLAR_FLUX_LOG_DIRECTORY: defines where rotating logs will be stored when logging is enabled
             - SCHOLAR_FLUX_LOG_LEVEL: defines the default log level used for package level logging during and after
                                       scholar_flux package initialization
 
@@ -84,7 +85,8 @@ class ConfigLoader:
         or 27017,
         "SCHOLAR_FLUX_REDIS_HOST": os.getenv("SCHOLAR_FLUX_REDIS_HOST", os.getenv("REDIS_HOST", "localhost")),
         "SCHOLAR_FLUX_REDIS_PORT": coerce_int(os.getenv("SCHOLAR_FLUX_REDIS_PORT", os.getenv("REDIS_PORT"))) or 6379,
-        "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL") or "DEBUG",
+        "SCHOLAR_FLUX_ENABLE_LOGGING": os.getenv("SCHOLAR_FLUX_ENABLE_LOGGING", "").upper(),
+        "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL", "").upper(),
         "SCHOLAR_FLUX_DEFAULT_PROVIDER": os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
     }
 

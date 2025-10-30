@@ -82,7 +82,7 @@ def setup_logging(
     logger.handlers = []
 
     # Define a formatter for both console and file logging
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(pathname)s")
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # create a handler for console logging
     console_handler = logging.StreamHandler()

@@ -6,6 +6,10 @@ The test suite fixtures are prepared to aid the testing of both simulated and kn
 
 """
 
+from tests.testing_utilities import enable_debugging
+
+enable_debugging()
+
 from tests.fixtures.plos_api import (
     plos_search_api,
     plos_coordinator,

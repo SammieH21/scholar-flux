@@ -433,11 +433,11 @@ class SearchAPIConfig(BaseModel):
 
         if match:
             return match.group(1)
-        else:
-            logger.warning(
-                f"Couldn't extract the base URL for the URL, {hostname}. Falling back to using the host name"
-            )
-            return hostname  # fall back to using the hostname - more preferable than omitting entirely
+
+        if url:
+            logger.warning(f"Couldn't extract the base URL for the URL, '{url}'. Falling back to using the host name")
+
+        return hostname  # fall back to using the hostname - more preferable than omitting entirely
 
     @property
     def url_basename(self) -> str:

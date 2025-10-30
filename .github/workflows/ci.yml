@@ -11,6 +11,10 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
     env:
       # Accesses the hostnames via the names of the containers
       SCHOLAR_FLUX_MONGODB_HOST: mongodb://localhost
@@ -50,45 +54,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Installs all Python versions needed for tox
-      - name: Set up Python 3.10
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python-version }}
       
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      
-      # After poetry and tox are installed, tox handles the rest for testing
       - name: Install Poetry
         uses: snok/install-poetry@v1
 
-      - name: Verify all Python versions are installed
-        run: |
-          which python3.10 && python3.10 --version
-          which python3.11 && python3.11 --version
-          which python3.12 && python3.12 --version
-          which python3.13 && python3.13 --version
-      
       - name: Install tox
         run: poetry run pip install tox tox-gh-actions
 
       - name: Run tests with tox
         run: poetry run tox
-
-      # Generates the statistics needed to verify coverage
+      
+      # Generate coverage for this Python version
       - name: Generate coverage report
         run: poetry run tox -e coverage
       
@@ -96,6 +76,6 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
-          flags: unittests
+          flags: py${{ matrix.python-version }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false

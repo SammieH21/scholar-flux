@@ -69,12 +69,22 @@ def initialize_package(
     except Exception as e:
         raise ValueError(f"Failed to load the configuration settings for the scholar_flux package: {e}")
 
+    # turn off file rotation logging if not enabled
+    log_file = (
+        config.get("SCHOLAR_FLUX_LOG_FILE", "application.log")
+        if config.get("SCHOLAR_FLUX_ENABLE_LOGGING") in ("T", "TRUE", "1")
+        else None
+    )
+
+    # for logging resolution, fallback to WARNING
+    log_level = getattr(logging, config.get("SCHOLAR_FLUX_LOG_LEVEL", ""), logging.WARNING)
+
     # declares the default parameters from scholar_flux after loading configuration environment variables
     logging_params_dict: dict = {
         "logger": logger,
         "log_directory": config.get("SCHOLAR_FLUX_LOG_DIRECTORY"),
-        "log_file": config.get("SCHOLAR_FLUX_LOG_FILE", "application.log"),
-        "log_level": config.get("SCHOLAR_FLUX_LOG_LEVEL", logging.INFO),
+        "log_file": log_file,
+        "log_level": log_level,
         "logging_filter": masking_filter,
     }
 
