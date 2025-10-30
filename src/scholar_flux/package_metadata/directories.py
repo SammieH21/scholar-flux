@@ -70,6 +70,7 @@ def get_default_writable_directory(
 
     Raises:
         RuntimeError if a writeable directory cannot be identified
+
     """
 
     if directory_type not in ["package_cache", "logs", "env"]:

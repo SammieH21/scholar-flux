@@ -181,7 +181,7 @@ class MongoDBStorage(ABCStorage):
                 return {k: v for k, v in cache_data["data"].items() if k not in ("_id", "key")}
 
         except PyMongoError as e:
-            logger.error(f"Error retrieving all records: {e}")
+            logger.error(f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}")
 
         logger.info(f"Record for key {key} (namespace = '{self.namespace}') not found...")
         return None
@@ -209,7 +209,7 @@ class MongoDBStorage(ABCStorage):
                     if data.get("key") and (not self.namespace or data.get("key", "").startswith(self.namespace))
                 }
         except PyMongoError as e:
-            logger.error(f"Error retrieving all records: {e}")
+            logger.error(f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}")
 
         return cache
 
@@ -217,7 +217,7 @@ class MongoDBStorage(ABCStorage):
         """Retrieve all keys for records from cache.
 
         Returns:
-            list[str]: A list of all keys saved via SQL.
+            list[str]: A list of all keys saved via MongoDB.
 
         Raises:
             PyMongoError: If there is an error retrieving the record key.
@@ -231,7 +231,7 @@ class MongoDBStorage(ABCStorage):
             if self.namespace:
                 keys = [key for key in keys if key.startswith(f"{self.namespace}:")]
         except PyMongoError as e:
-            logger.error(f"Error retrieving keys: {e}")
+            logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}")
         return keys
 
     def update(self, key: str, data: Any):
@@ -265,7 +265,7 @@ class MongoDBStorage(ABCStorage):
         except DuplicateKeyError as e:
             logger.warning(f"Duplicate key error updating cache: {e}")
         except PyMongoError as e:
-            logger.error(f"Error updating key {key}: {e}")
+            logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}")
 
     def delete(self, key: str):
         """Delete the value associated with the provided key from cache.
@@ -284,9 +284,9 @@ class MongoDBStorage(ABCStorage):
             if result.deleted_count > 0:
                 logger.debug(f"Key: {key}  (namespace = '{self.namespace}') successfully deleted")
             else:
-                logger.info(f"Key: {key}  (namespace = '{self.namespace}') does not exist in cache.")
+                logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
         except PyMongoError as e:
-            logger.error(f"Error deleting key {key}: {e}")
+            logger.error(f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}")
 
     def delete_all(self):
         """Delete all records from cache that match the current namespace prefix.
@@ -303,7 +303,7 @@ class MongoDBStorage(ABCStorage):
             else:
                 logger.warning("No records present to delete")
         except PyMongoError as e:
-            logger.error(f"Error deleting all records: {e}")
+            logger.error(f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}")
 
     def verify_cache(self, key: str) -> bool:
         """Check if specific cache key exists.

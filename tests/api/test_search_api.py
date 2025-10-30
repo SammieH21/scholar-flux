@@ -19,6 +19,19 @@ from scholar_flux.utils import config_settings
 from scholar_flux.exceptions import QueryValidationException, APIParameterException, RequestCreationException
 
 
+@pytest.fixture
+def default_search_api(default_api_parameter_config: APIParameterConfig) -> SearchAPI:
+    """Mock SearchAPI for testing basic SearchAPI functionality"""
+    default_search_api = SearchAPI(
+        query="test",
+        records_per_page=10,
+        api_key="another-private-api-key",
+        base_url="https://api.another-example.com",
+        parameter_config=default_api_parameter_config,
+    )
+    return default_search_api
+
+
 @pytest.mark.parametrize("query", (None, ""))
 def test_missing_query(query):
     """Tests whether a query validation exception is raised when an empty value is supplied to a query."""
@@ -568,75 +581,63 @@ def test_api_key_exists_true_and_false():
     assert not SearchAPI._api_key_exists({"foo": "bar"})
 
 
-def test_with_config_parameters_temporary_override(original_config, original_api_parameter_config):
+def test_with_config_parameters_temporary_override(default_search_api, original_config, original_api_parameter_config):
     """Tests and verifies that the API's SearchAPIConfig can be temporarily overridden with a context manager and the
     `with_api_parameters` method and identically reverted back to the previous SearchAPIConfig after the context manager
     closes."""
-    api = SearchAPI(
-        query="test",
-        base_url=original_config.base_url,
-        records_per_page=original_config.records_per_page,
-        api_key=original_config.api_key,
-        parameter_config=original_api_parameter_config,
-    )
-    original_config = api.config
+    original_config = default_search_api.config
 
-    with api.with_config_parameters(records_per_page=99, request_delay=42):
-        assert api.config.records_per_page == 99
-        assert api.config.request_delay == 42
+    with default_search_api.with_config_parameters(records_per_page=99, request_delay=42):
+        assert default_search_api.config.records_per_page == 99
+        assert default_search_api.config.request_delay == 42
 
     # Ensure restoration
-    assert api.config == original_config
+    assert default_search_api.config == original_config
 
 
-def test_with_config_parameters_invalid_field_ignored(original_config, original_api_parameter_config):
+def test_with_config_parameters_invalid_field_ignored(
+    default_search_api, original_config, original_api_parameter_config
+):
     """Verifies that fields unknown to the APIParameterConfig are ignored when building parameters for a new request."""
-    api = SearchAPI(
-        query="test",
-        base_url=original_config.base_url,
-        records_per_page=original_config.records_per_page,
-        api_key=original_config.api_key,
-        parameter_config=original_api_parameter_config,
-    )
     # copy the current config
-    original_config = deepcopy(api.config)
+    original_config = deepcopy(default_search_api.config)
 
     # Temporarily modify the config -  Pass an invalid field; should not raise
-    with api.with_config_parameters(nonexistent_field=123):
+    with default_search_api.with_config_parameters(nonexistent_field=123):
         # the field is not added as an extra attribute
-        assert not hasattr(api.config, "nonexistent_field")
+        assert not hasattr(default_search_api.config, "nonexistent_field")
 
         # all other other fields should not have changed:
-        assert api.config.model_dump(exclude={"api_specific_parameters"}) == original_config.model_dump(
+        assert default_search_api.config.model_dump(exclude={"api_specific_parameters"}) == original_config.model_dump(
             exclude={"api_specific_parameters"}
         )
 
         # added but shouldn't be used in the parameter building stages
-        assert "nonexistent_field" in (api.config.api_specific_parameters or {})
+        assert "nonexistent_field" in (default_search_api.config.api_specific_parameters or {})
 
         # the nonexistent_field, because it's not in the parameter map, won't be added
-        assert "nonexistent_field" not in api.build_parameters(page=1)
+        assert "nonexistent_field" not in default_search_api.build_parameters(page=1)
 
-    assert api.config == original_config
+    assert default_search_api.config == original_config
     # the non-existent field should no longer be a part of the api_specific_parameters
-    assert "nonexistent_field" not in (api.config.api_specific_parameters or {})
+    assert "nonexistent_field" not in (default_search_api.config.api_specific_parameters or {})
 
 
-def test_with_config_parameters_exception_restores(original_config, original_api_parameter_config):
+def test_with_config_parameters_exception_restores(default_search_api, original_config, original_api_parameter_config):
     """Tests and verifies that the configuration can temporarily be modified and restored with the context manager."""
-    api = SearchAPI(
+    default_search_api = SearchAPI(
         query="test",
         base_url=original_config.base_url,
         records_per_page=original_config.records_per_page,
         api_key=original_config.api_key,
         parameter_config=original_api_parameter_config,
     )
-    original_config = api.config
+    original_config = default_search_api.config
 
-    with api.with_config_parameters(records_per_page=77):
-        assert api.config.records_per_page == 77
+    with default_search_api.with_config_parameters(records_per_page=77):
+        assert default_search_api.config.records_per_page == 77
 
-    assert api.config == original_config
+    assert default_search_api.config == original_config
 
 
 def test_with_config_precedence_over_provider(monkeypatch, new_config, original_api_parameter_config):
@@ -696,42 +697,35 @@ def test_updates():
 
 
 def test_nested_with_config_and_with_config_parameters(
-    original_config, new_config, original_api_parameter_config, new_api_parameter_config
+    default_search_api, original_config, new_config, original_api_parameter_config, new_api_parameter_config
 ):
     """Verifies that nested context managers modifies the current config with precedence given to the latest context
     that modifies the configuration and other parameters for the SearchAPI."""
-    api = SearchAPI(
-        query="test",
-        base_url=original_config.base_url,
-        records_per_page=original_config.records_per_page,
-        api_key=original_config.api_key,
-        parameter_config=original_api_parameter_config,
-    )
-    original_config = api.config
-    orig_api_parameter_config = api.parameter_config
+    original_config = default_search_api.config
+    orig_api_parameter_config = default_search_api.parameter_config
 
-    with api.with_config(config=new_config, parameter_config=new_api_parameter_config):
+    with default_search_api.with_config(config=new_config, parameter_config=new_api_parameter_config):
         # Inside first context: config and parameter_config are swapped
-        assert api.config == new_config
-        assert api.parameter_config == new_api_parameter_config
+        assert default_search_api.config == new_config
+        assert default_search_api.parameter_config == new_api_parameter_config
 
-        with api.with_config_parameters(records_per_page=123, request_delay=99):
+        with default_search_api.with_config_parameters(records_per_page=123, request_delay=99):
             # Inside nested context: config is a modified copy of new_config
-            assert api.config.records_per_page == 123
-            assert api.config.request_delay == 99
+            assert default_search_api.config.records_per_page == 123
+            assert default_search_api.config.request_delay == 99
             # parameter_config remains as new_api_parameter_config
-            assert api.parameter_config == new_api_parameter_config
+            assert default_search_api.parameter_config == new_api_parameter_config
 
         # After inner context: config and parameter_config are as in outer context
-        assert api.config == new_config
-        assert api.parameter_config == new_api_parameter_config
+        assert default_search_api.config == new_config
+        assert default_search_api.parameter_config == new_api_parameter_config
 
     # After both contexts: originals are restored
-    assert api.config == original_config
-    assert api.parameter_config == orig_api_parameter_config
+    assert default_search_api.config == original_config
+    assert default_search_api.parameter_config == orig_api_parameter_config
 
 
-def test_from_provider_config(caplog):
+def test_from_provider_config_initialization(caplog):
     """Helper method for validating the functionality of the `from_provider_config` method. This method should allow the
     creation of a SearchAPI instance with a provider configuration by temporarily adding it to the registry.
 
@@ -778,15 +772,20 @@ def test_from_provider_config(caplog):
     assert provider_name in provider_registry
 
 
-def test_missing_parameters():
+def test_missing_search_parameters():
     """Validates that an APIParameterException is thrown when neither page nor parameter is provided."""
     api = SearchAPI(query="new query")
+    err = "One of 'page' or 'parameters' must be provided"
     with pytest.raises(APIParameterException) as excinfo:
         api.search()
-    assert "One of 'page' or 'parameters' must be provided" in str(excinfo.value)
+    assert err in str(excinfo.value)
+
+    with pytest.raises(APIParameterException) as excinfo:
+        api.prepare_search()
+    assert err in str(excinfo.value)
 
 
-def test_parameter_exceptions(monkeypatch, mock_successful_response):
+def test_request_preparation_parameter_exceptions(monkeypatch, mock_successful_response):
     """Tests whether an APIParameterException is raised when the `parameters` argument to `prepare_request` is not a
     dictionary as intended."""
     minimum_request_delay = 0.5  # second interval between requests minimum
@@ -806,25 +805,32 @@ def test_parameter_exceptions(monkeypatch, mock_successful_response):
     ) in str(excinfo.value)
 
 
-def test_base_url_omission(default_api_parameter_config):
+def test_request_preparation_base_url_omission(default_search_api):
     """Validates that the omission of a base URL in the preparation of a request will return the automatically same URL
     value for the API as when it is specified explicitly."""
-    api = SearchAPI(
-        query="test",
-        records_per_page=10,
-        api_key="another-private-api-key",
-        base_url="https://api.another-example.com",
-        parameter_config=default_api_parameter_config,
-    )
 
-    params = api.build_parameters(page=1)
-    prepared_request = api.prepare_request(api.base_url, parameters=params)
-    prepared_request_default = api.prepare_request(parameters=params)
+    params = default_search_api.build_parameters(page=1)
+    prepared_request = default_search_api.prepare_request(default_search_api.base_url, parameters=params)
+    prepared_request_default = default_search_api.prepare_request(parameters=params)
 
     assert prepared_request.url == prepared_request_default.url
 
 
-def test_rate_limiter_use(monkeypatch, mock_successful_response):
+@pytest.mark.parametrize("page", (1, 2, 3))
+def test_prepare_search_and_prepare_request_equivalence(page, default_search_api):
+    """Verifies that `prepare_search` produces the expected PreparedRequest depending on the passed parameters"""
+    parameters = default_search_api.build_parameters(page=page)
+    prepared_request = default_search_api.prepare_request(parameters=parameters)
+    assert prepared_request.url
+    assert prepared_request.url == default_search_api.prepare_search(page=page).url
+    # should overwrite the previously passed parameters
+    assert prepared_request.url == default_search_api.prepare_search(page=page, parameters=parameters).url
+
+    # the built parameters should be sufficient to generate the original request
+    assert prepared_request.url == default_search_api.prepare_search(parameters=parameters).url
+
+
+def test_rate_limited_searches(monkeypatch, mock_successful_response):
     """Validates and tests whether the request delay, when modified with a context manager, successfully changes the
     duration between requests for the duration of the context."""
     minimum_request_delay = 0.5  # second interval between requests minimum

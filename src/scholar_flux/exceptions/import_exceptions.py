@@ -56,7 +56,7 @@ class SQLAlchemyImportError(OptionalDependencyImportError):
 
     def __init__(self):
         """Initializes the `sqlalchemy` import exception for improved logging before the exception is raised."""
-        err = """Optional Dependency: Sql Alchemy backend is not installed.
+        err = """Optional Dependency: SQL Alchemy backend is not installed.
         Please install the 'sqlalchemy' package to use this feature."""
         super().__init__(message=err)
 

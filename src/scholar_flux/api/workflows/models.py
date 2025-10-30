@@ -34,6 +34,11 @@ class BaseWorkflowStep(BaseModel):
 
     Used to define the behavior and actions of each step in a workflow
 
+    Args:
+        additional_kwargs (Dict[str, Any]):
+            A dictionary of optional keyword parameters used to modify the functionality of future WorkflowStep
+            subclass instances.
+
     """
 
     additional_kwargs: Dict[str, Any] = Field(
@@ -62,6 +67,7 @@ class BaseWorkflowStep(BaseModel):
         Args:
             *args: Positional input parameters used to modify the behavior of the workflow step at runtime
             **kwargs: keyword_parameters input parameters used to modify the behavior of the workflow step at runtime
+
         """
         raise NotImplementedError()
 

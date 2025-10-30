@@ -46,20 +46,13 @@ Example usage:
     >>> rate_limited_request()
 
 """
-from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.rate_limiting.rate_limiter import RateLimiter
 from scholar_flux.api.rate_limiting.threaded_rate_limiter import ThreadedRateLimiter
 from scholar_flux.api.rate_limiting.retry_handler import RetryHandler
+from scholar_flux.api.models.rate_limiter_registry import RateLimiterRegistry
 
-rate_limiter_registry = {
-    provider_name: RateLimiter(provider_config.request_delay)
-    for provider_name, provider_config in provider_registry.items()
-}
-
-threaded_rate_limiter_registry = {
-    provider_name: ThreadedRateLimiter(provider_config.request_delay)
-    for provider_name, provider_config in provider_registry.items()
-}
+rate_limiter_registry = RateLimiterRegistry.from_defaults(threaded=False)
+threaded_rate_limiter_registry = RateLimiterRegistry.from_defaults(threaded=True)
 
 __all__ = [
     "RateLimiter",

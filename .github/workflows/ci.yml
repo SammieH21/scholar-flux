@@ -74,6 +74,13 @@ jobs:
       # After poetry and tox are installed, tox handles the rest for testing
       - name: Install Poetry
         uses: snok/install-poetry@v1
+
+      - name: Verify all Python versions are installed
+        run: |
+          which python3.10 && python3.10 --version
+          which python3.11 && python3.11 --version
+          which python3.12 && python3.12 --version
+          which python3.13 && python3.13 --version
       
       - name: Install tox
         run: poetry run pip install tox tox-gh-actions

@@ -25,12 +25,12 @@ class BaseCoordinator:
     """BaseCoordinator providing the minimum functionality for requesting and retrieving records and metadata from APIs.
 
     This class uses dependency injection to orchestrate the process of constructing requests,
-    validating response, and processing scientific works and articles. This class is designed
+    validating responses, and processing scientific works and articles. This class is designed
     to provide the absolute minimum necessary functionality to both retrieve and process data
     from APIs and can make use of caching functionality for caching requests and responses.
 
     After initialization, the BaseCoordinator uses two main components for the sequential orchestration
-    of both response retrieval, processing, and caching.
+    of response retrieval, processing, and caching.
 
     Components:
         SearchAPI (api/search_api):
@@ -97,7 +97,7 @@ class BaseCoordinator:
         """Allows the direct modification of the SearchAPI while ensuring type-safety."""
         if not isinstance(search_api, SearchAPI):
             raise InvalidCoordinatorParameterException(
-                "Expected a SearchAPI object. " "Instead received type ({type(search_api)})"
+                f"Expected a SearchAPI object. Instead received type ({type(search_api)})"
             )
         self._search_api = search_api
 
@@ -162,7 +162,7 @@ class BaseCoordinator:
         """Allows the direct modification of the ResponseCoordinator while ensuring type-safety."""
         if not isinstance(response_coordinator, ResponseCoordinator):
             raise InvalidCoordinatorParameterException(
-                f"Expected a ResponseCoordinator object. " f"Instead received type ({type(response_coordinator)})"
+                f"Expected a ResponseCoordinator object. Instead received type ({type(response_coordinator)})"
             )
         self._response_coordinator = response_coordinator
 
@@ -178,7 +178,7 @@ class BaseCoordinator:
     def _search(self, **kwargs) -> Optional[ProcessedResponse | ErrorResponse]:
         """
         Basic Search Method implementing the core components needed to coordinate the
-        the retrieval and processing of the response from the API
+        retrieval and processing of the response from the API
         Args:
             **kwargs: Arguments to provide to the search API
         Returns:
@@ -201,7 +201,7 @@ class BaseCoordinator:
         blocks of a SearchCoordinator.
 
         Args:
-            searchAPI (Optional[SearchAPI]):
+            search_API (Optional[SearchAPI]):
                 The search API to use for the retrieval of response records from APIs
             response_coordinator (Optional[ResponseCoordinator]):
                 Core class used to handle the processing and core handling of all responses from APIs
@@ -229,10 +229,11 @@ class BaseCoordinator:
         helper function, generate_repr_from_string helps produce human-readable representations of the core structure of
         the Coordinator.
 
-        flatten (bool):
-            Whether to flatten the coordinator's structural representation into a single line. Default=False
-        show_value_attributes (bool):
-            Whether to show nested attributes of the components of the BaseCoordinator its subclass.
+        Args:
+            flatten (bool):
+                Whether to flatten the coordinator's structural representation into a single line. Default=False
+            show_value_attributes (bool):
+                Whether to show nested attributes of the components of the BaseCoordinator its subclass.
 
         Returns:
             str: The structure of the current SearchCoordinator as a string.

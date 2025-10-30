@@ -36,9 +36,12 @@ class WorkflowStep(BaseWorkflowStep):
     during, and after the execution of the `search` procedure in this step of the `SearchWorkflow`.
 
     Args:
-        provider_name: Optional[str]: Allows for the modification of the current provider for multifaceted searches
-        **search_parameters:  defines optional keyword arguments to pass to SearchCoordinator._search()
-        **config_parameters:  defines optional keyword arguments that modify the step's SearchAPIConfig
+        provider_name: Optional[str]: The provider to use for this step. Allows for the modification of the current
+                                      provider for multifaceted searches.
+        **search_parameters: API search parameters for this step. Defines optional keyword arguments to pass to
+                             `SearchCoordinator._search()`
+        **config_parameters: Optional config parameters for this step. Defines optional keyword arguments that modify
+                             the step's SearchAPIConfig.
         **description (str): An optional description explaining the execution and/or purpose of the current step
 
     """
@@ -109,6 +112,7 @@ class WorkflowStep(BaseWorkflowStep):
             ctx (Optional[StepContext]): The context from a previous step, if available.
             verbose (bool): Indicates whether logs of each step should be printed to the console.
             **keyword_parameters (bool): keyword mappings that are passed directly to `search_coordinator.search()`.
+
         """
         i = ctx.step_number if ctx is not None else step_number
         step_search_parameters = self.search_parameters | keyword_parameters | self.additional_kwargs
@@ -134,6 +138,7 @@ class WorkflowStep(BaseWorkflowStep):
 
         Yields:
             WorkflowStep: The current step with the modification applied
+
         """
         with search_coordinator.api.with_config_parameters(**self.config_parameters):
             yield self

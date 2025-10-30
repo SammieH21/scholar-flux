@@ -132,10 +132,13 @@ class APIParameterMap(BaseAPIParameterMap):
         with that of a known provider.
 
         Valid providers (as indicated in provider_registry) include:
-            - springernature
-            - plos
-            - core
-            - crossref
+
+        - springernature
+        - plos
+        - arxiv
+        - openalex
+        - core
+        - crossref
 
         Args:
             provider_name (str): The name of the API provider to retrieve the parameter map for.
@@ -167,9 +170,23 @@ class APIParameterConfig:
         parameter_map (APIParameterMap): The mapping of universal to API-specific parameter names.
 
     Class Attributes:
-        DEFAULT_CORRECT_ZERO_INDEX (bool): Autocorrects zero-indexed API parameter building specifications to only
-                                           accept positive values when true. If otherwise False, page calculation
-                                           APIs will start from page 0 if zero-indexed (i.e arXiv).
+        DEFAULT_CORRECT_ZERO_INDEX (bool):
+            Autocorrects zero-indexed API parameter building specifications to only accept positive values when True.
+            If otherwise False, page calculation APIs will start from page 0 if zero-indexed (i.e., arXiv).
+
+    Examples:
+        >>> from scholar_flux.api import APIParameterConfig, APIParameterMap
+        >>> # the API parameter map is defined and used to resolve parameters to the API's language
+        >>> api_parameter_map = APIParameterMap(
+        ... query='q', records_per_page = 'pagesize', start = 'page', auto_calculate_page = False
+        ... )
+        # The APIParameterConfig defines class and settings that indicate how to create requests
+        >>> api_parameter_config = APIParameterConfig(api_parameter_map, auto_calculate_page = False)
+        # Builds parameters using the specification from the APIParameterMap
+        >>> page = api_parameter_config.build_parameters(query= 'ml', page = 10, records_per_page=50)
+        >>> print(page)
+        # OUTPUT {'q': 'ml', 'page': 10, 'pagesize': 50}
+
     """
 
     parameter_map: APIParameterMap
@@ -402,9 +419,8 @@ class APIParameterConfig:
         This helper class method resolves the structure of the APIParameterConfig against its basic building blocks
         to create a new configuration when possible.
 
-
         Args:
-            parameter_map: dict | BaseAPIParameterMap | APIParameterMap | APIParameterConfig:
+            parameter_map (dict | BaseAPIParameterMap | APIParameterMap | APIParameterConfig):
                 A parameter mapping/config to use in the instantiation of an APIParameterConfig.
 
         Returns:

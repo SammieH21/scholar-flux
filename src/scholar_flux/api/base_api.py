@@ -36,7 +36,7 @@ class BaseAPI:
     Examples:
         >>> from scholar_flux.api import BaseAPI
         # creating a basic API client that uses the PLOS API as the default while caching response data in-memory:
-        >>> base_api = BaseAPI(use_cache = True)
+        >>> base_api = BaseAPI(use_cache=True)
         # retrieve a basic request:
         >>> parameters = {'q': 'machine learning', 'start': 1, 'rows': 20}
         >>> response_page_1 = base_api.send_request('https://api.plos.org/search', parameters=parameters)
@@ -66,20 +66,19 @@ class BaseAPI:
         timeout: Optional[int | float] = None,
         use_cache: Optional[bool] = None,
     ):
-        """Initializes the Base Api for response retrieval given the provided inputs.
+        """Initializes the BaseAPI client for response retrieval given the provided inputs.
 
         The necessary attributes are prepared with a new or existing session (cached or uncached) via dependency
         injection. This class is designed to be subclassed for specific API implementations.
 
         Args:
-            base_url (str): The base URL for the API.
             user_agent (Optional[str]): Optional user-agent string for the session.
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
+            timeout (Optional[int | float]): Timeout for requests in seconds.
             use_cache (Optional[bool]): Indicates whether or not to use cache. The default setting is to
                                         create a regular requests.Session unless a CachedSession is already provided.
 
         """
-
         self.session: requests.Session = self.configure_session(session, user_agent, use_cache)
         self.timeout = self._validate_timeout(timeout if timeout is not None else self.DEFAULT_TIMEOUT)
 
@@ -92,13 +91,12 @@ class BaseAPI:
 
     @property
     def user_agent(self) -> Optional[str]:
-        """The User-Agent should always reflect what is used in the session:
+        """The User-Agent should always reflect what is used in the session.
 
-        this method retrieves the user agent from the session directly
+        This method retrieves the User-Agent from the session directly.
 
         """
         user_agent = self.session.headers.get("User-Agent")
-
         return user_agent.decode("utf-8") if isinstance(user_agent, bytes) else user_agent
 
     @user_agent.setter
@@ -121,15 +119,17 @@ class BaseAPI:
         use_cache: Optional[bool] = None,
     ) -> requests.Session:
         """
-        Creates a session object if one does not already exist: If use_cache = True, then a cached session
-        object will be used - a regular session if not already cached, will be overridden if the session
+        Creates a session object if one does not already exist. If use_cache = True, then a cached session
+        object will be used. A regular session that is not already cached will be overridden.
 
         Args:
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
             user_agent (Optional[str]): Optional user-agent string for the session.
             use_cache (Optional[bool]): Indicates whether or not to use cache if a cached session doesn't yet exist.
-                                        If use_cache is True and a cached session has already been passed, this returns
-                                        the received cached session object otherwise it creates it.
+                                        If `use_cache` is True and a cached session has already been passed, the
+                                        previously created cached session is returned. Otherwise, a new CachedSession
+                                        is created.
+
         Returns:
             requests.Session: The configured session.
         """

@@ -22,6 +22,7 @@ from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpec
 from scholar_flux.api.models.api_parameters import APIParameterMap, APIParameterConfig
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.provider_registry import ProviderRegistry
+from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 
 from scholar_flux.api.models.response_types import APIResponseType
 from scholar_flux.api.models.search_api_config import SearchAPIConfig
@@ -43,6 +44,7 @@ __all__ = [
     "APIParameterConfig",
     "ProviderConfig",
     "ProviderRegistry",
+    "BaseProviderDict",
     "APIResponse",
     "ErrorResponse",
     "NonResponse",
