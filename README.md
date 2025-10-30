@@ -61,15 +61,15 @@ retrieving metadata, and performing comprehensive searches for articles, journal
 ScholarFlux is built around three core components that work together through dependency injection:
 
 ```
-**SearchCoordinator**
-├── **SearchAPI** (HTTP retrieval + rate limiting)
+SearchCoordinator
+├── SearchAPI (HTTP retrieval + rate limiting)
 │   ├── RateLimiter
 │   ├── Session (requests or requests-cache)
 │   ├── APIParameterMap (provider-specific parameter translation)
 │   ├── SensitiveDataMasker (Masks and unmasks sensitive data when needed)
 │   └── SearchAPIConfig (records per page, request delays, provider URL/name, API keys, etc.)
 │
-└── **ResponseCoordinator** (processing pipeline)
+└── ResponseCoordinator (processing pipeline)
     ├── DataParser (XML/JSON/YAML → dict)
     ├── DataExtractor (dict → records list)
     ├── DataProcessor (records transformation)
@@ -79,17 +79,17 @@ ScholarFlux is built around three core components that work together through dep
 
 Each of these components are designed with a specific focus in mind:
 
-**SearchAPI**: Creates HTTP requests while handling the specifics of parameter building for provider-specific configurations
-**ResponseCoordinator**: Coordinates response handling (parsing → extraction → transformation → caching) while logging and validating each step of the process
-**SearchCoordinator**: Delegates and Orchestrates the entire process using the SearchAPI (response retrieval) and ResponseCoordinator (response processing)
+- **SearchAPI**: Creates HTTP requests while handling the specifics of parameter building for provider-specific configurations
+- **ResponseCoordinator**: Coordinates response handling (parsing → extraction → transformation → caching) while logging and validating each step of the process
+- **SearchCoordinator**: Delegates and Orchestrates the entire process using the SearchAPI (response retrieval) and ResponseCoordinator (response processing)
 
 Other components are designed to support the orchestration of each step in the process including:
 
-**SensitiveDataMasker**: Uses pattern matching to identify, mask, and register sensitive strings such as API Keys and Authorization Bearer tokens during critical steps before and after response retrieval
-**DataParser**: Parses responses of different types (XML, JSON, and YAML) into dictionaries to support later response handling processes
-**DataExtractor**: Extracts and separates both records and response metadata from parsed responses
-**DataProcessor**: Optionally filters and flattens records extracted from previous steps
-**DataCacheManager**: Provides storage abstraction supporting in-memory, Redis, MongoDB, and SQLAlchemy backends. The ResponseCoordinator detects schema changes and stale responses to determine whether or not to pull from cache
+- **SensitiveDataMasker**: Uses pattern matching to identify, mask, and register sensitive strings such as API Keys and Authorization Bearer tokens during critical steps before and after response retrieval
+- **DataParser**: Parses responses of different types (XML, JSON, and YAML) into dictionaries to support later response handling processes
+- **DataExtractor**: Extracts and separates both records and response metadata from parsed responses
+- **DataProcessor**: Optionally filters and flattens records extracted from previous steps
+- **DataCacheManager**: Provides storage abstraction supporting in-memory, Redis, MongoDB, and SQLAlchemy backends. The ResponseCoordinator detects schema changes and stale responses to determine whether or not to pull from cache
 
 ## Getting Started
 
@@ -382,11 +382,11 @@ elif isinstance(result.response_result, ErrorResponse):
 
 **Validation happens at every stage:**
 
-1. Request validation - checks required parameters before sending
-2. Response structure - verifies HTTP response is valid JSON/XML
-3. Schema validation - checks parsed response has expected fields
-4. Record validation - validates individual records before processing
-5. Cache validation - checks cached data integrity before returning
+1. **Request validation**: checks required parameters before sending
+2. **Response structure**: verifies HTTP response is valid JSON/XML
+3. **Schema validation**: checks parsed response has expected fields
+4. **Record validation**: validates individual records before processing
+5. **Cache validation**: checks cached data integrity before returning
 
 ### Rate Limiting
 
@@ -394,13 +394,13 @@ ScholarFlux implements relatively conservative rate limits that are adjusted to 
 can potentially change over time, each limit is set higher than the actual rate limit of each API to future-proof its defaults and avoid bans.
 
 **Internally set ScholarFlux Rate limits:**
-- PLOS: 6.1 seconds between requests
-- arXiv: 4 seconds between requests
-- OpenAlex: conservatively set to 6 seconds between requests: OpenAlex takes into account 5 metrics for the rate of requests received
-- PubMed: 2 seconds between requests
-- Crossref: 1 second between requests
-- Core: 6 seconds between requests: the CORE API takes into account token usage instead of limiting by requests per second
-- Springer Nature: 2 seconds between requests
+- **PLOS**: 6.1 seconds between requests
+- **arXiv**: 4 seconds between requests
+- **OpenAlex**: conservatively set to 6 seconds between requests: OpenAlex takes into account 5 metrics for the rate of requests received
+- **PubMed**: 2 seconds between requests
+- **Crossref**: 1 second between requests
+- **Core**: 6 seconds between requests: the CORE API takes into account token usage instead of limiting by requests per second
+- **Springer Nature**: 2 seconds between requests
 
 When needed, these parameters can be modified directly when creating a SearchCoordinator or SearchAPI:
 
@@ -552,8 +552,8 @@ The Apache License 2.0 applies only to the code and gives no rights to the under
 
 ### Acknowledgments
 
-    Thanks to Springer Nature, Crossref, PLOS, PubMed and other Providers for providing public access to their academic databases through the respective APIs.
-    This project uses Poetry for dependency management and requires Python 3.10 or higher.
+Thanks to Springer Nature, Crossref, PLOS, PubMed and other Providers for providing public access to their academic databases through the respective APIs.
+This project uses Poetry for dependency management and requires Python 3.10 or higher.
 
 ### Contact
 
