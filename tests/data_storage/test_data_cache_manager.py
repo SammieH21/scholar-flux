@@ -4,6 +4,8 @@ from requests import Response
 from scholar_flux.data_storage.null_storage import NullStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage import DataCacheManager
+from scholar_flux.exceptions import StorageCacheException
+from tests.testing_utilities import raise_error
 import copy
 
 
@@ -22,7 +24,7 @@ def test_basic_cache_operations(
     """Test basic cache operations with different storage types."""
     # Create cache manager with specific storage
 
-    dependency_name = storage_type.split("_")[0] if not storage_type.startswith("sql") else "sqlalchemy"
+    dependency_name = storage_type.split("_")[0]
     if db_dependency_unavailable(dependency_name):
         pytest.skip()
 
@@ -202,3 +204,16 @@ def test_copy(request, mock_response, storage_type, db_dependency_unavailable):
         new_memory_cache = getattr(new_cache_manager.cache_storage, "memory_cache", None)
         assert id(memory_cache) != id(new_cache_manager.cache_storage.memory_cache)  # type: ignore
         assert memory_cache == new_memory_cache
+
+
+def test_cache_retrieval_with_faulty_data(monkeypatch, caplog):
+    """Tests `DataCacheManager.retrieve` edge case handling when an unexpected error occurs during cache retrieval."""
+    data_cache_manager = DataCacheManager.with_storage("memory")
+    e = "Memory Storage Error"
+    msg = f"Error encountered during attempted retrieval from cache: {e}"  # error re-raised from the DataCacheManager
+    monkeypatch.setattr(data_cache_manager.cache_storage, "retrieve", raise_error(StorageCacheException, e))
+
+    with pytest.raises(StorageCacheException) as excinfo:
+        data_cache_manager.retrieve(cache_key="a_valid_cache_key")
+    assert msg in caplog.text
+    assert msg in str(excinfo.value)

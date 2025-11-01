@@ -9,8 +9,9 @@ cache and can be further extended to duckdb and other abstractions supported by 
 
 """
 from typing import Any, List, Dict, Optional
-from typing_extensions import Self
+from typing_extensions import Self, Type
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from scholar_flux.utils.repr_utils import generate_repr
 
 import logging
@@ -30,6 +31,7 @@ class ABCStorage(ABC):
     def __init__(self, *args, **kwargs) -> None:
         """Initializes the current storage implementation."""
         self.namespace: Optional[str] = None
+        self.raise_on_error: bool = False
 
     def _initialize(self, *args, **kwargs) -> None:
         """Optional base method to implement for initializing/reinitializing connections."""
@@ -127,6 +129,53 @@ class ABCStorage(ABC):
         logger.error(msg)
 
         raise KeyError(msg)
+
+    @classmethod
+    def _handle_storage_exception(
+        cls, exception: BaseException, operation_exception_type: Optional[Type[BaseException]] = None, msg: str = ""
+    ) -> None:
+        """Helper method for logging errors and raising a new exception if needed.
+
+        Another exception is only raised if `operation_exception_type` is assigned an exception. If `None`,
+        an exception is not raised. An error will be logged regardless, however.
+
+        Args:
+            exception (BaseException): The exception instance raised from the last storage cache operation
+            operation_exception_type (Type[BaseException]): The exception to raise
+            msg (str): The error message to log and/or raise.
+
+        """
+        error_message = msg or str(exception)
+        logger.error(error_message)
+        if operation_exception_type is not None:
+            raise operation_exception_type(error_message) from exception
+
+    @contextmanager
+    def with_raise_on_error(self, value: bool = True):
+        """Uses a context manager to temporarily modify the `raise_on_error` attribute for the context duration.
+
+        All storage backends that inherit from the `ABCStorage` will also inherit the `with_raise_on_error` context
+        manager. When used, this context manager temporarily sets the `raise_on_error` attribute to True or False for
+        the duration of a code block without permanently changing the storage subclass's configuration.
+
+        This context manager is most useful for briefly suppressing errors and in cache verification when errors
+        need to be logged and reported instead of silently indicating that a cache entry couldn't be found.
+
+        Args:
+            value (bool): A value to temporarily assign to `raise_on_error` for the context duration
+
+        Example:
+            >>> with storage.with_raise_on_error(True):
+            >>>     # Any storage operation here will raise on error, regardless of the instance default
+            >>>     storage.retrieve(key)
+        """
+        original_value = self.raise_on_error
+        self.raise_on_error = value
+
+        try:
+            yield
+        finally:
+            self.raise_on_error = original_value
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method for quickly showing a representation of the overall structure of the current storage subclass.

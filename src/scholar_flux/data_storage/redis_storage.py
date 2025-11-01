@@ -13,7 +13,14 @@ the `delete_all` method does not perform any deletions unless a namespace exists
 """
 
 from __future__ import annotations
-from scholar_flux.exceptions import RedisImportError
+from scholar_flux.exceptions import (
+    RedisImportError,
+    StorageCacheException,
+    CacheRetrievalException,
+    CacheUpdateException,
+    CacheDeletionException,
+    CacheVerificationException,
+)
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils.encoder import JsonDataEncoder
 from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
@@ -78,12 +85,14 @@ class RedisStorage(ABCStorage):
         "host": config_settings.config.get("SCHOLAR_FLUX_REDIS_HOST") or "localhost",
         "port": config_settings.config.get("SCHOLAR_FLUX_REDIS_PORT") or 6379,
     }
+    DEFAULT_RAISE_ON_ERROR: bool = False
 
     def __init__(
         self,
         host: Optional[str] = None,
         namespace: Optional[str] = None,
         ttl: Optional[int] = None,
+        raise_on_error: Optional[bool] = None,
         **redis_config,
     ):
         """Initialize the Redis storage backend and connect to the Redis server.
@@ -105,6 +114,9 @@ class RedisStorage(ABCStorage):
             ttl (Optional[int]):
                 The total number of seconds that must elapse for a cache record to expire. If not provided,
                 ttl defaults to None.
+            raise_on_error (Optional[bool]):
+                Determines whether an error should be raised when encountering unexpected issues when interacting with
+                Redis. If `None`, the `raise_on_error` attribute defaults to `RedisStorage.DEFAULT_RAISE_ON_ERROR`.
             **redis_config (Optional[Dict[Any, Any]]):
                 Configuration parameters required to connect to the Redis server. Typically includes parameters
                 such as host, port, db, etc.
@@ -115,7 +127,8 @@ class RedisStorage(ABCStorage):
         """
         super().__init__()
 
-        if not redis:
+        # optional dependencies set to None if not available
+        if redis is None:
             raise RedisImportError
 
         self.config: dict = self.DEFAULT_CONFIG | redis_config
@@ -125,8 +138,9 @@ class RedisStorage(ABCStorage):
 
         self.client = redis.Redis(**self.config)
 
-        # Only override the default if its available and the namespace is not directly provided
+        # Only override the defaults if available and the namespace/raise_on_error parameters are not directly provided
         self.namespace = self.DEFAULT_NAMESPACE if self.DEFAULT_NAMESPACE and not namespace else namespace
+        self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
 
         # catches all None and non-empty strings
         self._validate_prefix(self.namespace, required=True)
@@ -169,7 +183,10 @@ class RedisStorage(ABCStorage):
             return JsonDataEncoder.deserialize(cache_data)
 
         except RedisError as e:
-            logger.error(f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}")
+            msg = f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
+            )
         return None
 
     def retrieve_all(self) -> Dict[str, Any]:
@@ -189,7 +206,10 @@ class RedisStorage(ABCStorage):
             return results
 
         except RedisError as e:
-            logger.error(f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}")
+            msg = f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
+            )
         return {}
 
     def retrieve_keys(self) -> List[str]:
@@ -210,7 +230,10 @@ class RedisStorage(ABCStorage):
                     for key in self.client.scan_iter(f"{self.namespace}:*")
                 ]
         except RedisError as e:
-            logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}")
+            msg = f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
+            )
 
         return keys
 
@@ -238,7 +261,10 @@ class RedisStorage(ABCStorage):
                 logger.debug(f"Cache updated for key: '{namespace_key}'")
 
         except RedisError as e:
-            logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}")
+            msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
+            )
 
     def delete(self, key: str) -> None:
         """Delete the value associated with the provided key from cache.
@@ -252,14 +278,19 @@ class RedisStorage(ABCStorage):
         """
         try:
             namespace_key = self._prefix(key)
-            if self.verify_cache(key):
+            with self.with_raise_on_error():
+                cached = self.verify_cache(key)
+            if cached:
                 with self.lock:
                     self.client.delete(namespace_key)
             else:
                 logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
 
-        except RedisError as e:
-            logger.error(f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}")
+        except (RedisError, StorageCacheException) as e:
+            msg = f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
+            )
 
     def delete_all(self) -> None:
         """Delete all records from cache that match the current namespace prefix.
@@ -284,7 +315,10 @@ class RedisStorage(ABCStorage):
                     self.client.delete(key)
 
         except RedisError as e:
-            logger.error(f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}")
+            msg = f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
+            )
 
     def verify_cache(self, key: str) -> bool:
         """Check if specific cache key exists.
@@ -310,9 +344,12 @@ class RedisStorage(ABCStorage):
                 if self.client.exists(namespace_key):
                     return True
 
-        except RedisError as e:
-            logger.error(
-                f"Error during the verification of the existence of key {key} (namespace = '{self.namespace}'): {e}"
+        except (RedisError, StorageCacheException) as e:
+            msg = f"Error during the verification of the existence of key {key} (namespace = '{self.namespace}'): {e}"
+            self._handle_storage_exception(
+                exception=e,
+                operation_exception_type=CacheVerificationException if self.raise_on_error else None,
+                msg=msg,
             )
 
         return False
@@ -337,7 +374,7 @@ class RedisStorage(ABCStorage):
             ConnectionError: If a connection cannot be established
 
         """
-        if not redis:
+        if redis is None:
             logger.warning("The redis module is not available")
             return False
 

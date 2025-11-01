@@ -187,8 +187,9 @@ class DataCacheManager:
                 logger.warning(f"Record for key {cache_key} not found...")
             return result
         except Exception as e:
-            logger.error(f"Error encountered during attempted retrieval from cache: {e}")
-            raise StorageCacheException
+            msg = f"Error encountered during attempted retrieval from cache: {e}"
+            logger.error(msg)
+            raise StorageCacheException(msg) from e
 
     def retrieve_from_response(self, response: Response | ResponseProtocol) -> Optional[Dict[str, Any]]:
         """Retrieves data from the cache storage based on the response if within cache.

@@ -119,41 +119,45 @@ def test_workflow_called():
 
 
 def test_search_exception(monkeypatch, caplog):
-    """Tests to verify that `search` correctly returns `None` when an unexpected error occurs during retrieval.
+    """Tests to verify that `search` correctly returns a `NonResponse` when an unexpected error occurs during retrieval.
 
     The `_search` private method is patched to raise an Exception to be handled within the `search` method.
 
     """
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")
 
+    e = "Directly raised exception"
     monkeypatch.setattr(
         search_coordinator,
         "_search",
-        lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Directly raised exception")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(Exception(e)),
     )
 
+    msg = f"An unexpected error occurred when processing the response: {e}"
     response = search_coordinator.search(page=1)
-    assert response is None
-    assert "An unexpected error occurred when processing the response: Directly raised exception" in caplog.text
+    assert isinstance(response, NonResponse)
+    assert msg in caplog.text
+    assert e == response.message
+    assert response.cache_key and search_coordinator._create_cache_key(page=1) == response.cache_key
 
     caplog.clear()
 
     response_list = search_coordinator.search_pages(pages=[1, 2, 3])
-    assert len(response_list) == 1 and response_list[0].response_result is None
-    assert "An unexpected error occurred when processing the response: Directly raised exception" in caplog.text
+    assert len(response_list) == 1 and isinstance(response_list[0].response_result, NonResponse)
+    assert msg in caplog.text
 
     caplog.clear()
 
     monkeypatch.setattr(
         search_coordinator,
         "search",
-        lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Directly raised search exception")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(Exception(e)),
     )
 
     response_data = search_coordinator.search_data(page=1)
     assert response_data is None
     assert re.search(
-        "An unexpected error occurred when attempting to retrieve the processed response data:.*Directly raised search exception",
+        f"An unexpected error occurred when attempting to retrieve the processed response data:.*{e}",
         caplog.text,
     )
 
@@ -365,7 +369,7 @@ def test_cache_deletions(monkeypatch, caplog):
     # search_coordinator = SearchCoordinator(query = 'hi', cache_requests = True)
     search_coordinator._delete_cached_request(page=4)  # type: ignore
     assert re.search(
-        "A cached response for the current request does not exist: 'Key [a-zA-z0-9]+ not found", caplog.text
+        "A cached response for the current request does not exist: 'Key [a-zA-Z0-9]+ not found", caplog.text
     )
 
     monkeypatch.setattr(search_coordinator, "_get_request_key", lambda *args, **kwargs: None)

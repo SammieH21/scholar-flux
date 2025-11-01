@@ -31,14 +31,14 @@ def pubmed_coordinator(pubmed_search_api) -> SearchCoordinator:
 @pytest.fixture
 def mock_pubmed_search_endpoint() -> re.Pattern:
     """Defines the pattern for the endpoint to query when creating an eSearch  requests using requests_mock."""
-    mock_pubmed_search_endpoint = re.compile("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi.*")
+    mock_pubmed_search_endpoint = re.compile(re.escape("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?") + "[a-z0-9&_=%]+")
     return mock_pubmed_search_endpoint
 
 
 @pytest.fixture
 def mock_pubmed_fetch_endpoint() -> re.Pattern:
     """Defines the pattern for the endpoint to query when creating an eFetch request using requests_mock."""
-    mock_pubmed_fetch_endpoint = re.compile("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi.*")
+    mock_pubmed_fetch_endpoint = re.compile(re.escape("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?") + "[a-z0-9&_%]+=")
     return mock_pubmed_fetch_endpoint
 
 

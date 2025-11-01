@@ -54,23 +54,31 @@ class InMemoryStorage(ABCStorage):
 
     """
 
+    # for compatibility with other storage backends
+    DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_RAISE_ON_ERROR: bool = False
+
     def __init__(
         self,
         namespace: Optional[str] = None,
         ttl: Optional[int] = None,
-        **memory_config,
+        raise_on_error: Optional[bool] = None,
+        **kwargs,
     ) -> None:
-        """Initialize a basic memory_cache using a namespace.
+        """Initialize a basic, dictionary-like  memory_cache using a namespace.
 
-        Note that ttl and **memory_config are provided for interface compatibility and do not affect processing or cache
-        initialization.
+        Note that `ttl` and `**kwargs` are provided for interface compatibility, and specifying any of these as
+        arguments will not affect processing or cache initialization.
 
         """
-        self.namespace = namespace
+        self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
 
         if ttl is not None:
-            logger.warning("TTL is not enforced in InMemoryStorage. Skipping.")
+            logger.warning("The parameter, `ttl` is not enforced in InMemoryStorage. Skipping.")
+        if raise_on_error is not None:
+            logger.warning("The parameter, `raise_on_error` is not enforced in InMemoryStorage. Skipping.")
         self.ttl = None
+        self.raise_on_error = False
         self.lock = threading.Lock()
 
         self._validate_prefix(namespace, required=False)
@@ -188,8 +196,6 @@ class InMemoryStorage(ABCStorage):
 
         """
         namespace_key = self._prefix(key)
-        if not namespace_key:
-            raise ValueError(f"Key invalid. Received {key}")
         with self.lock:
             return namespace_key in self.memory_cache
 

@@ -80,6 +80,25 @@ def test_fuzzy_key_pattern():
     assert loaded_masked_dictionary == {key: masking_text for key in birthday_keys}
 
 
+def test_fuzzy_fixed_values_pattern():
+    """Verifies that fixed-value string masking works as expected while fuzzy key string matching finds fuzzy fields."""
+    masking_text = "<redacted>"
+    fuzzy_field_pattern = "[Rr]ed|[Bb]lue|[Gg]reen"
+
+    # an impossible regex pattern - the end can never come before the beginning
+    fixed_value = "$^"
+    test_dictionary = {"red": fixed_value, "Green": fixed_value, "blue": fixed_value}
+    color_json = json.dumps(test_dictionary)
+
+    fuzzy_key_pattern = FuzzyKeyMaskingPattern(
+        name="base-colors", field=fuzzy_field_pattern, pattern=fixed_value, replacement=masking_text, use_regex=False
+    )
+    masked_color_json = fuzzy_key_pattern.apply_masking(color_json)
+    redacted_dictionary = json.loads(masked_color_json)
+    assert redacted_dictionary.keys() == test_dictionary.keys()
+    assert fixed_value not in masked_color_json and all(value == masking_text for value in redacted_dictionary.values())
+
+
 def test_sensitive_key_pattern_type():
     """Verifies that the masker uses fuzzy field matching when `fuzzy=True` and, otherwise, uses a KeyMaskingPattern."""
     masker = SensitiveDataMasker(register_defaults=False)
