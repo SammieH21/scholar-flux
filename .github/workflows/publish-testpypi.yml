@@ -10,6 +10,9 @@ on:
       - 'poetry.lock'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate-version:
     name: Validate Version Match
@@ -56,6 +59,7 @@ jobs:
       url: https://test.pypi.org/p/scholar-flux
     
     permissions:
+      contents: read
       id-token: write
     
     steps:

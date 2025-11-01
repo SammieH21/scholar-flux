@@ -14,8 +14,7 @@ class NullStorage(ABCStorage):
     """NullStorage is a no-op implementation of ABCStorage. This class is useful for when you want to disable storage
     without changing code logic.
 
-    The scholar_flux package mainly implements this storage when the user turns off processing
-    cache.
+    The scholar_flux package mainly implements this storage when the user turns off processing cache.
 
     Example:
         >>> from scholar_flux.data_storage import DataCacheManager, NullStorage
@@ -30,6 +29,36 @@ class NullStorage(ABCStorage):
         >>> response = search_coordinator.search(page = 1)
 
     """
+
+    # for compatibility with other storage backends
+    DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_RAISE_ON_ERROR: bool = False
+
+    def __init__(
+        self,
+        namespace: Optional[str] = None,
+        ttl: None = None,
+        raise_on_error: Optional[bool] = None,
+        **kwargs,
+    ) -> None:
+        """Initialize a No-Op cache for compatibility with the `ABCStorage` base class.
+
+        Note that `namespace`, `ttl`, `raise_on_error`, and `**kwargs` are provided for interface compatibility, and
+        specifying any of these as arguments will not affect initialization.
+
+        """
+        if namespace is not None:
+            logger.warning("The parameter, `namespace` is not enforced in NullStorage. Skipping.")
+
+        if ttl is not None:
+            logger.warning("The parameter, `ttl` is not enforced in NullStorage. Skipping.")
+
+        if raise_on_error is not None:
+            logger.warning("The parameter, `raise_on_error` is not enforced in NullStorage. Skipping.")
+
+        self.namespace: Optional[str] = None
+        self.ttl = None
+        self.raise_on_error: bool = False
 
     def _initialize(self, *args, **kwargs) -> None:
         """Method added for abstract class consistency - no-op"""

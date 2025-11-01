@@ -1,7 +1,13 @@
 import pytest
 from unittest.mock import patch
 from scholar_flux.data_storage.redis_storage import RedisStorage
-from scholar_flux.exceptions import RedisImportError
+from scholar_flux.exceptions import (
+    RedisImportError,
+    CacheRetrievalException,
+    CacheUpdateException,
+    CacheDeletionException,
+    CacheVerificationException,
+)
 from tests.testing_utilities import raise_error
 
 
@@ -18,15 +24,17 @@ def test_redis_retrieval_error(redis_test_storage, monkeypatch, caplog):
 
     e = "Directly raised exception"
     key = "non-existent-key"
+    msg = f"Error during attempted retrieval of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
     monkeypatch.setattr(redis_test_storage.client, "get", raise_error(RedisError, e))
 
     retrieved = redis_test_storage.retrieve(key)
 
     assert retrieved is None
-    assert (
-        f"Error during attempted retrieval of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
-        in caplog.text
-    )
+    assert msg in caplog.text
+
+    with redis_test_storage.with_raise_on_error(), pytest.raises(CacheRetrievalException) as excinfo:
+        retrieved = redis_test_storage.retrieve(key)
+    assert msg in str(excinfo.value)
 
 
 def test_redis_retrieve_all_error(redis_test_storage, monkeypatch, caplog):
@@ -34,10 +42,15 @@ def test_redis_retrieve_all_error(redis_test_storage, monkeypatch, caplog):
     from redis import RedisError
 
     e = "Directly raised exception"
+    msg = "Error during attempted retrieval of records from namespace"
     monkeypatch.setattr(redis_test_storage, "retrieve_keys", raise_error(RedisError, e))
     all_retrieved = redis_test_storage.retrieve_all()
     assert not all_retrieved
-    assert "Error during attempted retrieval of records from namespace" in caplog.text
+    assert msg in caplog.text
+
+    with redis_test_storage.with_raise_on_error(), pytest.raises(CacheRetrievalException) as excinfo:
+        _ = redis_test_storage.retrieve_all()
+    assert msg in str(excinfo.value)
 
 
 def test_retrieve_keys_redis_error(redis_test_storage, monkeypatch, caplog):
@@ -45,11 +58,16 @@ def test_retrieve_keys_redis_error(redis_test_storage, monkeypatch, caplog):
     from redis import RedisError
 
     e = "Directly raised exception"
+    msg = f"Error during attempted retrieval of all keys from namespace '{redis_test_storage.namespace}"
     monkeypatch.setattr(redis_test_storage.client, "scan_iter", raise_error(RedisError, e))
 
     all_retrieved_keys = redis_test_storage.retrieve_keys()
     assert not all_retrieved_keys
-    assert f"Error during attempted retrieval of all keys from namespace '{redis_test_storage.namespace}" in caplog.text
+    assert msg in caplog.text
+
+    with redis_test_storage.with_raise_on_error(), pytest.raises(CacheRetrievalException) as excinfo:
+        _ = redis_test_storage.retrieve_keys()
+    assert msg in str(excinfo.value)
 
 
 def test_redis_update_error(redis_test_storage, monkeypatch, caplog):
@@ -58,11 +76,15 @@ def test_redis_update_error(redis_test_storage, monkeypatch, caplog):
 
     e = "Directly raised exception"
     key = "non-existent-key"
+    value = {"data": 1}
+    msg = f"Error during attempted update of key {key} (namespace = '{redis_test_storage.namespace}': {e}"
     monkeypatch.setattr(redis_test_storage.client, "set", raise_error(RedisError, e))
-    redis_test_storage.update("non-existent-key", {"data": 1})
-    assert (
-        f"Error during attempted update of key {key} (namespace = '{redis_test_storage.namespace}': {e}" in caplog.text
-    )
+    redis_test_storage.update(key, value)
+    assert msg in caplog.text
+
+    with redis_test_storage.with_raise_on_error(), pytest.raises(CacheUpdateException) as excinfo:
+        _ = redis_test_storage.update(key, value)
+    assert msg in str(excinfo.value)
 
 
 def test_redis_delete_error(redis_test_storage, monkeypatch, caplog):
@@ -71,12 +93,14 @@ def test_redis_delete_error(redis_test_storage, monkeypatch, caplog):
 
     e = "Directly raised exception"
     key = "non-existent-key"
+    msg = f"Error during attempted deletion of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
     monkeypatch.setattr(redis_test_storage, "verify_cache", raise_error(RedisError, e))
-    redis_test_storage.delete("non-existent-key")
-    assert (
-        f"Error during attempted deletion of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
-        in caplog.text
-    )
+    redis_test_storage.delete(key)
+    assert msg in caplog.text
+
+    with redis_test_storage.with_raise_on_error(), pytest.raises(CacheDeletionException) as excinfo:
+        _ = redis_test_storage.delete(key)
+    assert msg in str(excinfo.value)
 
 
 def test_redis_delete_all_error(redis_test_storage, monkeypatch, caplog):
@@ -84,13 +108,14 @@ def test_redis_delete_all_error(redis_test_storage, monkeypatch, caplog):
     from redis import RedisError
 
     e = "Directly raised exception"
-
+    msg = f"Error during attempted deletion of all records from namespace '{redis_test_storage.namespace}': {e}"
     monkeypatch.setattr(redis_test_storage.client, "scan_iter", raise_error(RedisError, e))
     redis_test_storage.delete_all()
-    assert (
-        f"Error during attempted deletion of all records from namespace '{redis_test_storage.namespace}': {e}"
-        in caplog.text
-    )
+    assert msg in caplog.text
+
+    with redis_test_storage.with_raise_on_error(), pytest.raises(CacheDeletionException) as excinfo:
+        _ = redis_test_storage.delete_all()
+    assert msg in str(excinfo.value)
 
 
 def test_redis_verify_cache_error(redis_test_storage, monkeypatch, caplog):
@@ -98,18 +123,21 @@ def test_redis_verify_cache_error(redis_test_storage, monkeypatch, caplog):
     from redis import RedisError
 
     intkey = 271
+
     with pytest.raises(ValueError) as excinfo:
         _ = redis_test_storage.verify_cache(intkey)
     assert f"Key invalid. Received {intkey} (namespace = '{redis_test_storage.namespace}')" in str(excinfo.value)
 
     e = "Directly raised exception"
     key = "non-existent-key"
+    msg = f"Error during the verification of the existence of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
     monkeypatch.setattr(redis_test_storage.client, "exists", raise_error(RedisError, e))
     redis_test_storage.verify_cache(key)
-    assert (
-        f"Error during the verification of the existence of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
-        in caplog.text
-    )
+    assert msg in caplog.text
+
+    with redis_test_storage.with_raise_on_error(), pytest.raises(CacheVerificationException) as excinfo_two:
+        _ = redis_test_storage.verify_cache(key)
+    assert msg in str(excinfo_two.value)
 
 
 def test_redis_unavailable(redis_test_storage, caplog):

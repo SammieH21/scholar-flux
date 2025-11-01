@@ -78,8 +78,10 @@ def round_trip_json_encoder(data: T) -> T:
     ),
 )
 def test_encode_decode_roundtrip(data):
-    """Verifies that the CacheDataEncoder, when encoding and decoding bytes results in the same value, even after being
-    dumped into a JSON string and subsequently loaded.
+    """Verifies that roundtrip encoding and decoding JSON data with the `CacheDataEncoder` produces the original data.
+
+    The result for standard JSON data types should always be identical to the original data before  serialization
+    and deserialization, even after being dumped into a JSON string and subsequently loaded.
 
     This test uses `pytest.mark.parametrize` in order to validate the different types of data that can be expected
 

@@ -24,7 +24,12 @@ from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions import (
     SQLAlchemyImportError,
-)  # Custom exception for missing SQLAlchemy
+    StorageCacheException,
+    CacheRetrievalException,
+    CacheUpdateException,
+    CacheDeletionException,
+    CacheVerificationException,
+)
 
 import cattrs
 import threading
@@ -33,16 +38,15 @@ logger = logging.getLogger(__name__)
 
 # SQLAlchemy import logic for type checking and runtime
 if TYPE_CHECKING:
-    from sqlalchemy import create_engine, Column, String, Integer, JSON, exc, func
+    import sqlalchemy
+    from sqlalchemy import create_engine, Column, String, Integer, JSON, exc
     from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
-    SQLALCHEMY_AVAILABLE = True
 else:
     try:
-        from sqlalchemy import create_engine, Column, String, Integer, JSON, exc, func
+        import sqlalchemy  # imported for consistent implementation with redis/pymongo, etc.
+        from sqlalchemy import create_engine, Column, String, Integer, JSON, exc
         from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-        SQLALCHEMY_AVAILABLE = True
     except ImportError:
         # Dummies for names so code still parses, but using stubs or Nones for runtime
         create_engine = None
@@ -51,13 +55,13 @@ else:
             """Placeholder function that returned when the sqlalchemy package is not available."""
             pass
 
-        String = Integer = JSON = exc = func = None
+        String = Integer = JSON = exc = None
         DeclarativeBase = object  # type: ignore
         sessionmaker = None
-        SQLALCHEMY_AVAILABLE = False
+        sqlalchemy = None
 
 # Define ORM classes if SQLAlchemy is available or for type checking
-if TYPE_CHECKING or SQLALCHEMY_AVAILABLE:
+if TYPE_CHECKING or sqlalchemy is not None:
 
     class Base(DeclarativeBase):
         """Helper class from which future SQL tables can be defined from."""
@@ -131,12 +135,14 @@ class SQLAlchemyStorage(ABCStorage):
         "url": lambda: "sqlite:///" + str(get_default_writable_directory("package_cache") / "data_store.sqlite"),
         "echo": False,
     }
+    DEFAULT_RAISE_ON_ERROR: bool = False
 
     def __init__(
         self,
         url: Optional[str] = None,
         namespace: Optional[str] = None,
         ttl: None = None,
+        raise_on_error: Optional[bool] = False,
         **sqlalchemy_config,
     ) -> None:
         """Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter.
@@ -150,6 +156,9 @@ class SQLAlchemyStorage(ABCStorage):
                 The prefix associated with each cache key. By default, this is None.
             ttl (None):
                 Ignored. Included for interface compatibility; not implemented.
+            raise_on_error (Optional[bool]):
+                Determines whether an error should be raised when encountering unexpected issues when interacting with
+                SQLAlchemy. If `None`, the `raise_on_error` attribute defaults to `SQLAlchemyStorage.DEFAULT_RAISE_ON_ERROR`.
             **sqlalchemy_config:
                 Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine Typical parameters include
                 the following:
@@ -158,8 +167,8 @@ class SQLAlchemyStorage(ABCStorage):
                     - echo (bool): Indicates whether to show the executed SQL queries in the console.
 
         """
-
-        if not SQLALCHEMY_AVAILABLE:
+        # optional dependencies set to None if not available
+        if sqlalchemy is None:
             raise SQLAlchemyImportError
 
         sqlalchemy_config["url"] = url or self.DEFAULT_CONFIG["url"]()
@@ -175,6 +184,7 @@ class SQLAlchemyStorage(ABCStorage):
         self.Session = sessionmaker(bind=self.engine)
         self.converter = cattrs.Converter()
         self.namespace = namespace or self.DEFAULT_NAMESPACE
+        self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
         self.lock = threading.Lock()
 
         if ttl:
@@ -211,10 +221,15 @@ class SQLAlchemyStorage(ABCStorage):
                 structured_data = self._deserialize_data(record.cache) if record else None
                 if record:
                     return structured_data
-                return None
+
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}")
-                return None
+                msg = f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}"
+                self._handle_storage_exception(
+                    exception=e,
+                    operation_exception_type=CacheRetrievalException if self.raise_on_error else None,
+                    msg=msg,
+                )
+            return None
 
     def retrieve_all(self) -> Dict[str, Any]:
         """Retrieve all records from cache.
@@ -234,7 +249,12 @@ class SQLAlchemyStorage(ABCStorage):
                     if not self.namespace or str(record.key).startswith(self.namespace)
                 }
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}")
+                msg = f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}"
+                self._handle_storage_exception(
+                    exception=e,
+                    operation_exception_type=CacheRetrievalException if self.raise_on_error else None,
+                    msg=msg,
+                )
             return cache
 
     def retrieve_keys(self) -> List[str]:
@@ -253,7 +273,12 @@ class SQLAlchemyStorage(ABCStorage):
                     if not self.namespace or str(record.key).startswith(self.namespace)
                 ]
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}")
+                msg = f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}"
+                self._handle_storage_exception(
+                    exception=e,
+                    operation_exception_type=CacheRetrievalException if self.raise_on_error else None,
+                    msg=msg,
+                )
                 keys = []
             return keys
 
@@ -282,8 +307,11 @@ class SQLAlchemyStorage(ABCStorage):
                 session.commit()
 
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}")
                 session.rollback()
+                msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}"
+                self._handle_storage_exception(
+                    exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
+                )
 
     def delete(self, key: str) -> None:
         """Delete the value associated with the provided key from cache.
@@ -302,8 +330,13 @@ class SQLAlchemyStorage(ABCStorage):
                 else:
                     logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}")
                 session.rollback()
+                msg = f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}"
+                self._handle_storage_exception(
+                    exception=e,
+                    operation_exception_type=CacheDeletionException if self.raise_on_error else None,
+                    msg=msg,
+                )
 
     def delete_all(self) -> None:
         """Delete all records from cache that match the current namespace prefix."""
@@ -317,8 +350,13 @@ class SQLAlchemyStorage(ABCStorage):
                     session.commit()
                     logger.debug(f"Deleted {num_deleted} records.")
             except exc.SQLAlchemyError as e:
-                logger.error(f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}")
+                msg = f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}"
                 session.rollback()
+                self._handle_storage_exception(
+                    exception=e,
+                    operation_exception_type=CacheDeletionException if self.raise_on_error else None,
+                    msg=msg,
+                )
 
     def _serialize_data(self, record_data: Any) -> Any:
         """Helper method for serializing and encoding cached data. The data is first encoded, identifying nested
@@ -370,7 +408,17 @@ class SQLAlchemyStorage(ABCStorage):
 
         if not key:
             raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
-        return self.retrieve(key) is not None
+        try:
+            with self.with_raise_on_error():
+                return self.retrieve(key) is not None
+        except StorageCacheException as e:
+            msg = f"Error during the verification of the existence of key {key} (namespace = '{self.namespace}'): {e}"
+            self._handle_storage_exception(
+                exception=e,
+                operation_exception_type=CacheVerificationException if self.raise_on_error else None,
+                msg=msg,
+            )
+        return False
 
     @classmethod
     def is_available(cls, url: Optional[str] = None, verbose: bool = True) -> bool:
@@ -383,7 +431,7 @@ class SQLAlchemyStorage(ABCStorage):
             verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
 
         """
-        if not SQLALCHEMY_AVAILABLE:
+        if sqlalchemy is None:
             logger.warning("The sqlalchemy module is not available")
             return False
 

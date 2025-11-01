@@ -71,6 +71,10 @@ from scholar_flux.exceptions.import_exceptions import (
 from scholar_flux.exceptions.storage_exceptions import (
     StorageCacheException,
     KeyNotFound,
+    CacheRetrievalException,
+    CacheUpdateException,
+    CacheDeletionException,
+    CacheVerificationException,
 )
 
 from scholar_flux.exceptions.path_exceptions import (
@@ -136,6 +140,10 @@ __all__ = [
     "CryptographyImportError",
     "StorageCacheException",
     "KeyNotFound",
+    "CacheRetrievalException",
+    "CacheUpdateException",
+    "CacheDeletionException",
+    "CacheVerificationException",
     "PathUtilsError",
     "InvalidProcessingPathError",
     "InvalidComponentTypeError",

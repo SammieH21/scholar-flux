@@ -10,6 +10,9 @@ on:
       - 'poetry.lock'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate-version:
     name: Validate Version Match
@@ -50,13 +53,14 @@ jobs:
     name: Build and Publish to PyPI
     needs: validate-version
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
     
     environment:
       name: pypi
       url: https://pypi.org/p/scholar-flux
-    
-    permissions:
-      id-token: write
     
     steps:
     - name: Checkout code

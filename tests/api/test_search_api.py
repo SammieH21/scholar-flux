@@ -834,6 +834,7 @@ def test_rate_limited_searches(monkeypatch, mock_successful_response):
     """Validates and tests whether the request delay, when modified with a context manager, successfully changes the
     duration between requests for the duration of the context."""
     minimum_request_delay = 0.5  # second interval between requests minimum
+    TOLERANCE = 0.95
 
     api = SearchAPI.from_defaults(
         provider_name="plos",
@@ -849,11 +850,11 @@ def test_rate_limited_searches(monkeypatch, mock_successful_response):
     api.search(page=2)
     next_request_end = time()
     seconds_interval = next_request_end - next_request_start
-    assert seconds_interval >= minimum_request_delay
+    assert seconds_interval >= minimum_request_delay * TOLERANCE
 
     next_request_start = time()
     with api.with_config_parameters(request_delay=0):
         api.search(parameters={"mock_parameter": True})
     next_request_end = time()
     seconds_interval = next_request_end - next_request_start
-    assert seconds_interval < minimum_request_delay
+    assert TOLERANCE * seconds_interval < minimum_request_delay

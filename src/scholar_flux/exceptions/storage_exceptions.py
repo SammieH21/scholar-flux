@@ -20,4 +20,36 @@ class KeyNotFound(KeyError):
     pass
 
 
-__all__ = ["StorageCacheException", "ConnectionFailed", "KeyNotFound"]
+class CacheRetrievalException(StorageCacheException):
+    """Exception raised when retrieval from a storage device fails."""
+
+    pass
+
+
+class CacheUpdateException(StorageCacheException):
+    """Exception raised when updating a cache storage device fails."""
+
+    pass
+
+
+class CacheDeletionException(StorageCacheException):
+    """Exception raised when record deletion from a storage device fails."""
+
+    pass
+
+
+class CacheVerificationException(StorageCacheException):
+    """Exception raised when the cache validation from a storage device fails."""
+
+    pass
+
+
+__all__ = [
+    "StorageCacheException",
+    "ConnectionFailed",
+    "KeyNotFound",
+    "CacheRetrievalException",
+    "CacheUpdateException",
+    "CacheDeletionException",
+    "CacheVerificationException",
+]

@@ -365,10 +365,12 @@ class SearchCoordinator(BaseCoordinator):
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
         Returns:
             Optional[ProcessedResponse | ErrorResponse]:
-                A ProcessedResponse model containing the response (response), processed records (data),
-                  and article metadata (metadata) if the response was successful.
-                Otherwise returns an ErrorResponse where the reason behind the error (message),
-                  exception type (error), and response (response) are provided.
+                A ProcessedResponse model containing the response (response), processed records (data), and article
+                metadata (metadata) if the response was successful. Otherwise returns an ErrorResponse where the reason
+                behind the error (message), exception type (error), and response (response) are provided.
+                Possible error responses also include a `NonResponse` (an `ErrorResponse` subclass) for cases where a
+                response object is irretrievable. Like the `ErrorResponse` class, `NonResponse` is also Falsy
+                (i.e., `not NonResponse` returns True)
 
         """
         try:
@@ -391,7 +393,9 @@ class SearchCoordinator(BaseCoordinator):
                 )
         except Exception as e:
             logger.error(f"An unexpected error occurred when processing the response: {e}")
-        return None
+            # `page` input could have a type issue, so create a cache key only if valid
+            cache_key = self._create_cache_key(page=page) if isinstance(page, int) and page >= 0 else None
+            return NonResponse.from_error(error=e, message=str(e), cache_key=cache_key)
 
     def search_pages(
         self,
@@ -693,8 +697,7 @@ class SearchCoordinator(BaseCoordinator):
 
         Args:
             page (int): The page number to retrieve from the cache.
-            from_request_cache (bool): This parameter determines whether to
-                                       try to fetch from cache
+            from_request_cache (bool): This parameter determines whether to try to fetch a valid response from cache.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
 
         Returns:
@@ -797,13 +800,17 @@ class SearchCoordinator(BaseCoordinator):
 
     def _fetch_api_response(self, page: int, from_request_cache: bool = True, **api_specific_parameters) -> APIResponse:
         """Helper method for fetching the response and retrieving the cache key.
+
         Args:
             page (int): The page number to retrieve from the cache.
+            from_request_cache (bool): This parameter determines whether to try to fetch a valid response from cache..
+            **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
+
         Returns:
             APIResponse | NonResponse: A data class containing the response and cache key when successfully retrieved,
-                                        independent of status code, and a NonResponse otherwise when retrieval is
-                                        unsuccessful due to an error.
-            **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
+                                       independent of status code, and a NonResponse otherwise when retrieval is
+                                       unsuccessful due to an error.
+
         """
         cache_key = self._create_cache_key(page)
         try:

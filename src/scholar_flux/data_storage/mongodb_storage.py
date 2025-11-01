@@ -11,7 +11,15 @@ within the database for later CRUD operations.
 from __future__ import annotations
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 
-from scholar_flux.exceptions import MongoDBImportError
+from scholar_flux.exceptions import (
+    MongoDBImportError,
+    StorageCacheException,
+    CacheRetrievalException,
+    CacheUpdateException,
+    CacheDeletionException,
+    CacheVerificationException,
+)
+
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
 
@@ -84,12 +92,14 @@ class MongoDBStorage(ABCStorage):
 
     # for mongodb, the default
     DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_RAISE_ON_ERROR: bool = False
 
     def __init__(
         self,
         host: Optional[str] = None,
         namespace: Optional[str] = None,
-        ttl: Optional[int] = None,
+        ttl: Optional[float | int] = None,
+        raise_on_error: Optional[bool] = None,
         **mongo_config,
     ):
         """Initialize the Mongo DB storage backend and connect to the Mongo DB server.
@@ -114,8 +124,12 @@ class MongoDBStorage(ABCStorage):
 
             namespace (Optional[str]):
                 The prefix associated with each cache key. By default, this is None.
-            ttl (Optional[int]):
+            ttl (Optional[float | int]):
                 The total number of seconds that must elapse for a cache record
+            raise_on_error (Optional[bool]):
+                Determines whether an error should be raised when encountering unexpected issues when interacting with
+                MongoDB. If `None`, the `raise_on_error` attribute defaults to `MongoDBStorage.DEFAULT_RAISE_ON_ERROR`.
+
             **mongo_config (Dict[Any, Any]):
                 Configuration parameters required to connect to the Mongo DB server.
                 Typically includes parameters such as host, port, db, etc.
@@ -124,7 +138,8 @@ class MongoDBStorage(ABCStorage):
             MongoDBImportError: If db module is not available or fails to load.
 
         """
-        if not pymongo:
+        # optional dependencies set to None if not available
+        if pymongo is None:
             raise MongoDBImportError
 
         self.config = self.DEFAULT_CONFIG | mongo_config
@@ -134,6 +149,7 @@ class MongoDBStorage(ABCStorage):
 
         self.client: MongoClient = MongoClient(host=self.config["host"], port=self.config["port"])
         self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
+        self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
         self.db = self.client[self.config["db"]]
         self.collection = self.db[self.config["collection"]]
 
@@ -181,7 +197,10 @@ class MongoDBStorage(ABCStorage):
                 return {k: v for k, v in cache_data["data"].items() if k not in ("_id", "key")}
 
         except PyMongoError as e:
-            logger.error(f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}")
+            msg = f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
+            )
 
         logger.info(f"Record for key {key} (namespace = '{self.namespace}') not found...")
         return None
@@ -209,7 +228,10 @@ class MongoDBStorage(ABCStorage):
                     if data.get("key") and (not self.namespace or data.get("key", "").startswith(self.namespace))
                 }
         except PyMongoError as e:
-            logger.error(f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}")
+            msg = f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
+            )
 
         return cache
 
@@ -231,7 +253,10 @@ class MongoDBStorage(ABCStorage):
             if self.namespace:
                 keys = [key for key in keys if key.startswith(f"{self.namespace}:")]
         except PyMongoError as e:
-            logger.error(f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}")
+            msg = f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
+            )
         return keys
 
     def update(self, key: str, data: Any):
@@ -264,8 +289,11 @@ class MongoDBStorage(ABCStorage):
 
         except DuplicateKeyError as e:
             logger.warning(f"Duplicate key error updating cache: {e}")
-        except PyMongoError as e:
-            logger.error(f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}")
+        except (PyMongoError, StorageCacheException) as e:
+            msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
+            )
 
     def delete(self, key: str):
         """Delete the value associated with the provided key from cache.
@@ -286,7 +314,10 @@ class MongoDBStorage(ABCStorage):
             else:
                 logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
         except PyMongoError as e:
-            logger.error(f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}")
+            msg = f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
+            )
 
     def delete_all(self):
         """Delete all records from cache that match the current namespace prefix.
@@ -303,7 +334,10 @@ class MongoDBStorage(ABCStorage):
             else:
                 logger.warning("No records present to delete")
         except PyMongoError as e:
-            logger.error(f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}")
+            msg = f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}"
+            self._handle_storage_exception(
+                exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
+            )
 
     def verify_cache(self, key: str) -> bool:
         """Check if specific cache key exists.
@@ -316,13 +350,24 @@ class MongoDBStorage(ABCStorage):
 
         Raises:
             ValueError: If provided key is empty or None.
+            CacheVerificationException: If an error occurs on data retrieval
 
         """
         if not key:
             raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
 
-        found_data = self.retrieve(key)
-        return found_data is not None
+        try:
+            with self.with_raise_on_error():
+                found_data = self.retrieve(key)
+            return found_data is not None
+        except (PyMongoError, StorageCacheException) as e:
+            msg = f"Error during the verification of the existence of key {key} (namespace = '{self.namespace}'): {e}"
+            self._handle_storage_exception(
+                exception=e,
+                operation_exception_type=CacheVerificationException if self.raise_on_error else None,
+                msg=msg,
+            )
+        return False
 
     @classmethod
     def is_available(cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True) -> bool:
@@ -352,7 +397,7 @@ class MongoDBStorage(ABCStorage):
             ConnectionFailure: If a connection cannot be established
 
         """
-        if not pymongo:
+        if pymongo is None:
             logger.warning("The pymongo module is not available")
             return False
 
