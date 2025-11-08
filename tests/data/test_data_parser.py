@@ -1,9 +1,12 @@
 from scholar_flux.exceptions import DataParsingException
 from scholar_flux.data import BaseDataParser, DataParser
+import scholar_flux.data.base_parser
 from scholar_flux import logger
 import json
 import pytest
 import requests
+import importlib
+from unittest.mock import patch
 
 
 def custom_json_parser(response_content: bytes) -> dict:
@@ -65,3 +68,40 @@ def test_json_data_parsing_invalid():
     base_parser = BaseDataParser()
     with pytest.raises(DataParsingException):
         base_parser.parse(invalid_response)
+
+
+def test_reraise_parser_error():
+    """Verifies that the base parser re-raises an error when encountering parsing errors in intermediate steps."""
+    with pytest.raises(DataParsingException) as excinfo:
+        BaseDataParser().parse("fake response")  # type: ignore
+        assert f"Expected a response or response-like object, received type {type('')}" == str(excinfo.value)
+
+
+def test_xmltodict_missing():
+    """Verifies that the XML parser raises the intended error when the dependency is missing."""
+    try:
+        with patch.dict("sys.modules", {"xmltodict": None}):
+            importlib.reload(scholar_flux.data.base_parser)
+            from scholar_flux.data.base_parser import BaseDataParser, XMLToDictImportError, xmltodict
+
+            assert xmltodict is None
+
+            with pytest.raises(XMLToDictImportError):
+                BaseDataParser.parse_xml(b'<?xml version="1.0" encoding="UTF-8"?><root><item>Mock-XML</item></root>')
+    finally:
+        importlib.reload(scholar_flux.data.base_parser)
+
+
+def test_yaml_missing():
+    """Verifies that the YAML parser raises the intended error when the dependency is missing."""
+    try:
+        with patch.dict("sys.modules", {"yaml": None}):
+            importlib.reload(scholar_flux.data.base_parser)
+            from scholar_flux.data.base_parser import BaseDataParser, YAMLImportError, yaml
+
+            assert yaml is None
+
+            with pytest.raises(YAMLImportError):
+                BaseDataParser.parse_yaml(b"- Mock-YAML")
+    finally:
+        importlib.reload(scholar_flux.data.base_parser)

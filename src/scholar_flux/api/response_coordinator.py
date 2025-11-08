@@ -549,7 +549,7 @@ class ResponseCoordinator:
             return self._process_response(resolved_response, cache_key)
 
         except (RequestException, InvalidResponseStructureException, InvalidResponseReconstructionException) as e:
-            error_response = self._process_error(response, f"Error retrieving response {e}", e, cache_key=cache_key)
+            error_response = self._process_error(response, f"Error retrieving response: {e}", e, cache_key=cache_key)
 
         except (
             DataParsingException,
@@ -557,7 +557,7 @@ class ResponseCoordinator:
             DataProcessingException,
             FieldNotFoundException,
         ) as e:
-            error_response = self._process_error(response, f"Error processing response {e}", e, cache_key=cache_key)
+            error_response = self._process_error(response, f"Error processing response: {e}", e, cache_key=cache_key)
 
         except Exception as e:
             error_response = self._process_error(

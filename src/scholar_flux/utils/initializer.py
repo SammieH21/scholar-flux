@@ -49,7 +49,7 @@ def initialize_package(
 
     """
 
-    logger = logging.getLogger()
+    logger = logging.getLogger("scholar_flux")
 
     masker = security.SensitiveDataMasker()
     masking_filter = security.MaskingFilter(masker)

@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from scholar_flux.api import SearchAPI, SearchCoordinator, APIParameterMap, MultiSearchCoordinator
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
 from scholar_flux.utils import parse_iso_timestamp
-from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
+from scholar_flux.api.rate_limiting import ThreadedRateLimiter, threaded_rate_limiter_registry
 from scholar_flux.api.models import SearchResultList, ProcessedResponse, ErrorResponse, PageListInput
 from unittest.mock import patch
 from warnings import warn
@@ -13,7 +13,6 @@ import pytest
 from time import time
 from datetime import datetime
 import re
-from time import sleep
 
 
 @pytest.fixture
@@ -523,16 +522,11 @@ def test_rate_limiter_normalization(
     ]
     assert len(set(map(id, all_rate_limiters))) == len(multisearch_coordinator.current_providers())
 
-    original_sleep_fn = sleep
-    sleep_args = []
-
-    def sleep_and_record(arg):
-        """Helper class used to both sleep and verify the arguments passed to sleep during request rate limiting."""
-        sleep_args.append(arg)
-        original_sleep_fn(arg)
-
-    # patch the endpoints to use requests_mock instead of actually sending requests, and patch with `sleep_and_record`
-    with initialize_mocker() as _, patch("time.sleep", side_effect=sleep_and_record):
+    # patch the endpoints to use requests_mock instead of actually sending requests
+    with (
+        initialize_mocker() as _,
+        patch.object(ThreadedRateLimiter, "_wait", wraps=ThreadedRateLimiter._wait) as tracked_wait,
+    ):
         max_pages = max(component_dict["page"] for component_dict in path_component_dict.values())
         page_range = range(1, max_pages + 1)
         start = time()
@@ -563,7 +557,7 @@ def test_rate_limiter_normalization(
             for provider_name in unique_providers
         }
 
-        time_betweeen_requests = []
+        time_between_requests = []
         for provider_name in unique_providers:
             prev_timestamp = None
             for timestamp in intervals[provider_name]:
@@ -571,17 +565,28 @@ def test_rate_limiter_normalization(
                 # ignore first requests that aren't rate limited
                 if prev_timestamp is not None:
                     time_elapsed = abs(timestamp - prev_timestamp).total_seconds()
-                    time_betweeen_requests.append(time_elapsed)
+                    time_between_requests.append(time_elapsed)
 
                 # record the current as the previous for the next addition
                 prev_timestamp = timestamp
 
-        assert time_betweeen_requests
+        assert time_between_requests
 
-        # sometimes sleep is flaky and sleeps for too little time due to machine-related precision randomness
+        sleep_args = [
+            call.kwargs["min_interval"]
+            for call in tracked_wait.call_args_list
+            if call.kwargs.get("min_interval") is not None
+        ]
+
+        sleep_args += [
+            call.args[-1] for call in tracked_wait.call_args_list if call.args and not call.kwargs.get("min_interval")
+        ]
+
+        assert sleep_args and all(isinstance(arg, (float, int)) for arg in sleep_args)
+        # sometimes `sleep` is flaky and sleeps for too little time due to machine-related precision randomness
         # The second condition verifies the time.sleep arguments in case the first step fails due to this.
         assert all(
-            time_elapsed >= MIN_REQUEST_DELAY_INTERVAL * TOLERANCE for time_elapsed in time_betweeen_requests
+            time_elapsed >= MIN_REQUEST_DELAY_INTERVAL * TOLERANCE for time_elapsed in time_between_requests
         ) or min(arg for arg in sleep_args) >= min(
             threaded_rate_limiter_registry[coordinator.api.provider_name].min_interval
             for coordinator in multisearch_coordinator.coordinators

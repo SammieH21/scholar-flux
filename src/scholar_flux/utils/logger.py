@@ -75,7 +75,7 @@ def setup_logging(
             current_log_directory = None
 
     except RuntimeError as e:
-        logger.error("Failed to identify a directory for logging: %s", e)
+        logger.error("Could not identify or create a log directory due to an error: %s", e)
         raise LogDirectoryError(f"Could not identify or create a log directory due to an error: {e}.")
 
     # Clear existing handlers (useful if setup_logging is called multiple times)
