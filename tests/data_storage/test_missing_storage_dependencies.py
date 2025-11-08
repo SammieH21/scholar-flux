@@ -7,7 +7,7 @@ from unittest.mock import patch
 import importlib
 
 
-def test_sql_missing(monkeypatch, sqlalchemy_dependency):
+def test_sql_missing(sqlalchemy_dependency):
     """Verifies the behavior of the sql_storage module when sql is missing."""
     try:
         with patch.dict("sys.modules", {"sqlalchemy": None}):
@@ -39,7 +39,7 @@ def test_sql_missing(monkeypatch, sqlalchemy_dependency):
         importlib.reload(scholar_flux.data_storage.sql_storage)
 
 
-def test_mongo_missing(monkeypatch, mongodb_dependency):
+def test_mongo_missing(mongodb_dependency):
     """Verifies the behavior of the mongo_storage module when mongo is missing."""
     try:
         with patch.dict("sys.modules", {"pymongo": None}):
@@ -66,7 +66,7 @@ def test_mongo_missing(monkeypatch, mongodb_dependency):
         importlib.reload(scholar_flux.data_storage.mongodb_storage)
 
 
-def test_redis_missing(monkeypatch, redis_dependency):
+def test_redis_missing(redis_dependency):
     """Verifies the behavior of the redis_storage module when redis is missing."""
     try:
         with patch.dict("sys.modules", {"redis": None}):

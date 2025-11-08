@@ -73,8 +73,10 @@ class DataParser(BaseDataParser):
             else:
                 logger.error("Unsupported format: %s", format)
                 return None
+        except DataParsingException:
+            raise
         except Exception as e:
-            raise DataParsingException(f"An error occurred during response content parsing: {e}")
+            raise DataParsingException(f"An error occurred during response content parsing: {e}") from e
 
 
 __all__ = ["DataParser"]

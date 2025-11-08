@@ -477,6 +477,7 @@ class SearchAPI(BaseAPI):
             masker (Optional[str]): Used for filtering potentially sensitive information from logs
             **api_specific_parameters:
                 Additional api parameter-value pairs and overrides to be provided to SearchAPIConfig class
+
         Returns:
             A new SearchAPI instance initialized with the chosen configuration.
 

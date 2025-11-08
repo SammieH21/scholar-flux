@@ -1,5 +1,6 @@
 from scholar_flux.api.workflows import PubMedSearchStep, PubMedFetchStep, SearchWorkflow, WorkflowResult, StepContext
-from scholar_flux.api import SearchAPI, SearchCoordinator, ProcessedResponse
+from scholar_flux.api import SearchAPI, SearchCoordinator, ProcessedResponse, ErrorResponse, NonResponse
+from scholar_flux.exceptions import XMLToDictImportError
 from requests import Response
 from unittest.mock import MagicMock
 import requests_mock
@@ -29,6 +30,24 @@ def test_pubmed_workflow_context(caplog):
         _ = fetch_step.pre_transform(ctx)
 
     assert "The metadata from the pubmed search is not in the expected format" in caplog.text
+
+
+def test_pubmed_missing_step_ctx():
+    """Verifies that the `PubMedFetchStep` halts as needed when encountering a context with a missing result."""
+    search_step = PubMedSearchStep()
+    fetch_step = PubMedFetchStep()
+
+    ctx = StepContext(step_number=1, step=search_step, result=None)
+
+    with requests_mock.Mocker() as _, pytest.raises(RuntimeError) as excinfo:
+
+        _ = fetch_step.pre_transform(ctx)
+    nonresponse_error_message = (
+        "The `PubMedFetchStep` of the current workflow cannot continue, because the "
+        "previous step did not execute successfully. The result from the previous step is `None`."
+    )
+
+    assert nonresponse_error_message in str(excinfo.value)
 
 
 def test_direct_pubmed_workflow(
@@ -130,3 +149,41 @@ def test_workflow_default(
     assert isinstance(fetch_result, ProcessedResponse)
     assert fetch_result.response and fetch_result.response.content == mock_pubmed_fetch_data["_content"].encode("utf-8")
     assert search_result.response.content != fetch_result.response.content
+
+
+def test_dependency_error(mock_pubmed_search_endpoint, mock_pubmed_search_data, monkeypatch, caplog):
+    """Verifies that the workflow halts with the expected message when encountering missing xml dependencies."""
+
+    monkeypatch.setattr("scholar_flux.data.base_parser.xmltodict", None)
+    pubmed_api_key = "this_is_a_mocked_api_key"
+    with requests_mock.Mocker() as m:
+        m.get(
+            mock_pubmed_search_endpoint,
+            content=mock_pubmed_search_data["_content"].encode(),
+            headers={"Content-Type": "text/xml; charset=UTF-8"},
+            status_code=200,
+        )
+
+        api = SearchAPI.from_defaults(
+            "anxiety", "pubmed", user_agent="scholar_flux", api_key=pubmed_api_key, request_delay=0.01, use_cache=True
+        )
+        pubmed_coordinator = SearchCoordinator(api)
+        assert pubmed_coordinator.workflow
+        search_result = pubmed_coordinator.search(page=3, use_workflow=True)
+        assert isinstance(search_result, ErrorResponse)
+        assert search_result.status_code == 200 and "DataParsingException" in (search_result.error or "")
+
+        error_message = str(XMLToDictImportError())
+        assert "Halting the current workflow and returning the result from step 0..." in caplog.text
+        assert search_result.error and error_message in (search_result.message or "")
+
+        pubmed_coordinator.workflow.stop_on_error = False
+        nonresponse_search_result = pubmed_coordinator.search(page=3, use_workflow=True)
+        assert isinstance(nonresponse_search_result, NonResponse) and nonresponse_search_result.message
+
+        nonresponse_error_message = (
+            "The `PubMedFetchStep` of the current workflow cannot continue, because the "
+            f"previous step did not execute successfully. Error: {search_result.message}"
+        )
+
+        assert nonresponse_error_message in nonresponse_search_result.message

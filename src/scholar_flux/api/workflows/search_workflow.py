@@ -26,6 +26,7 @@ from scholar_flux.api.workflows.models import (
 )
 
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
+from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.base_coordinator import BaseCoordinator
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,25 @@ class WorkflowStep(BaseWorkflowStep):
         """Helper method used to format the inputted provider name using name normalization after type checking."""
         if isinstance(v, str):
             v = ProviderConfig._normalize_name(v)
+
+            if v not in provider_registry:
+                logger.warning(
+                    f"The provider, '{v}' doesn't exist in the registry. The default settings for the "
+                    "SearchCoordinator will not be applied when applying this step in a workflow."
+                )
         return v
+
+    def _get_provider_config_defaults(self, provider_name: Optional[str] = None) -> Optional[dict[str, Any]]:
+        """Extracts the default parameters for a specific provider from the provider registry if available."""
+
+        provider_name = provider_name or self.provider_name or ""
+
+        if provider_config := provider_registry.get(provider_name):
+            return provider_config.search_config_defaults()
+        elif provider_name:
+            logger.warning(f"Couldn't find a configuration for the provider, '{provider_name}'.")
+
+        return None
 
     def pre_transform(
         self,
@@ -67,8 +86,14 @@ class WorkflowStep(BaseWorkflowStep):
         search_parameters: Optional[dict] = None,
         config_parameters: Optional[dict] = None,
     ) -> Self:
-        """Overrides the `pre_transform of the base workflow step to allow for the modification of runtime search
+        """Overrides the `pre_transform` of the base workflow step to allow for the modification of runtime search
         behavior to modify the current search and its behavior.
+
+        This method will use the current configuration of the `WorkflowStep` by default (`provider_name`,
+        `config_parameters`, `search_parameters`).
+
+        If the `provider_name` is not specified, the context from the preceding workflow step, if available, is used to
+        transform the current `WorkflowStep` before runtime.
 
         Args:
             ctx (Optional[StepContext]): Defines the inputs that are used by the current SearchWorkflowStep to modify
@@ -84,15 +109,29 @@ class WorkflowStep(BaseWorkflowStep):
 
         if ctx is not None:
             self._verify_context(ctx)
-            provider_name = provider_name if provider_name is not None else ctx.step.provider_name
-            search_parameters = (ctx.step.search_parameters if ctx else {}) | (search_parameters or {})
-            config_parameters = (ctx.step.config_parameters if ctx else {}) | (config_parameters or {})
+
+            if not provider_name:
+                provider_name = self.provider_name if self.provider_name is not None else ctx.step.provider_name
+
+            if provider_name and ctx.step.provider_name != provider_name:
+                config_parameters = (
+                    (self._get_provider_config_defaults(provider_name) or {})
+                    | self.config_parameters
+                    | (config_parameters or {})
+                )
+                search_parameters = self.search_parameters | (search_parameters or {})
+
+            else:
+                config_parameters = (
+                    (ctx.step.config_parameters if ctx else {}) | self.config_parameters | (config_parameters or {})
+                )
+                search_parameters = (
+                    (ctx.step.search_parameters if ctx else {}) | self.search_parameters | (search_parameters or {})
+                )
 
         return self.model_copy(
             update=dict(
-                provider_name=provider_name or self.provider_name,
-                search_parameters=search_parameters or self.search_parameters,
-                config_parameters=config_parameters or self.config_parameters,
+                provider_name=provider_name, search_parameters=search_parameters, config_parameters=config_parameters
             )
         )
 
@@ -200,12 +239,15 @@ class SearchWorkflow(BaseWorkflow):
 
     Args:
         steps (List[WorkflowStep]): Defines the steps to be iteratively executed to arrive at a result.
+        stop_on_error (bool): Defines whether to stop workflow step iteration when an error occurs in a preceding step.
+                              If True, the workflow halts and the ErrorResponse from the previous step is returned.
         history (List[StepContext]): Defines the full context of all steps taken and results recorded to arrive at the
                                      final result on the completion of an executed workflow.
 
     """
 
     steps: List[WorkflowStep]
+    stop_on_error: bool = True
     _history: List[StepContext] = PrivateAttr(default_factory=lambda: [])
 
     def _run(
@@ -255,7 +297,12 @@ class SearchWorkflow(BaseWorkflow):
                     ctx = workflow_step.post_transform(preprocessed_ctx)
 
                 self._history.append(ctx)
+
                 result = ctx.result
+
+                if not ctx.result and self.stop_on_error:
+                    logger.warning(f"Halting the current workflow and returning the result from step {i}...")
+                    break
 
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during processing step {i}: {e}") from e

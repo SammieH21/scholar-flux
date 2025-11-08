@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.4] - 11/08/2025
+### Added
+- The `SearchWorkflow`, by default, now integrates the package-level `ProviderRegistry` to determine whether a provider exists and also warns ahead of time if a provider that does not exist in the registry is specified.
+- Added tests to confirm that the updated workflow source code operates as intended in both common and edge cases.
+
+### Changed
+- Refactored the `WorkflowStep.pre_transform` method to use the current provider name associated with the workflow by default. The previous context is used only if a provider name isn't specified for a workflow step.
+- Introduced a `stop_on_error` flag to the `SearchWorkflow` that halts workflows when a `None`, `ErrorResponse`, or `NonResponse` result from a previous step is encountered. 
+- The SearchWorkflow now prioritizes its current configuration over the result from the preceding workflow step.  This prevents potential issues such as API-specific parameter values that no longer apply when switching providers. This does not affect the way that the `PubMed` workflow operates, however. The behavior can be modified by inheriting and changing the `WorkflowStep.pre_transform` logic. 
+- Updated the package-level logger to be retrievable using the `logging` module. After importing scholar_flux or any submodule, it can be retrieved via `logging.getLogger("scholar_flux")`.
+- Modified the `BaseDataParser` test suite to simulate the unavailability of the `xmltodict` or `yaml` dependencies and their resulting error messages when not installed.
+- **Breaking**: Renamed the positional parameter, `storage` to `cache_storage`, for the constructor, `DataCacheManager.with_storage` for consistency with the rest of the implementation of the `DataCacheManager`.
+
+### Fixed
+- When encountering an optional dependency error where `xmltodict` isn't installed, the `PubMed` workflow would record that a `RuntimeError` occurred within the error message of a `NonResponse` object after naively trying to continue processing. The addition of `stop_on_error` clarifies the error in an `ErrorResponse` object with a human-readable explanation indicating the missing `xmltodict` library.
+- Refactored the `MultiSearchCoordinator`'s `test_rate_limiter_normalization` test to patch the `_wait` method instead of the `sleep` method. This method retrieves the unadjusted, raw `min_interval` between successive requests before accounting for the amount of time that has already elapsed since the last request.
+
 ## [0.1.3] - 11/01/2025
 ### Changed
 - Revised all code paths that would return `None` due to unexpected behavior during data retrieval to now return a `NonResponse` for easier management of possible search results. The `NonResponse` displays the underlying error/message and is `Falsy` (i.e., `not NonResponse` returns True).

@@ -6,8 +6,9 @@ import requests_mock
 from requests import Response
 from requests_cache import CachedResponse
 from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator
-from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep
+from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep, StepContext
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
+from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse
 
 from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
@@ -189,6 +190,86 @@ def test_workflow_components():
     # a simple context manager that has no side effects and only yields itself for the duration of the context
     with basic_workflow_step.with_context() as context_step:
         assert basic_workflow_step is context_step
+
+
+def test_workflow_step_different_provider_pre_transform():
+    """Verifies that the use of separate providers in the same workflow modifies the expected result as intended"""
+
+    arxiv_workflow_step = WorkflowStep(provider_name="arxiv")
+    crossref_workflow_step = WorkflowStep(provider_name="crossref")
+    arxiv_step_context = StepContext(step=arxiv_workflow_step, step_number=0, result=None)
+
+    updated_crossref_workflow_step = crossref_workflow_step.pre_transform(arxiv_step_context)
+    crossref_config = provider_registry["crossref"]
+    crossref_config_defaults = crossref_config.search_config_defaults()
+    # Because the range of valid parameters for arxiv are not exactly the same for crossref, use a new parameter set
+    assert all(
+        updated_crossref_workflow_step.config_parameters[parameter] == value
+        for parameter, value in crossref_config_defaults.items()
+    )
+
+
+def test_workflow_step_current_provider_pre_transform():
+    """Verifies that not specifying a provider will then use the provider and parameters from the previous step."""
+
+    arxiv_workflow_step = WorkflowStep(provider_name="arxiv")
+    second_workflow_step = WorkflowStep(provider_name=None)
+    # There should be no defaults to retrieve, because the provider name wasn't specified
+    assert second_workflow_step._get_provider_config_defaults() is None
+    arxiv_step_context = StepContext(step=arxiv_workflow_step, step_number=0, result=None)
+
+    updated_second_workflow_step = second_workflow_step.pre_transform(arxiv_step_context)
+    assert updated_second_workflow_step.config_parameters == arxiv_workflow_step.config_parameters
+
+
+def test_blank_workflow_step():
+    """Verifies that not specifying a provider will then default to using the config the SearchCoordinator."""
+    identity_workflow = SearchWorkflow(steps=[WorkflowStep()])
+    search_coordinator = SearchCoordinator(query="test query", provider_name="arxiv", workflow=identity_workflow)
+
+    # prepares the initial search independent of the workflow
+    prepared_search = search_coordinator.api.prepare_search(page=1)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_search.url,
+            status_code=200,
+            content=b'{"test": "success"}',
+            headers={"Content-Type": "application/json"},
+        )
+        mocked_page_result = search_coordinator.search(page=1)
+
+        assert mocked_page_result and mocked_page_result.response
+        assert mocked_page_result.response.url == prepared_search.url
+
+
+def test_unknown_provider_workflow_step(caplog):
+    """Verifies that specifying an unknown provider will then default to using the config the SearchCoordinator."""
+    provider_name = "unknownprovider"
+    unknown_provider_workflow = SearchWorkflow(steps=[WorkflowStep(), WorkflowStep(provider_name=provider_name)])
+    assert (
+        f"The provider, '{provider_name}' doesn't exist in the registry. The default settings for the "
+        "SearchCoordinator will not be applied when applying this step in a workflow."
+    ) in caplog.text
+    search_coordinator = SearchCoordinator(
+        query="test query", provider_name="arxiv", workflow=unknown_provider_workflow, request_delay=0
+    )
+
+    # prepares the initial search independent of the workflow
+    prepared_search = search_coordinator.api.prepare_search(page=1)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_search.url,
+            status_code=200,
+            content=b'{"test": "success"}',
+            headers={"Content-Type": "application/json"},
+        )
+        mocked_page_result = search_coordinator.search(page=1)
+
+        assert f"Couldn't find a configuration for the provider, '{provider_name}'." in caplog.text
+        assert mocked_page_result and mocked_page_result.response
+        assert mocked_page_result.response.url == prepared_search.url
 
 
 def test_with_workflow_error(monkeypatch, caplog):

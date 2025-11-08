@@ -18,7 +18,7 @@ workflows are enabled in the SearchCoordinator.
 """
 from __future__ import annotations
 from typing import Optional
-from scholar_flux.api.models import SearchAPIConfig
+from scholar_flux.api.models import SearchAPIConfig, ErrorResponse
 from scholar_flux.api.workflows.search_workflow import StepContext, WorkflowStep
 import logging
 
@@ -87,6 +87,16 @@ class PubMedFetchStep(WorkflowStep):
 
         if ctx:
             self._verify_context(ctx)
+            if not ctx.result:
+                err = (
+                    "The `PubMedFetchStep` of the current workflow cannot continue, because the previous step did "
+                    "not execute successfully."
+                )
+                if isinstance(ctx.result, ErrorResponse):
+                    err += f" Error: {ctx.result.message}"
+                else:
+                    err += " The result from the previous step is `None`."
+                raise RuntimeError(err)
             ids = getattr(ctx.result, "metadata", {}).get("IdList", {}).get("Id")
             config_parameters["id"] = ",".join(ids) or "" if ids else None
 

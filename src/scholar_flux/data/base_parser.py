@@ -126,8 +126,10 @@ class BaseDataParser:
         """Uses one of the default parsing methods to extract a dictionary of data from the response content."""
         try:
             return self.parse_from_defaults(response)
+        except DataParsingException:
+            raise
         except Exception as e:
-            raise DataParsingException(f"An error occurred during response content parsing: {e}")
+            raise DataParsingException(f"An error occurred during response content parsing: {e}") from e
 
     def __call__(self, response: requests.Response | ResponseProtocol, *args, **kwargs) -> dict | list[dict] | None:
         """Helper method for Parsing API response content into dictionary (json) structure.

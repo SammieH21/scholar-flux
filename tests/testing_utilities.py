@@ -12,4 +12,4 @@ def enable_debugging():
 
 def raise_error(exception_type: Type[BaseException], message: Optional[str] = None) -> Callable:
     """Helper method for manually raising an error message."""
-    return lambda *args, **kwargs: (_ for _ in ()).throw(exception_type(message))
+    return lambda *args, **kwargs: (_ for _ in ()).throw(exception_type(message) if message else exception_type())

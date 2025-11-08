@@ -627,8 +627,7 @@ class ProcessedResponse(APIResponse):
         return len(self.processed_records or [])
 
     def __bool__(self) -> bool:
-        """Returns true, indicating that processing was successful, independent of the number of rows within the
-        response."""
+        """Returns true to indicate that processing was successful, independent of the number of processed records."""
         return True
 
 
