@@ -34,9 +34,9 @@ def test_index_mapping_validation(extracted_records):
     """Tests whether the method that creates and/or validates node mappings in a PathNodeIndex correctly prepares both
     RecordPathChainMap and PathNodeMaps.
 
-    Independent of the modality that prepares the mappings, each should
-    contain the same range of nodes when comparing the list of nodes
-    within each mapping.
+    Independent of the modality that prepares the mappings, each should contain the same range of nodes when comparing
+    the list of nodes within each mapping.
+
     """
     path_discoverer = PathDiscoverer(extracted_records)
     path_dict = path_discoverer.discover_path_elements()
@@ -60,8 +60,8 @@ def test_chain_map_creation(path_nodes):
     """Validates whether the creation of a chain map with an iterable of nodes correctly instantiates a new
     RecordPathChainMap.
 
-    The final chain map should include the full range of nodes from the
-    `path_nodes` fixture.
+    The final chain map should include the full range of nodes from the `path_nodes` fixture.
+
     """
     assert path_nodes
     chain_map = RecordPathChainMap(*path_nodes)
@@ -103,11 +103,10 @@ def test_path_node_index_from_path_mappings_and_search():
 def test_path_node_index_pattern_search_and_combine_keys():
     """Tests the simplifier to Verify that combining keys works as intended.
 
-    When combining paths containing categories and their corresponding
-    counts in two separate nodes, the category name is extracted from
-    the `category` node and appended to the path of a new node.
-    Similarly, the `value` attribute in the new node originates from the
-    value from the `count` node.
+    When combining paths containing categories and their corresponding counts in two separate nodes, the category name
+    is extracted from the `category` node and appended to the path of a new node. Similarly, the `value` attribute in
+    the new node originates from the value from the `count` node.
+
     """
     mappings = {
         ProcessingPath(["0", "data", "0", "values", "value"]): "X",

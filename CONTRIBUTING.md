@@ -144,6 +144,7 @@ Set these before importing ScholarFlux:
 ```bash
 export SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
 export SCHOLAR_FLUX_LOG_LEVEL=DEBUG
+export SCHOLAR_FLUX_PROPAGATE_LOGS=TRUE
 ```
 
 Or in your Python code:
@@ -152,6 +153,7 @@ Or in your Python code:
 import os
 os.environ["SCHOLAR_FLUX_ENABLE_LOGGING"] = "TRUE"
 os.environ["SCHOLAR_FLUX_LOG_LEVEL"] = "DEBUG"
+os.environ["SCHOLAR_FLUX_PROPAGATE_LOGS"] = "TRUE"
 
 import scholar_flux
 ```
@@ -186,6 +188,15 @@ setup_logging(
 **Available Log Levels:** `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
 **Note:** The environment variable method is preferred for tests and CI/CD, while direct configuration is useful for custom logging requirements.
+
+**About `SCHOLAR_FLUX_PROPAGATE_LOGS`:**
+
+This environment variable controls whether ScholarFlux log messages are passed to ancestor loggers (such as the root logger).  
+- Set to `TRUE` (default) to allow integration with your application's logging configuration.
+- Set to `FALSE` to prevent duplicate log messages in environments like Jupyter or VS Code, or if you want ScholarFlux logs to be handled only by its own handlers.
+
+This environment variable only needs to be set when using interactive REPLs such as IPython when you'd like to remove duplicated log messages (i.e., SCHOLAR_FLUX_PROPAGATE_LOGS=FALSE).
+
 
 ## Testing & Code Quality
 
@@ -602,7 +613,7 @@ Find the code of conduct [**here**](https://github.com/SammieH21/scholar-flux/bl
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.1.4). This means:
+ScholarFlux is currently in **beta** (v0.1.5). This means:
 
 - APIs may change between versions
 - We're actively seeking feedback

@@ -46,6 +46,7 @@ from scholar_flux.exceptions.util_exceptions import (
     SessionInitializationError,
     SessionCacheDirectoryError,
     LogDirectoryError,
+    PackageInitializationError,
     SecretKeyError,
 )
 
@@ -122,6 +123,7 @@ __all__ = [
     "SessionInitializationError",
     "SessionCacheDirectoryError",
     "LogDirectoryError",
+    "PackageInitializationError",
     "SecretKeyError",
     "ResponseProcessingException",
     "DataParsingException",

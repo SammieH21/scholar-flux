@@ -119,8 +119,8 @@ def test_api_key_additions(provider):
 def test_api_key_missing(monkeypatch, caplog):
     """Tests whether missing API keys correctly trigger the expected log message and return None before use.
 
-    This test uses SpringerNature to validate whether the warning message is triggered when no API key can
-    be found.
+    This test uses SpringerNature to validate whether the warning message is triggered when no API key can be found.
+
     """
 
     provider = "springernature"

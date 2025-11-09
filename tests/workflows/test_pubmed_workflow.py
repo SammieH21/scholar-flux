@@ -10,10 +10,8 @@ import pytest
 def test_pubmed_workflow_context(caplog):
     """Validates whether the use of a pubmed workflow with missing IDs will correctly be flagged.
 
-    When a received response is valid and contains a valid formatted
-    metadata field, the metadata dictionary will contain
-    {'IdList':{'Id': [...]}. If unavailable, a type error should be
-    raised.
+    When a received response is valid and contains a valid formatted metadata field, the metadata dictionary will
+    contain {'IdList':{'Id': [...]}. If unavailable, a type error should be raised.
 
     """
     response = Response()
@@ -60,8 +58,9 @@ def test_direct_pubmed_workflow(
     """Tests whether mock pubmed search and fetch XML data can be directly parsed and processed in that order.
 
     The use of the PubMed API requires that xml2dict is available. If available, the retrieval steps occur in order:
-    1) Fetch a response containing IDs matching the query     2) Process and retrieve a list of metadata fields in a
-    post_transform step     3) Use the list of metadata responses to retrieve their corresponding abstracts
+     1. Fetch a response containing IDs matching the query
+     2. Process and retrieve a list of metadata fields in a post_transform step
+     3. Use the list of metadata responses to retrieve their corresponding abstracts
 
     """
     if not xml_parsing_dependency:

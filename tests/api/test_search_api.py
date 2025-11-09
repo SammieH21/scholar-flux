@@ -21,7 +21,7 @@ from scholar_flux.exceptions import QueryValidationException, APIParameterExcept
 
 @pytest.fixture
 def default_search_api(default_api_parameter_config: APIParameterConfig) -> SearchAPI:
-    """Mock SearchAPI for testing basic SearchAPI functionality"""
+    """Mock SearchAPI for testing basic SearchAPI functionality."""
     default_search_api = SearchAPI(
         query="test",
         records_per_page=10,
@@ -818,7 +818,7 @@ def test_request_preparation_base_url_omission(default_search_api):
 
 @pytest.mark.parametrize("page", (1, 2, 3))
 def test_prepare_search_and_prepare_request_equivalence(page, default_search_api):
-    """Verifies that `prepare_search` produces the expected PreparedRequest depending on the passed parameters"""
+    """Verifies that `prepare_search` produces the expected PreparedRequest depending on the passed parameters."""
     parameters = default_search_api.build_parameters(page=page)
     prepared_request = default_search_api.prepare_request(parameters=parameters)
     assert prepared_request.url

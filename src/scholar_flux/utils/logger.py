@@ -16,6 +16,7 @@ def setup_logging(
     log_directory: Optional[str] = None,
     log_file: Optional[str] = "application.log",
     log_level: int = logging.DEBUG,
+    propagate_logs: Optional[bool] = True,
     max_bytes: int = 1048576,
     backup_count: int = 5,
     logging_filter: Optional[logging.Filter] = None,
@@ -33,6 +34,8 @@ def setup_logging(
         log_file (Optional[str]): Name of the log file (default: 'application.log'). If None, file-based logging
                                   will not be performed.
         log_level (int): Minimum level to log (DEBUG logs everything, INFO skips debug messages).
+        propagate_logs (Optional[bool]): Determines whether to propagate logs. Logs are propagated by default if this
+                                         option is not specified.
         max_bytes (int): Maximum size of each log file before rotating (default: 1MB).
         backup_count (int): Number of old log files to keep (default: 5).
         logging_filter (Optional[logging.Filter]): Optional filter to modify log messages (e.g., hide sensitive data).
@@ -80,6 +83,9 @@ def setup_logging(
 
     # Clear existing handlers (useful if setup_logging is called multiple times)
     logger.handlers = []
+
+    # Propagate logs by default. `bool()` is used to explicitly map truthy or falsy values to True/False
+    logger.propagate = True if propagate_logs is None else bool(propagate_logs)
 
     # Define a formatter for both console and file logging
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")

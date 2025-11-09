@@ -168,6 +168,7 @@ class ABCStorage(ABC):
             >>> with storage.with_raise_on_error(True):
             >>>     # Any storage operation here will raise on error, regardless of the instance default
             >>>     storage.retrieve(key)
+
         """
         original_value = self.raise_on_error
         self.raise_on_error = value

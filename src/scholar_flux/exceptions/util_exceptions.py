@@ -8,6 +8,12 @@ class LogDirectoryError(Exception):
     pass
 
 
+class PackageInitializationError(Exception):
+    """Exception raised when the ScholarFlux package cannot be initialized due to an unexpected error."""
+
+    pass
+
+
 class SessionCreationError(Exception):
     """Exception class raised for invalid operations in the creation of session objects."""
 
@@ -40,6 +46,7 @@ class SecretKeyError(ValueError):
 
 __all__ = [
     "LogDirectoryError",
+    "PackageInitializationError",
     "SessionCreationError",
     "SessionConfigurationError",
     "SessionInitializationError",

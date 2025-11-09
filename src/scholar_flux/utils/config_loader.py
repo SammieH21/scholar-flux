@@ -9,6 +9,7 @@ default API providers, etc.
 """
 import os
 import logging
+import warnings
 from scholar_flux.package_metadata import get_default_writable_directory
 from dotenv import set_key, load_dotenv, dotenv_values
 import re
@@ -48,6 +49,7 @@ class ConfigLoader:
             - SCHOLAR_FLUX_LOG_DIRECTORY: defines where rotating logs will be stored when logging is enabled
             - SCHOLAR_FLUX_LOG_LEVEL: defines the default log level used for package level logging during and after
                                       scholar_flux package initialization
+            - SCHOLAR_FLUX_PROPAGATE_LOGS: determines whether logs should be propagated or not. (True by default)
 
     Examples:
 
@@ -87,6 +89,7 @@ class ConfigLoader:
         "SCHOLAR_FLUX_REDIS_PORT": coerce_int(os.getenv("SCHOLAR_FLUX_REDIS_PORT", os.getenv("REDIS_PORT"))) or 6379,
         "SCHOLAR_FLUX_ENABLE_LOGGING": os.getenv("SCHOLAR_FLUX_ENABLE_LOGGING", "").upper(),
         "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL", "").upper(),
+        "SCHOLAR_FLUX_PROPAGATE_LOGS": os.getenv("SCHOLAR_FLUX_PROPAGATE_LOGS", "").upper(),
         "SCHOLAR_FLUX_DEFAULT_PROVIDER": os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
     }
 
@@ -112,7 +115,7 @@ class ConfigLoader:
         replace_all: bool = False,
         verbose: bool = False,
     ) -> dict:
-        """Retrieves a list of nonmissing environment variables from the current .env file that are non-null.
+        """Retrieves a list of non-missing environment variables from the current .env file that are non-null.
 
         Args:
             env_path: Optional[Path | str]: Location of the .env file where env variables will be retrieved from
@@ -123,12 +126,20 @@ class ConfigLoader:
             dict: A dictionary of key-value pairs corresponding to environment variables
 
         """
+        if env_path is not None and not isinstance(env_path, (str, Path)):
+            msg = (
+                f"The variable, `env_path` must be a string or path, but received a variable of {type(env_path)}. "
+                "Attempting to load environment settings from default .env locations instead..."
+            )
+            config_logger.error(msg)
+            warnings.warn(msg)
+            env_path = self.env_path
         env_path = self._process_env_path(env_path or self.env_path)
 
         if verbose:
             config_logger.debug(f"Attempting to load environment file located at {env_path}.")
 
-        env_config = self.try_loadenv(env_path, verbose=False)
+        env_config = self.try_loadenv(env_path, verbose=verbose)
 
         if env_config:
             config_env_variables = {
@@ -144,8 +155,10 @@ class ConfigLoader:
         key: Optional[str] = None,
         matches: list[str] | tuple = ("API_KEY", "SECRET", "MAIL"),
     ) -> Any | SecretStr:
-        """Helper method to flag and guard the values of api keys, secrets, and likely email addresses by transforming
-        them into secret strings if they are non-missing.
+        """Guards the values of API keys, secrets, and likely email addresses by transforming them into secret strings.
+
+        This static method applies masking when encountering values of type `str`. Users can optionally specify
+        a `key` to apply masking when a specific keyword in `matches` matches a substring in the key.
 
         Args:
             value (Any): The value to convert to a string if its key contains any match
@@ -181,9 +194,10 @@ class ConfigLoader:
         return cls._guard_secret(os.environ.get(key), key, **kwargs)
 
     def load_os_env(self, replace_all: bool = False, verbose: bool = False) -> dict:
-        """Load any updated configuration settings from variables set within the system environment. The configuration
-        setting must already exist in the config to be updated if available. Otherwise, the ConfigLoader.update_config
-        method allows direct updates to the config settings.
+        """Load any updated configuration settings from variables set within the system environment.
+
+        The configuration setting must already exist in the config to be updated if available. Otherwise, the
+        `update_config` method allows direct updates to the config settings.
 
         Args:
             replace_all: bool = False: Indicates whether all environment variables should be replaced vs. only non-missing variables
@@ -233,19 +247,28 @@ class ConfigLoader:
 
         """
 
-        os_config = self.load_os_env(verbose=verbose) if reload_os_env else {}
-        dotenv_config = self.load_dotenv(env_path, verbose=verbose) if reload_env else {}
+        os_config = self.load_os_env(verbose=verbose, replace_all=True) if reload_os_env else {}
+        dotenv_config = self.load_dotenv(env_path, replace_all=True, verbose=verbose) if reload_env else {}
 
         config_env_variables = os_config | dotenv_config
 
         # coerce integer strings into numeric values, failing gracefully and returning the original value if impossible
-        self.update_config({key: try_int(value) for key, value in config_env_variables.items()}, verbose=verbose)
+        self.update_config(config_env_variables, verbose=verbose)
 
     def update_config(self, env_dict: dict[str, Any], verbose: bool = False) -> None:
-        """Helper method for both logging and updating the config dictionary with the provided dictionary of environment
-        variable key-value pairs."""
+        """Helper method for updating the config dictionary with the provided dictionary of key-value pairs.
+
+        This method coerces strings into integers when possible and uses the `_guard_secret` method as insurance to
+        guard against logging and recording API keys without masking. Although the `load_env` and `load_os_env` methods
+        also mask API keys, this is particularly useful if the end-user calls `update_config` directly.
+
+        """
+        # guard sensitive environment variables when this method is used directly if not already guarded
+        env_dict = {k: self._guard_secret(try_int(v), k) for k, v in env_dict.items()}
+
         if verbose and env_dict:
-            config_logger.debug("Updating the following variables into the config settings:", env_dict)
+            config_logger.debug(f"Updating the following variables into the config settings: {env_dict}")
+
         self.config.update(env_dict)
 
     def save_config(self, env_path: Optional[Path | str] = None) -> None:

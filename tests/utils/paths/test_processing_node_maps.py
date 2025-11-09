@@ -100,7 +100,7 @@ def test_pathnodemap_filter_and_cache(ref_test_nodes):
 
 
 def test_negative_filter_depth(default_mapping):
-    """Verifies that negative filter depths will successfully raise a PathNodeMapError"""
+    """Verifies that negative filter depths will successfully raise a PathNodeMapError."""
     # uses the first node as a test prop for verifying depth settings
     first_node = list(default_mapping.values())[0]
     err = "Minimum and Maximum depth must be None or greater than 0 or 1"
