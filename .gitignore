@@ -34,6 +34,10 @@ coverage.xml
 # VS Code settings
 .vscode/
 
+# Vale
+.vale.ini
+.vale/
+
 # Python-specific
 *.py[cod]
 *.pyd

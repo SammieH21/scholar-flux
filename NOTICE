@@ -5,6 +5,7 @@ Some providers may require API keys to retrieve papers, articles, and other form
 
 - ***: For scientific articles
 - **Springer Nature**: For scientific content  
+- **PubMed**: For biomedical literature from the PubMed database
 
 Others may require the use of a `User Agent`, including:
 
