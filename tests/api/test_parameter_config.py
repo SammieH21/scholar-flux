@@ -187,10 +187,12 @@ def test_api_specific_parameter_default_and_required():
 
 
 def test_set_default_api_key_parameter_sets_default():
-    """Tests if APIParameterMap.api_key_parameter can default to "api_key" when an api key is required
+    """Tests if APIParameterMap.api_key_parameter can default to "api_key" when an api key is required.
 
-    This test covers scenarios when a partially incomplete parameter map is created and the `api_key_parameter` is
-    not specified."""
+    This test covers scenarios when a partially incomplete parameter map is created and the `api_key_parameter` is not
+    specified.
+
+    """
     parameter_map = APIParameterMap(
         query="q",
         start="start",
@@ -345,8 +347,9 @@ def test_manual_page_start_index(page_number, records_per_page, expected_index):
 def test_page_start_index_exception(page, zero_indexed, caplog):
     """Verifies that exceptions are raised when encountering values such as `None`, 0.
 
-    This test accounts for when zero_indexed_pagination is True/False and when DEFAULT_CORRECT_ZERO_INDEX is
-    enabled (this setting is enabled by default).
+    This test accounts for when zero_indexed_pagination is True/False and when DEFAULT_CORRECT_ZERO_INDEX is enabled
+    (this setting is enabled by default).
+
     """
     parameter_config = APIParameterConfig.as_config(
         {

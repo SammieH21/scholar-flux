@@ -193,7 +193,7 @@ def test_workflow_components():
 
 
 def test_workflow_step_different_provider_pre_transform():
-    """Verifies that the use of separate providers in the same workflow modifies the expected result as intended"""
+    """Verifies that the use of separate providers in the same workflow modifies the expected result as intended."""
 
     arxiv_workflow_step = WorkflowStep(provider_name="arxiv")
     crossref_workflow_step = WorkflowStep(provider_name="crossref")

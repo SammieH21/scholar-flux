@@ -34,18 +34,18 @@ NAME_VARIATIONS = (
 
 @pytest.fixture
 def default_base_provider_dict():
-    """Simple initialization of a BaseProviderDict to mock its functionality"""
+    """Simple initialization of a BaseProviderDict to mock its functionality."""
     return BaseProviderDict({"a": 1, "b": 2, "c": 3})
 
 
 @pytest.mark.parametrize(("name", "variation"), NAME_VARIATIONS)
 def test_provider_name_resolution(name, variation):
-    """Tests whether name resolution happens as intended with the `_normalize_name` helper method"""
+    """Tests whether name resolution happens as intended with the `_normalize_name` helper method."""
     assert BaseProviderDict._normalize_name(variation) == name
 
 
 def test_provider_additions_and_keys():
-    """Tests that records can be added and whether each name can be found via the `__contains__` method"""
+    """Tests that records can be added and whether each name can be found via the `__contains__` method."""
     providers = BaseProviderDict({provider: 1 for provider in EXPECTED_PROVIDERS})
 
     assert all(provider in providers for provider in EXPECTED_PROVIDERS)
@@ -63,7 +63,7 @@ def test_provider_additions_and_keys():
     ),
 )
 def test_base_provider_dict_unknown_key(provider_dict, default_base_provider_dict):
-    """Tests that the functionality is otherwise similar to a dict when unknown keys of type `str` are encountered"""
+    """Tests that the functionality is otherwise similar to a dict when unknown keys of type `str` are encountered."""
     test_dict = provider_dict if provider_dict is not None else default_base_provider_dict
 
     with pytest.raises(KeyError):
@@ -80,7 +80,7 @@ def test_base_provider_dict_unknown_key(provider_dict, default_base_provider_dic
     ),
 )
 def test_base_provider_dict_incorrect_type(provider_dict, default_base_provider_dict):
-    """Tests the behavior of the BaseProviderDict and its subclasses when incorrect types of keys are encountered"""
+    """Tests the behavior of the BaseProviderDict and its subclasses when incorrect types of keys are encountered."""
 
     test_dict = provider_dict if provider_dict is not None else default_base_provider_dict
 
@@ -137,7 +137,7 @@ def test_empty_provider_additions():
 
 
 def test_rate_limiter_registry_expected_values():
-    """Tests whether the attempted addition of invalid types will raise the expected"""
+    """Tests whether the attempted addition of invalid types will raise the expected."""
     valid_provider_name = "ValidProvider"
     invalid_value = "Not a Rate Limiter"
 
@@ -155,7 +155,7 @@ def test_rate_limiter_registry_expected_values():
 
 
 def test_rate_limiter_registry_roundtrip_addition(caplog):
-    """Tests whether the roundtrip removal and the re-addition for a new rate limiter works as intended"""
+    """Tests whether the roundtrip removal and the re-addition for a new rate limiter works as intended."""
     a, b, c = RateLimiter(1), RateLimiter(2), ThreadedRateLimiter(3)
     rate_limiter_registry = RateLimiterRegistry(a=a, b=b, c=c, threaded=False)
     copied_rate_limiter_registry = copy.copy(rate_limiter_registry)
@@ -197,7 +197,7 @@ def test_rate_limiter_registry_roundtrip_addition(caplog):
 
 
 def test_default_provider_rate_limiter_registry_addition_and_removal(caplog):
-    """Tests whether the roundtrip removal and the re-addition of provider rate limiters works as intended"""
+    """Tests whether the roundtrip removal and the re-addition of provider rate limiters works as intended."""
     test_rate_limiter_registry = copy.copy(rate_limiter_registry)
 
     all_providers = provider_registry.keys()

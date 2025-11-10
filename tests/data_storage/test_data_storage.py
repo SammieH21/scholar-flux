@@ -129,6 +129,7 @@ def test_basic_instance_structure(storage_type, request):
     """Verifies that all methods have the same set of fundamental variable names in their namespace.
 
     If any of the storage devices do not have a class/instance variable, it should raise a NameError.
+
     """
     storage = request.getfixturevalue(storage_type)
     assert storage.DEFAULT_NAMESPACE is None or isinstance(storage.DEFAULT_NAMESPACE, str)
@@ -172,7 +173,7 @@ def test_cache_retrieval_with_none_data(request, mock_response, storage_type, db
 
 
 def test_redis_expiration(redis_test_storage):
-    """Verifies that cached Redis records successfully remove expired records after a certain interval of time"""
+    """Verifies that cached Redis records successfully remove expired records after a certain interval of time."""
     key = "some_temp_key"
     value = {"data": "some_temp_value"}
 
@@ -188,7 +189,7 @@ def test_redis_expiration(redis_test_storage):
 
 
 def test_mongo_expiration(mongo_test_storage):
-    """Verifies that cached MongoDB records successfully remove expired records after a certain interval of time"""
+    """Verifies that cached MongoDB records successfully remove expired records after a certain interval of time."""
     key = "some_temp_key"
     value = {"data": "some_temp_value"}
 

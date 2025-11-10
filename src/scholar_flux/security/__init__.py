@@ -3,7 +3,7 @@ logs do not contain sensitive data. The set of modules uses pattern matching to 
 request, any known API keys are filtered from the logs.
 
 Core classes:
-    - SecretUtils: Class with basic static methods for masking and unmasking nonmissing strings with pydantic.SecretStr
+    - SecretUtils: Class with basic static methods for masking and unmasking non-missing strings with pydantic.SecretStr
     - MaskingPattern: Basic pattern from which all subclasses inherit from in order to define rules for masking strings
     - KeyMaskingPattern: Matches key-value pairs for commonly sensitive fixed string fields (e.g. api_key, mailto)
     - FuzzyKeyMaskingPattern: Extends the KeyMaskingPattern for fuzzy field matching when parameter names may vary

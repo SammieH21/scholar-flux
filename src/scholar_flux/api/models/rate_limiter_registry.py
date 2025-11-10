@@ -40,6 +40,7 @@ class RateLimiterRegistry(BaseProviderDict):
 
         Returns:
             A ThreadedRateLimiter if `self.threaded=True`, otherwise the core `RateLimiter`
+
         """
         return ThreadedRateLimiter if self.threaded else RateLimiter
 

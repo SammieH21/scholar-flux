@@ -127,6 +127,6 @@ def test_rate_context_manager_temporary_interval(mock_time):
 
 
 def test_rate_limiter_representation():
-    """Tests the RateLimiter __repr__ method to ensure that it returns a readable representation of the class"""
+    """Tests the RateLimiter __repr__ method to ensure that it returns a readable representation of the class."""
     assert repr(RateLimiter(min_interval=5)) == "RateLimiter(min_interval=5)"
     assert repr(ThreadedRateLimiter(min_interval=5)) == "ThreadedRateLimiter(min_interval=5)"

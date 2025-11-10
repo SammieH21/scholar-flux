@@ -44,6 +44,7 @@ def zero_indexed_parameter_config():
     """Fixture that uses a zero-indexed APIParameterConfig to indicate the parameters accepted by the mock API Provider.
 
     This parameter map simulates scenarios where the first record starts at 0 instead of 1.
+
     """
     zero_indexed_parameter_config = APIParameterConfig.as_config(
         {
@@ -64,6 +65,7 @@ def default_zero_indexed_config():
     """Fixture that sets the `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX` class variable to False.
 
     After testing, the fixture restores the default value after the conclusion of the test.
+
     """
     default_value = APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX
     APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = False
@@ -75,8 +77,9 @@ def default_zero_indexed_config():
 def default_correct_zero_index_config():
     """Fixture that sets the `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX` class variable to True.
 
-    This is the default behavior of the APIParameterConfig. After testing, the fixture restores the default
-    value after the conclusion of the test.
+    This is the default behavior of the APIParameterConfig. After testing, the fixture restores the default value after
+    the conclusion of the test.
+
     """
     default_value = APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX
     APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = True

@@ -82,7 +82,7 @@ class RateLimiter:
                 The minimum number of seconds that must elapse before another request sent or call is performed.
 
         Raises:
-            APIParameterException: If the received value is a nonmissing value that is not a float or integer
+            APIParameterException: If the received value is a non-missing value that is not a float or integer
 
         """
         self._min_interval = self._validate(min_interval)

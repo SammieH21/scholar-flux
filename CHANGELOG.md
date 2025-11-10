@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.5] - 11/10/2025
+### Changed
+- On package import and reinitialization, the `initialize_package` function now shows an actionable error message if either `config_params` or `logging_params` has an incorrect type. This change helps to quickly spot and fix mistakes on initialization, especially when reinitializing ScholarFlux.
+- When an incorrect `env_path` is received on package initialization, ScholarFlux now logs a warning with `logging` and `warnings` for clarity before falling back to the default package configuration settings. In Jupyter Notebook and terminals such as IPython, this warning will display in pinkish-red and is hard to miss.
+- The `setup_logging` function now accepts a `propagate_logs` argument for programmatic control of log propagation. This setting is True by default but can be set to False to prevent logs from being echoed by console-level loggers.
+- Updated the documentation and configuration loader to include `SCHOLAR_FLUX_PROPAGATE_LOGS`.
+- Test coverage for package initialization, logging, and configuration loading is now at 100%, and the functionality was vetted to ensure reliability and user-friendliness in supporting different setups.
+- Package initialization now raises a warning with the `warnings` package if a non-fatal error occurs when loading configuration settings.
+- If an error initializing scholar_flux logging occurs, the `initialize_package` function now raises a `PackageInitializationError` instead of a `ValueError`.
+- Package initialization now supports a `SCHOLAR_FLUX_PROPAGATE_LOGS` environment variable and configuration option. On package initialization, this setting controls whether ScholarFlux log messages propagate to console-level loggers (such as IPython/Jupyter/VS Code). By default, propagation is enabled for compatibility with user/application logging setups.
+
+### Fixed
+- On dynamic initialization with a .env and newly set environment variables, the config loader now overrides existing variables when required.
+- Fixed an edge case where the logger would not print the full range of environment variables loaded with verbose settings on configuration loading.
+
 ## [0.1.4] - 11/08/2025
 ### Added
 - The `SearchWorkflow`, by default, now integrates the package-level `ProviderRegistry` to determine whether a provider exists and also warns ahead of time if a provider that does not exist in the registry is specified.
