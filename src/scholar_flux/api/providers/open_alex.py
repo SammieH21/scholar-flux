@@ -2,6 +2,7 @@
 """Defines the core configuration necessary to interact with the OpenAlex API using the scholar_flux package."""
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
+from scholar_flux.api.normalization.open_alex_field_map import field_map
 
 provider = ProviderConfig(
     parameter_map=BaseAPIParameterMap(
@@ -13,6 +14,7 @@ provider = ProviderConfig(
         auto_calculate_page=False,
         zero_indexed_pagination=False,
     ),
+    field_map=field_map,
     provider_name="openalex",
     base_url="https://api.openalex.org/works",
     api_key_env_var="OPEN_ALEX_API_KEY",

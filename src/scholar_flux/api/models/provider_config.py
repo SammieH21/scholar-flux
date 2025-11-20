@@ -10,8 +10,9 @@ from pydantic import BaseModel, field_validator, ConfigDict, Field
 from typing import Optional, ClassVar, Any
 from scholar_flux.api.validators import validate_url, normalize_url
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
+from scholar_flux.api.normalization.base_field_map import BaseFieldMap
 from scholar_flux.exceptions.api_exceptions import APIParameterException
-from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.repr_utils import generate_repr_from_string
 
 import logging
 
@@ -28,6 +29,8 @@ class ProviderConfig(BaseModel):
         provider_name (str): The name of the provider to be associated with the config.
         base_url (str): The URL of the provider to send requests with the specified parameters.
         parameter_map (BaseAPIParameterMap): The parameter map indicating the specific semantics of the API.
+        field_map (Optional[BaseFieldMap]): A provider-specific field map that normalizes processed response records
+                                             into a universal record structure.
         records_per_page (int): Generally the upper limit (for some APIs) or reasonable limit for the number
                                 of retrieved records per request (specific to the API provider).
         request_delay (float): Indicates exactly how many seconds to wait before sending successive requests
@@ -64,6 +67,9 @@ class ProviderConfig(BaseModel):
     provider_name: str = Field(min_length=1, description="Provider Name or Base URL for the article API")
     base_url: str = Field(description="Base URL for the API")
     parameter_map: BaseAPIParameterMap = Field(description="Map detailing the parameter names used by the API")
+    field_map: Optional[BaseFieldMap] = Field(
+        default=None, description="Maps API-Specific fields to commonly named parameters"
+    )
     records_per_page: int = Field(default=20, ge=0, le=1000, description="Number of records per page (1-1000)")
     request_delay: float = Field(default=6.1, ge=0, description="Minimum delay between requests in seconds")
     api_key_env_var: Optional[str] = Field(
@@ -136,7 +142,11 @@ class ProviderConfig(BaseModel):
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the ProviderConfig."""
-        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
+        class_name = self.__class__.__name__
+        fields = dict(self)
+        return generate_repr_from_string(
+            class_name, fields, flatten=flatten, show_value_attributes=show_value_attributes
+        )
 
     def __repr__(self) -> str:
         """Utility method for creating an easy to view representation of the current configuration."""

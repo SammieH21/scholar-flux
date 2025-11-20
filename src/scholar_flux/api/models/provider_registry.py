@@ -1,9 +1,10 @@
 # /api/models/provider_registry.py
-"""The scholar_flux.models.provider_registry module implements the ProviderRegistry class which extends a dictionary to
-map provider names to their scholar_flux ProviderConfig.
+"""The scholar_flux.api.models.provider_registry module implements the ProviderRegistry class, which extends Python's
+user-dictionary implementation to map providers to their unique scholar_flux `ProviderConfig`.
 
-When scholar_flux uses a provider_name to create a SearchAPI or SearchCoordinator, the package-level provider_registry
-is instantiated and referenced to retrieve the necessary configuration for easier interaction and specification of APIs.
+When scholar_flux uses the name of a provider to create a `SearchAPI` or `SearchCoordinator`, the package-level
+`scholar_flux.api.providers.provider_registry` is referenced to retrieve the necessary configuration for easier
+interaction and specification of APIs.
 
 """
 from __future__ import annotations
@@ -12,6 +13,7 @@ from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 from scholar_flux.api.validators import validate_and_process_url, normalize_url
 from scholar_flux.utils.provider_utils import ProviderUtils
+from scholar_flux.utils.repr_utils import generate_repr, generate_repr_from_string
 from scholar_flux.exceptions import APIParameterException
 import logging
 
@@ -119,8 +121,8 @@ class ProviderRegistry(BaseProviderDict):
             logger.warning(f"A ProviderConfig with the provider name, '{provider_name}' was not found")
 
     def get_from_url(self, provider_url: Optional[str]) -> Optional[ProviderConfig]:
-        """Attempt to retrieve a ProviderConfig instance for the given provider by resolving the provided url to the
-        provider's. Will not throw an error in the event that the provider does not exist.
+        """Attempt to retrieve a ProviderConfig instance for the given provider by resolving the provided URL to the
+        provider's base URL. Will not throw an error in the event that the provider does not exist.
 
         Args:
             provider_url (Optional[str]): Name of the default provider
@@ -132,7 +134,7 @@ class ProviderRegistry(BaseProviderDict):
         if not provider_url:
             return None
 
-        normalized_url = validate_and_process_url(provider_url)
+        normalized_url = validate_and_process_url(provider_url, remove_parameters=True)
 
         return next(
             (
@@ -154,6 +156,19 @@ class ProviderRegistry(BaseProviderDict):
         """
         provider_dict = ProviderUtils.load_provider_config_dict()
         return cls(provider_dict)
+
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """Helper method that shows the current structure of the ProviderRegistry."""
+        class_name = self.__class__.__name__
+        dictionary_elements = {
+            key: generate_repr(value, show_value_attributes=show_value_attributes) for key, value in self.data.items()
+        }
+
+        return generate_repr_from_string(class_name, dictionary_elements, flatten=flatten, as_dict=True)
+
+    def __repr__(self) -> str:
+        """Helper method for displaying the config in a user-friendly manner."""
+        return self.structure(show_value_attributes=False)
 
 
 __all__ = ["ProviderRegistry"]

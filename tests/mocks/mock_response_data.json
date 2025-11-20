@@ -1,0 +1,125 @@
+[
+  {
+    "work_id": "https://mock-api.org/W123456789",
+    "doi_url": "https://doi.org/10.1234/mock.2024.001",
+    "paper_title": "Machine Learning Applications in Climate Science: A Comprehensive Review",
+    "summary": "This paper presents a comprehensive review of machine learning techniques applied to climate modeling and prediction, focusing on deep learning approaches for temperature forecasting and extreme weather event detection.",
+    "author_list": [
+      {"name": "Jane Smith", "affiliation": "University of Climate Studies"},
+      {"name": "John Doe", "affiliation": "Institute of AI Research"}
+    ],
+    "publication_info": {
+      "journal_name": "Journal of Climate Informatics",
+      "publisher_name": "Academic Press International",
+      "year_published": 2024,
+      "publication_date": "2024-03-15",
+      "date_created": "2024-02-01"
+    },
+    "content_metadata": {
+      "keywords": ["machine learning", "climate science", "deep learning", "weather prediction"],
+      "subjects": ["Computer Science", "Environmental Science", "Meteorology"],
+      "full_text_available": false
+    },
+    "metrics": {
+      "citation_count": 42,
+      "altmetric_score": 18.5
+    },
+    "access_info": {
+      "is_open_access": true,
+      "license_type": "CC-BY-4.0"
+    },
+    "document_info": {
+      "type": "article",
+      "language": "en",
+      "page_count": 28
+    },
+    "internal_id": "REC-2024-001",
+    "source": "mock_api",
+    "relevance_score": 0.95,
+    "indexed_in": ["scopus", "web_of_science"],
+    "mesh_terms": ["Machine Learning", "Climate Change", "Data Analysis"]
+  },
+  {
+    "work_id": "https://mock-api.org/W987654321",
+    "doi_url": "https://doi.org/10.1234/mock.2023.042",
+    "paper_title": "Quantum Computing Algorithms for Cryptography",
+    "summary": "An exploration of post-quantum cryptographic methods using lattice-based encryption schemes to secure communication against quantum computer attacks.",
+    "author_list": [
+      {"name": "Alice Johnson", "affiliation": "Quantum Research Lab"},
+      {"name": "Bob Chen", "affiliation": "Cryptography Institute"},
+      {"name": "Carol Williams", "affiliation": "National Cyber Security Center"}
+    ],
+    "publication_info": {
+      "journal_name": "Quantum Information Processing",
+      "publisher_name": "Springer Nature",
+      "year_published": 2023,
+      "publication_date": "2023-11-20",
+      "date_created": "2023-10-15"
+    },
+    "content_metadata": {
+      "keywords": ["quantum computing", "cryptography", "lattice-based encryption", "post-quantum security"],
+      "subjects": ["Computer Science", "Quantum Physics", "Information Security"],
+      "full_text_available": true
+    },
+    "metrics": {
+      "citation_count": 127,
+      "altmetric_score": 45.2
+    },
+    "access_info": {
+      "is_open_access": false,
+      "license_type": "Copyright - Springer"
+    },
+    "document_info": {
+      "type": "article",
+      "language": "en",
+      "page_count": 34
+    },
+    "internal_id": "REC-2023-042",
+    "source": "mock_api",
+    "relevance_score": 0.88,
+    "indexed_in": ["scopus", "arxiv"],
+    "funding_info": {
+      "agency": "National Science Foundation",
+      "grant_id": "NSF-QIS-2023-1234"
+    }
+  },
+  {
+    "work_id": "https://mock-api.org/W456789123",
+    "doi_url": null,
+    "paper_title": "Biodiversity Conservation Strategies in Urban Environments",
+    "summary": "This study examines effective conservation methods for maintaining biodiversity in rapidly urbanizing areas, with case studies from five major metropolitan regions.",
+    "author_list": [
+      {"name": "Maria Garcia", "affiliation": "Institute of Ecology"}
+    ],
+    "publication_info": {
+      "journal_name": "Urban Ecology Review",
+      "publisher_name": "Environmental Publishing House",
+      "year_published": 2024,
+      "publication_date": "2024-01-10",
+      "date_created": "2023-12-05"
+    },
+    "content_metadata": {
+      "keywords": ["biodiversity", "urban ecology", "conservation", "sustainability"],
+      "subjects": ["Environmental Science", "Urban Planning", "Biology"],
+      "full_text_available": true
+    },
+    "metrics": {
+      "citation_count": 8,
+      "altmetric_score": 12.3
+    },
+    "access_info": {
+      "is_open_access": true,
+      "license_type": "CC-BY-NC-4.0"
+    },
+    "document_info": {
+      "type": "research-article",
+      "language": "en",
+      "page_count": 22
+    },
+    "internal_id": "REC-2024-003",
+    "source": "mock_api",
+    "relevance_score": 0.72,
+    "indexed_in": ["pubmed", "biosis"],
+    "peer_reviewed": true
+  }
+]

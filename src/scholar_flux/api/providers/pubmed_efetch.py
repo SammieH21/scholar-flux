@@ -2,6 +2,7 @@
 """Defines the core configuration necessary to interact with the PubMed eFetch API using the scholar_flux package."""
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
+from scholar_flux.api.normalization.pubmed_efetch_field_map import field_map
 
 provider = ProviderConfig(
     parameter_map=BaseAPIParameterMap(
@@ -65,6 +66,7 @@ provider = ProviderConfig(
             ),
         ),
     ),
+    field_map=field_map,
     provider_name="pubmed_efetch",
     base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
     api_key_env_var="PUBMED_API_KEY",

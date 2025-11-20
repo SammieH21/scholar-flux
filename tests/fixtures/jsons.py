@@ -1,8 +1,11 @@
 import pytest
+from scholar_flux.utils import JsonFileUtils
+from pathlib import Path
+from typing import cast
 
 
 @pytest.fixture
-def sample_json():
+def sample_json() -> list[dict]:
     """A JSON fixture used to mock a simple json data set to validate the JSON processing utilities that filter,
     process, and flatten JSON files."""
     sample_json = [
@@ -16,7 +19,7 @@ def sample_json():
 
 
 @pytest.fixture
-def mock_api_parsed_json_records():
+def mock_api_parsed_json_records() -> list[dict]:
     """A mock json data set used to verify whether recursive and path-based scholar_flux JSON processing utilities
     produce the expected result using a format that more closely matches the general format that is returned by academic
     APIs."""
@@ -28,6 +31,7 @@ def mock_api_parsed_json_records():
             "abstract": ["This is a sample abstract.", "keywords: 'sample', 'abstract'"],
             "genre": {"subspecialty": "Neuroscience"},
             "journal": {"topic": "Sleep Research"},
+            "affiliations": ["KSU", "LSU"],
         },
         {
             "authors": {"principle_investigator": "Dr. Lee", "assistant": "John Roe"},
@@ -36,8 +40,15 @@ def mock_api_parsed_json_records():
             "abstract": "Another abstract.",
             "genre": {"subspecialty": "Psychiatry"},
             "journal": {"topic": "Dreams"},
+            "affiliations": ["LSU"],
         },
     ]
 
 
-__all__ = ["sample_json", "mock_api_parsed_json_records"]
+@pytest.fixture
+def mock_complex_json_records() -> list[dict]:
+    path = Path(__file__).resolve().parent.parent / "mocks" / "mock_response_data.json"
+    return cast("list[dict]", JsonFileUtils.load_data(path))
+
+
+__all__ = ["sample_json", "mock_api_parsed_json_records", "mock_complex_json_records"]

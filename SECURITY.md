@@ -2,7 +2,7 @@
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.1.5). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
+ScholarFlux is currently in **beta** (v0.2.0). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
 
 - This is pre-release software under active development
 - APIs and interfaces may change between versions

@@ -37,11 +37,16 @@ from scholar_flux.api.models.responses import (
 
 from scholar_flux.api.models.search_results import SearchResult, SearchResultList
 
+from scholar_flux.api.normalization.base_field_map import BaseFieldMap
+from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap
+
 __all__ = [
     "BaseAPIParameterMap",
     "APISpecificParameter",
     "APIParameterMap",
     "APIParameterConfig",
+    "BaseFieldMap",
+    "AcademicFieldMap",
     "ProviderConfig",
     "ProviderRegistry",
     "BaseProviderDict",

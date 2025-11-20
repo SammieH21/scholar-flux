@@ -1,5 +1,6 @@
 import pytest
-from scholar_flux.api.models import BaseProviderDict
+from scholar_flux.api.models import BaseProviderDict, BaseAPIParameterMap
+from scholar_flux.api.normalization import BaseFieldMap
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.rate_limiting import (
     rate_limiter_registry,
@@ -10,6 +11,7 @@ from scholar_flux.api.rate_limiting import (
 )
 from scholar_flux.exceptions import APIParameterException
 import copy
+import re
 
 EXPECTED_PROVIDERS = ["arxiv", "crossref", "pubmed", "pubmedefetch", "openalex", "springernature", "core"]
 
@@ -50,6 +52,40 @@ def test_provider_additions_and_keys():
 
     assert all(provider in providers for provider in EXPECTED_PROVIDERS)
     assert all(value == 1 for value in providers.values())
+
+
+def test_basic_representations(default_base_provider_dict):
+    """Tests whether the representation of the current BaseProviderDict displays as intended in the CLI."""
+    assert default_base_provider_dict.structure() == repr(default_base_provider_dict)
+
+
+def test_provider_registry_representation():
+    """Tests whether the representation of the current ProviderDictRegistry displays as intended in the CLI."""
+    registry_representation = provider_registry.structure(show_value_attributes=False)
+    assert registry_representation == repr(provider_registry)
+    provider_config_line_representation = r"'{provider_name}': ProviderConfig\(provider_name='{provider_name}'"
+    assert all(
+        re.search(
+            provider_config_line_representation.format(provider_name=provider_name),
+            registry_representation,
+            re.MULTILINE,
+        )
+        for provider_name in EXPECTED_PROVIDERS
+    )
+
+
+@pytest.mark.parametrize("provider_name", EXPECTED_PROVIDERS)
+def test_provider_registry_mappings(provider_name):
+    """Verifies that all providers have both field maps and parameter maps available for response processing."""
+    config = provider_registry[provider_name]
+    assert config
+    assert isinstance(config.field_map, BaseFieldMap) and isinstance(config.parameter_map, BaseAPIParameterMap)
+
+
+def test_rate_limiter_representations():
+    """Tests whether the representation of the rate limiter registries display as intended in the CLI."""
+    assert rate_limiter_registry.structure() == repr(rate_limiter_registry)
+    assert threaded_rate_limiter_registry.structure() == repr(threaded_rate_limiter_registry)
 
 
 # each provider dict is either a BaseProviderDict or subclass of it. The following tests its implementations

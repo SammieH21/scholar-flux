@@ -68,12 +68,12 @@ class PathDataProcessor(ABCDataProcessor):
         return self.path_node_index.node_map.use_cache
 
     def load_data(self, json_data: Optional[dict | list[dict]] = None) -> bool:
-        """Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
+        """Attempts to load a data dictionary or list, contingent on it having at least one non-missing record to load
         from. If `json_data` is missing or the json input is equal to the current `json_data` attribute, then the
         `json_data` attribute will not be updated from the json input.
 
         Args:
-            json_data (Optional[dict | list[dict]]) The json data to be loaded as an attribute
+            json_data (Optional[dict | list[dict]]): The json data to be loaded as an attribute
         Returns:
             bool: Indicates whether the data was successfully loaded (True) or not (False)
 
@@ -175,7 +175,7 @@ class PathDataProcessor(ABCDataProcessor):
 
             return processed_data
         except DataProcessingException as e:
-            raise DataProcessingException(f"An error occurred during th data processing: {e}")
+            raise DataProcessingException(f"An error occurred during data processing: {e}")
 
     def record_filter(
         self,

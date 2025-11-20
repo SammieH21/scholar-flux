@@ -10,13 +10,13 @@ Stages:
         the processing of other content types in a streamlined way.
     **Record Extraction**:
         This phase involves the extraction of metadata and records from parsed API responses.
-        The process of can be performed in two ways:
+        The process can be performed in two ways:
 
-        1. The paths of records are listed ahead of time, indicating individual metadata fields and where the list
-        of JSON records can be found if available.
+        1. The paths of records are listed ahead of time, indicating individual metadata fields and where the
+        list of JSON records can be found if available.
 
         2. The metadata and records can be identified automatically using heuristics instead.
-        Records are generally identified as a list of dictionaries where each list entry is a separate records that
+        Records are generally identified as a list of dictionaries where each list entry is a separate record that
         may contain similar sets of fields.
 
         The record extraction phase then returns the records and metadata as a tuple in that order.
@@ -31,13 +31,17 @@ Stages:
 
             - DataProcessor:
                 Requires the end-user to manually specify the paths where data should be extracted in each record as
-                well as a key that should correspond to the extracted value in each record
+                well as a key that should correspond to the extracted value in each record.
+            - NormalizingDataProcessor:
+                Inherits from the DataProcessor and implements flattening prior to extracting the required parameters
+                needed to normalize field maps. Useful in later steps of processing where fields may or may not already
+                be normalized.
             - PassThroughDataProcessor:
                 The simplest implementation of the DataProcessor that does not automatically flatten records.
-                This implementation still allows for the filtering of records with a similarly to the DataProcessor
+                This implementation still allows for the filtering of records similarly to the DataProcessor.
             - RecursiveDataProcessor:
                 A recursive implementation that dynamically discovers terminal paths and flattens them, using the path
-                as the key for the extracted value
+                as the key for the extracted value.
             - PathDataProcessor:
                 A custom implementation of a data processor that uses trie-based processing to
                 efficiently process and filter a flattened and processed list of JSON records. This implementation is
@@ -71,6 +75,7 @@ from scholar_flux.data.base_parser import BaseDataParser
 from scholar_flux.data.data_parser import DataParser
 from scholar_flux.data.abc_processor import ABCDataProcessor
 from scholar_flux.data.data_processor import DataProcessor
+from scholar_flux.data.normalizing_data_processor import NormalizingDataProcessor
 from scholar_flux.data.pass_through_data_processor import PassThroughDataProcessor
 from scholar_flux.data.recursive_data_processor import RecursiveDataProcessor
 from scholar_flux.data.path_data_processor import PathDataProcessor
@@ -83,6 +88,7 @@ __all__ = [
     "DataParser",
     "ABCDataProcessor",
     "DataProcessor",
+    "NormalizingDataProcessor",
     "PassThroughDataProcessor",
     "RecursiveDataProcessor",
     "PathDataProcessor",

@@ -83,7 +83,7 @@ from tests.fixtures.package_dependencies import (
     session_encryption_dependency,
 )
 
-from tests.fixtures.jsons import sample_json, mock_api_parsed_json_records
+from tests.fixtures.jsons import sample_json, mock_api_parsed_json_records, mock_complex_json_records
 
 from tests.fixtures.mock_cache_session import (
     default_cache_session_manager,
@@ -164,6 +164,7 @@ __all__ = [
     "cleanup",
     "sample_json",
     "mock_api_parsed_json_records",
+    "mock_complex_json_records",
     "basic_parameter_config",
     "default_api_parameter_map",
     "default_api_parameter_config",

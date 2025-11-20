@@ -3,7 +3,7 @@ from typing import Any
 from scholar_flux.data.base_extractor import BaseDataExtractor
 from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.exceptions import DataExtractionException
-from scholar_flux.utils import try_int
+from scholar_flux.utils import try_int, PathUtils
 from unittest.mock import patch
 from typing import List
 import re
@@ -53,6 +53,42 @@ def test_extract_with_manual_paths(mock_academic_json):
     assert metadata["recordsDisplayed"] == try_int(mock_academic_json["recordsDisplayed"])
     # No other keys should appear because we didn't override ``apiMessage`` or ``query``.
     assert isinstance(metadata, dict) and set(metadata.keys()) == {"total", "start", "pageLength", "recordsDisplayed"}
+
+
+def test_prepare_mixed_path_list_string_representations(mock_academic_json):
+    """Verifies that the DataExtractor correctly prepares record and metadata paths with string representations."""
+    record_path = ["data"]
+    # Use the real metadata keys that exist in the payload
+    metadata_path: list[str | list[str]] = [
+        ["total"],
+        ["start"],
+        ["pageLength"],
+        ["recordsDisplayed"],
+    ]
+
+    record_path_string = "data"
+    metadata_path_strings = metadata_path.copy()
+    for i in range(2):
+        metadata_path_strings[i] = ".".join(metadata_path_strings[i])
+
+    assert DataExtractor._prepare_metadata_path(metadata_path_strings) == metadata_path  # type: ignore
+    assert DataExtractor._prepare_record_path(record_path_string) == record_path
+
+
+def test_prepare_metadata_dictionary_path_representations(mock_academic_json):
+    """Verifies that DataExtractor correctly prepares metadata dictionary paths from path string representations."""
+    # Use the real metadata keys that exist in the payload
+    metadata_path: dict[str, str] = {
+        "total": "total",
+        "start": "start",
+        "pageLength": "pageLength",
+        "recordsDisplayed": "recordsDisplayed",
+        "created-at": "origin.created-at",
+    }
+
+    assert DataExtractor._prepare_metadata_path(metadata_path) == {
+        key: value.split(PathUtils.DELIMITER) for key, value in metadata_path.items()
+    }
 
 
 def test_dynamic_identification_heuristics(mock_academic_json):
@@ -138,8 +174,8 @@ def test_extract_metadata_without_paths(mock_academic_json):
 def test_extractor_invalid_configuration():
     """Providing a non‑list record_path should raise a DataExtractionException during extractor initialization."""
     with pytest.raises(DataExtractionException) as excinfo:
-        DataExtractor(record_path="invalid record identifier")  # type: ignore
-    assert f"A list is required for a record path. Received: {type('')}" in str(excinfo.value)
+        DataExtractor(record_path=23)  # type: ignore
+    assert f"A list is required for a record path. Received: {type(23)}" in str(excinfo.value)
 
     with pytest.raises(DataExtractionException) as excinfo:
         DataExtractor(metadata_path="invalid metadata identifier")  # type: ignore
@@ -230,7 +266,7 @@ def test_blank_extraction(extractor_manual_paths, caplog):
 
 
 def test_dictionary_transformation():
-    """Tests that the steps take to extract both records and metadata from a dictionary work as intended."""
+    """Tests that the steps taken to extract both records and metadata from a dictionary work as intended."""
     extractor = DataExtractor()
     data = [[{"a": 1}, {"b": 3}, {"c": 4}, {"d": 5}]]
     prepped_page = extractor._prepare_page(data)  # type: ignore
@@ -383,7 +419,7 @@ def test_key_discovery(caplog):
     assert {"red": 1, "blue": 2} == extracted_metadata
     assert extracted_records == json_records
 
-    # skippes registerint the single record as a record without a heuristic, thinks it metadata
+    # skips registration of the single record as a record without a heuristic, thinks it metadata
     extractor = DataExtractor(dynamic_record_identifiers=[])
     extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
     assert {"red": 1, "blue": 2, "x": 1, "y": 0} == extracted_metadata

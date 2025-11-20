@@ -78,9 +78,9 @@ class ABCDataProcessor(ABC):
         pass
 
     def process_record(self, *args, **kwargs) -> Optional[dict]:
-        """Abstract method to optionally implemented for processing a single record in a json data structure.
+        """Abstract method to be optionally implemented for processing a single record in a json data structure.
 
-        Used extract record data and article content, creating a processed record dictionary with an abstract field.
+        Used to extract record data and article content, creating a processed record dictionary with an abstract field.
 
         """
         pass
@@ -107,7 +107,9 @@ class ABCDataProcessor(ABC):
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
         *,
-        record_keys: Optional[dict[str | int, Any] | list[list[str | int]]] = None,
+        record_keys: Optional[
+            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
+        ] = None,
         value_delimiter: Optional[str] = None,
     ):
         """Helper class for ensuring that inputs to data processor subclasses match the intended types."""

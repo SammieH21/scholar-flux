@@ -6,8 +6,11 @@ from typing import Optional
 from scholar_flux.api.models.provider_config import ProviderConfig
 import scholar_flux.api.providers as scholar_flux_api_providers
 from functools import lru_cache
+import logging
 import pkgutil
 import importlib
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderUtils:
@@ -62,7 +65,8 @@ class ProviderUtils:
             config = getattr(module, provider_config_variable, None)
             return config if isinstance(config, ProviderConfig) else None
 
-        except (ModuleNotFoundError, NameError, ValueError, AttributeError):
+        except (ModuleNotFoundError, NameError, ValueError, AttributeError) as e:
+            logger.error(f"Couldn't import the provider, {provider_module} due to an error: {e}")
             return None
 
 

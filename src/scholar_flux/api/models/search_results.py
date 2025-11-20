@@ -17,6 +17,9 @@ Classes:
 from __future__ import annotations
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.api.normalization import BaseFieldMap
+from scholar_flux.exceptions import RecordNormalizationException
+from scholar_flux.api.providers import provider_registry
 from typing import Optional, Any, MutableSequence, Iterable
 from requests import Response
 from pydantic import BaseModel
@@ -62,6 +65,11 @@ class SearchResult(BaseModel):
 
         """
         return len(self.response_result) if isinstance(self.response_result, ProcessedResponse) else 0
+
+    @property
+    def record_count(self) -> int:
+        """Retrieves the overall length of the `processed_record` field from the API response if available."""
+        return len(self)
 
     @property
     def response(self) -> Optional[Response | ResponseProtocol]:
@@ -119,6 +127,16 @@ class SearchResult(BaseModel):
         return self.response_result.processed_records if self.response_result else None
 
     @property
+    def normalized_records(self) -> Optional[list[dict[Any, Any]]]:
+        """Contains the normalized records from the APIResponse processing step after a successfully received response
+        has been normalized.
+
+        If an error response was received instead, the value of this property is None.
+
+        """
+        return self.response_result.normalized_records if self.response_result else None
+
+    @property
     def data(self) -> Optional[list[dict[Any, Any]]]:
         """Alias referring back to the processed records from the ProcessedResponse or ErrorResponse.
 
@@ -135,7 +153,11 @@ class SearchResult(BaseModel):
         This cache key is used when storing and retrieving data from response processing cache storage.
 
         """
-        return self.response_result.cache_key if self.response_result else None
+        return (
+            self.response_result.cache_key
+            if isinstance(self.response_result, (ProcessedResponse, ErrorResponse))
+            else None
+        )
 
     @property
     def error(self) -> Optional[str]:
@@ -157,6 +179,63 @@ class SearchResult(BaseModel):
             if isinstance(self.response_result, (ErrorResponse, ProcessedResponse))
             else None
         )
+
+    def normalize(
+        self,
+        field_map: Optional[BaseFieldMap] = None,
+        raise_on_error: bool = False,
+        update_records: Optional[bool] = None,
+    ) -> list[dict[str, Any]]:
+        """Defines the `normalize` method that successfully processed API Responses can override to normalize records.
+
+        The field map is resolved in the following order of priority:
+
+        1. User-specified field maps
+        2. resolving a provider name to a BaseFieldMap or subclass from the registry.
+        3. Resolving the URL to a BaseFieldMap or subclass
+
+        If a field map is not available, an empty list will be returned if `raise_on_error=False`. Otherwise, a
+        `RecordNormalizationException` is raised.
+
+        Args:
+            field_map (Optional[field_map]):
+                Optional field map to use in the normalization of the record list. If not provided, the field map is
+                looked up from the registry using the name or URL of the current provider.
+            raise_on_error (bool):
+                A flag indicating whether to raise an error. If a field_map cannot be identified for the current
+                response and `raise_on_error` is also, True, an normalization error is raised.
+            update_records (Optional[bool]):
+                A flag that determines whether updates should be made to the `normalized_records` attribute after
+                computation. If `None`, updates are made only if the `normalized_records` attribute is None.
+
+        Returns:
+            [list[dict[str, Any]]: A list of normalized records, or empty list if normalization unavailable.
+
+        Raises:
+            RecordNormalizationException: If raise_on_error=True and no field map found.
+        """
+        try:
+            if self.response_result is None:
+                raise RecordNormalizationException("Cannot normalize a response result of type `None`.")
+
+            if field_map is None:
+                provider_config = provider_registry.get(self.provider_name)
+                # if the lookup by provider name fails the APIResponse.normalize method tries by URL
+                field_map = getattr(provider_config, "field_map", None)
+            return (
+                self.response_result.normalize(field_map=field_map, raise_on_error=True, update_records=update_records)
+                or []
+            )
+        except (RecordNormalizationException, NotImplementedError) as e:
+            msg = (
+                f"The normalization of the page {self.page} response result for provider, {self.provider_name} failed: "
+                f"{e}"
+            )
+
+            if raise_on_error:
+                raise RecordNormalizationException(msg) from e
+            logger.warning(f"{msg} Returning an empty list.")
+        return []
 
     def __eq__(self, other: Any) -> bool:
         """Helper method for determining whether two search results are equal. The equality check operates by
@@ -249,7 +328,7 @@ class SearchResultList(list[SearchResult]):
         return [self._resolve_record(record, item) for item in self for record in self._get_records(item) if record]
 
     @classmethod
-    def _get_records(cls, item: SearchResult) -> list[dict[str, Any]]:
+    def _get_records(cls, item: SearchResult) -> list[dict[str, Any]] | list[dict[str | int, Any]]:
         """Extracts a list of records (dictionaries) from a SearchResult."""
         records = (
             None if not isinstance(item, SearchResult) or item.response_result is None else item.response_result.data
@@ -263,9 +342,81 @@ class SearchResultList(list[SearchResult]):
         record_dict = record or {}
         return record_dict | {"provider_name": item.provider_name, "page_number": item.page}
 
-    def filter(self) -> SearchResultList:
-        """Helper method that retains only elements from the original response that indicate successful processing."""
-        return SearchResultList(item for item in self if isinstance(item.response_result, ProcessedResponse))
+    def normalize(self, raise_on_error: bool = False, update_records: Optional[bool] = None) -> list[dict[str, Any]]:
+        """Convenience method allowing the batch normalization of the of all SearchResults in a SearchResultList.
+
+        Args:
+            raise_on_error (bool):
+                A flag indicating whether to raise an error. If False, iteration will continue through failures in
+                processing such as cases where ErrorResponses and NonResponses otherwise raise a `NotImplementedError`.
+                if `raise_on_error` is True, the normalization error will be raised.
+            update_records (Optional[bool]):
+                A flag that determines whether updates should be made to the `normalized_records` attribute after
+                computation. If `None`, updates are made only if the `normalized_records` attribute is None.
+
+        Returns:
+            list[dict[str, Any]]:
+                List of normalized records, or an empty list if there are records available for normalization.
+
+        Raises:
+            RecordNormalizationException: If raise_on_error=True and no field map found.
+        """
+        try:
+            return [
+                normalized_records
+                for search_result in self
+                for normalized_records in search_result.normalize(
+                    raise_on_error=raise_on_error, update_records=update_records
+                )
+            ]
+        except RecordNormalizationException as e:
+            msg = f"An error was encountered during the batch normalization of a search result list: {e}"
+            raise RecordNormalizationException(msg)
+
+    def filter(self, invert: bool = False) -> SearchResultList:
+        """Helper method that retains only elements from the original response that indicate successful processing.
+
+        Args:
+            invert (bool):
+                Controls whether SearchResults containing ProcessedResponses or ErrorResponses should be selected.
+                If True, ProcessedResponses are omitted from the filtered SearchResultList. Otherwise, only
+                ProcessedResponses are retained.
+
+        """
+        return SearchResultList(
+            search_result
+            for search_result in self
+            if isinstance(search_result.response_result, ProcessedResponse) ^ bool(invert)
+        )
+
+    def select(
+        self,
+        query: Optional[str] = None,
+        provider_name: Optional[str] = None,
+        page: Optional[tuple | MutableSequence | int] = None,
+    ) -> SearchResultList:
+        """Helper method that enables the selection of all responses (successful or failure."""
+        if page is not None and not isinstance(page, (MutableSequence, tuple)):
+            page = [page]
+
+        provider_name = (
+            provider_registry._normalize_name(provider_name) if isinstance(provider_name, str) else provider_name
+        )
+
+        return SearchResultList(
+            search_result
+            for search_result in self
+            if (query is None or search_result.query == query)
+            and (
+                provider_name is None or provider_registry._normalize_name(search_result.provider_name) == provider_name
+            )
+            and (not page or search_result.page in page)
+        )
+
+    @property
+    def record_count(self) -> int:
+        """Retrieves the overall record count across all search results if available."""
+        return sum(search_result.record_count for search_result in self if search_result is not None)
 
 
 __all__ = ["SearchResult", "SearchResultList"]

@@ -1,5 +1,5 @@
 # /api/models/rate_limiter_registry.py
-"""scholar_flux.models.rate_limiter_registry implements the `RateLimiterRegistry` for storing rate limiters by provider.
+"""The scholar_flux.api.models.rate_limiter_registry module implements a registry that stores rate limiters by provider.
 
 The `RateLimiterRegistry` implements several helpers for interacting with, retrieving, and creating default and thread-
 safe rate limiters for both default and new providers.
@@ -61,7 +61,7 @@ class RateLimiterRegistry(BaseProviderDict):
         key: str,
         value: RateLimiter | ThreadedRateLimiter,
     ) -> None:
-        """Sets a key value pair to the current registry where all keys are strings and values are RateLimiters.
+        """Sets a key-value pair to the current registry where all keys are strings and values are RateLimiters.
 
         This method overrides the core functionality of dictionaries to ensure that validation for the `value`
         parameter occurs before saving the provider name - rate limiter pair
@@ -123,7 +123,7 @@ class RateLimiterRegistry(BaseProviderDict):
         1. If the provider exists in the `provider_registry`, use the `request_delay` from its configuration settings.
         2. Otherwise, use the `default_request_delay` parameter if it is a float or integer.
         3. If a provider doesn't exist in the registry and `default_request_delay` isn't specified, use the
-          `RateLimiter.DEFAULT_MIN_INTERVAL` class parameter.
+           `RateLimiter.DEFAULT_MIN_INTERVAL` class parameter.
 
         Args:
             provider_name (str):

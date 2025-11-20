@@ -2,6 +2,7 @@
 """Defines the core configuration necessary to interact with the Springer Nature API using the scholar_flux package."""
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
+from scholar_flux.api.normalization.springer_nature_field_map import field_map
 
 provider = ProviderConfig(
     parameter_map=BaseAPIParameterMap(
@@ -12,6 +13,7 @@ provider = ProviderConfig(
         api_key_required=True,
         auto_calculate_page=True,
     ),
+    field_map=field_map,
     provider_name="springernature",
     base_url="https://api.springernature.com/meta/v2/json",
     api_key_env_var="SPRINGER_NATURE_API_KEY",

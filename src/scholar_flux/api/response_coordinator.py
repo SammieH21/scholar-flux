@@ -15,10 +15,12 @@ from scholar_flux.data.base_extractor import BaseDataExtractor
 from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.data.abc_processor import ABCDataProcessor
 from scholar_flux.data.pass_through_data_processor import PassThroughDataProcessor
+from scholar_flux.utils.helpers import try_call
 
 from scholar_flux.exceptions.api_exceptions import (
     InvalidResponseReconstructionException,
     InvalidResponseStructureException,
+    RecordNormalizationException,
 )
 
 from scholar_flux.exceptions.data_exceptions import (
@@ -49,8 +51,7 @@ from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse, 
 
 class ResponseCoordinator:
     """Coordinates the parsing, extraction, processing, and caching of API responses. The ResponseCoordinator operates
-    on the concept of dependency injection to orchestrate the entire process. Because the structure of the coordinator
-    (parser, extractor, processor)
+    on the concept of dependency injection to orchestrate the entire process.
 
     Note that the overall composition of the coordinator is a governing factor in how the response is processed.
     The ResponseCoordinator uses a cache key and schema fingerprint to ensure that it is only
@@ -314,7 +315,7 @@ class ResponseCoordinator:
 
         """
 
-        # if caching is not being being used, or the cache is not available or valid anymore, process:
+        # if caching is not in use, or the cache is not available or valid anymore, process:
         return self.handle_response(response, cache_key).data
 
     def handle_response(
@@ -323,8 +324,9 @@ class ResponseCoordinator:
         cache_key: Optional[str] = None,
         from_cache: bool = True,
         validate_fingerprint: Optional[bool] = None,
+        normalize_records: Optional[bool] = None,
     ) -> ErrorResponse | ProcessedResponse:
-        """Retrieves the data from the processed response from cache as a if previously cached. Otherwise the data is
+        """Retrieves the data from the processed response from cache if previously cached. Otherwise the data is
         retrieved after processing the response. The response data is subsequently transformed into a dataclass
         containing the response content, processing info, and metadata.
 
@@ -332,21 +334,21 @@ class ResponseCoordinator:
             response (Response): Raw API response.
             cache_key (Optional[str]): Cache key for storing/retrieving.
             from_cache: (bool): Should we try to retrieve the processed response from the cache?
+            normalize_records (Optional[bool]): Determines whether records should be normalized after processing
 
         Returns:
             ProcessedResponse: A Dataclass Object that contains response data
                                and detailed processing info.
 
         """
-
         cached_response = None
 
         if from_cache:
             # attempt to retrieve from cache first
             cached_response = self._from_cache(cache_key, response, validate_fingerprint)
 
-        # if caching is not being being used, or the cache is not available or valid anymore, process:
-        return cached_response or self._handle_response(response, cache_key)
+        # if caching is not in use, or the cache is not available or valid anymore, process:
+        return cached_response or self._handle_response(response, cache_key, normalize_records=normalize_records)
 
     def _from_cache(
         self,
@@ -413,7 +415,6 @@ class ResponseCoordinator:
         cached_response: Optional[Dict[str, Any]] = None,
     ) -> ProcessedResponse:
         """Helper method for creating a processed response containing fields needed for processing."""
-
         if not isinstance(cached_response, dict):
             logger.warning(
                 f"A non-dictionary cache of type {type(cached_response)} was encountered when rebuilding "
@@ -435,6 +436,7 @@ class ResponseCoordinator:
             parsed_response=cached_response.get("parsed_response"),
             extracted_records=cached_response.get("extracted_records"),
             processed_records=cached_response.get("processed_records"),
+            normalized_records=cached_response.get("normalized_records"),
             metadata=cached_response.get("metadata"),
             created_at=cached_response.get("created_at"),  # will perform internal validation
         )
@@ -524,7 +526,10 @@ class ResponseCoordinator:
         return response_obj
 
     def _handle_response(
-        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None
+        self,
+        response: Response | ResponseProtocol,
+        cache_key: Optional[str] = None,
+        normalize_records: Optional[bool] = None,
     ) -> ErrorResponse | ProcessedResponse:
         """Parses, extracts, processes, and optionally caches response data and orchestrates the process of handling
         errors if one occurs anywhere along the response handling process.
@@ -532,6 +537,7 @@ class ResponseCoordinator:
         Args:
             response (Response): Raw API response.
             cache_key (Optional[str]): Cache key for storing results.
+            normalize_records (Optional[bool]): Determines whether records should be normalized after processing
 
         Returns:
             ErrorResponse | ProcessedResponse: A Dataclass Object that contains response data
@@ -546,7 +552,7 @@ class ResponseCoordinator:
         try:
             resolved_response = self._resolve_response(response)
             resolved_response.raise_for_status()
-            return self._process_response(resolved_response, cache_key)
+            return self._process_response(resolved_response, cache_key, normalize_records=normalize_records)
 
         except (RequestException, InvalidResponseStructureException, InvalidResponseReconstructionException) as e:
             error_response = self._process_error(response, f"Error retrieving response: {e}", e, cache_key=cache_key)
@@ -570,13 +576,17 @@ class ResponseCoordinator:
         return error_response
 
     def _process_response(
-        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None
+        self,
+        response: Response | ResponseProtocol,
+        cache_key: Optional[str] = None,
+        normalize_records: Optional[bool] = None,
     ) -> ProcessedResponse:
         """Parses, extracts, processes, and optionally caches response data.
 
         Args:
             response (Response): Raw API response.
             cache_key (Optional[str]): Cache key for storing results.
+            normalize_records (Optional[bool]): Determines whether records should be normalized
 
         Returns:
             ProcessedResponse: A Dataclass Object that contains response data
@@ -595,11 +605,35 @@ class ResponseCoordinator:
 
         extracted_records, metadata = self.extractor(parsed_response_data)
 
-        processed_records = self.processor(extracted_records) if extracted_records else None
+        processed_records = (
+            self.processor(extracted_records) if extracted_records else ([] if extracted_records is not None else None)
+        )
 
         creation_timestamp = generate_iso_timestamp()
 
         serialized_response = APIResponse.serialize_response(response)
+
+        processed_response = ProcessedResponse(
+            cache_key=cache_key,
+            response=response,
+            parsed_response=parsed_response_data,
+            extracted_records=extracted_records,
+            metadata=metadata,
+            processed_records=processed_records,
+            created_at=creation_timestamp,
+        )
+
+        if normalize_records and processed_response.url:
+            normalized_records = (
+                try_call(
+                    processed_response.normalize,
+                    kwargs=dict(update_records=True),
+                    suppress=(RecordNormalizationException, TypeError, ValueError),
+                )
+                or None
+            )
+        else:
+            normalized_records = None
 
         if cache_key and self.cache_manager:
             logger.debug("adding_to_cache")
@@ -611,21 +645,14 @@ class ResponseCoordinator:
                 parsed_response=parsed_response_data,
                 extracted_records=extracted_records,
                 processed_records=processed_records,
+                normalized_records=normalized_records,
                 serialized_response=serialized_response,
                 schema=self.schema_fingerprint(),
                 created_at=creation_timestamp,
             )
         logger.info("Data processed for %s", cache_key)
 
-        return ProcessedResponse(
-            cache_key=cache_key,
-            response=response,
-            parsed_response=parsed_response_data,
-            extracted_records=extracted_records,
-            metadata=metadata,
-            processed_records=processed_records,
-            created_at=creation_timestamp,
-        )
+        return processed_response
 
     def _process_error(
         self,
@@ -655,6 +682,7 @@ class ResponseCoordinator:
             generate_repr_from_string(
                 self.__class__.__name__,
                 dict(data_parser=self.parser, extractor=self.extractor, processor=self.processor),
+                replace_numeric=True,
             )
         )
 

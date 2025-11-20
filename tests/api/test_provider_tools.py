@@ -9,11 +9,9 @@ from copy import deepcopy
 
 
 def test_provider_config_validation(caplog):
-    """Tests that the provider config, upon encountering both invalid base/documentation URLs, will log and raise an
-    APIParameterException.
+    """Test that ProviderConfig logs and raises APIParameterException for invalid base or documentation URLs.
 
-    This test also verifies that valid URLs are not flagged and do not raise errors.
-
+    Also verifies that valid URLs do not raise errors.
     """
     invalid_url: dict = {}
     with pytest.raises(APIParameterException) as excinfo:
@@ -67,7 +65,7 @@ def test_unknown_provider_deletion(caplog):
 
 
 def test_provider_removal(caplog):
-    """Tests the ProviderConfig.remove option to determine whether its functionality is as expected."""
+    """Test that ProviderConfig.remove correctly removes a provider and updates the registry as expected."""
 
     provider_registry = ProviderRegistry.from_defaults()
     provider_name = "plos"
@@ -92,9 +90,10 @@ def test_provider_creation(caplog):
 
     plos_config = provider_registry.pop("plos")
     plos_config_parameters = plos_config.model_dump()
+    plos_config_new = provider_registry.create(**plos_config_parameters)
 
-    assert provider_registry.create(**plos_config_parameters).model_dump() == plos_config_parameters
-    assert plos_config == provider_registry[plos_config.provider_name]
+    assert plos_config_new.model_dump() == plos_config_parameters
+    assert plos_config.model_dump() == provider_registry[plos_config.provider_name].model_dump()
 
 
 def test_provider_addition(caplog):
@@ -181,8 +180,7 @@ def test_invalid_provider_addition():
 
 
 def test_successful_import():
-    """Ensures that dynamic imports for supported providers are loaded as intended through the use of the
-    ProviderUtils.load_provider_config_dict helper class method."""
+    """Ensures that dynamic imports for supported providers are loaded using ProviderUtils.load_provider_config_dict."""
     with contextlib.suppress(AttributeError):
         ProviderUtils.load_provider_config_dict.cache_clear()  # lru cached
 

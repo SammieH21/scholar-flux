@@ -4,25 +4,106 @@ of custom objects such as custom classes, dataclasses, and base models. This mod
 representation from a string to show nested attributes and customize the representation if needed.
 
 Functions:
+    - truncate: A helper function used to truncate various types before representations of objects are displayed.
+                This function also accounts for edge cases and type differences before other utilities display the repr.
     - generate_repr: The core representation generating function that uses the class type and attributes
                      to create a representation of the object
     - generate_repr_from_string: Takes a class name and dictionary of attribute name-value pairs to create
                                  a representation from scratch
     - adjust_repr_padding: Helper function that adjusts the padding of the representation to ensure all
                            attributes are shown in-line
-    - format_repr_value: Formats the value of a nested attribute regarding padding and appearance with
+    - format_repr_value: Formats the value of a nested attribute with regard to padding and appearance with
                          the selected options
     - normalize_repr: Formats the value of a nested attribute, cleaning memory locations and stripping whitespace
 
 """
-from typing import Any, Optional
+from typing import Any, Optional, MutableSequence, Mapping
 from pydantic import BaseModel
 import threading
 import re
-from scholar_flux.utils.helpers import as_tuple
+from scholar_flux.utils.helpers import as_tuple, quote_if_string
 
 
 _LOCK_TYPE = type(threading.Lock())
+
+
+def truncate(
+    value: Any,
+    max_length: int = 40,
+    suffix: str = "...",
+    show_count: bool = True,
+) -> str:
+    """Truncates various strings, mappings, and sequences for cleaner representations of objects in CLIs.
+
+    Handles:
+    - Strings: Truncate with suffix
+    - Mappings (dict): Show preview of first N chars with count
+    - Sequences (list, tuple): Show preview with count
+    - Other objects: Use string representation
+
+    Args:
+        value: The value to truncate
+        max_length: Maximum character length before truncation
+        suffix: String to append when truncated (default: "...")
+        show_count: Whether to show item count for collections
+
+    Returns:
+        Truncated string representation
+
+    Examples:
+        >>> truncate("A very long string that needs truncation", max_length=20)
+        'A very long string...'
+
+        >>> truncate({'key1': 'value1', 'key2': 'value2'}, max_length=30)
+        "{'key1': 'value1', ...} (2 items)"
+
+        >>> truncate([1, 2, 3, 4, 5], max_length=10)
+        '[1, 2, ...] (5 items)'
+
+        >>> truncate({'a': 1}, max_length=50, show_count=False)
+        "{'a': 1}"
+    """
+    # Handle None explicitly
+    if value is None:
+        return "None"
+
+    # Handle strings
+    if isinstance(value, str):
+        if len(value) <= max_length:
+            return value
+        return value[: max_length - len(suffix)] + suffix
+
+    # Handle mappings (dict, etc.)
+    if isinstance(value, Mapping):
+        str_repr = str(value)
+        if len(str_repr) <= max_length:
+            return str_repr
+
+        # Truncate and add count
+        truncated = str_repr[: max_length - len(suffix) - 1] + suffix + str_repr[-1]
+        if show_count:
+            count_suffix = f" ({len(value)} items)" if len(value) != 1 else " (1 item)"
+            return truncated + count_suffix
+        return truncated
+
+    # Handle sequences (list, tuple, but not strings)
+    if isinstance(value, (MutableSequence, tuple)):
+        str_repr = str(value)
+        if len(str_repr) <= max_length:
+            return str_repr
+
+        # Truncate and add count
+        truncated = str_repr[: max_length - len(suffix) - 1] + suffix + str_repr[-1]
+        if show_count:
+            count_suffix = f" ({len(value)} items)" if len(value) != 1 else " (1 item)"
+            return truncated + count_suffix
+        return truncated
+
+    # Fallback: convert to string and truncate
+    str_repr = str(value)
+    if len(str_repr) <= max_length:
+        return str_repr
+    return str_repr[: max_length - len(suffix)] + suffix
 
 
 def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Optional[bool] = None) -> str:
@@ -33,7 +114,7 @@ def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Option
         pad_length (Optional[int]) : Indicates the additional amount of padding that should be added.
                                      Helpful for when attempting to create nested representations formatted
                                      as intended.
-        flatten (bool): indicates whether to use newline characters. This is false by default
+        flatten (bool): Indicates whether to use newline characters. This is false by default
     Returns:
         str: A string representation of the current object that adjusts the padding accordingly
 
@@ -61,11 +142,12 @@ def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Option
     return str(representation)
 
 
-def normalize_repr(value: Any) -> str:
+def normalize_repr(value: Any, replace_numeric: Optional[bool] = False) -> str:
     """Helper function for removing byte locations and surrounding signs from classes.
 
     Args:
-        value (Any): a value whose representation to be normalized
+        value (Any): A value whose representation is to be normalized
+        replace_numeric (bool): Determines whether count values in strings should be replaced.
 
     Returns:
         str: A normalized string representation of the current value
@@ -74,6 +156,9 @@ def normalize_repr(value: Any) -> str:
     value_string = value.__class__.__name__ if not isinstance(value, str) else value
     value_string = re.sub(r"\<(.*?) object at 0x[a-z0-9]+\>", r"\1", value_string)
     value_string = value_string.strip("<").strip(">")
+    if replace_numeric:
+        value_string = re.sub(r"\([0-9]+\)", "(...)", value_string)
+        value_string = re.sub(r"\((len *=|length *=|count *=|n *=)?[0-9]+\)", r"(\1...)", value_string)
     return value_string
 
 
@@ -82,6 +167,7 @@ def format_repr_value(
     pad_length: Optional[int] = None,
     show_value_attributes: Optional[bool] = None,
     flatten: Optional[bool] = None,
+    replace_numeric: Optional[bool] = False,
 ) -> str:
     """Helper function for representing nested objects from custom classes.
 
@@ -91,6 +177,7 @@ def format_repr_value(
         show_value_attributes (Optional[bool]): If False, all attributes within the current object
                                                  will be replaced with '...'. As an example: e.g. StorageDevice(...)
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
+        replace_numeric (bool): Determines whether count values in strings should be replaced.
 
     """
 
@@ -101,7 +188,7 @@ def format_repr_value(
         else (str(value) if not isinstance(value, BaseModel) else repr(value))
     )
 
-    value = normalize_repr(value)
+    value = normalize_repr(value, replace_numeric=replace_numeric)
 
     # determine whether to show all nested parameters for the current attribute
     if show_value_attributes is False and re.search(r"^[a-zA-Z_]+\(.*[^\)]", str(value)):
@@ -118,6 +205,8 @@ def generate_repr_from_string(
     attribute_dict: dict[str, Any],
     show_value_attributes: Optional[bool] = None,
     flatten: Optional[bool] = False,
+    replace_numeric: Optional[bool] = False,
+    as_dict: Optional[bool] = False,
 ) -> str:
     """Method for creating a basic representation of a custom object's data structure. Allows for the direct creation of
     a repr using the classname as a string and the attribute dict that will be formatted and prepared for representation
@@ -128,24 +217,30 @@ def generate_repr_from_string(
         attribute_dict (dict): The dictionary containing the full list of attributes to
                                format into the components of a repr
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
+        replace_numeric (bool): Determines whether count values in strings should be replaced.
+        as_dict (Optional[bool]): Determines whether to represent the current class as a dictionary.
 
     Returns:
         A string representing the object's attributes in a human-readable format.
 
     """
-    pad_length = len(class_name) + 1
+
+    opening, closing, delimiter = ("(", ")", "=") if not as_dict else ("({", ")}", ": ")
+    pad_length = len(class_name) + len(opening)
     pad = ",\n" + " " * pad_length if not flatten else ", "
+
     attribute_string = pad.join(
-        f"{attribute}="
+        f"{quote_if_string(attribute) if as_dict else attribute}{delimiter}"
         + format_repr_value(
             value,
             pad_length=pad_length + len(f"{attribute}") + 1,
             show_value_attributes=show_value_attributes,
             flatten=flatten,
+            replace_numeric=replace_numeric,
         )
         for attribute, value in attribute_dict.items()
     )
-    return f"{class_name}({attribute_string or ''})"
+    return f"{class_name}{opening}{attribute_string or ''}{closing}"
 
 
 def generate_repr(
@@ -153,6 +248,8 @@ def generate_repr(
     exclude: Optional[set[str] | list[str] | tuple[str]] = None,
     show_value_attributes: bool = True,
     flatten: bool = False,
+    replace_numeric: bool = False,
+    as_dict: Optional[bool] = False,
 ) -> str:
     """Method for creating a basic representation of a custom object's data structure. Useful for showing the
     options/attributes being used by an object.
@@ -167,6 +264,8 @@ def generate_repr(
         obj: The object whose attributes are to be represented.
         exclude: Attributes to exclude from the representation (default is None).
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
+        replace_numeric (bool): Determines whether count values in strings should be replaced.
+        as_dict (bool): Determines whether to represent the current class as a dictionary.
 
     Returns:
         A string representing the object's attributes in a human-readable format.
@@ -193,6 +292,8 @@ def generate_repr(
             attribute_dict,
             show_value_attributes=show_value_attributes,
             flatten=flatten,
+            replace_numeric=replace_numeric,
+            as_dict=as_dict,
         )
 
     # if the class doesn't have an attribute such as __dict__, fall back to a simple str
@@ -201,6 +302,7 @@ def generate_repr(
 
 
 __all__ = [
+    "truncate",
     "generate_repr",
     "generate_repr_from_string",
     "format_repr_value",

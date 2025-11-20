@@ -62,6 +62,8 @@ from scholar_flux.utils.helpers import (
     as_list_1d,
     unlist_1d,
     is_nested,
+    get_values,
+    is_nested_json,
     try_quote_numeric,
     quote_numeric,
     quote_if_string,
@@ -95,6 +97,7 @@ from scholar_flux.utils.json_processing_utils import (
 
 
 from scholar_flux.utils.repr_utils import (
+    truncate,
     generate_repr,
     generate_repr_from_string,
     format_repr_value,
@@ -143,6 +146,8 @@ __all__ = [
     "as_list_1d",
     "unlist_1d",
     "is_nested",
+    "get_values",
+    "is_nested_json",
     "try_quote_numeric",
     "quote_numeric",
     "quote_if_string",
@@ -162,6 +167,7 @@ __all__ = [
     "PathNodeIndex",
     "PathProcessingCache",
     "PathDiscoverer",
+    "truncate",
     "generate_repr",
     "generate_repr_from_string",
     "format_repr_value",

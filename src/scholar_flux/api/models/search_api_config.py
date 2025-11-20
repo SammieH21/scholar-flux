@@ -56,10 +56,10 @@ class SearchAPIConfig(BaseModel):
             include the following.
 
             1. mailto (Optional[str | SecretStr]):
-                   An optional email address for receiving feedback on usage from providers, This parameter is
+                   An optional email address for receiving feedback on usage from providers. This parameter is
                    currently applicable only to the Crossref API.
             2. db: (str):
-                The parameter use by the `NIH` to direct requests for data to the pubmed database. This parameter
+                The parameter used by the `NIH` to direct requests for data to the pubmed database. This parameter
                 defaults to pubmed and does not require direct specification
 
 
@@ -107,7 +107,7 @@ class SearchAPIConfig(BaseModel):
 
         if not isinstance(v, str):
             raise ValueError(
-                f"Incorrect type received for the provider_name. Expected None or string, received ({type(v)})"
+                f"Incorrect type received for the provider_name. Expected None or string, received {type(v)}"
             )
         return v.strip()
 
@@ -118,7 +118,7 @@ class SearchAPIConfig(BaseModel):
             return ""
 
         if not isinstance(v, str):
-            raise ValueError(f"Incorrect type received for the base_url. Expected None or string, received ({type(v)})")
+            raise ValueError(f"Incorrect type received for the base_url. Expected None or string, received {type(v)}")
         return v.strip()
 
     @field_validator("base_url", mode="after")
@@ -142,7 +142,7 @@ class SearchAPIConfig(BaseModel):
         """
         if v is not None and not isinstance(v, (int, float)):
             raise ValueError(
-                f"Incorrect type received for the request delay parameter. Expected integer or float, received ({type(v)})"
+                f"Incorrect type received for the request delay parameter. Expected integer or float, received {type(v)}"
             )
         if v is None or v < 0:
             return -1
@@ -181,13 +181,13 @@ class SearchAPIConfig(BaseModel):
     def set_records_per_page(cls, v: Optional[int]):
         """Sets the records_per_page parameter with the default if the supplied value is not valid:
 
-        Triggers a validation error when request delay is an invalid type. Otherwise uses the `DEFAULT_RECORDS_PER_PAGE`
+        Triggers a validation error when records_per_page is an invalid type. Otherwise uses the `DEFAULT_RECORDS_PER_PAGE`
         class attribute if the supplied value is missing or is a negative number.
 
         """
         if v is not None and not isinstance(v, int):
             raise ValueError(
-                f"Incorrect type received for the records_per_page parameter. Expected integer, received ({type(v)})"
+                f"Incorrect type received for the records_per_page parameter. Expected integer, received {type(v)}"
             )
         if v is None or v < 0:
             return cls.DEFAULT_RECORDS_PER_PAGE
@@ -201,7 +201,7 @@ class SearchAPIConfig(BaseModel):
             return v
 
         if not isinstance(v, (str, SecretStr)):
-            raise ValueError(f"Incorrect type received for the api_key. Expected None or string, received ({type(v)})")
+            raise ValueError(f"Incorrect type received for the api_key. Expected None or string, received {type(v)}")
 
         key = v.get_secret_value() if isinstance(v, SecretStr) else v
 
@@ -316,7 +316,7 @@ class SearchAPIConfig(BaseModel):
 
             if not provider_info:
                 raise MissingProviderException(
-                    f"A base URL was not specified. And the provider could not be identified from the provider, {provider_name}"
+                    f"A base URL was not specified and the provider could not be identified from the provider, {provider_name}"
                 )
 
             base_url = provider_info.base_url
@@ -509,7 +509,7 @@ class SearchAPIConfig(BaseModel):
             )
         except MissingProviderException:
             logger.debug(
-                "Neither a provider or base URL were provided: using configuration from the original config..."
+                "Neither a provider nor base URL were provided: using configuration from the original config..."
             )
 
         previous_config_url = cls._extract_url_basename(config_dict.get("base_url", ""))

@@ -1,9 +1,15 @@
 # /data/base_extractor
-"""The scholar_flux.data.base_extractor implements the core processes used to extract data from parsed responses when
-the structure and the locations of records and metadata are already known."""
+"""The scholar_flux.data.base_extractor implements the core processes used to extract data from parsed responses.
+
+The `BaseDataExtractor` implements the methods and functionality that are used when the structure of the parsed response
+and paths for records and metadata are already known. The `BaseDataExtractor` serves as the base for later extension
+with the `scholar_flux.data.data_extractor.DataExtractor` to dynamically identify records and metadata paths when the
+structure of the response is not provided.
+
+"""
 from typing import Any, Optional, Union
 from scholar_flux.exceptions import DataExtractionException
-from scholar_flux.utils import get_nested_data, try_int, try_dict, as_list_1d, unlist_1d
+from scholar_flux.utils import get_nested_data, try_int, try_dict, as_list_1d, unlist_1d, PathUtils
 from scholar_flux.utils.repr_utils import generate_repr
 
 import logging
@@ -23,28 +29,84 @@ class BaseDataExtractor:
         """Initialize the DataExtractor with metadata and records to extract separately.
 
         If record path or metadata_path are specified,
-           then the data extractor will attempt to retrieve the metadata and records at the
-           provided paths. Note that, as metadata_paths can be associated with multiple keys,
-           starting from the outside dictionary, we may have to specify a dictionary containing
-           keys denoting metadata variables and their paths as a list of values indicating how to
-           retrieve the value. The path can also be given by a list of lists describing how to
-           retrieve the last element.
+        then the data extractor will attempt to retrieve the metadata and records at the
+        provided paths. Note that, as metadata_paths can be associated with multiple keys,
+        starting from the outside dictionary, we may have to specify a dictionary containing
+        keys denoting metadata variables and their paths as a list of values indicating how to
+        retrieve the value. The path can also be given by a list of lists describing how to
+        retrieve the last element.
+
+        While the encouraged type for `record_path` is a list of strings that each represent each nested path element
+        to be traversed to arrive at a value for a field, a delimited string can also be used with the default
+        delimiter being `scholar_flux.utils.PathStr.DELIMITER`. Similarly, a list or dictionary of path strings
+        can also be used as shorthand for the individual metadata fields containing relevant metadata values.
+
+        Similarly, a list or dictionary of path strings can also be used as shorthand for the individual metadata
+        fields containing relevant metadata values.
 
         Args:
-            record_path (Optional[List[str]]): Custom path to find records in the parsed data. Contains a list of strings and
-                                               rarely integers indexes indicating how to recursively find the list of records
-            metadata_path (List[List[str]] | Optional[Dict[str, List[str]]]): Identifies the paths in a dictionary
-                associated with metadata as opposed to records. This can be a list of paths where each element is a list
-                describing how to get to a terminal
-            element
+            record_path (Optional[List[str]]):
+                Custom path to find records in the parsed data. Contains a list of strings and rarely integers indexes
+                indicating how to recursively find the list of records.
+            metadata_path (List[List[str]] | Optional[Dict[str, List[str]]]):
+                Identifies the paths in a dictionary associated with metadata as opposed to records. This can be a list
+                of paths where each element is a list describing how to arrive at a terminal element.
 
         """
-        self.metadata_path = metadata_path or {}
-        self.record_path = record_path
+        self.metadata_path = self._prepare_metadata_path(metadata_path or {})
+        self.record_path = record_path if not isinstance(record_path, str) else PathUtils.path_split(record_path)
         self._validate_inputs()
 
+    @staticmethod
+    def _prepare_metadata_path(
+        metadata_path: list[list] | list[str] | dict[str, list] | dict[str, Any],
+    ) -> list[list[str]] | Optional[dict[str, list[str]]]:
+        """Helper method for splitting metadata paths with nested elements that are represented as strings.
+
+        The delimiter, `scholar_flux.utils.PathUtils.DELIMITER` (`.` by default) is used if a delimiter is not
+        directly specified.
+
+        Args:
+            metadata_path (list[list] | list[str] | dict[str, list] | dict[str, Any]):
+                A metadata path to split if represented as a list containing nested string elements representing paths.
+
+        Returns:
+             metadata_path (List[List[str]] | Dict[str, List[str]]):
+                 The metadata path list that identifies metadata fields within a parsed response retrieved from an API.
+
+        """
+
+        if isinstance(metadata_path, list):
+            return [
+                PathUtils.path_split(path_element) if isinstance(path_element, str) else path_element
+                for path_element in metadata_path
+            ]
+        if isinstance(metadata_path, dict):
+            return {
+                key: PathUtils.path_split(path_element) if isinstance(path_element, str) else path_element
+                for key, path_element in metadata_path.items()
+            }
+        return metadata_path
+
+    @staticmethod
+    def _prepare_record_path(record_path: Optional[list[str] | str]) -> Optional[list[str]]:
+        """Helper method for splitting record paths with nested elements that are represented as strings.
+
+        The delimiter, `scholar_flux.utils.PathUtils.DELIMITER` (`.` by default) is used if a delimiter is not
+        directly specified.
+
+        Args:
+            record_path (Optional[List[str] | str]):
+                A record path to split if represented as a string
+
+        Returns:
+             metadata_path (List[List[str]] | Optional[Dict[str, List[str]]]):
+                 The formatted record path representing the keys that must be traversed to arrive at response records.
+        """
+        return PathUtils.path_split(record_path) if isinstance(record_path, str) else record_path
+
     def _validate_inputs(self) -> None:
-        """Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting
+        """Method used to validate the inputs provided to the DataExtractor prior to its later use in extracting
         metadata and records. This method operates by verifying the attributes associated with the current data
         extractor once the attributes are set.
 
@@ -52,9 +114,10 @@ class BaseDataExtractor:
             record_path (Optional[List[str | None]]): The path where a list of records are located
             metadata_path (Optional[List[str | None]]): The list or dictionary of paths where metadata records are located
             dynamic_record_identifiers (Optional[List[str | None]]): Keyword identifier indicating when singular records in a dictionary
-                                                                       can be identified as such in contrast to metadata
+                                                                      can be identified as such in contrast to metadata
             dynamic_metadata_identifiers (Optional[List[str | None]]): Keyword identifier indicating when record metadata keys in a dictionary
-                                                                        can be identified as such in contrast to metadata
+                                                                       can be identified as such in contrast to metadata
+
         Raises:
             DataExtractionException: Indicates an error in the DataExtractor and identifies where the inputs take on an invalid value
 
@@ -202,10 +265,10 @@ class BaseDataExtractor:
         """Extract both records and metadata from the parsed page dictionary.
 
         Args:
-            parsed_page (List[Dict] | Dict): The dictionary containing the page data and metadata to be extracted.
+            parsed_page (Union[list[dict], dict]): The dictionary containing the page data and metadata to be extracted.
 
         Returns:
-            Tuple[Optional[List[Dict]], Optional[Dict]]: A tuple containing the list of records and the metadata dictionary.
+            Tuple[Optional[list[dict]], Optional[dict]]: A tuple containing the list of records and the metadata dictionary.
 
         """
 
@@ -229,7 +292,7 @@ class BaseDataExtractor:
         return self.extract(parsed_page)
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """Base method for showing the structure of the current Data Extractor. This  method reveals the configuration
+        """Base method for showing the structure of the current Data Extractor. This method reveals the configuration
         settings of the extractor config that will be used to extract records and metadata.
 
         Returns:

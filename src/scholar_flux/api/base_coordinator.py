@@ -1,6 +1,6 @@
 # /api/base_coordinator.py
 """Defines the BaseCoordinator that implements the most basic orchestration components used to request, process, and
-optional cache processed record data from APIs."""
+optionally cache processed record data from APIs."""
 from typing import Optional
 from typing_extensions import Self
 import logging
@@ -188,9 +188,12 @@ class BaseCoordinator:
         """
         try:
             cache_key = kwargs.pop("cache_key", None)
+            normalize_records = kwargs.pop("normalize_records", None)
             response = self.search_api.search(**kwargs)
             if response is not None:
-                return self.response_coordinator.handle_response(response, cache_key=cache_key)
+                return self.response_coordinator.handle_response(
+                    response, cache_key=cache_key, normalize_records=normalize_records
+                )
         except RequestFailedException as e:
             logger.error(f"Failed to get a valid response from the {self.search_api.provider_name} API: {e}")
         return None

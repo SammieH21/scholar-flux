@@ -23,6 +23,16 @@ def processed_records(extracted_records) -> list[dict[str, int]]:
 
 
 @pytest.fixture
+def normalized_records(processed_records) -> list[dict[str, int]]:
+    """Fixture for mocking the normalized_records attribute in the creation of a ProcessedResponse."""
+    normalized_records = [
+        {str(key): value for key, value in record.items()} | {"provider_name": "test"} for record in processed_records
+    ]
+
+    return normalized_records
+
+
+@pytest.fixture
 def metadata() -> dict[str, Any]:
     """Mocks a simple metadata dictionary used in creating a success_response."""
     metadata = {"a": 1, "b": 2}
@@ -30,13 +40,17 @@ def metadata() -> dict[str, Any]:
 
 
 @pytest.fixture
-def success_response(mock_successful_response, extracted_records, processed_records, metadata) -> ProcessedResponse:
+def success_response(
+    mock_successful_response, extracted_records, metadata, processed_records, normalized_records
+) -> ProcessedResponse:
     """Fixture used to mock an SuccessResponse to be later encapsulated in a SearchResult."""
     success_response = ProcessedResponse(
+        cache_key="test-cache-key",
         response=mock_successful_response,
         extracted_records=extracted_records,
         processed_records=processed_records,
         metadata=metadata,
+        normalized_records=normalized_records,
     )
     return success_response
 
@@ -45,7 +59,10 @@ def success_response(mock_successful_response, extracted_records, processed_reco
 def unauthorized_response(mock_unauthorized_response) -> ErrorResponse:
     """Fixture used to mock an ErrorResponse to be later encapsulated in a SearchResult."""
     unauthorized_response = ErrorResponse(
-        response=mock_unauthorized_response, message="This is an unauthorized response", error="Unauthorized"
+        response=mock_unauthorized_response,
+        message="This is an unauthorized response",
+        error="Unauthorized",
+        cache_key="test-cache-key",
     )
     return unauthorized_response
 
@@ -92,21 +109,17 @@ def search_result_none() -> SearchResult:
     return SearchResult(provider_name="test-provider", query="test-query", page=3, response_result=None)
 
 
-def test_basic_search_results(success_response, unauthorized_response, extracted_records, processed_records, metadata):
-    """Tests the instantiation of SearchResults and verifies whether the attributes are maintained and retrievable as
-    intended.
+def test_search_result_errors(unauthorized_response):
+    """Tests the instantiation of SearchResult with ErrorResponses and verifies whether the attributes are retrievable.
 
-    Also verifies whether processed responses contain the correct extracted and processed records and whether error
-    responses contain the logged errors involved and associated messages.
+    Also verifies whether error responses contain the logged errors involved and associated messages.
 
     """
-
-    search_result_success = SearchResult(
-        provider_name="test-provider", query="test-query", page=1, response_result=success_response
-    )
-
     search_result_error = SearchResult(
-        provider_name="test-provider", query="test-query", page=2, response_result=unauthorized_response
+        provider_name="test-provider",
+        query="test-query",
+        page=2,
+        response_result=unauthorized_response,
     )
 
     # validating the attributes of the `search_result_error` instance that holds an ErrorResponse
@@ -117,11 +130,32 @@ def test_basic_search_results(success_response, unauthorized_response, extracted
     assert search_result_error.response == unauthorized_response.response
     assert search_result_error.error == "Unauthorized"
     assert search_result_error.message == "This is an unauthorized response"
-    assert len(search_result_error) == 0
+    assert len(search_result_error) == search_result_error.record_count == 0
+    assert search_result_error.cache_key == "test-cache-key"
+
+    # ensuring that the search_result_error is falsy
+    assert isinstance(search_result_error, SearchResult) and not search_result_error
+
+
+def test_search_result_success(success_response, extracted_records, metadata, processed_records, normalized_records):
+    """Tests the instantiation of SearchResults with ProcessedResponses to verifies whether attributes are retrievable.
+
+    Also verifies whether processed responses contain the correct extracted and processed records and whether error
+    responses contain the logged errors involved and associated messages.
+
+    """
+
+    search_result_success = SearchResult(
+        provider_name="test-provider", query="test-query", page=1, response_result=success_response
+    )
+
+    # ensuring that the search_result_success is truthy
+    assert search_result_success
 
     # validating elements of the search_result_success class
-    assert isinstance(search_result_success, SearchResult) and search_result_success
+    assert isinstance(search_result_success, SearchResult) and search_result_success.response_result
     assert search_result_success.data == processed_records == search_result_success.processed_records
+    assert search_result_success.normalized_records == normalized_records
     assert search_result_success.metadata == metadata
     assert search_result_success.parsed_response is None
     assert search_result_success.extracted_records == extracted_records
@@ -133,13 +167,10 @@ def test_basic_search_results(success_response, unauthorized_response, extracted
         len(search_result_success)
         == len(search_result_success.data or [])
         == len(search_result_success.extracted_records or [])
+        == search_result_success.record_count
     )
 
-    # ensuring that the search_result_error is falsy
-    assert isinstance(search_result_error, SearchResult) and not search_result_error
-
-    # checks whether cache keys are successfully recorded or morphed somewhere in the process
-    assert search_result_success.cache_key == search_result_error.cache_key
+    assert search_result_success.cache_key == "test-cache-key"
 
 
 def test_invalid_search_list_elements():
@@ -181,5 +212,43 @@ def test_valid_search_list_elements(search_result_success, search_result_error, 
         len(result.response_result.data or []) for result in filtered_records if result.response_result
     )
 
-    assert len(joined_records) == response_record_total
+    assert len(joined_records) == response_record_total == result_list.record_count
     assert joined_records == [record | {"provider_name": "test-provider", "page_number": 1} for record in data_records]
+
+
+def test_search_result_selection():
+    """Verifies elements of a SearchResultList can be selected based on query, provider, and/or page."""
+
+    pages = list(range(1, 5))  # 1 to 4
+    mock_providers = ["Provider_one", "ProviderTwo", "ProviderThree"]
+    mock_queries = ["test-query-one", "test-query-two", "test-query-three"]
+    search_result_list = SearchResultList(
+        SearchResult(page=i, provider_name=provider_name, query=query)
+        for i in pages
+        for provider_name in mock_providers
+        for query in mock_queries
+    )
+    filtered_search_results = search_result_list.select(page=1)
+
+    assert len(mock_providers) * len(mock_queries) == len(filtered_search_results)
+
+    assert all(
+        SearchResult(page=1, provider_name=provider_name, query=query) in filtered_search_results
+        for query in mock_queries
+        for provider_name in mock_providers
+    )
+
+    # provider names should resolve with normalization
+    filtered_search_results_two = search_result_list.select(query="test-query-one", provider_name="provider_one")
+    assert len(pages) == len(filtered_search_results_two)
+    filtered_search_results_two_pages = (search_result.page for search_result in filtered_search_results_two)
+    assert all(page in filtered_search_results_two_pages for page in pages)
+
+    for search_result in search_result_list:
+        filtered_search_result = (
+            search_result_list.select(query=search_result.query)
+            .select(provider_name=search_result.provider_name)
+            .select(page=search_result.page)
+        )
+
+        assert len(filtered_search_result) == 1 and filtered_search_result[0] == search_result

@@ -1,6 +1,5 @@
 # /api/search_coordinator.py
-"""Defines the SearchCoordinator that provides enhanced customization and single/multi-page response retrieval and
-processing of record data from APIs."""
+"""Implements the SearchCoordinator for orchestrating single/multi-page API response retrieval and record processing."""
 from __future__ import annotations
 from typing import List, Dict, Optional, Any, Sequence, cast, Generator
 from requests import PreparedRequest, Response
@@ -43,7 +42,7 @@ class SearchCoordinator(BaseCoordinator):
     """High-level coordinator for requesting and retrieving records and metadata from APIs.
 
     This class uses dependency injection to orchestrate the process of constructing requests,
-    validating response, and processing scientific works and articles. This class is designed
+    validating responses, and processing scientific works and articles. This class is designed
     to abstract away the complexity of using APIs while providing a consistent and
     robust interface for retrieving record data and metadata from request and storage cache
     if valid to help avoid exceeding limits in API requests.
@@ -88,7 +87,7 @@ class SearchCoordinator(BaseCoordinator):
         Core Components/Attributes:
             SearchAPI: handles all requests to an API based on its configuration.
                 Dependencies: `query`, `**kwargs`
-            ResponseCoordinator:handles the parsing, record/metadata extraction, processing, and caching of responses
+            ResponseCoordinator: handles the parsing, record/metadata extraction, processing, and caching of responses
                 Dependencies: `parser`, `extractor`, `processor`, `cache_manager`
 
         Other Attributes:
@@ -348,6 +347,7 @@ class SearchCoordinator(BaseCoordinator):
         from_request_cache: bool = True,
         from_process_cache: bool = True,
         use_workflow: Optional[bool] = True,
+        normalize_records: Optional[bool] = None,
         **api_specific_parameters,
     ) -> Optional[ProcessedResponse | ErrorResponse]:
         """Public method for retrieving and processing records from the API specifying the page and records per page.
@@ -361,7 +361,7 @@ class SearchCoordinator(BaseCoordinator):
             from_process_cache (bool): This parameter determines whether to attempt to pull
                                        processed responses from the cache storage
             use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
-
+            normalize_records (Optional[bool]): Determines whether records should be normalized after processing
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
         Returns:
             Optional[ProcessedResponse | ErrorResponse]:
@@ -380,6 +380,7 @@ class SearchCoordinator(BaseCoordinator):
                     page=page,
                     from_request_cache=from_request_cache,
                     from_process_cache=from_process_cache,
+                    normalize_records=normalize_records,
                     **api_specific_parameters,
                 )
 
@@ -389,6 +390,7 @@ class SearchCoordinator(BaseCoordinator):
                     page,
                     from_request_cache=from_request_cache,
                     from_process_cache=from_process_cache,
+                    normalize_records=normalize_records,
                     **api_specific_parameters,
                 )
         except Exception as e:
@@ -406,7 +408,7 @@ class SearchCoordinator(BaseCoordinator):
         **api_specific_parameters,
     ) -> SearchResultList:
         """Public method for retrieving and processing records from the API specifying the page and records per page in
-        sequence. This method Note that the response object is saved under the last_response attribute in the event that
+        sequence. Note that the response object is saved under the last_response attribute in the event that
         the data is processed successfully, irrespective of whether responses are cached or not.
 
         Args:
@@ -507,8 +509,9 @@ class SearchCoordinator(BaseCoordinator):
         use_workflow: Optional[bool] = True,
         **api_specific_parameters,
     ) -> SearchResult:
-        """Helper method for retrieving and processing a search result for a particular page number received from an API
-        Provider. This method is used to support the retrieval of a page range while wrapping each result in a
+        """Helper method for retrieving and processing a search result for a particular page from an API Provider.
+
+        This method is used to support the retrieval of a page range while wrapping each result in a
         SearchResult class as a BaseModel that provides more structured information about the received API Response,
         including the provider's name, the page number, and the response result.
 
@@ -654,6 +657,7 @@ class SearchCoordinator(BaseCoordinator):
         page: int = 1,
         from_request_cache: bool = True,
         from_process_cache: bool = True,
+        normalize_records: Optional[bool] = None,
         **api_specific_parameters,
     ) -> Optional[ProcessedResponse | ErrorResponse]:
         """Helper method for retrieving and processing records from the API specifying the page and records per page.
@@ -666,6 +670,8 @@ class SearchCoordinator(BaseCoordinator):
             from_request_cache (bool): Indicates whether to attempt to retrieve the response from the requests-cache
             from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
                                        the processing cache storage device (or memory)
+
+            normalize_records (Optional[bool]): Determines whether records should be normalized
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
         Returns:
             Optional[ProcessedResponse | ErrorResponse]:
@@ -686,6 +692,7 @@ class SearchCoordinator(BaseCoordinator):
             response=cast(ResponseProtocol, api_response.response),
             cache_key=cast(str, api_response.cache_key),
             from_process_cache=from_process_cache,
+            normalize_records=normalize_records,
         )
         return processed_response
 
@@ -803,7 +810,7 @@ class SearchCoordinator(BaseCoordinator):
 
         Args:
             page (int): The page number to retrieve from the cache.
-            from_request_cache (bool): This parameter determines whether to try to fetch a valid response from cache..
+            from_request_cache (bool): This parameter determines whether to try to fetch a valid response from cache.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
 
         Returns:
@@ -854,6 +861,7 @@ class SearchCoordinator(BaseCoordinator):
         response: Response | ResponseProtocol,
         cache_key: str,
         from_process_cache: bool = True,
+        normalize_records: Optional[bool] = None,
     ) -> Optional[ProcessedResponse | ErrorResponse]:
         """
         Helper method for processing records from the API and, upon success, saving records to cache
@@ -864,6 +872,7 @@ class SearchCoordinator(BaseCoordinator):
             cache_key (Optional[str]): The key used for caching responses, data processing, and metadata when enabled
             from_process_cache (bool): Indicates whether or not to pull from cache when available.
                                        This option is only relevant when a caching backend is enabled.
+            normalize_records (Optional[bool]): Determines whether records should be normalized after processing
 
         Returns:
             Optional[ProcessedResponse | ErrorResponse]:
@@ -872,7 +881,10 @@ class SearchCoordinator(BaseCoordinator):
 
         # assume that the entered value is a response protocol to be further validated when handled
         processed_response = self.response_coordinator.handle_response(
-            response, cache_key, from_cache=from_process_cache
+            response,
+            cache_key,
+            from_cache=from_process_cache,
+            normalize_records=normalize_records,
         )
 
         if isinstance(processed_response, (ErrorResponse, ProcessedResponse)):

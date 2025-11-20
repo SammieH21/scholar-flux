@@ -1,9 +1,10 @@
 # /api/models/base_provider_dict.py
-"""The scholar_flux.api.models.base_provider_dict.py module implements the BaseProviderDict to extend the dictionary and
+"""The scholar_flux.api.models.base_provider_dict.py module implements a BaseProviderDict to extend the dictionary and
 resolve provider names to a generic key, handling the normalization of provider names for consistent access."""
 from __future__ import annotations
 from typing import Any
 from scholar_flux.api.models.provider_config import ProviderConfig
+from scholar_flux.utils.repr_utils import generate_repr_from_string
 from collections import UserDict
 
 
@@ -110,6 +111,19 @@ class BaseProviderDict(UserDict[str, Any]):
 
         normalized_key = ProviderConfig._normalize_name(key)
         return normalized_key
+
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+        """Helper method that shows the current structure of the BaseProviderDict or subclass."""
+        class_name = self.__class__.__name__
+        dictionary_elements = self.data
+
+        return generate_repr_from_string(
+            class_name, dictionary_elements, flatten=flatten, show_value_attributes=show_value_attributes, as_dict=True
+        )
+
+    def __repr__(self) -> str:
+        """Helper method for displaying the config in a user-friendly manner."""
+        return self.structure()
 
 
 __all__ = ["BaseProviderDict"]

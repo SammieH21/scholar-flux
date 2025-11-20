@@ -66,7 +66,7 @@ def test_api_key_format(api_key_dictionary, request):
     provider_config = provider_registry.get(provider)
     assert provider_config is not None
 
-    # proceeds with API key format verification if the provider can an API key (whether optional or required)
+    # proceeds with API key format verification if the provider requires an API key (whether optional or required)
     if provider_config.api_key_env_var is not None:
         # verifying format and type
         api_key = request.getfixturevalue(api_key_parameter)
@@ -93,11 +93,11 @@ def test_url_parse_error_config(caplog):
 
 @pytest.mark.parametrize("provider", ["plos", "pubmed_efetch", "pubmed", "springernature", "crossref", "core"])
 def test_api_key_additions(provider):
-    """Tests whether masked API keys that are validated via the SearchAPIConfig remain masked when included as an
-    attribute the created SearchAPIConfig instance.
+    """Tests whether masked API keys that are validated via the `SearchAPIConfig` remain masked when included as an
+    attribute in a created `SearchAPIConfig` instance.
 
     The config, which contains a masked list of environment variables for providers, is patched to include the masked
-    api key so that the environment variable can be automatically retrieved from the config.
+    API key so that the environment variable can be automatically retrieved from the config.
 
     """
 
@@ -138,11 +138,10 @@ def test_api_key_missing(monkeypatch, caplog):
     assert f"Could not load the required API key for: {provider_info.provider_name}" in caplog.text
 
 
-def test_api_default():
-    """Verifies that the SearchAPIConfig allows for `None` the api_key parameter to be later validated in the parameter
-    building steps as opposed to configuration creation.
+def test_api_key_default_when_not_required():
+    """Verifies that `None` is accepted as an `api_key_parameter` value for the `SearchAPIConfig` when not required.
 
-    PLOS does not require an API key, so the value is not populated with a known default from the environment.
+    PLOS does not require an API key, so the value is not populated with a default from the OS environment.
 
     """
     api = SearchAPIConfig.from_defaults("plos", api_key=None)  # API key should default to an empty string
@@ -177,13 +176,13 @@ def test_search_api_config_validation(caplog):
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig.validate_url_type(invalid_url_type)  # type:ignore
     assert (
-        f"Incorrect type received for the base_url. Expected None or string, received ({type(invalid_url_type)})"
+        f"Incorrect type received for the base_url. Expected None or string, received {type(invalid_url_type)}"
         in str(excinfo.value)
     )
 
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig.validate_provider_name([])  # type:ignore
-    assert f"Incorrect type received for the provider_name. Expected None or string, received ({type([])})" in str(
+    assert f"Incorrect type received for the provider_name. Expected None or string, received {type([])}" in str(
         excinfo.value
     )
 
@@ -191,7 +190,7 @@ def test_search_api_config_validation(caplog):
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig.validate_request_delay(v=invalid_request_delay)  # type:ignore
     assert (
-        f"Incorrect type received for the request delay parameter. Expected integer or float, received ({type(invalid_request_delay)})"
+        f"Incorrect type received for the request delay parameter. Expected integer or float, received {type(invalid_request_delay)}"
         in str(excinfo.value)
     )
 
@@ -203,9 +202,7 @@ def test_search_api_config_validation(caplog):
     v = 5
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig.validate_api_key(v)  # type:ignore
-    assert f"Incorrect type received for the api_key. Expected None or string, received ({type(v)})" in str(
-        excinfo.value
-    )
+    assert f"Incorrect type received for the api_key. Expected None or string, received {type(v)}" in str(excinfo.value)
     assert "The received api_key is less than 20 characters long - verify that the api_key is correct" in caplog.text
     assert SearchAPIConfig.validate_api_key(secret_api_key) == secret_api_key  # type:ignore
 
@@ -235,11 +232,11 @@ def test_missing_provider_url(caplog):
 
 
 def test_api_key_modification(caplog):
-    """Validates that the modification of an API key takes place as intended with changes in providers To verify, the
+    """Validates that the modification of an API key takes place as intended with changes in providers. To verify, the
     `config` dictionary is patched to include mock API keys for each provider and later checked to determine whether the
     API key matches the provider's assigned string/secret key.
 
-    This method also verifies that the provider api key is removed as intended when it no longer applies to the current
+    This method also verifies that the provider API key is removed as intended when it no longer applies to the current
     provider after a configuration update.
 
     """
@@ -290,13 +287,13 @@ def test_api_key_modification(caplog):
 
 
 def test_nondefault_initialization():
-    """Ensures that non-default initializations use the base-name of the url as the provider name."""
+    """Ensures that non-default initializations use the base name of the URL as the provider name."""
     api = SearchAPIConfig(base_url="https://test_api.com")  # type: ignore
     assert api.provider_name == "test_api"
 
 
 def test_conflicting_default_initialization(caplog):
-    """Validates that, when the provided defaults conflict, the base URL is prioritized."""
+    """Validates that, when the provided defaults conflict, the base URL should be prioritized."""
     provider_from_url = provider_registry.get("crossref")
     assert provider_from_url
     base_url = provider_from_url.base_url
@@ -316,8 +313,8 @@ def test_missing_required_parameter():
     """Validates that, when a parameter is required but missing, it throws an error if a default is otherwise not
     specified.
 
-    Uses crossref to validate that a value error is thrown when a SearchAPIConfig instance is created without the api
-    specific parameter being assigned a value.
+    Uses crossref to validate that a value error is thrown when a SearchAPIConfig instance is created without the
+    API-specific parameter being assigned a value.
 
     """
     provider_name = "crossref"
@@ -351,10 +348,13 @@ def test_nonneeded_api_key(caplog):
 
 
 def test_search_api_config_dynamic_provider_override(caplog):
-    """Test that the SearchAPI handles dynamic provider overrides the base URL appropriately and replaces an invalid
-    provider name with the provider name from the base URL.
+    """Verifies that `SearchAPI.update` handles dynamic provider name overrides appropriately.
 
-    This test also validates that the logger prints the appropriate warning message describing preference for the URL.
+    1. When a new provider name is specified, the base URL should also update to reflect the new provider.
+    2. If a URL is provided instead, it should replace the no-longer-valid provider name with the new provider name
+       associated with the base URL.
+    3. The logger should print the appropriate warning message describing preference for the URL over the specified
+       provider name if a URL and provider name are provided.
 
     """
 
