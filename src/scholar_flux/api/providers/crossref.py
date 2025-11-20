@@ -3,6 +3,7 @@
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.api.validators import validate_and_process_email
+from scholar_flux.api.normalization.crossref_field_map import field_map
 
 provider = ProviderConfig(
     parameter_map=BaseAPIParameterMap(
@@ -21,6 +22,7 @@ provider = ProviderConfig(
             ),
         ),
     ),
+    field_map=field_map,
     provider_name="crossref",
     base_url="https://api.crossref.org/works",
     api_key_env_var="CROSSREF_API_KEY",

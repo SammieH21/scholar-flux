@@ -1,4 +1,4 @@
-from scholar_flux.api.models import ErrorResponse, ProcessedResponse, APIResponse, ReconstructedResponse
+from scholar_flux.api.models import ErrorResponse, ProcessedResponse, APIResponse, ReconstructedResponse, SearchResult
 from scholar_flux.exceptions import InvalidResponseReconstructionException, InvalidResponseStructureException
 from collections import UserDict
 from scholar_flux.utils import quote_if_string, ResponseProtocol
@@ -7,13 +7,14 @@ from requests import Response, RequestException
 from http.client import responses
 from unittest.mock import patch
 from datetime import datetime
+from copy import deepcopy
 import json
 import pytest
 import re
 
 
 class DummyResponse(Response):
-    """Helper class for testing how `status_code functions for requests.Response subclassess."""
+    """Helper class for testing how `status_code` functions for requests.Response subclasses."""
 
     def __init__(*args, **kwargs):
         pass
@@ -25,11 +26,17 @@ class DummyResponse(Response):
 
 
 @patch("scholar_flux.utils.helpers.try_int")
-def test_response_creation(mock_try_int, mock_successful_response):
-    """Tests whether the property accounts for issues such as raised value errors when retrieving status codes."""
+def test_response_status_code_property(mock_try_int, mock_successful_response):
+    """Tests whether the `status_code` property accounts for ValueErrors and retrieves status codes when available."""
     api_response = APIResponse(cache_key="key", response=DummyResponse())
     code = api_response.status_code
     assert code is None
+
+    api_response_two = APIResponse(cache_key="key", response=mock_successful_response)
+    assert api_response_two.status_code == 200
+
+    api_response_three = APIResponse(cache_key="key", response=None)
+    assert api_response_three.status_code is None
 
 
 def test_blank_initialization():
@@ -48,25 +55,23 @@ def test_blank_initialization():
     assert api_response.created_at is None
 
 
-def test_error_response(mock_unauthorized_response):
-    """Verifies the representation of the ErrorResponse as defined by its original parent class __repr__"""
+def test_error_response_overall_properties(mock_unauthorized_response):
+    """Verifies the representation of the `ErrorResponse` as defined by its original parent class __repr__."""
     error_response = ErrorResponse(cache_key="key", response=mock_unauthorized_response)
     assert repr(error_response) == f"ErrorResponse(status_code={error_response.status_code}, error=None, message=None)"
-    assert not error_response
+    assert not error_response and not error_response.record_count
 
 
 def test_success_response():
-    """Tests if the processed reecords and data fields are populated as intended for a ProcessedResponse."""
+    """Tests if the processed records and data fields are populated as intended for a ProcessedResponse."""
     response_dict: list[dict] = [{1: 1}, {2: 2}, {3: 3}, {4: 4}]
     processed_response = ProcessedResponse(processed_records=response_dict)
     assert processed_response and processed_response.data
-    assert (
-        len(processed_response) == 4 == len(processed_response.data) == len(processed_response.processed_records or [])
-    )
+    assert len(processed_response) == 4 == len(processed_response.data) == processed_response.record_count
 
 
 def test_api_response_from_response(mock_successful_response):
-    """Verifies elements of the APIResponse parent class such as status code, status, cache_key, etc."""
+    """Verifies elements of the `APIResponse` parent class such as status code, status, cache_key, etc."""
     api_response = APIResponse.from_response(response=mock_successful_response, cache_key="foo")
     assert api_response.status_code == 200
     assert api_response.cache_key == "foo"
@@ -118,8 +123,8 @@ def test_api_response_serialize_and_deserialize(mock_successful_response):
     assert kw_deserialized_response == response_dict_deserialized_response == string_deserialized_response
 
 
-def test_deserializing_response(monkeypatch, caplog):
-    """Verifies whether desrialization occurs as intended when encountering errors in the desrialization process."""
+def test_deserialize_response_dict(monkeypatch, caplog):
+    """Verifies whether deserialization occurs as intended when encountering errors in the deserialization process."""
     response = APIResponse.from_response(status_code=200, content=b"success", url="https://examples.com")
 
     exc = "Directly raised exception"
@@ -576,14 +581,11 @@ def test_json(caplog):
     assert ("The current ReconstructedResponse object " "does not have a valid json format.") in caplog.text
 
 
-def test_next_api_response():
-    assert 1 == 1
-
-
 def test_processed_response_properties():
+    """Verifies that the error property of ProcessedResponse returns None as expected."""
     api_response = ProcessedResponse(
         cache_key="1-2-3-4",
-        response=ReconstructedResponse.build(url="https://wwww.processing-example.com", status_code=200),
+        response=ReconstructedResponse.build(url="https://www.processing-example.com", status_code=200),
     )
 
     # a property that isn't a mutable attribute
@@ -591,6 +593,7 @@ def test_processed_response_properties():
 
 
 def test_serialization(caplog):
+    """Verifies that attempting to serialize an invalid response type logs an error and returns None."""
     response = {"url": "https://my-url.com"}
 
     assert APIResponse.serialize_response(response) is None  # type: ignore
@@ -598,16 +601,31 @@ def test_serialization(caplog):
 
 
 def test_error_response_properties():
+    """Verifies that all response properties from the `ErrorResponse` class are accessible despite being `None`."""
     api_response = ErrorResponse(
         cache_key="1-2-3-4",
-        response=ReconstructedResponse.build(url="https://wwww.processing-example.com", status_code=401),
+        response=ReconstructedResponse.build(url="https://www.processing-example.com", status_code=401),
         error="InvalidResponseException",
         message="The status code is invalid",
     )
 
-    # a properties that aren't mutable attributes
+    # properties that aren't mutable attributes
     assert api_response.parsed_response is None
     assert api_response.extracted_records is None
+    assert api_response.normalized_records is None
     assert api_response.metadata is None
     assert api_response.data is None
-    assert len(api_response) == 0  # for error responses, this should always be 0 (no data)
+    assert api_response.record_count == len(api_response) == 0  # for error responses, this should always be 0 (no data)
+
+
+def test_search_result_equality():
+    """Verifies that comparisons of a SearchResult with other results and objects are type aware value comparisons."""
+    error_response = ErrorResponse()
+    nonresponse_search_result = SearchResult(
+        query="test-query", page=1, provider_name="mock_provider", response_result=error_response
+    )
+    nonresponse_search_result2 = deepcopy(nonresponse_search_result)
+    assert nonresponse_search_result == nonresponse_search_result2
+    nonresponse_search_result2.page = 2
+    assert nonresponse_search_result != nonresponse_search_result2
+    assert nonresponse_search_result != "an incorrect class comparison"

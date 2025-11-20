@@ -189,7 +189,7 @@ class PathNodeIndex:
     def search(self, path: ProcessingPath) -> list[PathNode]:
         """
         Attempt to find all values with that match the provided path or have sub-paths
-        that are an exact match match to the provided path
+        that are an exact match to the provided path
         Args:
             path Union[str, ProcessingPath] the path to search for.
             Note that the provided path must match a prefix/ancestor path of an indexed path
@@ -321,6 +321,7 @@ class PathNodeIndex:
                         log_level=logging.INFO,
                     )
 
+                    # Remove the old count node
                     try_call(
                         self.node_map.remove,
                         args=(count_node,),
@@ -331,8 +332,6 @@ class PathNodeIndex:
                     # avoid attempting to add combine newly combined nodes to prevent redundancy
                     skip_keys.append(count_node)
 
-                    # Remove the old value node
-                    # self.remove(value_node)
                     node_updates += 1
 
             logger.info(

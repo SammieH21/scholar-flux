@@ -4,14 +4,71 @@ from scholar_flux.exceptions import DataProcessingException
 
 
 def test_process_page_with_list_of_paths(mock_api_parsed_json_records):
-    """Verifies that each dictionary record with nested components in a list of records is successfully and dynamically
-    flattened into the full nested path and corresponding value found at that path."""
+    """Verifies that the DataProcessor can use a nested list of record keys to extract and flatten nested JSON records.
+
+    The final processed record list should consist of a two dictionaries containing fields mapping each full, period
+    delimited path to the corresponding value found at that path.
+
+    If the DataProcessor is run once more on the processed page of records, the results should also be identical.
+
+    """
     record_keys: list = [
         ["authors", "principle_investigator"],
         ["authors", "assistant"],
         ["doi"],
         ["title"],
         ["genre", "subspecialty"],
+        ["journal", "topic"],
+        ["abstract"],
+    ]
+    processor = DataProcessor(record_keys=record_keys, value_delimiter=None)
+    results = processor.process_page(mock_api_parsed_json_records)
+    assert len(results) == 2
+    assert results[0]["authors.principle_investigator"] == "Dr. Smith"
+    assert results[1]["authors.assistant"] == "John Roe"
+    assert isinstance(results[0]["abstract"], list)
+    assert results[1]["abstract"] == "Another abstract."
+
+    # testing idempotence
+    processed_results = processor.process_page(results)
+    assert results == processed_results
+
+
+def test_processing_without_a_record(caplog):
+    """Verifies that `None` is returned if `None` is passed as a record to `DataProcessor.extract_key`."""
+    key = "a.b.c"
+    assert DataProcessor.extract_key(None, key) is None
+    assert f"Cannot retrieve {key} as the record is None." in caplog.text
+
+
+def test_process_page_with_record_path_strings(mock_api_parsed_json_records):
+    """Verifies that the DataProcessor can use record path strings to extract and flatten nested JSON records."""
+    record_keys = [
+        "authors.principle_investigator",
+        "authors.assistant",
+        "doi",
+        "title",
+        "genre.subspecialty",
+        "journal.topic",
+        "abstract",
+    ]
+    processor = DataProcessor(record_keys=record_keys, value_delimiter=None)
+    results = processor.process_page(mock_api_parsed_json_records)
+    assert len(results) == 2
+    assert results[0]["authors.principle_investigator"] == "Dr. Smith"
+    assert results[1]["authors.assistant"] == "John Roe"
+    assert isinstance(results[0]["abstract"], list)
+    assert results[1]["abstract"] == "Another abstract."
+
+
+def test_process_page_with_mixed_path_record_types(mock_api_parsed_json_records):
+    """Verifies that the DataProcessor can use record keys of mixed types to extract and flatten nested JSON records."""
+    record_keys: list = [
+        ["authors", "principle_investigator"],
+        ["authors", "assistant"],
+        "doi",
+        "title",
+        "genre.subspecialty",
         ["journal", "topic"],
         ["abstract"],
     ]
@@ -77,6 +134,33 @@ def test_process_page_with_dict_keys(mock_api_parsed_json_records):
     assert "authors.assistant" not in results[1]
 
 
+def test_process_page_with_mapped_path_strings(mock_api_parsed_json_records):
+    """Verifies that keys that are mapped to record path strings can be used to extract and flatten nested JSON records.
+
+    Internally, the `DataProcessor` should use the same schema to prepare lists of record path strings as is used for
+    mapped record paths of type `Dict[str, str].
+
+    """
+    record_keys: dict = {
+        "pi": "authors.principle_investigator",
+        "assistant": "authors.assistant",
+        "doi": "doi",
+        "title": "title",
+        "subspecialty": "genre.subspecialty",
+        "topic": "journal.topic",
+        "abstract": "abstract",
+    }
+    processor = DataProcessor(record_keys=record_keys, value_delimiter=None)
+    results = processor(mock_api_parsed_json_records)
+    assert results[0]["pi"] == "Dr. Smith"
+    assert results[1]["assistant"] == "John Roe"
+    assert isinstance(results[0]["abstract"], list)
+    assert results[1]["abstract"] == "Another abstract."
+
+    assert "authors.principle_investigator" not in results[0]
+    assert "authors.assistant" not in results[1]
+
+
 @pytest.mark.parametrize("delimiter", (" | ", "%%", ";"))
 def test_value_delimiter_joins_lists(delimiter, mock_api_parsed_json_records):
     """Validates the final delimiter used to join a list of records into a single string if specified."""
@@ -114,10 +198,11 @@ def test_missing_path_returns_none():
 
 
 def test_integer_index_in_path():
-    """Tests whether including an numeric index within a path will be automatically be converted into a string as
+    """Tests whether including a numeric index within a path will be automatically be converted into a string as
     expected and enable retrieval of a record component at that path if available."""
     data: list = [{"a": [{"b": "val1"}, {"b": "val2"}]}]
-    processor = DataProcessor(record_keys=[["a", 1, "b"]])
+    record_keys: list[list[str | int]] = [["a", 1, "b"]]
+    processor = DataProcessor(record_keys=record_keys)
     results = processor.process_page(data)
     assert results[0]["a.1.b"] == "val2"
 
@@ -153,7 +238,9 @@ def test_empty_dict_in_record():
 def test_path_with_integers():
     """Verifies that creating a path using integers with strings will parse correctly and retrieve existing paths."""
     data: list = [[{"bar": "baz"}], [{"bar": "qux"}]]
-    processor = DataProcessor(record_keys=[[0, "bar"]])
+
+    record_keys: list[list[str | int]] = [[0, "bar"]]
+    processor = DataProcessor(record_keys=record_keys)
     results = processor.process_page(data)
     assert results[0]["0.bar"] == "baz"
     assert results[1]["0.bar"] == "qux"

@@ -100,7 +100,7 @@ class EncryptionPipelineFactory:
 
     @staticmethod
     def _prepare_key(key: Optional[str | bytes]) -> bytes | None:
-        """Prepares the input (bytes, string) and returns a bytes variable if if a non-missing value is provided.
+        """Prepares the input (bytes, string) and returns a bytes variable if a non-missing value is provided.
 
         If the key is None, the function will also return None
 

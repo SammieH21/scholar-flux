@@ -61,6 +61,10 @@ class RequestCreationException(APIException):
     """Exception raised when the preparation of an API request fails."""
 
 
+class RecordNormalizationException(APIException):
+    """Exception raised when the normalization of a response record cannot be completed."""
+
+
 class NotFoundException(APIException):
     """Exception raised when a requested resource is not found."""
 

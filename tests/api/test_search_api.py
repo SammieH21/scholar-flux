@@ -68,8 +68,8 @@ def test_api_summary():
     assert f"timeout={api.timeout}" in representation
 
 
-def test_session_mod():
-    """Tests to determine how a missing session object impacts the cache property (should be returned as None)"""
+def test_session_attribute_removal():
+    """Tests to determine how a missing session object impacts the cache property (should be returned as None)."""
     api = SearchAPI.from_defaults(query="light", provider_name="CROSSREF", use_cache=True)
     api.session = None  # type: ignore
     # at the moment, removing a session isn't ever encouraged but possible for mocking/testing
@@ -138,11 +138,11 @@ def test_parameter_build_successful(provider_name, original_config_test_api_key)
     ],
 )
 def test_incorrect_config(param_overrides):
-    """
-    Test for common potential pitfalls in creating a search api instance
-    1. if records_per_page is a non integer, raises an error
-    2. api key must be provided for the springer API, If empty string, triggers an error.
-    3. If an api key is more than 512 characters long, the api key is likely incorrect
+    """Test for common potential pitfalls in creating a search api instance:
+
+    1. If `records_per_page` is a non integer, an error should be raised.
+    2. An API key must be provided for the springer API, and an empty string should trigger an error.
+    3. If an api key is more than 512 characters long, the api key is likely incorrect.
 
     """
     kwargs = {
@@ -182,8 +182,12 @@ def test_incorrect_base_url(caplog):
 
 
 def test_incorrect_config_type():
-    """Verifies that an incorrect configuration raises an APIParameterException when a dictionary is provided inplace of
-    a SearchAPIConfig."""
+    """Verifies that incorrect configurations will raise an APIParameterException when a dictionary is provided.
+
+    The `config` parameter of `SearchAPI.from_settings` should only accept a `SearchAPIConfig` instance for type safety
+    and to prevent errors that could otherwise occur if left unchecked.
+
+    """
     api = SearchAPI.from_defaults(query="no-query", provider_name="plos")
     config_dict = api.config.model_dump()
     with pytest.raises(APIParameterException):
@@ -537,11 +541,11 @@ def test_prepare_search_url_and_params():
 def test_core_api_filtering(monkeypatch, caplog, scholar_flux_logger):
     """
     Tests and verifies that
-    1, the API key is successfully prepared in the URL when created
+    1. the API key is successfully prepared in the URL when created
     2. that the Masker, when cleared of all masking patterns corresponding to the API key, automatically masks and adds
        the key to a list of secret strings to mask from logs when preparing the request to be sent
     3. When patching `api.session.send()` to always return a request exception and reveal the full URL in the log,
-       that the received API key is replaced with `***`
+       the received API key is replaced with `***`
     """
     core_api_key = "this_is_a_mock_api_key"
     api = SearchAPI.from_defaults(query="a search string", provider_name="core", api_key=core_api_key)
@@ -607,12 +611,12 @@ def test_with_config_parameters_invalid_field_ignored(
         # the field is not added as an extra attribute
         assert not hasattr(default_search_api.config, "nonexistent_field")
 
-        # all other other fields should not have changed:
+        # all other fields should not have changed:
         assert default_search_api.config.model_dump(exclude={"api_specific_parameters"}) == original_config.model_dump(
             exclude={"api_specific_parameters"}
         )
 
-        # added but shouldn't be used in the parameter building stages
+        # added but should not be used in the parameter building stages
         assert "nonexistent_field" in (default_search_api.config.api_specific_parameters or {})
 
         # the nonexistent_field, because it's not in the parameter map, won't be added
@@ -858,3 +862,33 @@ def test_rate_limited_searches(monkeypatch, mock_successful_response):
     next_request_end = time()
     seconds_interval = next_request_end - next_request_start
     assert TOLERANCE * seconds_interval < minimum_request_delay
+
+
+@pytest.mark.parametrize(
+    "provider_name",
+    [
+        "plos",
+        "openalex",
+        "arxiv",
+        "pubmed",
+        "pubmed_efetch",
+        "springernature",
+        "crossref",
+        "core",
+    ],
+)
+def test_url_resolution_with_parameter_search(provider_name):
+    """Verifies that a provider config can be retrieved with an URL containing parameters."""
+    api = SearchAPI(query="test-query", provider_name=provider_name, api_key="thisisamockapikey1234")
+    prepared_search = api.prepare_search(page=1)
+    assert prepared_search.url and "?" in prepared_search.url
+
+    provider_config = provider_registry.get_from_url(prepared_search.url)
+    assert provider_config and provider_config.provider_name == provider_registry._normalize_name(provider_name)
+
+    # verifies that the URL on the response also resolves to the current provider
+    with requests_mock.Mocker() as m:
+        m.get(prepared_search.url, status_code=200, json={"page": 1, "results": ["record1"]})
+        mock_response = api.search(page=1)
+        post_search_provider_config = provider_registry.get_from_url(mock_response.url)
+        assert post_search_provider_config is provider_config

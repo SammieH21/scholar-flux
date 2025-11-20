@@ -235,7 +235,7 @@ print(page_one.provider_name)            # 'plos'
 print(page_one.page)                     # page=1
 response = page_one.response_result      # ProcessedResponse (if successful)
 
-print(len(response.data))              # Total number of records
+print(page_one.record_count)           # Total number of records
 print(response.metadata)               # Total available
 print(response.cache_key)              # 'plos_sleep_1_50'
 
@@ -274,7 +274,7 @@ session_manager = CachedSessionManager(user_agent = 'ResearchEnthusiast', backen
 api = SearchAPI.from_defaults(
     query="quantum computing",
     provider_name='arxiv',
-    session = session_manager.configure_session(), # remove for a simple in-memory storage
+    session = session_manager.configure_session(), # remove for a simple in-memory session caching
     use_cache=True # defaults to in-memory cache if a valid session cache isn't specified
 )
 
@@ -310,51 +310,76 @@ coordinator = SearchCoordinator(api, cache_manager=cache)
 ### Concurrent Multi-Provider Search
 
 Search multiple providers at the same time while respecting each one's rate limits.
+Different providers return data in varying formats and field names which makes it difficult to standardize data for downstream research and analytics. ScholarFlux's normalization feature solves this problem by standardizing API-specific fields into common academic fields like `title`, `doi`, `authors`, `abstract`, etc.
 
 ```python
-from scholar_flux import SearchCoordinator, MultiSearchCoordinator, RecursiveDataProcessor
+from scholar_flux import SearchCoordinator, MultiSearchCoordinator, RecursiveDataProcessor, CachedSessionManager
+from scholar_flux.api.models import AcademicFieldMap
+
+# Note: For production use, consider setting a custom user agent with contact information:
+user_agent='MyResearchProject/1.0 (mailto:your.email@institution.edu)'
+session_manager = CachedSessionManager(backend = 'sqlite', user_agent=user_agent)
 
 # Sets up each coordinator: The RecursiveDataProcessor flattens record fields into path-value combinations  (i.e. `authors.affiliation.name`, `editor.affiliation`, etc.)
-plos = SearchCoordinator(query="machine learning", provider_name='plos', processor = RecursiveDataProcessor())
-crossref = SearchCoordinator(query="machine learning", provider_name='crossref', processor = RecursiveDataProcessor())
-core = SearchCoordinator(query="machine learning", provider_name='core', processor = RecursiveDataProcessor())
+plos = SearchCoordinator(query="machine learning", provider_name='plos', processor = RecursiveDataProcessor(), session = session_manager())
+crossref = SearchCoordinator(query="machine learning", provider_name='crossref', processor = RecursiveDataProcessor(), session = session_manager())
+openalex = SearchCoordinator(query="machine learning", provider_name='openalex', processor = RecursiveDataProcessor(), session = session_manager())
+arxiv = SearchCoordinator(query="machine learning", provider_name='arxiv', processor = RecursiveDataProcessor(), session = session_manager()) # requires `xmltodict`
 
 # Runs each request using multithreading across providers while respecting rate-limits (the default)
 multi = MultiSearchCoordinator()
-multi.add_coordinators([plos, crossref, core])
+# None of the following will require an API key
+multi.add_coordinators([plos, crossref, openalex, arxiv])
 
 # One call retrieves data from all providers in parallel
 results = multi.search_pages(pages=range(1, 3))
 
 # Responses are received in a SearchResultList:
 print(results)
+
+# OUTPUT: [query='machine learning' provider_name='arxiv' page=1 response_result=ProcessedResponse(cache_key='arxiv_machine learning_1_25', metadata='{'@xmlns:opensearch ': 'http://a9.com...}', data='[{'id': 'http://arxiv.org/abs/2306.0...] (25 items)')
+#          query='machine learning' provider_name='arxiv' page=2 response_result=ProcessedResponse(cache_key='arxiv_machine learning_2_25', metadata='{'@xmlns:opensearch ': 'http://a9.com...}', data='[{'id': 'http://arxiv.org/abs/1811.0...] (25 items)')
+#          query='machine learning' provider_name='plos' page=1 response_result=ProcessedResponse(cache_key='plos_machine learning_1_50', metadata='{'numFound': 28928, ' start': 1, 'max...}', data='[{'id': '10.1371/journal.pcbi.101271...] (50 items)')
+#          query='machine learning' provider_name='plos' page=2 response_result=ProcessedResponse(cache_key='plos_machine learning_2_50', metadata='{'numFound': 28928, ' start': 51, 'ma...}', data='[{'id': '10.1371/journal.pone.024202...] (50 items)')
+#          query='machine learning' provider_name='crossref' page=1 response_result=ProcessedResponse(cache_key='crossref_machine learning_1_25', metadata='{'status': 'ok', 'message-type': 'wo...}', data='[{'indexed.date-parts': '2025; 10; 3...] (25 items)')
+#          query='machine learning' provider_name='crossref' page=2 response_result=ProcessedResponse(cache_key='crossref_machine learning_2_25', metadata='{'status': 'ok', 'message-type': 'wo...}', data='[{'indexed.date-parts': '2025; 3; 27...] (25 items)')
+#          query='machine learning' provider_name='openalex' page=1 response_result=ProcessedResponse(cache_key='openalex_machine learning_1_25', metadata='{'count': 2520753, 'db_response_time...}', data='[{'id': 'https://openalex.org/W21012...] (25 items)')
+#          query='machine learning' provider_name='openalex' page=2 response_result=ProcessedResponse(cache_key='openalex_machine learning_2_25', metadata='{'count': 2520753, 'db_response_time...}', data='[{'id': 'https://openalex.org/W21312...] (25 items)')
+
 response_total = len(results)
-
-# OUTPUT: [SearchResult(query='machine learning', provider_name='core', page=1, response_result=ProcessedResponse(len=10, cache_key='core_machine learning_1_25', metadata="{'totalHits': 2153137, 'limit': 25, 'off...}")),
-#          SearchResult(query='machine learning', provider_name='plos', page=1, response_result=ProcessedResponse(len=50, cache_key='plos_machine learning_1_50', metadata="{'numFound': 28560, 'start': 1, 'maxScor...}")),
-#          SearchResult(query='machine learning', provider_name='plos', page=2, response_result=ProcessedResponse(len=50, cache_key='plos_machine learning_2_50', metadata="{'numFound': 28560, 'start': 51, 'maxSco...}")),
-#          SearchResult(query='machine learning', provider_name='crossref', page=1, response_result=ProcessedResponse(len=25, cache_key='crossref_machine learning_1_25', metadata="{'status': 'ok', 'message-type': 'work-l...}")),
-#          SearchResult(query='machine learning', provider_name='crossref', page=2, response_result=ProcessedResponse(len=25, cache_key='crossref_machine learning_2_25', metadata="{'status': 'ok', 'message-type': 'work-l...}"))]
-
 successful_responses = len(results.filter())
 print(f"{successful_responses} / {response_total} successful pages")
 
 
-# transform the list of response records into a searchable DataFrame:
-import pandas as pd 
-data = results.join() # filters out unsuccessful and joins response records into a single list of dictionaries
-df = pd.DataFrame(data)
+# Transform the list of response records into a searchable DataFrame:
+import pandas as pd
+# Filter out unsuccessful searches and normalize record fields into a list of dictionaries with universally mapped column names
+normalized_records = results.filter().normalize()
+# Transform the list of records into a pandas DataFrame
+df = pd.DataFrame(normalized_records)
 
-# Filter to relevant fields
-relevant_fields = ['doi', 'title', 'abstract', 'text']
-columns = [col for col in df.columns if col in relevant_fields]
-df[columns].describe()
+# Contains the full range of fields that are mapped for any given provider plus API-specific fields
+universal_fields = [column for column in df.columns if column in AcademicFieldMap.model_fields.keys()]
+provider_field_counts = df.groupby('provider_name')[universal_fields].count()
+# Find fields that are populated for at least 3 of the 4 providers
+filtered_fields = (provider_field_counts > 0).sum() >= 3
+common_fields = filtered_fields[filtered_fields].index.tolist()
 
-# OUTPUT:                                                       abstract                      doi                                              title
-#         count                                                 111                        6                                                 60
-#         unique                                                111                        6                                                 57
-#         top     Machine Learning (ML) is the discipline that s...  10.1145/3183440.3183461  Einleitung: Vom Batch Machine Learning zum Onl...
-#         freq                                                    1                        1                                                  2
+print(f"Fields commonly available across providers:")
+print(common_fields)
+print("\nRecord counts per provider for common fields:")
+print(provider_field_counts[common_fields])
+
+# OUTPUT: Fields commonly available across providers:
+#         ['provider_name', 'doi', 'url', 'record_id', 'title', 'abstract', 'authors', 'journal', 'publisher', 'year', 'date_published', 'date_created', 'subjects', 'record_type']
+#
+#         Record counts per provider for common fields:
+#                        provider_name  doi  url  record_id  title  abstract  authors  journal  publisher  year  date_published  date_created  subjects  record_type
+#         provider_name
+#         arxiv                     50    0   50         50     50        50       50       25          0    50              50            50        50            0
+#         crossref                  50   50   50         50     50         3        0       47         50    49              49            50         0           50
+#         openalex                  50   40   49         50     50         0       47       39         38    50              50            50        50           50
+#         plos                     100  100    0        100    100        99      100      100        100   100             100           100       100          100 
 ```
 
 ### Response Validation & Error Handling

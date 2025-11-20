@@ -33,7 +33,7 @@ def test_incorrect_config(param_overrides, caplog):
     """Verifies that the SearchCoordinator correctly raises an error on encountering an invalid value when setting an
     attribute.
 
-    This test parametrizes several individual fields to determine whether whether values for each field raise an
+    This test parametrizes several individual fields to determine whether values for each field raise an
     InvalidCoordinatorParameterException.
 
     """
@@ -64,7 +64,7 @@ def test_incorrect_config(param_overrides, caplog):
 
 
 def test_blank_create_api():
-    """Validates whether an attempt to create a Search API without any arguments correctly raises a
+    """Verifies that an attempt to create a Search API without any arguments correctly raises a
     QueryValidationError."""
     with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
         _ = SearchCoordinator._create_search_api()
@@ -72,11 +72,10 @@ def test_blank_create_api():
 
 
 def test_build():
-    """First attempts to build a new search coordinator from the previously created components as well as defaults to
-    determine whether the structure of the coordinator is exactly the same as before.
+    """Verifies that building a new search coordinator from previously created components produces the same structure.
 
-    The string representation of the coordinator will include a basic overview on the structure of the coordinator which
-    should use the same api and response_coordinator while using the same defaults.
+    The string representation of the coordinator includes a basic overview of the structure which should use the same
+    api and response_coordinator with the same defaults.
 
     """
     search_coordinator = SearchCoordinator(query="test_query")
@@ -349,8 +348,8 @@ def test_initialization_updates():
 
 
 def test_request_failed_exception(monkeypatch, caplog):
-    """Verifies that, when a request fails to generate a response and, instead, throws an error, the error is logged and
-    the response result is `None`."""
+    """Verifies that when a request fails to generate a response and instead throws an error, the error is logged and
+    the response result is a `NonResponse`."""
     coordinator = SearchCoordinator(query="Computer Science Testing", request_delay=0)
     monkeypatch.setattr(
         coordinator, "robust_request", lambda *a, **kw: (_ for _ in ()).throw(RequestFailedException("fail"))
@@ -360,7 +359,7 @@ def test_request_failed_exception(monkeypatch, caplog):
     assert "Failed to fetch page 3" in caplog.text
     assert res.message and "fail" in res.message
     assert res.error and res.error in "RequestFailedException" in res.error
-    assert "NonResponse(error=RequestFailedException, message='Failed to fetch page 3: fail')" in repr(res)
+    assert "NonResponse(error='RequestFailedException', message='Failed to fetch page 3: fail')" in repr(res)
 
 
 def test_none_type_fetch(monkeypatch, caplog):
@@ -389,13 +388,13 @@ def test_none_type_fetch(monkeypatch, caplog):
 
 
 def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, caplog):
-    """Test for validating exception handling when errors occur in the retrieval of cached responses.
+    """Verifies exception handling when errors occur in the retrieval of cached responses.
 
     The function first validates that the `default_memory_cache_session` session object is cached as intended.
     Afterward, the `create_key` function of the API cache is patched to raise an error, which is then logged
     while a None value is returned.
 
-    In context, this would later prompt the  SearchCoordinator to retrieve the result from the API when `search`
+    In context, this would later prompt the SearchCoordinator to retrieve the result from the API when `search`
     is called and cache retrieval fails.
 
     """
@@ -444,8 +443,7 @@ def test_no_result_caching(caplog):
 
 
 def test_cache_deletions(monkeypatch, caplog):
-    """Tests to validate whether cached request/response deletions for non-existent keys will return None by default and
-    logs missing keys."""
+    """Verifies that cached request/response deletions for non-existent keys catch exceptions and log missing keys."""
     search_coordinator = SearchCoordinator(query="Computer Science Testing", cache_requests=True, request_delay=0)
     # search_coordinator = SearchCoordinator(query = 'hi', cache_requests = True)
     search_coordinator._delete_cached_request(page=4)  # type: ignore

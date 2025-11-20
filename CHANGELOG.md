@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 11/19/2025
+### Added
+- ScholarFlux now introduces an optional normalization method to prepare records across APIs despite provider-specific differences in response formats. Record normalization plays a pivotal role in cross-platform preparation for downstream tasks by extracting common academic fields (`title`, `doi`, `author`, `abstract`, etc.) consistently across all default providers.
+- When performing a search with the SearchCoordinator, set `normalize_records=True` to automatically normalize responses during processing. The normalized data can then be extracted through `ProcessedResponse.normalized_records` or `SearchResult.normalized_records`. 
+- Added the optional `field_map` attribute to `ProviderConfig` and all default provider configs. This field map is directly used by default providers to normalize processed responses into universal dictionary structures for academic APIs with applications to machine learning.
+- Introduced `.normalize()` methods to `ProcessedResponse`, `SearchResult`, and `SearchResultList` for standardized record normalization.
+- Improved URL normalization and provider config resolution for URLs with parameters.
+- Added a new exception `RecordNormalizationException` for normalization errors.
+- With tests for new functionality as well as previous path-processing utilities, test coverage now covers 96% of all functionality within ScholarFlux.
+
+### Changed
+- Organized the current set of `scholar_flux.api` exports for easier discoverability of internal functionality.
+- Minor docstring and comment corrections. 
+- Enhanced type annotations and flexibility for record key handling in the `DataProcessor`. It now accepts string paths, lists, or mixed formats.
+- Updated the record/metadata path handling functionality in the `DataExtractor`. It can now handle and transform delimited string representations of paths.
+
+
 ## [0.1.5] - 11/10/2025
 ### Changed
 - On package import and reinitialization, the `initialize_package` function now shows an actionable error message if either `config_params` or `logging_params` has an incorrect type. This change helps to quickly spot and fix mistakes on initialization, especially when reinitializing ScholarFlux.

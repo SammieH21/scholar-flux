@@ -8,7 +8,7 @@ The data processor can be used to filter records based on conditions and extract
 record to ensure that relevant records and fields from records are retained
 
 """
-from typing import Any, Optional
+from typing import Any, Optional, Mapping
 from scholar_flux.utils import get_nested_data, as_list_1d, unlist_1d, nested_key_exists
 
 from scholar_flux.data import ABCDataProcessor
@@ -44,12 +44,17 @@ class DataProcessor(ABCDataProcessor):
         # OUTPUT: [{'id': 1, 'school.department': 'NYU Department of Mathematics', 'school.organization': None},
         #          {'id': 2, 'school.department': 'GSU Department of History', 'school.organization': None},
         #          {'id': 3, 'school.department': None, 'school.organization': 'Pharmaceutical Research Team'}]
+        # String paths can also be used to accomplish the same:
+        >>> data_processor = DataProcessor(record_keys = ['id', 'school.department', 'school.organization']) # instantiating the class
+        >>> assert data_processor.process_page(data) == result
 
     """
 
     def __init__(
         self,
-        record_keys: Optional[dict[str | int, Any] | list[list[str | int]]] = None,
+        record_keys: Optional[
+            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
+        ] = None,
         ignore_keys: Optional[list[str]] = None,
         keep_keys: Optional[list[str]] = None,
         value_delimiter: Optional[str] = "; ",
@@ -73,9 +78,20 @@ class DataProcessor(ABCDataProcessor):
         self.value_delimiter = value_delimiter
         self.regex: bool = regex if regex else False
 
-    @staticmethod
+    def update_record_keys(
+        self, record_keys: dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
+    ) -> None:
+        """A helper method for transforming and updating the current dictionary of record keys with a new list."""
+        if prepared_record_keys := self._prepare_record_keys(record_keys):
+            self.record_keys = prepared_record_keys
+            logger.debug(f"Updated the record keys for the current {self.__class__.__name__}")
+
+    @classmethod
     def _prepare_record_keys(
-        record_keys: Optional[dict[str | int, Any] | list[list[str | int]]],
+        cls,
+        record_keys: Optional[
+            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
+        ],
     ) -> Optional[dict[str | int, list[str | int]]]:
         """Convert record_key input into a standardized dict key value pairs. The keys represent the final key/column
         name corresponding to each nested path. Its corresponding value is a list containing each step as an element
@@ -96,15 +112,17 @@ class DataProcessor(ABCDataProcessor):
             elif isinstance(record_keys, list):
                 # creates a dictionary where the joined list represents the key
                 record_keys_dict: Optional[dict[str | int, list[str | int]]] = {
-                    ".".join(f"{p}" for p in as_list_1d(record_key_path)): as_list_1d(record_key_path)
+                    ".".join(f"{p}" for p in cls._process_record_path(record_key_path)): cls._process_record_path(
+                        record_key_path
+                    )
                     for record_key_path in record_keys
                     if record_key_path != []
                 }
 
-            elif isinstance(record_keys, dict):
+            elif isinstance(record_keys, Mapping):
                 # retrieve the value in the dictionary as the full path to the element.
                 # If the path is an empty list, the path will defaults to the key instead
-                record_keys_dict = {key: (as_list_1d(path) or [key]) for key, path in record_keys.items()}
+                record_keys_dict = {key: (cls._process_record_path(path) or [key]) for key, path in record_keys.items()}
 
             else:
                 raise TypeError(
@@ -116,9 +134,14 @@ class DataProcessor(ABCDataProcessor):
         except (TypeError, AttributeError, ValueError) as e:
             raise DataValidationException("The record_keys attribute could not be prepared. Check the inputs: ") from e
 
+    @classmethod
+    def _process_record_path(cls, record_path: str | list) -> list:
+        """Helper method that processes record paths and delimits strings into lists where applicable"""
+        return record_path.split(".") if isinstance(record_path, str) else as_list_1d(record_path)
+
     @staticmethod
     def extract_key(
-        record: dict[str | int, Any] | list[str | int] | str | int | None,
+        record: dict | list | None,
         key: str | int,
         path: Optional[list[str | int]] = None,
     ) -> Optional[list]:
@@ -127,22 +150,27 @@ class DataProcessor(ABCDataProcessor):
         delimiter. Otherwise, keys with lists as values will contain the lists un-edited.
 
         Args:
-            record: The record dictionary to extract the key from.
+            record: The JSON structure (generally a nested list or dictionary) to extract the key from.
             key: The key to process within the record dictionary.
 
         Returns:
-            str: A string containing non-None values from the specified key in the record dictionary, joined by '; '.
+            list: The value found at the specified key within a dictionary nested in a list, and otherwise None.
 
         """
 
         if record is None:
-            logger.warning(f"Cannot retrieve {key} as the record is None.")
+            logger.debug(f"Cannot retrieve {key} as the record is None.")
             return None
 
-        nested_record_data = get_nested_data(record, path) if path and isinstance(record, (list, dict)) else record
+        if path:
+            full_path = f"{'.'.join(str(p) for p in path)}.{key}"
+            if isinstance(record, Mapping) and full_path in record:
+                return as_list_1d(record[full_path])
 
-        if not isinstance(nested_record_data, dict):
-            logger.warning(f"Cannot retrieve {key} from the following record: {record}")
+        nested_record_data = get_nested_data(record, path) if path and isinstance(record, (list, Mapping)) else record
+
+        if not isinstance(nested_record_data, Mapping):
+            logger.debug(f"Cannot retrieve {key} from the following record: {record}")
             return None
 
         record_field = as_list_1d(nested_record_data.get(key, [])) or None
@@ -179,7 +207,7 @@ class DataProcessor(ABCDataProcessor):
             return {
                 k: (
                     self.value_delimiter.join(str(i) for i in field_item)
-                    if field_item is not None and len(field_item) > 1
+                    if field_item is not None and isinstance(field_item, (list, tuple)) and len(field_item) > 1
                     else unlist_1d(field_item)
                 )
                 for k, field_item in processed_record_dict.items()
@@ -198,9 +226,10 @@ class DataProcessor(ABCDataProcessor):
 
         Args:
             parsed_records (list[dict[str | int, Any]]): The records to process and/or filter
-            ignore_keys (Optional[list[str]]): Optional overrides identifying records to ignore based on matching keys
-                                                or absence of keys
-            keep_keys (Optional[list[str]]): Optional overrides identifying records to keep based based on matching keys
+            ignore_keys (Optional[list[str]]): Optional overrides that identify records to ignore based on the absence
+                                               of specific keys or regex patterns.
+            keep_keys (Optional[list[str]]): Optional overrides identifying records to keep based on the absence of
+                                             specific keys or regex patterns.
             regex: (Optional[bool]): Used to determine whether or not to filter records using regular expressions
 
         """
@@ -222,7 +251,7 @@ class DataProcessor(ABCDataProcessor):
                 and self.record_filter(record_dict, ignore_keys, regex) is not True
             ]
 
-            logging.info(f"total included records - {len(processed_record_dict_list)}")
+            logging.debug(f"total included records - {len(processed_record_dict_list)}")
 
             # return the list of processed record dicts
             return processed_record_dict_list
@@ -230,7 +259,10 @@ class DataProcessor(ABCDataProcessor):
             raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
     def record_filter(
-        self, record_dict: dict[str | int, Any], record_keys: Optional[list[str]] = None, regex: Optional[bool] = None
+        self,
+        record_dict: Mapping[str | int, Any],
+        record_keys: Optional[list[str]] = None,
+        regex: Optional[bool] = None,
     ) -> Optional[bool]:
         """Helper method that filters records using regex pattern matching, checking if any of the keys provided in the
         function call exist."""

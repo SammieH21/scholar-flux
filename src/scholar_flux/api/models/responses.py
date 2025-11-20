@@ -17,14 +17,16 @@ Classes:
 
 """
 from typing import Optional, Dict, List, Any, MutableMapping
-from scholar_flux.exceptions import InvalidResponseReconstructionException
+from scholar_flux.exceptions import InvalidResponseReconstructionException, RecordNormalizationException
 from typing_extensions import Self
 from pydantic import BaseModel, field_serializer, field_validator
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse
 from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp, format_iso_timestamp
-from scholar_flux.utils import CacheDataEncoder, generate_repr
+from scholar_flux.utils import CacheDataEncoder, generate_repr, generate_repr_from_string, truncate
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.api.validators import validate_url
+from scholar_flux.api.providers import provider_registry
+from scholar_flux.api.normalization.base_field_map import BaseFieldMap
 from datetime import datetime
 from http.client import responses
 from scholar_flux.utils import try_int
@@ -219,8 +221,8 @@ class APIResponse(BaseModel):
         """Return URL from the underlying response, if available and valid.
 
         Returns:
-            str: A string of the original URL if available. Accounts for objects that
-                 that indicate the original url when converted as a string
+            str: The original URL in string format, if available. For URL objects that are not `str` types, this method
+                 attempts to convert them into strings when possible.
 
         """
         url = getattr(self.response, "url", None)
@@ -481,6 +483,14 @@ class APIResponse(BaseModel):
         else:
             self.as_reconstructed_response(self.response).raise_for_status()
 
+    def normalize(self, *args, **kwargs) -> Optional[list[dict[str, Any]]]:
+        """Defines the `normalize` method that successfully processed API Responses can override to normalize records.
+
+        Raises:
+            NotImplementedError: Unless overridden, this method will raise an error unless defined in a subclass.
+        """
+        raise NotImplementedError(f"Normalization is not implemented for responses of type, {self.__class__.__name__}")
+
     def __repr__(self) -> str:
         """Helper method for generating a simple representation of the current API Response."""
         return generate_repr(
@@ -546,6 +556,11 @@ class ErrorResponse(APIResponse):
         return None
 
     @property
+    def normalized_records(self) -> None:
+        """Provided for type hinting + compatibility."""
+        return None
+
+    @property
     def metadata(self) -> None:
         """Provided for type hinting + compatibility."""
         return None
@@ -555,9 +570,22 @@ class ErrorResponse(APIResponse):
         """Provided for type hinting + compatibility."""
         return self.processed_records
 
+    @property
+    def record_count(self) -> int:
+        """Number of records in this response."""
+        return 0
+
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the underlying ErrorResponse."""
-        return f"ErrorResponse(status_code={self.status_code}, error={self.error}, " f"message={self.message!r})"
+        return generate_repr_from_string(
+            self.__class__.__name__,
+            {
+                "status_code": self.status_code,
+                "error": self.error,
+                "message": self.message,
+            },
+            flatten=True,
+        )
 
     def __len__(self) -> int:
         """Helper method added for compatibility with the use-case of the ProcessedResponse.
@@ -585,7 +613,9 @@ class NonResponse(ErrorResponse):
 
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the underlying ErrorResponse."""
-        return f"NonResponse(error={self.error}, " f"message={self.message!r})"
+        return generate_repr_from_string(
+            self.__class__.__name__, dict(error=self.error, message=self.message), flatten=True
+        )
 
 
 class ProcessedResponse(APIResponse):
@@ -593,19 +623,22 @@ class ProcessedResponse(APIResponse):
     reconstructed_response received and processed after retrieval from an API in addition to the cache key. This object
     also allows storage of intermediate steps including:
 
-    1) parsed responses     2) extracted records and metadata     3) processed records (aliased as data)     4) any
-    additional messages An error field is provided for compatibility with the ErrorResponse class.
+    1. parsed responses,
+    2. extracted records and metadata,
+    3. processed records (aliased as data),
+    4. and any additional messages An error field is provided for compatibility with the ErrorResponse class.
 
     """
 
     parsed_response: Optional[Any] = None
-    extracted_records: Optional[List[Any]] = None
-    processed_records: Optional[List[Dict[Any, Any]]] = None
+    extracted_records: Optional[List[dict[str, Any]] | List[dict[str | int, Any]]] = None
+    processed_records: Optional[List[dict[str, Any]] | List[dict[str | int, Any]]] = None
+    normalized_records: Optional[List[dict[str, Any]]] = None
     metadata: Optional[Any] = None
     message: Optional[str] = None
 
     @property
-    def data(self) -> Optional[List[Dict[Any, Any]]]:
+    def data(self) -> Optional[List[dict[str, Any]] | List[dict[str | int, Any]]]:
         """Alias to the processed_records attribute that holds a list of dictionaries, when available."""
         return self.processed_records
 
@@ -614,16 +647,90 @@ class ProcessedResponse(APIResponse):
         """Provided for type hinting + compatibility."""
         return None
 
-    def __repr__(self) -> str:
-        """Helper method for creating a simple representation of the ProcessedResponse."""
-        return (
-            f"ProcessedResponse(len={len(self.processed_records or [])}, "
-            f"cache_key={self.cache_key!r}, "
-            f"metadata={'{'+str(self.metadata)[1:40]+'...'+'}' if isinstance(self.metadata, (dict, list, str)) and self.metadata else self.metadata!r})"
+    def normalize(
+        self,
+        field_map: Optional[BaseFieldMap] = None,
+        raise_on_error: bool = False,
+        update_records: Optional[bool] = None,
+    ) -> list[dict[str, Any]]:
+        """Applies a field map to normalize the processed records of a ProcessedResponse into a common structure.
+
+        Note that if a field_map is not provided, this method will return the previously normalized records attribute if
+        available. If normalized records are unavailable, this method will attempt to lookup the FieldMap from the current
+        provider_registry.
+
+        If processed records is `None` (and not an empty list), record normalization will fall back to using
+        `extracted_records` and will return relatively similar results with minor differences in potential value
+        coercion, flattening, and the recursive extraction of values at non-terminal paths depending on the
+        implementation of the data processor.
+
+        Args:
+            field_map (Optional[BaseFieldMap]):
+                An optional field map that can be used to normalize the current response. This is inferred from the
+                registry if not provided as input.
+            raise_on_error (bool):
+                A flag indicating whether to raise an error. If a field_map cannot be identified for the current
+                response and `raise_on_error` is also, True, an normalization error is raised.
+            update_records (Optional[bool]):
+                A flag that determines whether updates should be made to the `normalized_records` attribute after
+                computation. If `None`, updates are made only if the `normalized_records` attribute is not None.
+
+        Returns:
+            list[dict[str, Any]]:
+                The list of normalized records in the same dimension as the original processed response. If a map for
+                the current provider does not exist and `raise_on_error=False`, an empty list is returned instead.
+
+        Raises:
+            RecordNormalizationException: If an error occurs during the normalization of record list.
+
+        """
+        data = (
+            self.extracted_records
+            if self.processed_records is None and self.extracted_records
+            else self.processed_records
         )
 
+        if field_map is None:
+
+            # recomputation is performed only if `normalize_records` does not exist or `update_records is not True`
+            if self.normalized_records is not None and update_records is not True:
+                return self.normalized_records
+
+            provider_config = provider_registry.get_from_url(self.url or "")
+            if not (provider_config and provider_config.field_map):
+                msg = f"The URL, {self.url}, does not resolve to a known provider in the provider_registry."
+                if raise_on_error:
+                    logger.error(msg)
+                    raise RecordNormalizationException(msg)
+                logger.warning(f"{msg} Returning an empty list.")
+                return []
+            field_map = provider_config.field_map
+
+        normalized_records = field_map.normalize_records(data) if data is not None else None
+
+        # records are saved only if a normalized response does not exist or `update_records=True`
+        if (
+            update_records is None and normalized_records is not None and not self.normalized_records
+        ) or update_records:
+            self.normalized_records = normalized_records
+
+        return normalized_records or []
+
+    def __repr__(self) -> str:
+        """Helper method for creating a simple representation of the ProcessedResponse."""
+        metadata = truncate(self.metadata, max_length=40, show_count=False) if self.metadata is not None else None
+        data = truncate(self.data, max_length=40, show_count=True) if self.data is not None else None
+
+        attributes = {"cache_key": self.cache_key, "metadata": metadata, "data": data}
+        return generate_repr_from_string(self.__class__.__name__, attributes, flatten=True)
+
+    @property
+    def record_count(self) -> int:
+        """The overall length of the processed data field as processed in the last step after filtering."""
+        return len(self)
+
     def __len__(self) -> int:
-        """Indicates the overall length of the processed data field as processed in the last step after filtering."""
+        """Calculates the overall length of the processed data field as processed in the last step after filtering."""
         return len(self.processed_records or [])
 
     def __bool__(self) -> bool:

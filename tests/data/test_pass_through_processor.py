@@ -12,7 +12,7 @@ def test_process_page(mock_api_parsed_json_records):
 
 
 def test_filter_keys(mock_api_parsed_json_records):
-    """Validates that filtering keys works as intended when enabled There are two records in the
+    """Validates that filtering keys works as intended when enabled. There are two records in the
     mock_api_parsed_json_records, both of which have the `principle_investigator` key, so both records should be
     retained as is.
 
@@ -63,6 +63,7 @@ def test_blank_record_keys(mock_api_parsed_json_records):
 
     processor = PassThroughDataProcessor(ignore_keys=[""])
     results = processor.process_page(mock_api_parsed_json_records)
+    # all keys should still be retained even when values are empty strings or `None`
     assert results == mock_api_parsed_json_records
 
 
@@ -98,3 +99,27 @@ def test_validate_inputs_with_invalid_types():
         PassThroughDataProcessor._validate_inputs("not a list", "not a list either", False)  # type:ignore
     with pytest.raises(DataProcessingException):
         PassThroughDataProcessor._validate_inputs(None, None, 123)  # type:ignore
+
+
+def test_processing_with_invalidated_inputs():
+    """Verifies that a DataProcessingException is raised when invalid inputs are passed to `process_page`.
+
+    The `_validate_inputs()` method is used on the backend to verify inputs before processing, and the error raised
+    should be caught and re-raised by the `PassThroughDataProcessor`.
+
+    """
+    processor = PassThroughDataProcessor()
+    invalid_ignore_keys = {"error": "ignore keys does not accept dictionaries"}
+    parsed_records = [
+        {
+            "a": 1,
+        },
+        {
+            "b": 2,
+        },
+    ]
+    err = f"ignore_keys must be a list, got {type(invalid_ignore_keys)}"
+    message = f"An unexpected error occurred during data processing: {err}"
+    with pytest.raises(DataProcessingException) as excinfo:
+        _ = processor.process_page(parsed_records, ignore_keys=invalid_ignore_keys)  # type: ignore
+        assert message in str(excinfo.value)

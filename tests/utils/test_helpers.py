@@ -15,6 +15,7 @@ from scholar_flux.utils.helpers import (
     nested_key_exists,
     get_nested_dictionary_data,
     get_nested_data,
+    is_nested_json,
     generate_response_hash,
     compare_response_hashes,
     coerce_int,
@@ -73,6 +74,28 @@ def test_quote_numeric_failure():
 
 
 ############################## Tests for flatten ##############################
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    (
+        (dict(a=1, b=2, c=3), False),
+        (dict(a="a", b="b", c="c"), False),
+        (None, False),
+        ([], False),
+        ({}, False),
+        ([True, False, True], False),
+        (3.14, False),
+        ([{}, 2, 3], True),
+        ({"a": [1, 2], "b": 2, "c": 3}, False),
+        ({"a": [{"1": 2}], "b": 2, "c": 3}, True),
+        ({"a": [["1", 2]], "b": 2, "c": 3}, True),
+        (["a", [["1", 2]], "b", "c", 3], True),
+    ),
+)
+def test_is_nested_json(data, expected):
+    """Verifies that nested and unnested values can be identified correctly as intended."""
+    assert is_nested_json(data) is expected
 
 
 def test_flatten_single_dict_list():

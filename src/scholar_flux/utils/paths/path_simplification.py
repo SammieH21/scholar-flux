@@ -164,9 +164,6 @@ class PathSimplifier:
             PathSimplificationError: If an error occurs during path simplification.
 
         """
-        #       if not (paths and self.name_mappings):
-        #           raise PathSimplificationError('A valid list of paths and a non-empty name mappings dictionary is required for simplification.')
-
         try:
             for original_path in paths:
                 path = (
@@ -175,7 +172,6 @@ class PathSimplifier:
                     else original_path
                 )
                 path_group = path.group()
-                # unique_name = self.name_mappings.get(path) or (path if max_components is None else self.generate_unique_name(path, max_components, remove_noninformative))
                 unique_group_name = self.name_mappings.get(path_group) or self.generate_unique_name(
                     path_group, max_components, remove_noninformative
                 )

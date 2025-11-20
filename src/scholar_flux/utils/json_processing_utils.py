@@ -58,12 +58,21 @@ class PathUtils:
     """Helper class used to perform string/list manipulations for paths that can be represented in either form,
     requiring conversion from one type to the other in specific JSON path processing scenarios."""
 
-    @staticmethod
-    def path_name(level_names: List[Any]) -> str:
+    DELIMITER: str = "."
+    IGNORE_KEYS: set = {"value"}
+    CONSTANT: str = "i"
+
+    @classmethod
+    def path_name(cls, level_names: List[Any], delimiter: Optional[str] = None) -> str:
         """Generate a string representation of the path based on the provided level names.
+
+         The path name is chosen starting from the last non-numeric key in a list of path elements.
 
         Args:
             level_names (List[Any]): A list of names representing the path levels.
+        delimiter (Optional[str]):
+            A delimiter used to join levels that, together, form the name of a path. If not specified, the class-level
+            delimiter is used.
 
         Returns:
             str: A string representation of the path.
@@ -77,25 +86,71 @@ class PathUtils:
             if not isinstance(name, int):
                 logger.debug(f"Found non-integer name: {name}")
                 return str(name)
-        path_str = PathUtils.path_str(level_names)
+        path_delimiter = delimiter or cls.DELIMITER
+        path_str = PathUtils.path_str(level_names, path_delimiter)
         return path_str
 
-    @staticmethod
-    def path_str(level_names: List[Any]) -> str:
+    @classmethod
+    def path_str(cls, level_names: List[Any], delimiter: Optional[str] = None) -> str:
         """Join the level names into a single string separated by underscores.
 
         Args:
             level_names (List[Any]): A list of names representing the path levels.
+            delimiter (Optional[str]):
+                A delimiter used to join a path from its keys. If not specified, the class-level delimiter is used.
 
         Returns:
            str: A single string with level names joined by underscores.
 
         """
-        path_str = ".".join(map(str, level_names))
+        path_delimiter = delimiter or cls.DELIMITER
+        path_str = path_delimiter.join(map(str, level_names))
         return path_str
 
-    @staticmethod
-    def remove_path_indices(path: List[Any]) -> List[Any]:
+    @classmethod
+    def path_split(cls, path: str, delimiter: Optional[str] = None) -> List[str]:
+        """Splits a path on the cls.DELIMITER value
+
+        Args:
+            path (str): A string-based path to be split into a list
+            delimiter (Optional[str]):
+               A delimiter used to split a path string. If not specified, the class-level delimiter is used.
+
+        Returns:
+           List[str]: A list containing each level of a path as a string element.
+
+        """
+        path_delimiter = delimiter or cls.DELIMITER
+        return path.split(path_delimiter)
+
+    @classmethod
+    def to_path_sequence(
+        cls, path: str | List[str] | List[str | int], delimiter: Optional[str] = None
+    ) -> List[str] | List[str | int]:
+        """Convert a path input (string or list) to a normalized path sequence.
+
+        Args:
+            path (str | List[str] | List[str | int]): Either a delimited string or list of path components
+            delimiter (List[str] | List[str | int]): Optional delimiter for string paths
+
+        Returns:
+            PathSequence: List of path components (strings and/or integers)
+
+        Examples:
+            >>> PathUtils.to_path_sequence("authors.0.name")
+            ['authors', '0', 'name']
+            >>> PathUtils.to_path_sequence(["authors", 0, "name"])
+            ['authors', 0, 'name']
+        """
+        if isinstance(path, str):
+            return cls.path_split(path, delimiter)
+        elif isinstance(path, list):
+            return path
+        else:
+            raise TypeError(f"Path must be str or list, got {type(path).__name__}")
+
+    @classmethod
+    def remove_path_indices(cls, path: str | List[Any]) -> List[Any]:
         """Remove integer indices from the path to get a list of key names.
 
         Args:
@@ -105,22 +160,28 @@ class PathUtils:
             List[Any]: A path with only the key names.
 
         """
-        key_path = [k for k in path if not isinstance(k, int) and k not in ("value",)]
+        if not isinstance(path, list):
+            path = [path]
+
+        key_path = [k for k in path if not isinstance(k, int) and k not in cls.IGNORE_KEYS]
         return key_path
 
-    @staticmethod
-    def constant_path_indices(path: List[Any], constant: str = "i") -> List[Any]:
+    @classmethod
+    def constant_path_indices(cls, path: str | List[Any], constant: Optional[str] = None) -> List[Any]:
         """Replace integer indices with constants in the provided path.
 
         Args:
             path (List[Any]): The original path containing both keys and indices.
-            constant (str): A value to replace a numeric value with.
+            constant (Optional[str]): A value to replace a numeric value with. if not provided, the `CONSTANT` class
+            variable is used otherwise.
 
         Returns:
             List[Any]: A path with only the key names.
 
         """
-        constant = constant or "i"
+        if not isinstance(path, list):
+            path = [path]
+        constant = constant or cls.CONSTANT
         key_path = [constant if isinstance(k, int) else k for k in path]
         return key_path
 
@@ -284,6 +345,8 @@ class KeyDiscoverer:
 class JsonRecordData:
     """Helper class used as a container to record the paths, data, and names associated with each terminal path.
 
+    This class uses its structural representation to create a hash that allows it to be stored within a set.
+
     Args:
         path (list[str | int]): The path associated with the terminal data point where nested terminal values can be found
         data (dict[str, Any]): The nested terminal value at the end of a path
@@ -292,6 +355,18 @@ class JsonRecordData:
 
     path: List[str | int]
     data: Dict[str, Any]
+
+    def structure(self) -> str:
+        """Helper method used to identify duplicate paths before addition"""
+        return f"{self.__class__.__name__}(path={self.path}, data={self.data})"
+
+    def __repr__(self) -> str:
+        """Represents the structure of the current JsonRecordData instance."""
+        return self.structure()
+
+    def __hash__(self) -> int:
+        """Helper method used to resolve"""
+        return hash(self.structure())
 
 
 class RecursiveJsonProcessor:
@@ -309,6 +384,7 @@ class RecursiveJsonProcessor:
         object_delimiter: Optional[str] = "; ",
         normalizing_delimiter: Optional[str] = None,
         use_full_path: Optional[bool] = False,
+        path_delimiter: Optional[str] = None,
     ):
         """Initialize the RecursiveJsonProcessor with a JSON dictionary and a delimiter for joining list elements.
 
@@ -321,6 +397,7 @@ class RecursiveJsonProcessor:
         self.json_dict = json_dict
         self.normalizing_delimiter = normalizing_delimiter
         self.object_delimiter = object_delimiter
+        self.path_delimiter = path_delimiter or PathUtils.DELIMITER
         self.key_discoverer = (
             KeyDiscoverer([json_dict] if not isinstance(json_dict, list) else json_dict) if json_dict else None
         )
@@ -360,7 +437,7 @@ class RecursiveJsonProcessor:
 
     def process_dictionary(self, obj: Optional[Dict] = None):
         """Create a new json dictionary that contains information about the relative paths of each field that can be
-        found within the current json_dict."""
+        found within the current JSON dict."""
         self.json_dict = obj or self.json_dict
         if not self.json_dict:
             raise ValueError("Json Dictionary not specified")
@@ -375,18 +452,130 @@ class RecursiveJsonProcessor:
 
         """
         level_name = level_name if level_name is not None else []
+
         if isinstance(obj, list):
-            if any(isinstance(v_i, (list, dict)) for v_i in obj):
-                return list(chain.from_iterable(self.process_level(v_i, level_name + [i]) for i, v_i in enumerate(obj)))
-            joined_obj = self.object_delimiter.join(map(str, obj)) if self.object_delimiter is not None else tuple(obj)
-            return self.process_level(joined_obj, level_name)
+            return self._process_list(obj, level_name)
         elif isinstance(obj, dict):
-            return list(chain.from_iterable(self.process_level(v, level_name + [k]) for k, v in obj.items()))
+            return self._process_dict(obj, level_name)
         else:
-            obj = list(obj) if isinstance(obj, tuple) else obj
-            obj_info = JsonRecordData(data=obj, path=level_name)
+            return self.create_record(obj=obj, path=level_name)
+
+    def _process_list(self, obj: list, level_name: List[Any]) -> List[Any]:
+        """Process a list object, either recursively or by joining elements."""
+        if any(isinstance(v_i, (list, dict)) for v_i in obj):
+            return list(chain.from_iterable(self.process_level(v_i, level_name + [i]) for i, v_i in enumerate(obj)))
+
+        joined_obj = self._join_list_elements(obj)
+        return self.process_level(joined_obj, level_name)
+
+    def _process_dict(self, obj: dict, level_name: List[Any]) -> List[Any]:
+        """Process a dictionary object recursively."""
+        return list(chain.from_iterable(self.process_level(v, level_name + [k]) for k, v in obj.items()))
+
+    def _join_list_elements(self, obj: list) -> str | tuple:
+        """Join list elements using the object delimiter or convert to tuple."""
+        if self.object_delimiter is not None:
+            return self.object_delimiter.join(map(str, obj))
+        return tuple(obj)
+
+    def traverse_dictionary(
+        self,
+        paths: List[str] | List[List[str]] | List[List[str | int]],
+        obj: Optional[Dict] = None,
+        traverse_lists: bool = False,
+    ):
+        """Create a new json dictionary by traversing '.' delimited paths for json data found from a JSON Dict."""
+        self.json_dict = obj or self.json_dict
+        if not self.json_dict:
+            raise ValueError("Json Dictionary not specified")
+        self.extracted_record_data_list.clear()
+
+        for path in paths:
+            current_path = PathUtils.to_path_sequence(path)
+            self.traverse_level(current_path, self.json_dict, traverse_lists=traverse_lists)
+        return self
+
+    def traverse_level(
+        self,
+        path: List[str] | List[str | int],
+        obj: Any,
+        level_name: Optional[List[Any]] = None,
+        traverse_lists: bool = False,
+    ) -> List[Any]:
+        """Helper method for traversing a level within a dictionary while constraining keys to known paths.
+
+        This method is recursively called to traverse nested components using known keys
+
+        """
+        level_name = level_name if level_name is not None else []
+
+        # Base case: no more path to traverse
+        if not path:
+            return self.create_record(obj, path=level_name)
+
+        if isinstance(obj, list):
+            return self._traverse_list(path, obj, level_name, traverse_lists)
+        elif isinstance(obj, dict):
+            return self._traverse_dict(path, obj, level_name, traverse_lists)
+        else:
+            return []
+
+    def _traverse_list(
+        self, path: List[str] | List[str | int], obj: list, level_name: List[Any], traverse_lists: bool
+    ) -> List[Any]:
+        """Traverse a list object based on the path and traverse_lists setting."""
+        k, *remaining_path = path
+
+        # Handle numeric index
+        if str(k).isnumeric():
+            i = int(k)
+            if len(obj) > i:
+                return self.traverse_level(remaining_path, obj[i], level_name + [i], traverse_lists=traverse_lists)
+            return []
+
+        # Handle list traversal
+        if traverse_lists:
+            return self._traverse_list_recursively(path, obj, level_name, traverse_lists)
+
+        return []
+
+    def _traverse_list_recursively(
+        self, path: List[str] | List[str | int], obj: list, level_name: List[Any], traverse_lists: bool
+    ) -> List[Any]:
+        """Recursively traverse all elements in a list."""
+        if any(isinstance(v_i, (list, dict)) for v_i in obj):
+            return list(
+                chain.from_iterable(
+                    self.traverse_level(path, v_i, level_name + [i], traverse_lists=traverse_lists)
+                    for i, v_i in enumerate(obj)
+                )
+            )
+
+        joined_obj = self._join_list_elements(obj)
+        return self.traverse_level(path, joined_obj, level_name, traverse_lists=traverse_lists)
+
+    def _traverse_dict(
+        self, path: List[str] | List[str | int], obj: dict, level_name: List[Any], traverse_lists: bool
+    ) -> List[Any]:
+        """Traverse a dictionary object using the next key in the path."""
+        key, *remaining_path = path
+
+        key_str = str(key) if not isinstance(key, str) else key
+
+        # falls back to checking whether the path is an integer if a string index doesn't exist for nonstandard JSON
+        k = int(key) if key_str.isnumeric() and str(key) not in obj and int(key) in obj else key
+
+        if key in obj:
+            return self.traverse_level(remaining_path, obj[k], level_name + [str(k)], traverse_lists=traverse_lists)
+        return []
+
+    def create_record(self, obj: Any, path: List[Any]) -> List[JsonRecordData]:
+        """Helper method for creating a new record within the current JsonProcessor"""
+        obj = list(obj) if isinstance(obj, tuple) else obj
+        obj_info = JsonRecordData(data=obj, path=path)
+        if obj_info not in self.extracted_record_data_list:
             self.extracted_record_data_list.append(obj_info)
-            return [obj_info]
+        return [obj_info]
 
     def filter_extracted(self, exclude_keys: Optional[List[str]] = None):
         """Filter the extracted JSON dictionaries to exclude specified keys.
@@ -418,27 +607,37 @@ class RecursiveJsonProcessor:
                 use_full_path=self.use_full_path,
             )
             normalized_json = normalizer.normalize_extracted()
-            normalized_json = {
+            combined_json = {
                 data_key: self.combine_normalized(field_value) for data_key, field_value in normalized_json.items()
             }
-            return normalized_json
+            return combined_json
 
         logger.debug("No data extracted, returning None")
         return None
 
     def process_and_flatten(
-        self, obj: Optional[Dict] = None, exclude_keys: Optional[List[str]] = None
-    ) -> Optional[Dict[str, List[Any] | str | None]]:
+        self,
+        obj: Optional[Dict] = None,
+        exclude_keys: Optional[List[str]] = None,
+        traversal_paths: Optional[List[str] | List[List[str]] | List[List[str | int]]] = None,
+        traverse_lists: bool = False,
+    ) -> Optional[Dict[str, Any]]:
         """Process the dictionary, filter extracted paths, and then flatten the result.
 
         Args:
             exclude_keys (Optional[List[str]]): List of keys to exclude from the flattened result.
+            traversal_paths (Optional[List[str]]):
+                Optional '.' delimited paths to constrain the extracted keys to. If omitted, all paths are traversed.
+            traverse_lists (bool): Determines whether to automatically traverse and flatten list structures.
 
         Returns:
             Optional[Dict[str, List[Any]]]: A dictionary with flattened paths as keys and lists of values.
 
         """
-        self.process_dictionary(obj)
+        if traversal_paths:
+            self.traverse_dictionary(traversal_paths, obj, traverse_lists=traverse_lists)
+        else:
+            self.process_dictionary(obj)
         if exclude_keys:
             self.filter_extracted(exclude_keys)
         return self.flatten()
@@ -471,7 +670,7 @@ class JsonNormalizer:
         self.json_record_data_list = json_record_data_list
         self.use_full_path = use_full_path or False
 
-    def normalize_extracted(self) -> Dict[str, List[Any] | str | None]:
+    def normalize_extracted(self) -> Dict[str, List[Any]]:
         """Normalize the extracted JSON data into a flattened dictionary.
 
         Returns:

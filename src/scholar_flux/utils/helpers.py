@@ -18,6 +18,7 @@ from typing import (
     Union,
     TypeVar,
     Hashable,
+    Mapping,
     Callable,
 )
 from collections.abc import Iterable
@@ -25,7 +26,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-JSON_TYPE = TypeVar("JSON_TYPE", bound=list | dict | str | bytes | int | None)
+JSON_ELEMENT = dict | list | str | bytes | int | float | bool | None
+JSON_VALUE = str | bytes | int | float | bool | None
+JSON_MAPPING = dict[str, Any] | dict[str | int, Any]
+JSON_SEQUENCE = list[JSON_MAPPING] | list[JSON_VALUE] | list[JSON_MAPPING | JSON_VALUE]
+
+JSON_MAPPING_TYPE = TypeVar("JSON_MAPPING_TYPE", bound=JSON_MAPPING)
+JSON_SEQUENCE_TYPE = TypeVar("JSON_SEQUENCE_TYPE", bound=JSON_SEQUENCE)
+JSON_ELEMENT_TYPE = TypeVar("JSON_ELEMENT_TYPE", bound=JSON_ELEMENT)
+JSON_VALUE_TYPE = TypeVar("JSON_VALUE_TYPE", bound=JSON_VALUE)
+JSON_TYPE = TypeVar("JSON_TYPE", JSON_MAPPING, JSON_SEQUENCE)
+JSON_DATA_TYPE = TypeVar("JSON_DATA_TYPE", bound=JSON_ELEMENT | JSON_MAPPING | JSON_SEQUENCE)
+
 T = TypeVar("T", bound=Hashable)
 
 
@@ -78,14 +90,14 @@ def quote_numeric(value: Any) -> str:
     return quoted_value
 
 
-def flatten(current_data: Optional[Dict | List]) -> Optional[Dict | List]:
+def flatten(current_data: Optional[Mapping | List]) -> Optional[Mapping | List]:
     """Flattens a dictionary or list if it contains a single element that is a dictionary.
 
     Args:
         current_data: A dictionary or list to be flattened if it contains a single dictionary element.
 
     Returns:
-        Optional[Dict|List]: The flattened dictionary if the input meets the flattening condition, otherwise returns the input unchanged.
+        Optional[Mapping|List]: The flattened dictionary if the input meets the flattening condition, otherwise returns the input unchanged.
 
     """
     if isinstance(current_data, list) and len(current_data) == 1 and isinstance(current_data[0], dict):
@@ -171,20 +183,20 @@ def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
     return False
 
 
-def get_nested_dictionary_data(data: Dict[str, Any], path: List[str]) -> Any:
+def get_nested_dictionary_data(data: Mapping[Any, Any], path: List[str]) -> Any:
     """Retrieve data from a nested dictionary using a list of keys as the path."""
     for key in path:
         data = data.get(key, {})
-        if not isinstance(data, dict):
+        if not isinstance(data, Mapping):
             break
     return data
 
 
-def get_nested_data(json: list | dict | None, path: list) -> list | dict | None | str | int:
+def get_nested_data(json: list | Mapping | None, path: list) -> Any:
     """Recursively retrieves data from a nested dictionary using a sequence of keys.
 
     Args:
-        json (List[Dict[Any, Any]] | Dict[Any, Any]): The parsed json structure from which to extract data.
+        json (List[Mapping[Any, Any]] | Mapping[Any, Any]): The parsed json structure from which to extract data.
         path (List[Any]): A list of keys representing the path to the desired data within `json`.
 
     Returns:
@@ -268,14 +280,14 @@ def coerce_str(value: Any) -> Optional[str]:
         return None
 
 
-def try_int(value: JSON_TYPE | None) -> JSON_TYPE | int | None:
+def try_int(value: JSON_ELEMENT_TYPE | None) -> JSON_ELEMENT_TYPE | int | None:
     """Attempts to convert a value to an integer, returning the original value if the conversion fails.
 
     Args:
-        value (Hashable): the value to attempt to coerce into an integer
+        value (JSON_DATA_TYPE): the value to attempt to coerce into an integer
 
     Returns:
-        Optional[int]:
+        Optional[JSON_DATA_TYPE | int | None]:
 
     """
     converted_value = coerce_int(value)
@@ -335,7 +347,7 @@ def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
 
 
 def is_nested(obj: Any) -> bool:
-    """Indicates whether the current value is  a nested object. Useful for recursive iterations such as JSON record
+    """Indicates whether the current value is a nested object. Useful for recursive iterations such as JSON record
     data.
 
     Args:
@@ -346,6 +358,46 @@ def is_nested(obj: Any) -> bool:
 
     """
     return isinstance(obj, Iterable) and not isinstance(obj, str)
+
+
+def get_values(obj: Iterable) -> Iterable:
+    """Automatically retrieves values from dictionaries when available and returns the original value if nested.
+
+    Args:
+        obj (Iterable): An object to get the values from.
+
+    Returns:
+        An iterable created from `obj.values()` if the object is a dictionary and the original object otherwise.
+        If the object is empty or is not a nested object, an empty list is returned.
+    """
+    if not is_nested(obj):
+        return []
+    return obj.values() if isinstance(obj, Mapping) else obj
+
+
+def is_nested_json(obj: Any) -> bool:
+    """Check if a value is a nested, parsed JSON structure.
+
+    Args:
+        record: The record to check.
+
+    Returns:
+        bool: False if the value is not a Json-like structure and, True if it is a nested JSON structure.
+    """
+
+    if not is_nested(obj) or not obj:
+        return False
+
+    # determine whether any keys also contain nested values
+    for nested_obj in get_values(obj):
+        if isinstance(nested_obj, Mapping):
+            return True
+
+        if is_nested(nested_obj):
+            for value in nested_obj:
+                if is_nested(value):
+                    return True
+    return False
 
 
 def unlist_1d(current_data: Tuple | List | Any) -> Any:
@@ -510,6 +562,8 @@ __all__ = [
     "as_list_1d",
     "unlist_1d",
     "is_nested",
+    "get_values",
+    "is_nested_json",
     "try_quote_numeric",
     "quote_numeric",
     "quote_if_string",

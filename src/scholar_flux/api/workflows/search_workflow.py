@@ -224,7 +224,7 @@ class WorkflowResult(BaseWorkflowResult):
     """Helper class that encapsulates the result and history in an object.
 
     Args:
-        history (List[StepContext]): Defines the context of steps and results taken to arrive at a particular result
+        history (List[StepContext]): Defines the context of steps taken to arrive at the final result.
         result (Any): The final result after the execution of a workflow
 
     """
