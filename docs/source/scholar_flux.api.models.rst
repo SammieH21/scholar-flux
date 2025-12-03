@@ -20,6 +20,14 @@ scholar\_flux.api.models.base\_parameters module
    :undoc-members:
    :show-inheritance:
 
+scholar\_flux.api.models.base\_provider\_dict module
+----------------------------------------------------
+
+.. automodule:: scholar_flux.api.models.base_provider_dict
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 scholar\_flux.api.models.provider\_config module
 ------------------------------------------------
 
@@ -36,10 +44,26 @@ scholar\_flux.api.models.provider\_registry module
    :undoc-members:
    :show-inheritance:
 
+scholar\_flux.api.models.rate\_limiter\_registry module
+-------------------------------------------------------
+
+.. automodule:: scholar_flux.api.models.rate_limiter_registry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 scholar\_flux.api.models.reconstructed\_response module
 -------------------------------------------------------
 
 .. automodule:: scholar_flux.api.models.reconstructed_response
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+scholar\_flux.api.models.response\_metadata\_map module
+-------------------------------------------------------
+
+.. automodule:: scholar_flux.api.models.response_metadata_map
    :members:
    :undoc-members:
    :show-inheritance:

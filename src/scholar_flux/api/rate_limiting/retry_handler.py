@@ -13,8 +13,9 @@ import datetime
 import logging
 from scholar_flux.exceptions import RequestFailedException, InvalidResponseException
 from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.helpers import get_first_available_key, parse_iso_timestamp
 from scholar_flux.utils.repr_utils import generate_repr
-from typing import Optional, Callable
+from typing import Optional, Callable, Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class RetryHandler:
 
     DEFAULT_VALID_STATUSES = {200}
     DEFAULT_RETRY_STATUSES = {429, 500, 503, 504}
+    DEFAULT_RETRY_AFTER_HEADERS = ("retry-after", "x-ratelimit-retry-after")
     DEFAULT_RAISE_ON_ERROR = False
 
     def __init__(
@@ -102,17 +104,18 @@ class RetryHandler:
                         raise InvalidResponseException(response, msg)
                     break
 
-                delay = self.calculate_retry_delay(attempts, response)
-                self.log_retry_attempt(
-                    delay,
-                    (
-                        response.status_code
-                        if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol))
-                        else None
-                    ),
-                )
-                time.sleep(delay)
                 attempts += 1
+                if attempts <= self.max_retries:
+                    delay = self.calculate_retry_delay(attempts, response)
+                    self.log_retry_attempt(
+                        delay,
+                        (
+                            response.status_code
+                            if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol))
+                            else None
+                        ),
+                    )
+                    time.sleep(delay)
             else:
                 msg = "Max retries exceeded without a valid response."
                 self.log_retry_warning(msg)
@@ -155,20 +158,48 @@ class RetryHandler:
         self, attempt_count: int, response: Optional[requests.Response | ResponseProtocol] = None
     ) -> float:
         """Calculate delay for the next retry attempt."""
-        if (
-            response is not None
-            and (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol))
-            and ("Retry-After" in (response.headers or {}) or "retry-after" in (response.headers or {}))
-        ):
-            value = response.headers.get("Retry-After") or response.headers.get("retry-after")
-            retry_after = self.parse_retry_after(value) if value else None
-            if isinstance(retry_after, (int, float)) and not retry_after < 0:
-                return retry_after
+
+        retry_after = self.get_retry_after(response)
+
+        if retry_after is not None:
+            return retry_after
 
         logger.debug("Defaulting to using 'max_backoff'...")
         return min(self.backoff_factor * (2**attempt_count), self.max_backoff)
 
-    def parse_retry_after(self, retry_after: str) -> Optional[int | float]:
+    @classmethod
+    def extract_retry_after(cls, headers: Optional[Mapping], keys: Optional[tuple] = None) -> Optional[str]:
+        """Extracts the `retry-after field from dictionary headers if the field exists."""
+        candidate_rate_limiter_keys: tuple = keys or cls.DEFAULT_RETRY_AFTER_HEADERS
+        value = get_first_available_key(headers or {}, candidate_rate_limiter_keys, case_sensitive=False)
+        return value
+
+    @classmethod
+    def get_retry_after(cls, response: Optional[requests.Response] | ResponseProtocol) -> Optional[int | float]:
+        """Calculates the time that must elapse before the next request is sent according to the headers.
+
+        Args:
+            requests.Response object or a (duck-typed) response-like object
+
+        Returns:
+            Optional[float]: Indicates the number of seconds that must elapse before the next request is sent.
+
+        """
+        if response is not None and (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)):
+            value = cls.extract_retry_after({k: v for k, v in (response.headers or {}).items() if v is not None})
+            retry_after = cls.parse_retry_after(value) if value is not None else None
+            return retry_after
+        return None
+
+    @classmethod
+    def _parse_retry_after_date(cls, retry_after: str) -> datetime.datetime:
+        """Parses the retry-after date as a datetime when possible and returns None otherwise."""
+        # Header might be a date
+        retry_date = parse_iso_timestamp(retry_after) or parsedate_to_datetime(retry_after)
+        return retry_date
+
+    @classmethod
+    def parse_retry_after(cls, retry_after: Optional[str]) -> Optional[int | float]:
         """Parse the 'Retry-After' header to calculate delay.
 
         Args:
@@ -178,17 +209,20 @@ class RetryHandler:
             int: Delay time in seconds.
 
         """
+        if retry_after is None:
+            return None
+
         try:
             return int(retry_after)
-        except ValueError:
+        except (ValueError, TypeError):
             logger.debug(f"'Retry-After' is not a valid number: {retry_after}. Attempting to parse as a date..")
         try:
             # Header might be a date
-            retry_date = parsedate_to_datetime(retry_after)
+            retry_date = cls._parse_retry_after_date(retry_after)
             delay = (retry_date - datetime.datetime.now(retry_date.tzinfo)).total_seconds()
             return max(0, int(delay))
-        except ValueError:
-            logger.debug("Couldn't parse 'Retry-After' as a date.")
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Couldn't parse 'Retry-After' as a date: {e}")
         return None
 
     def log_retry_attempt(self, delay: float, status_code: Optional[int] = None) -> None:

@@ -166,6 +166,40 @@ class ProviderRegistry(BaseProviderDict):
 
         return generate_repr_from_string(class_name, dictionary_elements, flatten=flatten, as_dict=True)
 
+    def resolve_config(
+        self, provider_url: Optional[str] = None, provider_name: Optional[str] = None, verbose: bool = True
+    ) -> Optional[ProviderConfig]:
+        """Helper method to resolve mismatches between the URL and the provider_name when both are provided. The default
+        behavior is to always prefer a provided provider_url over the provider_name to offer maximum flexibility.
+
+        Args:
+            provider_url (Optional[str]):
+                The prospective URL associated with a provider configuration.
+            provider_name (Optional[str]):
+                The prospective name of the provider associated with a provider configuration.
+            verbose (Optional[str]):
+                Determines whether the origin of the configuration should be logged.
+        Returns:
+            Optional[ProviderConfig]:
+                A provider configuration resolved with priority given to the base URL or the provider name otherwise.
+                If neither the base URL and provider name resolve to a known provider, None is returned instead.
+
+        """
+        # if both provider name and information is provided, prioritize the url first.
+        provider_from_url = self.get_from_url(provider_url) if provider_url else None
+        provider_from_name = self.get(provider_name) if provider_name else None
+        provider_config = provider_from_url or provider_from_name
+        if provider_config:
+            if verbose:
+                origin = "URL" if provider_from_url else "provider name"
+                logger.debug(f"The configuration was resolved from the {origin}.")
+            return provider_config
+        if verbose:
+            logger.debug(
+                f"A configuration associated with the URL ({provider_url}) or provider name ({provider_name}) was not located."
+            )
+        return None
+
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner."""
         return self.structure(show_value_attributes=False)

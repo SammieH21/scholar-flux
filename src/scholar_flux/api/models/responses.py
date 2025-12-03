@@ -21,12 +21,13 @@ from scholar_flux.exceptions import InvalidResponseReconstructionException, Reco
 from typing_extensions import Self
 from pydantic import BaseModel, field_serializer, field_validator
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse
-from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp, format_iso_timestamp
+from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp, format_iso_timestamp, coerce_int
 from scholar_flux.utils import CacheDataEncoder, generate_repr, generate_repr_from_string, truncate
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.api.validators import validate_url
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.normalization.base_field_map import BaseFieldMap
+from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
 from datetime import datetime
 from http.client import responses
 from scholar_flux.utils import try_int
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 class APIResponse(BaseModel):
     """A Response wrapper for responses of different types that allows consistency when using several possible backends.
     The purpose of this class is to serve as the base for managing responses received from scholarly APIs while
-    processing each component in a predictable, reproducible manner,
+    processing each component in a predictable, reproducible manner.
 
     This class uses pydantic's data validation and serialization/deserialization methods to aid caching and includes
     properties that refer back to the original response for displaying valid response codes, URLs, etc.
@@ -53,7 +54,7 @@ class APIResponse(BaseModel):
                                    orchestration involving processing, cache storage, and cache retrieval
         response (Any): A response or response-like object to be validated and used/re-used in later caching
                         and response processing/orchestration steps.
-        created_at (Optional[str]): A value indicating the time in which a response or response-like object was created.
+        created_at (Optional[str]): A value indicating the time at which a response or response-like object was created.
 
     Example:
         >>> from scholar_flux.api import APIResponse
@@ -83,7 +84,7 @@ class APIResponse(BaseModel):
 
     @field_validator("created_at", mode="before")
     def validate_iso_timestamp(cls, v: Optional[str | datetime]) -> Optional[str]:
-        """Helper method for validating and ensuring that the timestamp accurately follows an iso 8601 format."""
+        """Helper method for validating and ensuring that the timestamp accurately follows an ISO 8601 format."""
         if not v:
             return None
 
@@ -200,7 +201,7 @@ class APIResponse(BaseModel):
 
     @property
     def text(self) -> Optional[str]:
-        """Attempts to retrieve the response text by first decoding the bytes of the its content. If not available, this
+        """Attempts to retrieve the response text by first decoding the bytes of its content. If not available, this
         property attempts to directly reference the text attribute directly.
 
         Returns:
@@ -234,14 +235,15 @@ class APIResponse(BaseModel):
         return None
 
     def validate_response(self) -> bool:
-        """Helper method for determining whether the response attribute is truly a response. If the response isn't a
-        requests response, we use duck-typing to determine whether the response attribute, itself, has the expected
-        attributes of a response by using properties for checking types vs None (if the attribute isn't the expected
-        type)
+        """Helper method for determining whether the response attribute is truly a response or response-like object.
+
+        If the response isn't a requests.Response object, we use duck-typing to determine whether the response, itself,
+        contains the attributes expected of a response. For this purpose, response properties are checked in order to
+        determine whether the response properties match the expected types. Each property returns `None` if the
+        attribute isn't of the expected type.
 
         Returns:
-            bool: An indicator of whether the current APIResponse.response attribute is
-                  actually a response
+            bool: An indicator of whether the current `APIResponse.response` attribute is actually a valid response
 
         """
         if isinstance(self.response, requests.Response):
@@ -397,9 +399,10 @@ class APIResponse(BaseModel):
 
     @classmethod
     def from_serialized_response(cls, response: Optional[Any] = None, **kwargs) -> Optional[ReconstructedResponse]:
-        """Helper method for creating a new APIresponse from the original dumped object. This method Accounts for lack
-        of ease of serialization of responses by decoding the response dictionary that was loaded from a string using
-        json.loads from the json module in the standard library.
+        """Helper method for creating a new `APIresponse` from dumped json object.
+
+        This method accounts for lack of ease of serialization of responses by decoding the response dictionary that was
+        loaded from a string using json.loads from the json module in the standard library.
 
         If the response input is still a serialized string, this method will manually load the response dict with
         the `APIresponse._deserialize_response_dict` class method before further processing.
@@ -424,9 +427,10 @@ class APIResponse(BaseModel):
 
     @classmethod
     def as_reconstructed_response(cls, response: Any) -> ReconstructedResponse:
-        """Classmethod designed to create a reconstructed response from an original response object. This method coerces
-        response attributes into a reconstructed response that retains the original content, status code, headers, URL,
-        reason, etc.
+        """Classmethod designed to create a reconstructed response from an original response object.
+
+        This method coerces response attributes into a reconstructed response that retains the original content, status
+        code, headers, URL, reason, etc.
 
         Returns:
             ReconstructedResponse: A minimal response object that contains the core attributes needed to support
@@ -483,11 +487,23 @@ class APIResponse(BaseModel):
         else:
             self.as_reconstructed_response(self.response).raise_for_status()
 
+    def process_metadata(self, *args, **kwargs) -> Optional[dict[str, Any]]:
+        """Abstract processing method that successfully `APIResponse` subclasses can override to process_metadata.
+
+        Raises:
+            NotImplementedError: Unless overridden, this method will raise an error unless defined in a subclass.
+
+        """
+        raise NotImplementedError(
+            f"Metadata processing is not implemented for responses of type, {self.__class__.__name__}"
+        )
+
     def normalize(self, *args, **kwargs) -> Optional[list[dict[str, Any]]]:
         """Defines the `normalize` method that successfully processed API Responses can override to normalize records.
 
         Raises:
             NotImplementedError: Unless overridden, this method will raise an error unless defined in a subclass.
+
         """
         raise NotImplementedError(f"Normalization is not implemented for responses of type, {self.__class__.__name__}")
 
@@ -566,6 +582,21 @@ class ErrorResponse(APIResponse):
         return None
 
     @property
+    def processed_metadata(self) -> None:
+        """Provided for type hinting + compatibility."""
+        return None
+
+    @property
+    def total_query_hits(self) -> None:
+        """Provided for type hinting + compatibility."""
+        return None
+
+    @property
+    def records_per_page(self) -> None:
+        """Provided for type hinting + compatibility."""
+        return None
+
+    @property
     def data(self) -> None:
         """Provided for type hinting + compatibility."""
         return self.processed_records
@@ -595,14 +626,57 @@ class ErrorResponse(APIResponse):
         """
         return 0
 
+    def process_metadata(self, *args, **kwargs) -> Optional[dict[str, Any]]:
+        """No-Op: This method is retained for compatibility. It returns None by default.
+
+        Raises:
+            NotImplementedError: Unless overridden, this method will raise an error unless defined in a subclass.
+        """
+        return None
+
+    def normalize(
+        self, field_map: Optional[BaseFieldMap] = None, raise_on_error: bool = True, *args, **kwargs
+    ) -> list[dict[str, Any]]:
+        """No-Op: Raises a RecordNormalizationException when `raise_on_error=True` and returns an empty list otherwise.
+
+        Args:
+            field_map (Optional[BaseFieldMap]):
+                An optional field map that can be used to normalize the current response. This is inferred from the
+                registry if not provided as input.
+            raise_on_error (bool):
+                A flag indicating whether to raise an error. If a field_map cannot be identified for the current
+                response and `raise_on_error` is also True, a normalization error is raised.
+            *args:
+                 Positional argument placeholder for compatibility with the `ProcessedResponse.normalize` method
+            **kwargs:
+                 Keyword argument placeholder for compatibility with the `ProcessedResponse.normalize` method
+
+        Returns:
+            list[dict[str, Any]]:
+                An empty list if `raise_on_error=False`
+
+        Raises:
+            RecordNormalizationException:
+                If `raise_on_error=True`, this exception is raised after catching `NotImplementedError`
+
+        """
+        try:
+            super().normalize()
+        except (NotImplementedError, RecordNormalizationException) as e:
+            msg = str(e)
+            if raise_on_error:
+                logger.error(msg)
+                raise RecordNormalizationException(msg) from e
+            logger.warning(f"{msg} Returning an empty list.")
+        return []
+
     def __bool__(self):
         """Indicates that the underlying response was not successfully processed or contained an error code."""
         return False
 
 
 class NonResponse(ErrorResponse):
-    """Response class used to indicate that an error occurred in the preparation of a request or in the retrieval of a
-    response object from an API.
+    """Response class that indicates that an error occurred during request preparation or API response retrieval.
 
     This class is used to signify the error that occurred within the search process using a similar interface as the
     other scholar_flux Response dataclasses.
@@ -619,9 +693,11 @@ class NonResponse(ErrorResponse):
 
 
 class ProcessedResponse(APIResponse):
-    """Helper class for returning a ProcessedResponse object that contains information on the original, cached, or
-    reconstructed_response received and processed after retrieval from an API in addition to the cache key. This object
-    also allows storage of intermediate steps including:
+    """APIResponse class that scholar_flux uses to return processed response data after successful response processing.
+
+    This class is populated to return response data containing information on the original, cached, or reconstructed
+    API response that is received and processed after retrieval. In addition to returning processed records and
+    metadata, this class also allows storage of intermediate steps including:
 
     1. parsed responses,
     2. extracted records and metadata,
@@ -634,7 +710,8 @@ class ProcessedResponse(APIResponse):
     extracted_records: Optional[List[dict[str, Any]] | List[dict[str | int, Any]]] = None
     processed_records: Optional[List[dict[str, Any]] | List[dict[str | int, Any]]] = None
     normalized_records: Optional[List[dict[str, Any]]] = None
-    metadata: Optional[Any] = None
+    metadata: Optional[dict[str, Any] | dict[str, Any]] = None
+    processed_metadata: Optional[dict[str, Any]] = None
     message: Optional[str] = None
 
     @property
@@ -647,6 +724,69 @@ class ProcessedResponse(APIResponse):
         """Provided for type hinting + compatibility."""
         return None
 
+    @property
+    def total_query_hits(self) -> Optional[int]:
+        """Returns the total number of results as reported by the API.
+
+        This method retrieves the `total_query_hits` variable from the `processed_metadata` attribute, and if metadata
+        hasn't yet been processed, this method will then call `process_metadata()` manually to ensure that the field is
+        available.
+
+        """
+        if not self.processed_metadata:
+            self.process_metadata()
+
+        processed_metadata = self.processed_metadata or {}
+        return coerce_int(processed_metadata.get("total_query_hits"))
+
+    @property
+    def records_per_page(self) -> Optional[int]:
+        """Returns the total number of results on the current page.
+
+        This method retrieves the `records_per_page` variable from the `processed_metadata` attribute, and if metadata
+        hasn't yet been processed, this method will then call `process_metadata()` manually to ensure that the field is
+        available.
+
+        """
+        if not self.processed_metadata:
+            self.process_metadata()
+
+        processed_metadata = self.processed_metadata or {}
+        return coerce_int(processed_metadata.get("records_per_page"))
+
+    def process_metadata(
+        self, metadata_map: Optional[ResponseMetadataMap] = None, update_metadata: Optional[bool] = None
+    ) -> Optional[dict[str, Any]]:
+        """Uses a `ResponseMetadataMap` to process metadata for tertiary information on the response.
+
+        This method is a helper that is meant for primarily internal use for providing metadata information on the
+        response where helpful and for informing users of the characteristics of the current response.
+
+        This function will update the `ProcessedResponse.processed_metadata` attribute when `update_metadata=True`
+        or in a secondary case where the current `processed_metadata` field is an empty dict or `None` unless
+        `update_metadata=False`
+
+        Args:
+            metadata_map (Optional[ResponseMetadataMap]):
+                A mapping that resolve api-specific metadata names to a universal parameter name.
+
+        """
+        if not self.metadata:
+            return None
+
+        if not metadata_map:
+            provider_config = provider_registry.get_from_url(self.url or "")
+            metadata_map = provider_config.metadata_map if provider_config else None
+
+        processed_metadata = (
+            metadata_map.process_metadata(self.metadata) if isinstance(metadata_map, ResponseMetadataMap) else None
+        )
+
+        if update_metadata is True or (update_metadata is None and not self.processed_metadata):
+            self.processed_metadata = processed_metadata
+
+        return processed_metadata
+
     def normalize(
         self,
         field_map: Optional[BaseFieldMap] = None,
@@ -655,9 +795,9 @@ class ProcessedResponse(APIResponse):
     ) -> list[dict[str, Any]]:
         """Applies a field map to normalize the processed records of a ProcessedResponse into a common structure.
 
-        Note that if a field_map is not provided, this method will return the previously normalized records attribute if
-        available. If normalized records are unavailable, this method will attempt to lookup the FieldMap from the current
-        provider_registry.
+        Note that if a field_map is not provided, this method will return the previously created  `normalized_records`
+        attribute if available. If `normalized_records` is None, this method will attempt to look up the `FieldMap`
+        from the current provider_registry.
 
         If processed records is `None` (and not an empty list), record normalization will fall back to using
         `extracted_records` and will return relatively similar results with minor differences in potential value
@@ -670,7 +810,7 @@ class ProcessedResponse(APIResponse):
                 registry if not provided as input.
             raise_on_error (bool):
                 A flag indicating whether to raise an error. If a field_map cannot be identified for the current
-                response and `raise_on_error` is also, True, an normalization error is raised.
+                response and `raise_on_error` is also True, a normalization error is raised.
             update_records (Optional[bool]):
                 A flag that determines whether updates should be made to the `normalized_records` attribute after
                 computation. If `None`, updates are made only if the `normalized_records` attribute is not None.

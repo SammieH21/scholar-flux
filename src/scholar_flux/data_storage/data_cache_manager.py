@@ -201,7 +201,7 @@ class DataCacheManager:
             Optional[Dict[str, Any]]: The cached data corresponding to the response if found, otherwise None.
 
         """
-        cache_key = self.generate_fallback_cache_key(response)
+        cache_key = self.generate_fallback_cache_key(response, use_parameters=True)
         return self.retrieve(cache_key)
 
     def delete(self, cache_key: str) -> None:
@@ -222,7 +222,7 @@ class DataCacheManager:
             logger.warning(f"A record for the cache key: '{cache_key}', did not exist...")
 
     @classmethod
-    def generate_fallback_cache_key(cls, response: Response | ResponseProtocol) -> str:
+    def generate_fallback_cache_key(cls, response: Response | ResponseProtocol, use_parameters: bool = True) -> str:
         """Generates a unique fallback cache key based on the response URL and status code.
 
         Args:
@@ -241,10 +241,26 @@ class DataCacheManager:
             msg = f"A response or response-like object was expected, Received ({type(response)})"
             logger.error(msg)
             raise InvalidResponseStructureException(msg)
+        return cls._cache_key_from_url(response.url, response.status_code, use_parameters=use_parameters)
 
-        parsed_url = urlparse(response.url)
-        simplified_url = f"{parsed_url.netloc}{parsed_url.path}"
-        status_code = response.status_code
+    @classmethod
+    def _cache_key_from_url(cls, url: str, status_code: int = 200, use_parameters: bool = True) -> str:
+        """
+        Generates a cache key from a URL and status code, with optional inclusion of query parameters.
+
+        Args:
+            url (str): The URL to generate the cache key from.
+            status_code (int): The HTTP status code to include in the cache key.
+            use_parameters (bool): If True, includes the query parameters from the URL in the cache key.
+                This ensures that requests to the same endpoint with different query strings produce unique cache keys.
+                If False, only the domain and path are used, ignoring query parameters.
+
+        Returns:
+            str: A SHA-256 hash representing the cache key for the given URL and status code.
+        """
+        parsed_url = urlparse(url)
+        query = f"?{parsed_url.query}" if use_parameters and parsed_url.query else ""
+        simplified_url = f"{parsed_url.netloc}{parsed_url.path}{query}"
         cache_key = hashlib.sha256(f"{simplified_url}_{status_code}".encode()).hexdigest()
         logger.debug(f"Generated fallback cache key: {cache_key}")
         return cache_key
@@ -338,6 +354,10 @@ class DataCacheManager:
         This is a convenience function allowing the user to create a DataCacheManager with
         redis, sql, mongodb, or inmemory storage with default settings or through the use of
         optional positional and keyword parameters to initialize the storage as needed.
+
+        Note that sql is shorthand for the SQLAlchemy cache storage and uses `SQLite. Compatible implementations of
+        other storage devices can by used instead via SQLAlchemy as well (e.g. DuckDB).
+
         Returns:
             DataCacheManager: The current class initialized the chosen storage
 
@@ -349,7 +369,7 @@ class DataCacheManager:
         match cache_storage.lower():
             case "inmemory" | "memory":
                 return cls(InMemoryStorage(*args, **kwargs))
-            case "sql" | "sqlalchemy":
+            case "sql" | "sqlite" | "sqlalchemy":
                 return cls(SQLAlchemyStorage(*args, **kwargs))
             case "mongodb" | "pymongo":
                 return cls(MongoDBStorage(*args, **kwargs))

@@ -33,8 +33,15 @@ def default_mapping(all_path_nodes):
     return default_mapping
 
 
-def test_blank_initialization():
-    """Testing the initialization of a chainmap without arguments."""
+def test_chain_map_empty_data_structure_initialization():
+    """Tests the initialization of the `RecordPathChainMap` with different empty data structures.
+
+    Internally, the `RecordPathChainMap` should convert sets, dictionaries, and lists of `RecordPathNodeMaps` into
+    key-value pairs denoting the path taken to the JSON node and the node (value) found at that terminal JSON path.
+
+    This test verifies the absence of potential edge-cases when data isn't provided.
+
+    """
     mapping = RecordPathChainMap()
     assert mapping == RecordPathChainMap({})  # type: ignore
     assert mapping == RecordPathChainMap(set())  # type: ignore

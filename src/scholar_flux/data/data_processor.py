@@ -9,7 +9,7 @@ record to ensure that relevant records and fields from records are retained
 
 """
 from typing import Any, Optional, Mapping
-from scholar_flux.utils import get_nested_data, as_list_1d, unlist_1d, nested_key_exists
+from scholar_flux.utils import get_nested_data, as_list_1d, unlist_1d, nested_key_exists, PathUtils
 
 from scholar_flux.data import ABCDataProcessor
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
@@ -136,7 +136,7 @@ class DataProcessor(ABCDataProcessor):
 
     @classmethod
     def _process_record_path(cls, record_path: str | list) -> list:
-        """Helper method that processes record paths and delimits strings into lists where applicable"""
+        """Helper method that processes record paths and delimits strings into lists where applicable."""
         return record_path.split(".") if isinstance(record_path, str) else as_list_1d(record_path)
 
     @staticmethod
@@ -163,11 +163,13 @@ class DataProcessor(ABCDataProcessor):
             return None
 
         if path:
-            full_path = f"{'.'.join(str(p) for p in path)}.{key}"
+            full_path = PathUtils.path_str(path + [key])
             if isinstance(record, Mapping) and full_path in record:
                 return as_list_1d(record[full_path])
 
-        nested_record_data = get_nested_data(record, path) if path and isinstance(record, (list, Mapping)) else record
+        nested_record_data = (
+            get_nested_data(record, path) if path and record and isinstance(record, (list, Mapping)) else record
+        )
 
         if not isinstance(nested_record_data, Mapping):
             logger.debug(f"Cannot retrieve {key} from the following record: {record}")
@@ -251,7 +253,7 @@ class DataProcessor(ABCDataProcessor):
                 and self.record_filter(record_dict, ignore_keys, regex) is not True
             ]
 
-            logging.debug(f"total included records - {len(processed_record_dict_list)}")
+            logger.debug(f"total included records - {len(processed_record_dict_list)}")
 
             # return the list of processed record dicts
             return processed_record_dict_list

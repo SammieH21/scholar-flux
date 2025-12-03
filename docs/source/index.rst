@@ -10,11 +10,20 @@ Scholar Flux is a Python library for searching and processing academic articles 
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Tutorials:
+
+   getting_started
+   response_handling_patterns
+   multi_provider_search
+   schema_normalization
+   caching_strategies
+   advanced_workflows
+   custom_providers
+   production_deployment
 
    modules
 
-Getting Started
+Quick Start
 ===============
 
 Installation

@@ -1,5 +1,5 @@
-from scholar_flux.api.normalization import BaseFieldMap, AcademicFieldMap
-from scholar_flux.api.normalization.academic_field_map import NormalizingDataProcessor
+from scholar_flux.api.normalization import BaseFieldMap, NormalizingFieldMap, AcademicFieldMap
+from scholar_flux.data import NormalizingDataProcessor
 from scholar_flux.exceptions import RecordNormalizationException, DataProcessingException
 from tests.testing_utilities import raise_error
 import pytest
@@ -112,10 +112,12 @@ def test_record_dict_simplification(mock_simple_record_dictionary):
     """Tests that a record can be normalized as intended by applying an AcademicFieldMap."""
     api_specific_fields: dict = dict(title="mock_title", doi="mock_doi", abstract="mock_abstract")
     base_mapping = BaseFieldMap(provider_name=None, api_specific_fields=api_specific_fields)  # type: ignore
+    custom_mapping = NormalizingFieldMap(provider_name="", api_specific_fields=api_specific_fields)  # type: ignore
     mapping = AcademicFieldMap(**api_specific_fields)
 
     assert base_mapping.provider_name == ""
     base_normalized_record = base_mapping.normalize_record(mock_simple_record_dictionary)
+    custom_normalized_record = custom_mapping.normalize_record(mock_simple_record_dictionary)
     normalized_record = mapping.normalize_record(mock_simple_record_dictionary)
     expected_nonmissing_fields = {"provider_name", "title", "doi", "abstract"}
     mapped_record_fields: dict = {field: value for field, value in normalized_record.items() if value is not None}
@@ -128,6 +130,8 @@ def test_record_dict_simplification(mock_simple_record_dictionary):
     assert mock_simple_record_dictionary[mapping.title] == normalized_record["title"]
     assert mock_simple_record_dictionary[mapping.abstract] == normalized_record["abstract"]
     assert mock_simple_record_dictionary[mapping.doi] == normalized_record["doi"]
+
+    assert custom_normalized_record == {field: normalized_record.get(field) for field in custom_normalized_record}
 
     for field, record_key in mapping.fields.items():
         if record_key is None:

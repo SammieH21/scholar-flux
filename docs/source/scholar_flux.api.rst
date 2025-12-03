@@ -8,6 +8,7 @@ Subpackages
    :maxdepth: 4
 
    scholar_flux.api.models
+   scholar_flux.api.normalization
    scholar_flux.api.providers
    scholar_flux.api.rate_limiting
    scholar_flux.api.workflows

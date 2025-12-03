@@ -10,7 +10,7 @@ Modules:
         amount of time to wait directly.
     **threaded_rate_limiter**:
         Inherits from the basic RateLimiter class to account for multithreading scenarios that require the same
-        resource. the usage is the same, but thread-safe
+        resource. The usage is the same, but it is thread-safe.
     **retry_handler**:
         Basic implementation that defines a period of time to wait in between requests that are unsuccessful.
         This class is used to automatically retry failed requests until successful or the maximum retry limit has
@@ -27,7 +27,7 @@ Classes:
 
 In addition, a `rate_limiter_registry` and `threaded_rate_limiter_registry` are implemented to aid in the normalization
 of responses to the same provider across multiple search APIs. This is particularly relevant when using the
-scholar_flux.api.MultiSearchCoordinator for multi-threaded requests across queries and configurations. where the
+`scholar_flux.api.MultiSearchCoordinator` for multi-threaded requests across queries and configurations, where the
 `threaded_rate_limiter_registry` is implemented under the hood for throttling across APIs.
 
 Example usage:

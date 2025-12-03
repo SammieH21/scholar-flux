@@ -30,13 +30,11 @@ class BaseFieldMap(BaseModel):
 
     Attributes:
         provider_name (str):
-            A default provider name to be assigned for all normalized records. If not provided,
-            the field map will try to find the provider name from within each record.
-            api_specific_fields (dict[str, Any]):
-                Defines a dictionary of normalized field names (keys) to map to the names of fields within each
-                dictionary record (values)
-            default_field_values (dict[str, Any]):
-                Indicates values that should be assigned if a field cannot be found within a record.
+            A default provider name to be assigned for all normalized records. If not provided, the field map will try to find the provider name from within each record.
+        api_specific_fields (dict[str, Any]):
+            Defines a dictionary of normalized field names (keys) to map to the names of fields within each dictionary record (values)
+        default_field_values (dict[str, Any]):
+            Indicates values that should be assigned if a field cannot be found within a record.
 
     """
 
@@ -46,7 +44,7 @@ class BaseFieldMap(BaseModel):
 
     @field_validator("provider_name", mode="before")
     def validate_provider_name(cls, v: Optional[str]) -> str:
-        """Transforms the `provider_name` into an empty string prior to further type validation"""
+        """Transforms the `provider_name` into an empty string prior to further type validation."""
         if v is None:
             return ""
 
@@ -59,11 +57,11 @@ class BaseFieldMap(BaseModel):
     @property
     def fields(self) -> dict[str, Any]:
         """Prints a representation of the current FieldMap as a dictionary."""
-        return self.model_dump(exclude={"api_specific_fields", "default_field_values"}) | self.api_specific_fields
+        field_map = self.model_dump(exclude={"api_specific_fields", "default_field_values"})
+        return {key: value for key, value in field_map.items() if not key.startswith("_")} | self.api_specific_fields
 
     def normalize_record(self, record: dict) -> dict[str, Any]:
-        """
-        Maps API-specific fields in a single dictionary record to a normalized set of field names.
+        """Maps API-specific fields in a single dictionary record to a normalized set of field names.
 
         Args:
             record: The single, dictionary-typed record to normalize.
@@ -91,8 +89,7 @@ class BaseFieldMap(BaseModel):
         return normalized_record
 
     def normalize_records(self, records: dict | list[dict]) -> list[dict[str, Any]]:
-        """
-        Maps API-specific fields in one or more records to a normalized set of field names.
+        """Maps API-specific fields in one or more records to a normalized set of field names.
 
         Args:
             records: A single dictionary record or a list of dictionary records.

@@ -4,6 +4,14 @@ scholar\_flux.api.providers package
 Submodules
 ----------
 
+scholar\_flux.api.providers.arxiv module
+----------------------------------------
+
+.. automodule:: scholar_flux.api.providers.arxiv
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 scholar\_flux.api.providers.core module
 ---------------------------------------
 
@@ -16,6 +24,14 @@ scholar\_flux.api.providers.crossref module
 -------------------------------------------
 
 .. automodule:: scholar_flux.api.providers.crossref
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+scholar\_flux.api.providers.open\_alex module
+---------------------------------------------
+
+.. automodule:: scholar_flux.api.providers.open_alex
    :members:
    :undoc-members:
    :show-inheritance:

@@ -34,3 +34,10 @@ def test_plos_coordinator(plos_coordinator, plos_page_2_url, plos_page_2_data, p
         response = plos_coordinator.search(page=2)
     assert isinstance(response, ProcessedResponse)
     assert len(response.data or []) == plos_coordinator.api.config.records_per_page
+
+    assert response.data == plos_page_2_data["response"]["docs"]
+
+    num_found = response.metadata.get("numFound") if response.metadata else None
+
+    assert num_found and num_found == plos_page_2_data["response"]["numFound"]
+    assert response.total_query_hits and int(num_found) == response.total_query_hits > 0

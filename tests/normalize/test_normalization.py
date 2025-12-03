@@ -15,13 +15,13 @@ from scholar_flux.exceptions import RecordNormalizationException
 from contextlib import contextmanager
 import pytest
 import requests_mock
-from typing import Callable, Generator
+from typing import Callable, Generator, Any
 
 
 @pytest.fixture
-def mock_field_map():
-    """Fixture used to test the normalization of a mocked json record."""
-    mock_api_field_map = AcademicFieldMap(
+def mock_field_map_kwargs():
+    """Fixture containing the default arguments used to create the field map for later testing."""
+    mock_field_map_kwargs = dict(
         provider_name="mock_academic_provider",
         # Core identifiers - direct and nested field access
         record_id="work_id",
@@ -50,6 +50,32 @@ def mock_field_map():
         record_type="document_info.type",
         language="document_info.language",
     )
+    return mock_field_map_kwargs
+
+
+@pytest.fixture
+def mock_field_map_kwargs_with_fallbacks(mock_field_map_kwargs):
+    """Fixture that integrates fallback path strings as listed elements with default arguments."""
+    title_fallbacks: list[str] = [
+        "title_key_not_found",
+        mock_field_map_kwargs["title"],
+        "another_title_that doesn't exist",
+    ]
+    mock_field_map_kwargs_with_fallbacks = mock_field_map_kwargs | {"title": title_fallbacks}
+    return mock_field_map_kwargs_with_fallbacks
+
+
+@pytest.fixture
+def mock_field_map(mock_field_map_kwargs):
+    """Fixture used to test the normalization of a mocked json record."""
+    mock_api_field_map = AcademicFieldMap.model_validate(mock_field_map_kwargs)
+    return mock_api_field_map
+
+
+@pytest.fixture
+def mock_field_map_with_fallbacks(mock_field_map_kwargs_with_fallbacks):
+    """Fixture used to test the normalization of a mocked json record."""
+    mock_api_field_map = AcademicFieldMap.model_validate(mock_field_map_kwargs_with_fallbacks)
     return mock_api_field_map
 
 
@@ -75,15 +101,55 @@ def with_mock_academic_provider(mock_provider_config):
     provider_registry.remove(mock_provider_config.provider_name)
 
 
-@pytest.mark.parametrize("ResponseType", (APIResponse, ErrorResponse, NonResponse))
-def test_normalization_not_implemented(ResponseType):
-    """Verifies that classes without a subclassed `normalize` method"""
+@pytest.mark.parametrize(
+    ("ResponseType", "ExcType"),
+    (
+        (APIResponse, NotImplementedError),
+        (ErrorResponse, RecordNormalizationException),
+        (NonResponse, RecordNormalizationException),
+    ),
+)
+def test_normalization_not_implemented(ResponseType, ExcType):
+    """Verifies that classes without a subclassed `normalize` method raise an error by default."""
     api_response = ResponseType()
-    with pytest.raises(NotImplementedError) as excinfo:
+    with pytest.raises(ExcType) as excinfo:
         _ = api_response.normalize()
     assert (f"Normalization is not implemented for responses of type, {api_response.__class__.__name__}") in str(
         excinfo.value
     )
+
+
+@pytest.mark.parametrize("ResponseType", (ErrorResponse, NonResponse))
+def test_error_response_normalization_with_raise_on_error_false(ResponseType, caplog):
+    """Verifies that ErrorResponse/NonResponse `normalize()` returns an empty list when raise_on_error=False."""
+    response = ResponseType(message="Test error", error="TestException")
+
+    result = response.normalize(raise_on_error=False)
+
+    assert result == []
+    assert "Returning an empty list" in caplog.text
+    assert f"Normalization is not implemented for responses of type, {ResponseType.__name__}" in caplog.text
+
+    # normalized_records should still remain a static property (always None)
+    assert response.normalized_records is None
+
+
+@pytest.mark.parametrize("ResponseType", (ErrorResponse, NonResponse))
+def test_error_response_normalization_with_raise_on_error_true(ResponseType, caplog):
+    """Verifies that ErrorResponse/NonResponse `normalize()` raises a normalization exception on raise_on_error=True."""
+    response = ResponseType(message="Test error", error="TestException")
+
+    with pytest.raises(RecordNormalizationException) as excinfo:
+        response.normalize(raise_on_error=True)
+
+    assert f"Normalization is not implemented for responses of type, {ResponseType.__name__}" in str(excinfo.value)
+    assert "Normalization is not implemented" in caplog.text
+
+    # normalized_records should still remain a static property (always None)
+    assert response.normalized_records is None
+
+    # Verify exception chaining
+    assert isinstance(excinfo.value.__cause__, NotImplementedError)
 
 
 def test_normalization_extracted_processed_equality(mock_field_map, mock_complex_json_records):
@@ -96,6 +162,24 @@ def test_normalization_extracted_processed_equality(mock_field_map, mock_complex
     assert len(response.normalized_records or []) == len(mock_complex_json_records)
 
 
+def test_mock_field_map_fallback_edge_cases():
+    """Tests several edge-cases (empty lists/strings/non-existent keys) that should return `None` on normalization."""
+    data: list[dict[str, Any]] = [{"title": "Programmatic Testing Strategies", "abstract": "Normalization Tests"}]
+
+    mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
+    response = ProcessedResponse(response=mock_response, processed_records=data)
+
+    map1 = AcademicFieldMap(title="")
+    map2 = AcademicFieldMap(title=[])
+    map3 = AcademicFieldMap(title=["non-existent-title-1", "non-existent-title2"])
+
+    # each of the following should return a dictionary with identical, empty normalization fields
+    normalized_response1 = response.normalize(map1)
+    normalized_response2 = response.normalize(map2, update_records=True)
+    normalized_response3 = response.normalize(map3, update_records=True)
+    assert normalized_response1 == normalized_response2 == normalized_response3
+
+
 def test_normalization_without_records_update(mock_field_map, mock_complex_json_records):
     """Tests if normalization with `update_records=false` flag will not update `.normalized_records()`."""
     mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
@@ -103,8 +187,17 @@ def test_normalization_without_records_update(mock_field_map, mock_complex_json_
     assert response.normalize(mock_field_map, update_records=False) and response.normalized_records is None
 
 
+def test_normalization_fallback_equivalence(mock_field_map, mock_field_map_with_fallbacks, mock_complex_json_records):
+    """Tests whether the `update_records` updates the `ProcessedResponse.normalized_records` property when needed."""
+    mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
+    response = ProcessedResponse(response=mock_response, processed_records=mock_complex_json_records)
+    # the first normalized_records call will update
+    assert response.normalize(mock_field_map) == response.normalize(mock_field_map_with_fallbacks, update_records=True)
+
+
 def test_normalization_with_records_update(mock_field_map, mock_complex_json_records):
-    """Tests whether the `update_records` affects whether `ProcessedResponse` updates `normalized_records` when needed."""
+    """Tests whether the `update_records` affects whether `ProcessedResponse` updates `normalized_records` when
+    needed."""
     updated_academic_field_map = AcademicFieldMap(provider_name="test_provider_two")
     mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
     response = ProcessedResponse(response=mock_response, processed_records=mock_complex_json_records)

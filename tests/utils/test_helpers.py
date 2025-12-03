@@ -19,7 +19,9 @@ from scholar_flux.utils.helpers import (
     generate_response_hash,
     compare_response_hashes,
     coerce_int,
+    coerce_str,
     try_int,
+    try_str,
     try_pop,
     try_dict,
     is_nested,
@@ -198,7 +200,7 @@ def test_generate_response_hash_and_compare():
     assert compare_response_hashes(resp1, resp3) is False
 
 
-####################### Tests for coerce_int & try_int #########################
+####################### Tests for coerce_int, try_int, coerce_str, and try_str #########################
 
 
 @pytest.mark.parametrize(
@@ -211,13 +213,54 @@ def test_generate_response_hash_and_compare():
     ],
 )
 def test_coerce_int(value, expected):
-    """Verifies that an attempt to coerce both strings, NoneType values, and integers into an integer will result in the
-    expected integer.
+    """Tests if coercing numeric strings into integers returns the converted value when possible and None otherwise.
 
     This function will return an integer when the result is valid and None otherwise.
 
     """
     assert coerce_int(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("42", "42"),
+        ("abc", "abc"),
+        (None, None),
+        (3.14, "3.14"),
+        (b"abc", "abc"),
+        (["abc", "tev"], "['abc', 'tev']"),
+        (sum, "<built-in function sum>"),
+    ],
+)
+def test_try_str(value, expected):
+    """Tests the behavior of `try_str`, which converts values into strings and otherwise returns the original value.
+
+    This function will return an integer when the result is valid and the original value otherwise.
+
+    """
+    assert try_str(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("42", "42"),
+        ("abc", "abc"),
+        (None, None),
+        (3.14, "3.14"),
+        (["abc", "tev"], "['abc', 'tev']"),
+        (b"abc", "abc"),
+        (sum, "<built-in function sum>"),
+    ],
+)
+def test_coerce_str(value, expected):
+    """Tests if coercing types into strings returns a string when coercible and None otherwise.
+
+    This function will return an integer when the result is valid and None otherwise.
+
+    """
+    assert coerce_str(value) == expected
 
 
 def test_try_int_success():
@@ -232,6 +275,11 @@ def test_try_int_success():
 
 
 def test_try_int_none_value():
+    """Verifies that an attempt to convert a NoneType variable into an integer, in-turn, returns None."""
+    assert try_int(None) is None
+
+
+def test_try_str_none_value():
     """Verifies that an attempt to convert a NoneType variable into an integer, in-turn, returns None."""
     assert try_int(None) is None
 

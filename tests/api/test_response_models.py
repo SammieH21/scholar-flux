@@ -54,12 +54,23 @@ def test_blank_initialization():
     assert api_response.status_code is None
     assert api_response.created_at is None
 
+    with pytest.raises(NotImplementedError):
+        assert api_response.process_metadata() is None
 
-def test_error_response_overall_properties(mock_unauthorized_response):
+
+def test_error_response_representation(mock_unauthorized_response):
     """Verifies the representation of the `ErrorResponse` as defined by its original parent class __repr__."""
     error_response = ErrorResponse(cache_key="key", response=mock_unauthorized_response)
     assert repr(error_response) == f"ErrorResponse(status_code={error_response.status_code}, error=None, message=None)"
-    assert not error_response and not error_response.record_count
+
+
+def test_error_response_metadata_fields(mock_unauthorized_response):
+    """Tests if `ErrorResponse` properties, more so specific to `ProcessedResponse`, default to 0/`None` instead."""
+    error_response = ErrorResponse(cache_key="key", response=mock_unauthorized_response)
+    assert not error_response.record_count
+    assert error_response.total_query_hits is None
+    assert error_response.records_per_page is None
+    assert error_response.process_metadata() is None and error_response.processed_metadata is None
 
 
 def test_success_response():

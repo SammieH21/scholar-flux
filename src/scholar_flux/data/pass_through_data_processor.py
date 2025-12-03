@@ -36,7 +36,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
 
         Args:
             ignore_keys: List of keys to ignore during processing.
-            keep: List of keys that records should contain during processing.
+            keep_keys: List of keys that records should contain during processing.
             value_delimiter: Delimiter for joining multiple values.
             regex: Whether to use regex for ignore filtering.
 
@@ -84,7 +84,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
                 and self.record_filter(record_dict, ignore_keys, regex) is not True
             ]
 
-            logging.info(f"total included records - {len(processed_record_dict_list)}")
+            logger.info(f"total included records - {len(processed_record_dict_list)}")
 
             # return the list of processed record dicts
             return processed_record_dict_list

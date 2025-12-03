@@ -18,11 +18,12 @@ from __future__ import annotations
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.api.normalization import BaseFieldMap
+from scholar_flux.api.models import ResponseMetadataMap
 from scholar_flux.exceptions import RecordNormalizationException
 from scholar_flux.api.providers import provider_registry
-from typing import Optional, Any, MutableSequence, Iterable
+from typing import Optional, Any, MutableSequence, Iterable, Literal
 from requests import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, AliasChoices
 import logging
 
 
@@ -32,8 +33,8 @@ logger = logging.getLogger(__name__)
 class SearchResult(BaseModel):
     """Core class used in order to store data in the retrieval and processing of API Searches when iterating and
     searching over a range of pages, queries, and providers at a time. This class uses pydantic to ensure that field
-    validation is automatic for ensuring integrity and reliability of response processing. multi-page searches that link
-    each response result to a particular query, page, and provider.
+    validation is automatic, ensuring integrity and reliability of response processing. This supports multi-page
+    searches that link each response result to a particular query, page, and provider.
 
     Args:
         query (str): The query used to retrieve records and response metadata
@@ -50,7 +51,7 @@ class SearchResult(BaseModel):
 
     query: str
     provider_name: str
-    page: int
+    page: int = Field(..., ge=0, validation_alias=AliasChoices("page", "page_number"))
     response_result: Optional[ProcessedResponse | ErrorResponse] = None
 
     def __bool__(self) -> bool:
@@ -117,6 +118,16 @@ class SearchResult(BaseModel):
         return self.response_result.metadata if self.response_result else None
 
     @property
+    def total_query_hits(self) -> Optional[int]:
+        """Returns the total number of query hits according to the processed metadata field specific to the API."""
+        return self.response_result.total_query_hits if self.response_result else None
+
+    @property
+    def records_per_page(self) -> Optional[int]:
+        """Returns the number of records sent on the current page according to the API-specific metadata field."""
+        return self.response_result.records_per_page if self.response_result else None
+
+    @property
     def processed_records(self) -> Optional[list[dict[Any, Any]]]:
         """Contains the processed records from the APIResponse processing step after a successfully received response
         has been processed.
@@ -125,6 +136,16 @@ class SearchResult(BaseModel):
 
         """
         return self.response_result.processed_records if self.response_result else None
+
+    @property
+    def processed_metadata(self) -> Optional[dict[str, Any]]:
+        """Contains the processed metadata from the APIResponse processing step after a successfully received response
+        has been processed.
+
+        If an error response was received instead, the value of this property is None.
+
+        """
+        return self.response_result.processed_metadata if self.response_result else None
 
     @property
     def normalized_records(self) -> Optional[list[dict[Any, Any]]]:
@@ -180,13 +201,56 @@ class SearchResult(BaseModel):
             else None
         )
 
+    def process_metadata(
+        self,
+        metadata_map: Optional[ResponseMetadataMap] = None,
+        update_metadata: Optional[bool] = None,
+    ) -> Optional[dict[str, Any]]:
+        """Processes the `ProcessedResponse.metadata` field to map metadata fields to provider-agnostic field names.
+
+        By default, the `ResponseMetadataMap` map retrieves and converts the API-specific page-size (records per page)
+        and total results (total query hits) fields to integers when possible.
+
+        The field map is resolved in the following order of priority:
+
+        1. User-specified field maps
+        2. resolving a provider name to a BaseFieldMap or subclass from the registry.
+        3. Resolving the URL to a BaseFieldMap or subclass
+
+        If a metadata_map is not available, `None` will be returned.
+
+        Args:
+            metadata_map: (Optional[ResponseMetadataMap]):
+                An optional response metadata map to use in the mapping and processing of the response metadata. If not
+                provided, the metadata map is looked up via the registry using the name or URL of the current provider.
+            update_records (Optional[bool]):
+                A flag that determines whether updates should be made to the `normalized_records` attribute after
+                computation. If `None`, updates are made only if the `normalized_records` attribute is None.
+
+        Returns:
+            dict[str, Any]:
+                A processed metadata dictionary mapping `total_query_hits` and `records_per_page` fields where possible.
+
+        Raises:
+            RecordNormalizationException: If raise_on_error=True and no field map found.
+
+        """
+        if self.response_result is None:
+            return None
+
+        if not isinstance(metadata_map, ResponseMetadataMap):
+            provider_config = provider_registry.get(self.provider_name)
+            # if the lookup by provider name fails, the APIResponse.processed_metadata method tries by URL
+            metadata_map = getattr(provider_config, "metadata_map", None)
+        return self.response_result.process_metadata(metadata_map, update_metadata=update_metadata)
+
     def normalize(
         self,
         field_map: Optional[BaseFieldMap] = None,
         raise_on_error: bool = False,
         update_records: Optional[bool] = None,
     ) -> list[dict[str, Any]]:
-        """Defines the `normalize` method that successfully processed API Responses can override to normalize records.
+        """Normalizes `ProcessedResponse` record fields to map API-specific fields to provider-agnostic field names.
 
         The field map is resolved in the following order of priority:
 
@@ -203,16 +267,17 @@ class SearchResult(BaseModel):
                 looked up from the registry using the name or URL of the current provider.
             raise_on_error (bool):
                 A flag indicating whether to raise an error. If a field_map cannot be identified for the current
-                response and `raise_on_error` is also, True, an normalization error is raised.
+                response and `raise_on_error` is also True, a normalization error is raised.
             update_records (Optional[bool]):
                 A flag that determines whether updates should be made to the `normalized_records` attribute after
                 computation. If `None`, updates are made only if the `normalized_records` attribute is None.
 
         Returns:
-            [list[dict[str, Any]]: A list of normalized records, or empty list if normalization unavailable.
+            list[dict[str, Any]]: A list of normalized records, or empty list if normalization is unavailable.
 
         Raises:
             RecordNormalizationException: If raise_on_error=True and no field map found.
+
         """
         try:
             if self.response_result is None:
@@ -220,7 +285,7 @@ class SearchResult(BaseModel):
 
             if field_map is None:
                 provider_config = provider_registry.get(self.provider_name)
-                # if the lookup by provider name fails the APIResponse.normalize method tries by URL
+                # if the lookup by provider name fails, the APIResponse.normalize method tries by URL
                 field_map = getattr(provider_config, "field_map", None)
             return (
                 self.response_result.normalize(field_map=field_map, raise_on_error=True, update_records=update_records)
@@ -314,18 +379,25 @@ class SearchResultList(list[SearchResult]):
             raise TypeError(f"Expected an iterable of SearchResults, received an object type {type(other)}")
         super().extend(other)
 
-    def join(self) -> list[dict[str, Any]]:
+    def join(self, include: Optional[set[Literal["query", "provider_name", "page"]]] = None) -> list[dict[str, Any]]:
         """Helper method for joining all successfully processed API responses into a single list of dictionaries that
         can be loaded into a pandas or polars dataframe.
 
         Note that this method will only load processed responses that contain records that were also successfully
         extracted and processed.
 
+        Args:
+            include (Optional[set[Literal['query', 'provider_name', 'page']]]):
+                Optionally appends the specified model fields as key-value pairs to each normalized record
+                dictionary. Possible fields include `provider_name`, `query`, and `page`.
+
         Returns:
             list[dict[str, Any]]: A single list containing all records retrieved from each page
 
         """
-        return [self._resolve_record(record, item) for item in self for record in self._get_records(item) if record]
+        return [
+            self._resolve_record(record, item, include) for item in self for record in self._get_records(item) if record
+        ]
 
     @classmethod
     def _get_records(cls, item: SearchResult) -> list[dict[str, Any]] | list[dict[str | int, Any]]:
@@ -337,13 +409,65 @@ class SearchResultList(list[SearchResult]):
         return records or []
 
     @classmethod
-    def _resolve_record(cls, record: Optional[dict], item: SearchResult) -> dict[str, Any]:
+    def _resolve_record(
+        cls,
+        record: Optional[dict],
+        item: SearchResult,
+        include: Optional[set[Literal["query", "provider_name", "page"]]] = None,
+    ) -> dict[str, Any]:
         """Formats the current record and appends the provider_name and page number to the record."""
+        fields = include if include is not None else ("provider_name", "page")
         record_dict = record or {}
-        return record_dict | {"provider_name": item.provider_name, "page_number": item.page}
+        return record_dict | item.model_dump(include=set(fields))
 
-    def normalize(self, raise_on_error: bool = False, update_records: Optional[bool] = None) -> list[dict[str, Any]]:
-        """Convenience method allowing the batch normalization of the of all SearchResults in a SearchResultList.
+    def process_metadata(
+        self,
+        update_metadata: Optional[bool] = None,
+        include: Optional[set[Literal["query", "provider_name", "page"]]] = None,
+    ) -> list[dict[str, Any]]:
+        """Processes the `ProcessedResponse.metadata` field to map metadata fields to provider-agnostic field names.
+
+        By default, the `ResponseMetadataMap` map retrieves and converts the API-specific page-size (records per page)
+        and total results (total query hits) fields to integers when possible.
+
+        The field map is resolved in the following order of priority:
+
+        1. User-specified field maps
+        2. resolving a provider name to a BaseFieldMap or subclass from the registry.
+        3. Resolving the URL to a BaseFieldMap or subclass
+
+        Args:
+            update_metadata (Optional[bool]):
+                A flag that determines whether updates should be made to the `processed_metadata` attribute after
+                computation. If `None`, updates are made only if the `normalized_records` attribute is None.
+            include (Optional[set[Literal['query', 'provider_name', 'page']]]):
+                Optionally appends the specified model fields as key-value pairs to each normalized record
+                dictionary. Possible fields include `provider_name`, `query`, and `page`.
+
+        Returns:
+            list[dict[str, Any]]:
+                A processed metadata dictionary mapping `total_query_hits` and `records_per_page` fields where possible.
+
+        Raises:
+            RecordNormalizationException: If raise_on_error=True and no field map found.
+
+        """
+        include = include if include is not None else {"provider_name", "page", "query"}
+
+        return [
+            self._resolve_record(
+                search_result.process_metadata(update_metadata=update_metadata), search_result, include=include
+            )
+            for search_result in self
+        ]
+
+    def normalize(
+        self,
+        raise_on_error: bool = False,
+        update_records: Optional[bool] = None,
+        include: Optional[set[Literal["query", "provider_name", "page"]]] = None,
+    ) -> list[dict[str, Any]]:
+        """Convenience method allowing the batch normalization of all SearchResults in a SearchResultList.
 
         Args:
             raise_on_error (bool):
@@ -353,17 +477,26 @@ class SearchResultList(list[SearchResult]):
             update_records (Optional[bool]):
                 A flag that determines whether updates should be made to the `normalized_records` attribute after
                 computation. If `None`, updates are made only if the `normalized_records` attribute is None.
+            include (Optional[set[Literal['query', 'provider_name', 'page']]]):
+                Optionally appends the specified model fields as key-value pairs to each normalized record
+                dictionary. Possible fields include `provider_name`, `query`, and `page`. By default,
+                no model fields are appended.
 
         Returns:
             list[dict[str, Any]]:
-                List of normalized records, or an empty list if there are records available for normalization.
+                A list of normalized records, or an empty list if no records are available for normalization.
 
         Raises:
             RecordNormalizationException: If raise_on_error=True and no field map found.
+
         """
         try:
             return [
-                normalized_records
+                (
+                    self._resolve_record(normalized_records, search_result, include=include)
+                    if include
+                    else normalized_records
+                )
                 for search_result in self
                 for normalized_records in search_result.normalize(
                     raise_on_error=raise_on_error, update_records=update_records
@@ -395,7 +528,7 @@ class SearchResultList(list[SearchResult]):
         provider_name: Optional[str] = None,
         page: Optional[tuple | MutableSequence | int] = None,
     ) -> SearchResultList:
-        """Helper method that enables the selection of all responses (successful or failure."""
+        """Helper method that enables the selection of all responses (successful or failed) based on its attributes."""
         if page is not None and not isinstance(page, (MutableSequence, tuple)):
             page = [page]
 

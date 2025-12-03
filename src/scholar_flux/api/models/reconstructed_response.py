@@ -104,8 +104,7 @@ class ReconstructedResponse:
 
     @classmethod
     def fields(cls) -> list:
-        """Helper method for retrieving a list containing the names of all fields associated with the
-        ReconstructedResponse class.
+        """Retrieves a list containing the names of all fields associated with the `ReconstructedResponse` class.
 
         Returns:
             list[str]: A list containing the name of each attribute in the ReconstructedResponse.
@@ -114,8 +113,16 @@ class ReconstructedResponse:
         return [field.name for field in fields(ReconstructedResponse)]
 
     def asdict(self) -> dict[str, Any]:
-        """Helper method for converting the ReconstructedResponse into a dictionary containing attributes and their
-        corresponding values."""
+        """Converts the ReconstructedResponse into a dictionary containing attributes and their corresponding values.
+
+        This convenience method uses `dataclasses.asdict()` under the hood to convert a `ReconstructedResponse` to a
+        dictionary consisting of key-value pairs.
+
+        Returns:
+            dict[str, Any]:
+                A dictionary that maps the field names of a `ReconstructedResponse` instance to their assigned values.
+
+        """
         return asdict(self)
 
     @classmethod

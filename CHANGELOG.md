@@ -5,6 +5,44 @@ All notable changes to scholar-flux will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+## [0.3.0] - 12/03/2025
+### Added
+- The `SearchCoordinator` now includes a `parameter_search` feature that allows end-users to retrieve non-paginated API responses with a prebuilt dictionary or endpoint. This addition allows users to send requests while taking advantage of caching, retry-logic, rate limiting, and processing orchestration.
+- The type expectations for metadata fields are now more specifically tailored to what can be expected for the `SearchCoordinator` (including the now optional pagination), `ProcessedResponse` models which constrains metadata types to dictionaries with string parameters.
+- Introduced `ResponseMetadataMap` to standardize metadata extraction across providers. Each provider config now includes an optional `metadata_map` input that defines how to parse provider-specific metadata fields (e.g., `numFound` for PLOS, `count` for OpenAlex, `total-results` for Crossref).
+- Updated the `ProviderConfig` model to allow for the use of `ResponseMetadataMaps`. When available, this field can inform users of the total number of query hits, page size within a response, and the number of remaining pages that are associated with a particular query.
+- Added the `total_query_hits` and `records_per_page` properties to `ProcessedResponse`, `ErrorResponse`, `NonResponse`, and `SearchResult`. These properties expose the total number of results reported by the API and the records sent in a single response from an API, enabling smarter pagination logic and progress tracking.
+- Introduced `NormalizingFieldMap` as an intermediate base class between `BaseFieldMap` and `AcademicFieldMap`. This class encapsulates the record normalization logic with an internal `NormalizingDataProcessor`, making it reusable for custom field map implementations.
+- Added `PubmedSearchWorkflow` as a dedicated workflow class for PubMed's two-step retrieval process (eSearch → eFetch). This workflow automatically preserves metadata from the initial eSearch step in the final eFetch results to ensure that the complete search metadata is available to users.
+- Field maps now support fallback paths via `list[str]` types. For example, `title=["MedlineCitation.Article.ArticleTitle.#text", "MedlineCitation.Article.ArticleTitle"]` will try each path sequentially until a value is found. This update resolves edge cases where field names might vary on a record-by-record basis.
+- Added `get_first_available_key()` utility function for both case-sensitive and case-insensitive dictionary key extraction with fallback support.
+- `ErrorResponse.normalize()` now supports graceful error handling with `raise_on_error`. If `raise_on_error=False` this method returns an empty list instead of raising an exception. This allows normalization to be attempted on mixed result sets without interrupting processing when setting `raise_on_error=False`.
+- For all searches (including successful searches), ScholarFlux search coordination now directly references the last result for the current provider to wait for the specified number of seconds before sending the next request when APIs send responses with `Retry-After` headers.
+- Tested all new functionality to ensure that they produce the expected output.
+- Updated the metadata retrieval logic for PubMed workflows. The eSearch step's metadata (query info, ID lists, result counts) is now automatically merged into the final eFetch response.
+
+### Changed
+- **Potentially breaking** The `get_nested_data` field was previously structured to return a value as is if it was Falsy. This includes empty lists, dicts, and None. Its original behavior was tailored to extraction of values nested in dictionaries. Now its behavior is to always return None when a key isn't available in a data structure (always the case for empty containers and None.).
+- The `SearchCoordinator._search_page_result()` private method is now renamed to `.search_page()` for discovery. This method returns a `SearchResult` container and can be useful in cases where additional search information is required to be stored with the result (e.g., `query`, `page`, `provider_name`).
+- To ensure consistency with the SearchAPIConfig, the SearchCoordinator now uses the provider name from the last-queried URL if it exists within the registry. Otherwise, the SearchAPI.provider_name is used as usual. This change is useful in normalization scenarios where a field map is not supplied by the user, but the last queried URL differs from the current `SearchAPI.provider_name` attribute.
+- Updated the Crossref provider config to indicate that Plus users need to use API-key headers rather than API key parameters. The `scholar_flux.api.providers.crossref.py` docstring gives an example of how users can manually integrate this into their workflows. Currently, no providers currently require automatic header-based authentication, but direct support for token-based headers will be directly implemented if/when needed.
+- Crossref now has a default request delay of 1.0 seconds. The API has a maximum request interval of 50 requests per second for the general public, but the default is set lower to a 1.0 second request delay to account for potential API changes in the event that they ever occur.
+- Path delimiters are more centralized in the `PathUtils.DELIMITER` class variable for easier coordination of JSON processing for referencing nested structures with strings.
+- Implemented proactive rate limit coordination via `_respect_retry_after()`. When an API response includes a `Retry-After` or `x-ratelimit-retry-after` header (both case-insensitive), ScholarFlux now waits before sending the next request to prevent 429 errors before they could occur.
+- The RetryHandler now uses the `DEFAULT_RETRY_AFTER_HEADERS` class variable to search for `Retry-After` headers, independent of case-sensitivity. As previously, if a `429` status code is sent and a `Retry-After` value can't be found, the `RetryHandler` defaults to dynamic rate limiting with a backoff factor.
+- Auto-configured Redis/MongoDB session caching: `CachedSessionManager(backend='redis')` now automatically reads connection settings from environment variables (`SCHOLAR_FLUX_REDIS_HOST`, `SCHOLAR_FLUX_REDIS_PORT`, `SCHOLAR_FLUX_MONGODB_HOST`, `SCHOLAR_FLUX_MONGODB_PORT`), ensuring consistency with `DataCacheManager` storage backends.
+
+### Fixed
+- When sending multipage requests with `SearchCoordinator.search_pages`, in some circumstances, an API could send less records than expected due to rate-limiting/token limits, making it appear as if there are no more pages to be queried. A `ResponseMetadataMap`, when implemented, can now determine whether there are pages remaining to be queried or whether multipage searches should halt early.
+- Updated the `SearchAPI.prepare_search` method to include the `request_delay` method to match the exact parameter set for the `search` method. This prevents potential unwarranted warnings indicating that `request_delay` isn't an API-specific config parameter (as opposed to a universal ScholarFlux parameter)- Eliminated early stoppage for record retrieval for Core API responses when less than the expected number of records are received. The coordinator now uses `total_query_hits` to determine if a partial page is limited due to token count limits per second or due to the actual number of possible, retrievable records.
+- Resolved an edge case where workflows would warn users on no-longer valid parameters on switching workflows. The configuration now prevents warnings from showing when providers are switched.
+- Corrected retry handler behavior to skip the final sleep delay after max retries are exhausted, reducing unnecessary wait time on failed requests.
+- Changed `logging.info` usage in `PassThroughDataProcessor` to `logger.info`. Record retrieval count is now directly controllable via the package-level logger's log level.
+
+### Documentation
+- Comprehensive README refactor explaining ScholarFlux's differentiating factors, including concurrent orchestration architecture, threading model, and production-ready features.
+- Revamped Sphinx tutorials to cover the core and advanced functionalities of ScholarFlux. The front-facing documentation was generated with the assistance of AI (Claude) and was human-revised for correctness. Plans for further revision are in the works where it may be helpful!
+
 
 ## [0.2.0] - 11/19/2025
 ### Added

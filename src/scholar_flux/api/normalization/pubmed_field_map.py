@@ -10,8 +10,8 @@ field_map = AcademicFieldMap(
     url=None,  # Construct from PMID if needed
     record_id="MedlineCitation.PMID.#text",
     # Bibliographic
-    title="MedlineCitation.Article.ArticleTitle.#text",  # Or ArticleTitle without .#text
-    abstract="MedlineCitation.Article.Abstract.AbstractText.#text",  # Or AbstractText without .#text
+    title=["MedlineCitation.Article.ArticleTitle.#text", "MedlineCitation.Article.ArticleTitle"],
+    abstract=["MedlineCitation.Article.Abstract.AbstractText.#text", "MedlineCitation.Article.Abstract.AbstractText"],
     authors="MedlineCitation.Article.AuthorList.Author.LastName",  # Auto-traverses Author list
     # Publication metadata
     journal="MedlineCitation.Article.Journal.Title",

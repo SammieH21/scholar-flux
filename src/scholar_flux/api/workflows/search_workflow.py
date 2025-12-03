@@ -39,11 +39,11 @@ class WorkflowStep(BaseWorkflowStep):
     Args:
         provider_name: Optional[str]: The provider to use for this step. Allows for the modification of the current
                                       provider for multifaceted searches.
-        **search_parameters: API search parameters for this step. Defines optional keyword arguments to pass to
-                             `SearchCoordinator._search()`
-        **config_parameters: Optional config parameters for this step. Defines optional keyword arguments that modify
-                             the step's SearchAPIConfig.
-        **description (str): An optional description explaining the execution and/or purpose of the current step
+        search_parameters: API search parameters for this step. Defines optional keyword arguments to pass to
+                           `SearchCoordinator._search()`
+        config_parameters: Optional config parameters for this step. Defines optional keyword arguments that modify
+                           the step's SearchAPIConfig.
+        description (str): An optional description explaining the execution and/or purpose of the current step
 
     """
 
@@ -307,6 +307,11 @@ class SearchWorkflow(BaseWorkflow):
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during processing step {i}: {e}") from e
 
+        return self._create_workflow_result(result)
+
+    def _create_workflow_result(self, result: Optional[ProcessedResponse | ErrorResponse] = None) -> WorkflowResult:
+        """Prepares the final workflow result from the workflow history."""
+        result = self._history[-1].result if result is None and self._history else result
         return WorkflowResult(history=self._history, result=result)
 
     def __call__(self, *args, **kwargs) -> WorkflowResult:

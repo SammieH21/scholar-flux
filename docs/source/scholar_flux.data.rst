@@ -52,6 +52,14 @@ scholar\_flux.data.data\_processor module
    :undoc-members:
    :show-inheritance:
 
+scholar\_flux.data.normalizing\_data\_processor module
+------------------------------------------------------
+
+.. automodule:: scholar_flux.data.normalizing_data_processor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 scholar\_flux.data.pass\_through\_data\_processor module
 --------------------------------------------------------
 
