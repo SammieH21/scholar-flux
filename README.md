@@ -27,60 +27,124 @@
 
 ## Overview
 
-ScholarFlux is a production-grade orchestration layer for academic APIs that enables **concurrent multi-provider search with automatic rate limiting, streaming result delivery, and schema normalization**. Built for researchers, data engineers, and ML practitioners, ScholarFlux aggregates scientific data across multiple databases—arXiv, PubMed, Springer Nature, Crossref, OpenAlex, PLOS, and others—through a single unified interface.
+ScholarFlux is production-grade orchestration infrastructure for academic APIs, initially developed during a **4-year CDC public health analysis fellowship** to address the challenges researchers face when aggregating data across multiple scholarly databases. It enables **concurrent multi-provider search with automatic rate limiting, streaming result delivery, and intelligent schema normalization** across 7+ scholarly databases—arXiv, PubMed, Springer Nature, Crossref, OpenAlex, PLOS, and CORE.
 
-Query 7+ scholarly databases simultaneously while ScholarFlux handles provider-specific quirks, rate limits, and response formats, delivering ML-ready datasets with consistent schemas.
+Query multiple academic databases simultaneously while ScholarFlux handles provider-specific quirks, rate limits, response validation, and format inconsistencies—delivering ML-ready datasets with consistent schemas.
 
-### Why ScholarFlux?
+### The Problem
 
 Academic research requires querying multiple databases, but each provider implements their own parameter names, pagination mechanisms, rate limits, error conditions, and response formats. Building integrations with multiple academic APIs typically means:
 
 - Manually coordinating rate limits across providers (6s for PLOS, 4s for arXiv, 1s for Crossref...)
 - Writing custom parsers for XML (PubMed, arXiv) and JSON (Crossref, OpenAlex) responses
 - Mapping **75+ inconsistent field names** across 8 providers (`title` vs `article_title` vs `headline`)
-- Implementing retry logic and error handling for each API's quirks
+- Implementing retry logic with exponential backoff for transient failures
 - Building caching layers to avoid redundant requests
+- Handling provider-specific pagination quirks and knowing when to stop requesting
+- Managing multi-step workflows (PubMed's search → fetch process)
 
 **Result**: Weeks of integration work just to retrieve data consistently.
 
-**ScholarFlux handles those complexities** so researchers and data professionals can focus on research rather than API documentation.
+### The Solution
 
-### Key Innovations
+ScholarFlux handles that complexity through:
 
-- **🚀 Concurrent Thread Orchestration**: Maximizes throughput by querying multiple providers simultaneously with automatic rate limit coordination. While PLOS waits 6 seconds for rate limiting, arXiv, Crossref, and OpenAlex query in parallel—resulting in **3x faster retrieval** for multi-provider searches.
+- **🚀 Concurrent Thread Orchestration**: Query multiple providers simultaneously with shared rate limiters
+- **📡 Streaming Results**: Generator-based architecture for memory-efficient large-scale retrieval
+- **🎯 Schema Normalization**: Automatic transformation of provider-specific fields into universal academic schema
+- **🗄️ Two-Tier Caching**: HTTP response caching + processed result caching with production backends
+- **🛡️ Security-First**: Automatic credential masking and optional encrypted caching
 
-- **📡 Streaming Results**: Generator-based architecture delivers results as they arrive. Process page 1 while pages 2-100 are still being fetched—memory-efficient for large-scale retrieval.
+### Performance: Real-World Impact
 
-- **🔒 Shared Rate Limiting**: Multiple queries to the same provider automatically coordinate through shared rate limiters. Query PubMed for "gene therapy" and "CRISPR" concurrently without exceeding rate limits.
+**Scenario**: Retrieve 1,250 records from 4 providers (PLOS, arXiv, OpenAlex, Crossref)
 
-- **🎯 Schema Normalization**: Automatically transforms provider-specific field names into universal academic fields (`title`, `doi`, `authors`, `abstract`). Build ML datasets without manual schema mapping.
+| Method | Time | Speedup |
+|--------|------|---------|
+| Sequential requests | ~18 min | Baseline |
+| ScholarFlux concurrent threading | ~6 min | **3x faster** |
 
-- **🗄️ Two-Tier Caching**: HTTP response caching (Layer 1) + processed result caching (Layer 2) with Redis/MongoDB/SQLAlchemy support for production deployments.
+**Why?** ScholarFlux uses concurrent threads with shared rate limiters. While PLOS thread waits 6s for rate limiting, arXiv (4s), OpenAlex (6s), and Crossref (1s) threads query simultaneously. The more providers you query, the greater the optimization.
 
-- **🛡️ Security-First**: Automatic masking of API keys, emails, and credentials before logging. Optional encrypted session caching.
+## Installation
 
-### Features
+### Basic Installation
 
-- **Rate limiting** - Automatically respects per-provider rate limits to avoid getting banned
-- **Two-Layer caching** - Optionally caches successful requests and response processing to avoid sending redundant requests and performing unnecessary computation
-- **Security-First** - Identifies and masks sensitive data (API keys, emails, credentials) before they ever grace the logs
-- **Request preparation** - Configures provider-specific API parameters and settings for data retrieval
-- **Response validation** - Verifies response structure before attempting to process data
-- **Record processing** - Prepares, logs, and returns the intermediate data steps and the final processed results for full transparency
-- **Concurrent orchestration** - Retrieves data from multiple APIs concurrently with multithreading while respecting individual rate limits
-- **Intelligent Halting** - After unsuccessful requests, ScholarFlux knows when to retry a request or halt multi-page retrieval for a provider altogether
+```bash
+pip install scholar-flux
+```
 
-As a result, ScholarFlux offers a seamless experience in data engineering and analytical workflows, simplifying the process of querying academic databases, retrieving metadata, and performing comprehensive searches for articles, journals, and publications.
+This installs the core package with minimal dependencies for JSON-based providers (PLOS, OpenAlex, Crossref).
 
+### Installation with Extras
 
-## Focus
+```bash
+# For XML parsing (PubMed, arXiv workflows)
+pip install scholar-flux[parsing]
 
-- **Unified Access**: Aggregate searches across multiple academic databases and publishers.
-- **Rich Metadata Retrieval**: Fetch detailed metadata for each publication, including authors, publication date, abstracts, and more.
-- **Advanced Search Capabilities**: Support both simple searches and provider-specific, complex query structures to filter by publication date, authorship, and keywords.
-- **Open Access Integration**: Prioritize and query open-access resources (for use within the terms of service for each provider).
-- **Production-Ready Architecture**: Built with dependency injection, comprehensive error handling, and type safety for deployment in production environments.
+# For production caching (Redis, MongoDB, SQLAlchemy)
+pip install scholar-flux[database]
 
+# For encrypted session caching
+pip install scholar-flux[cryptography]
+```
+
+### Quick Start
+
+```python
+from scholar_flux import SearchCoordinator
+
+# Create a coordinator for a single provider
+coordinator = SearchCoordinator(query="machine learning", provider_name="arxiv")
+
+# Search and get results
+response = coordinator.search(page=1)
+
+if response:
+    articles = response.data or []
+    print(f"Found {response.total_query_hits} total results")
+    print(f"Retrieved {len(articles)} records on this page")
+    
+    # Access processed data
+    for article in articles:
+        print(f"Title: {article.get('title')}")
+        print(f"Authors: {article.get('authors')}")
+```
+
+## 🔬 Origin Story
+
+Initially developed during a 4-year CDC Public Health Analyst Fellowship as an exploratory project investigating how AI and ML could enhance research workflows. The challenge: aggregating data from multiple academic databases for ML-driven research, where each provider has different APIs, rate limits, and response formats.
+
+Early prototypes of these AI/ML-driven workflows revealed that reliable data integration was critical—without consistent, validated data from heterogeneous sources, downstream analysis fails.
+
+Built and presented at CDC meetings as a solution for AI-assisted systematic literature review and meta-analysis workflows. The initial demonstration showcased a Springer Nature integration with embedding-based similarity search to find related articles and abstracts—illustrating how unified API access could power ML-driven research discovery.
+
+After the fellowship, I recognized the broader need beyond public health research and open-sourced it, expanding from the initial Springer Nature integration to 7+ providers with comprehensive documentation and production-ready features.
+
+**Technical foundation:**
+- **41,000 lines of code**: 25,700 LOC source + 16,600 LOC comprehensive tests
+- **96% test coverage**: Rigorous testing across all functionality and edge cases
+- **Security-focused**: Automated CVE scanning, credential masking, encrypted caching
+- **Type-safe**: mypy strict mode throughout entire codebase
+- **Production-ready architecture**: Dependency injection, comprehensive error handling, horizontal scaling support
+
+## 📚 Comprehensive Documentation
+
+ScholarFlux includes **8 detailed tutorials** covering everything from basic setup to production deployment:
+
+### Core Tutorials
+- **Getting Started** - Installation, first search, environment configuration
+- **Response Handling Patterns** - Error handling, metadata extraction, pagination control
+- **Multi-Provider Search** - Concurrent orchestration, streaming results, shared rate limiters
+- **Schema Normalization** - Building ML-ready datasets with consistent fields across providers
+
+### Advanced Topics
+- **Caching Strategies** - Redis, MongoDB, SQLAlchemy for production-scale deployments
+- **Advanced Workflows** - Multi-step retrieval patterns, PubMed workflow internals
+- **Custom Providers** - Extending ScholarFlux to new APIs with custom configurations
+- **Production Deployment** - Docker, monitoring, encrypted caching, and security essentials
+
+Each tutorial includes working code examples and real-world use cases. The documentation depth reflects the package's maturity and production-readiness.
 
 
 ## Architecture
@@ -90,17 +154,19 @@ ScholarFlux is built around three core components that work together through dep
 ```
 SearchCoordinator
 ├── SearchAPI (HTTP retrieval + rate limiting)
-│   ├── RateLimiter
+│   ├── RateLimiter (thread-safe rate limiting with Retry-After support)
+│   ├── RetryHandler (exponential backoff with configurable limits)
 │   ├── Session (requests or requests-cache)
 │   ├── APIParameterMap (provider-specific parameter translation)
-│   ├── SensitiveDataMasker (Masks and unmasks sensitive data when needed)
-│   └── SearchAPIConfig (records per page, request delays, provider URL/name, API keys, etc.)
+│   ├── SensitiveDataMasker (masks sensitive data before logging)
+│   └── SearchAPIConfig (records per page, request delays, provider URL/name, API keys)
 │
 └── ResponseCoordinator (processing pipeline)
     ├── DataParser (XML/JSON/YAML → dict)
     ├── DataExtractor (dict → records list)
-    ├── DataProcessor (records transformation)
-    └── DataCacheManager (result storage)
+    ├── DataProcessor (records transformation with filtering)
+    ├── ResponseMetadataMap (pagination metadata extraction - v0.3.0)
+    └── DataCacheManager (processed result storage)
 ```
 
 ### Concurrency Architecture
@@ -121,480 +187,305 @@ MultiSearchCoordinator
 ```
 
 **Key Design Decisions**:
-- **Threading over asyncio**: Simpler for users, better for I/O-bound workloads with rate limits. Academic APIs are pure I/O-bound with mandatory wait periods.
-- **Generator-based streaming**: Memory-efficient, process results incrementally without blocking.
-- **Shared rate limiters**: Multiple queries to the same provider coordinate through a single `ThreadedRateLimiter`, preventing rate limit violations.
-- **Concurrent execution**: Maximizes throughput by requesting from all providers simultaneously within their rate limit constraints.
-
-Each of these components are designed with a specific focus in mind:
-
-- **SearchAPI**: Creates HTTP requests while handling the specifics of parameter building for provider-specific configurations
-- **ResponseCoordinator**: Coordinates response handling (parsing → extraction → transformation → caching) while logging and validating each step of the process
-- **SearchCoordinator**: Delegates and Orchestrates the entire process using the SearchAPI (response retrieval) and ResponseCoordinator (response processing)
-
-Other components are designed to support the orchestration of each step in the process including:
-
-- **SensitiveDataMasker**: Uses pattern matching to identify, mask, and register sensitive strings such as API Keys and Authorization Bearer tokens during critical steps before and after response retrieval
-- **DataParser**: Parses responses of different types (XML, JSON, and YAML) into dictionaries to support later response handling processes
-- **DataExtractor**: Extracts and separates both records and response metadata from parsed responses
-- **DataProcessor**: Optionally filters and flattens records extracted from previous steps
-- **DataCacheManager**: Provides storage abstraction supporting in-memory, Redis, MongoDB, and SQLAlchemy backends. The ResponseCoordinator detects schema changes and stale responses to determine whether or not to pull from cache
-
-## Getting Started
-
-
-### Prerequisites
-
-- Python 3.10+
-- [Poetry](https://python-poetry.org/) for dependency management
-- An API key depending on the API Service Provider. This may be available through your academic institution or by registering directly with the API Provider
-
-### Provider Access
-
-While some APIs may require an API key, the majority of Providers do not.
-OpenAlex, PLOS API, Crossref, and arXiv are four resources that work out-of-the-box and seamlessly for both single page and multi-page/provider retrieval, even with the default settings.
-
-APIs such as PubMed, Core, and SpringerNature do, however, provide API access without payment or subscription for uses within the terms of service.
-
-All sources do, however, have rate limits that users should abide by to prevent `Too Many Requests` status codes when requesting data.
-Luckily, ScholarFlux handles this part automatically for you, as we'll see later!
-
-## Installation
-
-ScholarFlux is in the beta stage and is now available for testing on PyPI! You can install scholar-flux using the following command:
-
-
-```bash
-pip install scholar-flux
-```
-
-For out-of-the-box usability with minimal dependencies, ScholarFlux only requires a core set of packages by default. Several providers rely on different data processing strategies and may require additional dependencies. As a result, ScholarFlux makes these dependencies optional.
-
-```bash
-pip install scholar-flux[parsing,database,cryptography]
-```
-
-Or install specific features:
-```bash
-# Just parsing support
-pip install scholar-flux[parsing]
-
-# Database backends only
-pip install scholar-flux[database]
-
-# All extras (recommended for development)
-pip install scholar-flux[parsing,database,cryptography]
-```
-
-### Or, To download the source code and documentation for testing and development:
-
-1. **Clone the repository:**
-```bash
-git clone https://github.com/SammieH21/scholar-flux.git
-```
-
-2.  Navigate to the project directory:
-```bash
-cd scholar-flux
-```
-   
-3.  Install dependencies using Poetry:
-```bash
-poetry install
-```
-
-3b. Or to download development tools, testing packages and dependencies for PubMed and arXiv processing:
-```bash
-poetry install --with dev --with tests --all-extras
-```
-
-
-**Requirements:**
-- Python 3.10+
-- Poetry (for development)
-- Optional: Redis, MongoDB for production caching
-
-**Provider-specific requirements:**
-- PubMed: API key for rate limit increase (3 req/sec → 10 req/sec)
-- Springer Nature: API key required
-- Crossref: `mailto` parameter recommended for faster rate limits
-
-
-**Optional Dependencies**
-- **XML Parsing** (`parsing` extra): Required for providers like `PubMed` and `arXiv` that return XML responses
-  - Installs: `xmltodict`, `pyyaml`
-  
-- **Encrypted Cache** (`cryptography` extra): Required for encrypted session caching
-  - Installs: `cryptography`
-  
-- **Storage Backends** (`database` extra): Required for advanced caching strategies
-  - `scholar_flux.data_storage.RedisStorage` → `redis`
-  - `scholar_flux.data_storage.MongoDBStorage` → `pymongo`
-  - `scholar_flux.data_storage.SQLAlchemyStorage` → `sqlalchemy`
-
-
-**Note:** Tests automatically install all extras to ensure comprehensive testing across all features.
-
-## Quick Start
-
-### Basic Search
-
-```python
-from scholar_flux import SearchCoordinator
-
-# Initializes a basic coordinator with a query and the default provider (PLOS)
-coordinator = SearchCoordinator(query="machine learning", provider_name='plos')
-
-# Get a single page
-result = coordinator.search(page=1)
-
-# ProcessedResponse is truthy, errors are falsy
-if result:
-    print(f"Got {len(result)} records")
-    for record in result.data:
-        print(f"{record.get('id')} - {record.get('title_display')}")
-else:
-    print(f"Error: {result.error}: Message: {result.message}")
-```
-
-### Multi-Page Retrieval with Caching
-
-```python
-from scholar_flux import SearchCoordinator, DataCacheManager
-
-# Enable both HTTP caching and result caching
-coordinator = SearchCoordinator(
-    query="sleep",
-    provider_name='plos',
-    use_cache=True,  # Caches HTTP responses
-    cache_manager=DataCacheManager.with_storage('redis')  # Caches processed results with redis on localhost
-)
-
-# Get multiple pages (rate limiting happens automatically)
-results = coordinator.search_pages(pages=range(1, 3))
-
-# Access the first ProcessedResponse
-page_one = results[0]
-print(page_one.provider_name)            # 'plos'
-print(page_one.page)                     # page=1
-response = page_one.response_result      # ProcessedResponse (if successful)
-
-print(page_one.record_count)           # Total number of records
-print(response.metadata)               # Total available
-print(response.cache_key)              # 'plos_sleep_1_50'
-
-# Filter out failures
-successful_responses = results.filter()
-print(f"Success rate: {len(successful_responses)}/{len(results)}")
-
-# Aggregate response records into a DataFrame (this requires `pandas` to be installed)
-import pandas as pd
-df = pd.DataFrame(successful_responses.join())
-print(df.columns)
-# Index(['id', 'journal', 'eissn', 'publication_date', 'article_type',
-#       'author_display', 'abstract', 'title_display', 'score', 'provider_name',
-#       'page_number']
-
-print(f'Total number of records: {df.shape[0]}')
-```
-
-## Core Features
-
-
-### Two-Layer Caching
-
-ScholarFlux caches at two levels: HTTP responses and processed results.
-
-**Layer 1: Request caching**
-
-Caches raw HTTP responses. If you make the same request twice, the second one is instant (no network call).
-
-```python
-from scholar_flux import SearchAPI, CachedSessionManager
-
-# assumes you have the redis cache server installed on your local computer:
-session_manager = CachedSessionManager(user_agent = 'ResearchEnthusiast', backend='redis')
-
-api = SearchAPI.from_defaults(
-    query="quantum computing",
-    provider_name='arxiv',
-    session = session_manager.configure_session(), # remove for a simple in-memory session caching
-    use_cache=True # defaults to in-memory cache if a valid session cache isn't specified
-)
-
-response1 = api.search(page=1)  # Network request
-# OUTPUT: <Response [200]>
-response2 = api.search(page=1)  # Instant from cache
-# OUTPUT: CachedResponse(...)
-```
-
-**Layer 2: Result caching**
-
-Caches processed records after extraction and transformation. Useful when processing is expensive or when you want results to survive restarts.
-
-```python
-from scholar_flux import SearchCoordinator, DataCacheManager
-
-# In-memory (default - fast, but lost on restart)
-coordinator = SearchCoordinator(api)
-
-# Redis (production - fast + persistent)
-cache = DataCacheManager.with_storage('redis', 'localhost:6379')
-coordinator = SearchCoordinator(api, cache_manager=cache)
-
-# SQLAlchemy (archival - queryable)
-cache = DataCacheManager.with_storage('sqlalchemy', 'postgresql://localhost/cache')
-coordinator = SearchCoordinator(api, cache_manager=cache)
-
-# MongoDB (document storage)
-cache = DataCacheManager.with_storage('mongodb', 'mongodb://localhost:27017/')
-coordinator = SearchCoordinator(api, cache_manager=cache)
-```
-
-### Concurrent Multi-Provider Search
-
-Search multiple providers at the same time while respecting each one's rate limits.
-Different providers return data in varying formats and field names which makes it difficult to standardize data for downstream research and analytics. ScholarFlux's normalization feature solves this problem by standardizing API-specific fields into common academic fields like `title`, `doi`, `authors`, `abstract`, etc.
-
-```python
-from scholar_flux import SearchCoordinator, MultiSearchCoordinator, RecursiveDataProcessor, CachedSessionManager
-from scholar_flux.api.models import AcademicFieldMap
-
-# Note: For production use, consider setting a custom user agent with contact information:
-user_agent='MyResearchProject/1.0 (mailto:your.email@institution.edu)'
-session_manager = CachedSessionManager(backend = 'sqlite', user_agent=user_agent)
-
-# Sets up each coordinator: The RecursiveDataProcessor flattens record fields into path-value combinations  (i.e. `authors.affiliation.name`, `editor.affiliation`, etc.)
-plos = SearchCoordinator(query="machine learning", provider_name='plos', processor = RecursiveDataProcessor(), session = session_manager())
-crossref = SearchCoordinator(query="machine learning", provider_name='crossref', processor = RecursiveDataProcessor(), session = session_manager())
-openalex = SearchCoordinator(query="machine learning", provider_name='openalex', processor = RecursiveDataProcessor(), session = session_manager())
-arxiv = SearchCoordinator(query="machine learning", provider_name='arxiv', processor = RecursiveDataProcessor(), session = session_manager()) # requires `xmltodict`
-
-# Runs each request using multithreading across providers while respecting rate-limits (the default)
-multi = MultiSearchCoordinator()
-# None of the following will require an API key
-multi.add_coordinators([plos, crossref, openalex, arxiv])
-
-# One call retrieves data from all providers in parallel
-results = multi.search_pages(pages=range(1, 3))
-
-# Responses are received in a SearchResultList:
-print(results)
-
-# OUTPUT: [query='machine learning' provider_name='arxiv' page=1 response_result=ProcessedResponse(cache_key='arxiv_machine learning_1_25', metadata='{'@xmlns:opensearch ': 'http://a9.com...}', data='[{'id': 'http://arxiv.org/abs/2306.0...] (25 items)')
-#          query='machine learning' provider_name='arxiv' page=2 response_result=ProcessedResponse(cache_key='arxiv_machine learning_2_25', metadata='{'@xmlns:opensearch ': 'http://a9.com...}', data='[{'id': 'http://arxiv.org/abs/1811.0...] (25 items)')
-#          query='machine learning' provider_name='plos' page=1 response_result=ProcessedResponse(cache_key='plos_machine learning_1_50', metadata='{'numFound': 28928, ' start': 1, 'max...}', data='[{'id': '10.1371/journal.pcbi.101271...] (50 items)')
-#          query='machine learning' provider_name='plos' page=2 response_result=ProcessedResponse(cache_key='plos_machine learning_2_50', metadata='{'numFound': 28928, ' start': 51, 'ma...}', data='[{'id': '10.1371/journal.pone.024202...] (50 items)')
-#          query='machine learning' provider_name='crossref' page=1 response_result=ProcessedResponse(cache_key='crossref_machine learning_1_25', metadata='{'status': 'ok', 'message-type': 'wo...}', data='[{'indexed.date-parts': '2025; 10; 3...] (25 items)')
-#          query='machine learning' provider_name='crossref' page=2 response_result=ProcessedResponse(cache_key='crossref_machine learning_2_25', metadata='{'status': 'ok', 'message-type': 'wo...}', data='[{'indexed.date-parts': '2025; 3; 27...] (25 items)')
-#          query='machine learning' provider_name='openalex' page=1 response_result=ProcessedResponse(cache_key='openalex_machine learning_1_25', metadata='{'count': 2520753, 'db_response_time...}', data='[{'id': 'https://openalex.org/W21012...] (25 items)')
-#          query='machine learning' provider_name='openalex' page=2 response_result=ProcessedResponse(cache_key='openalex_machine learning_2_25', metadata='{'count': 2520753, 'db_response_time...}', data='[{'id': 'https://openalex.org/W21312...] (25 items)')
-
-response_total = len(results)
-successful_responses = len(results.filter())
-print(f"{successful_responses} / {response_total} successful pages")
-
-
-# Transform the list of response records into a searchable DataFrame:
-import pandas as pd
-# Filter out unsuccessful searches and normalize record fields into a list of dictionaries with universally mapped column names
-normalized_records = results.filter().normalize()
-# Transform the list of records into a pandas DataFrame
-df = pd.DataFrame(normalized_records)
-
-# Contains the full range of fields that are mapped for any given provider plus API-specific fields
-universal_fields = [column for column in df.columns if column in AcademicFieldMap.model_fields.keys()]
-provider_field_counts = df.groupby('provider_name')[universal_fields].count()
-# Find fields that are populated for at least 3 of the 4 providers
-filtered_fields = (provider_field_counts > 0).sum() >= 3
-common_fields = filtered_fields[filtered_fields].index.tolist()
-
-print(f"Fields commonly available across providers:")
-print(common_fields)
-print("\nRecord counts per provider for common fields:")
-print(provider_field_counts[common_fields])
-
-# OUTPUT: Fields commonly available across providers:
-#         ['provider_name', 'doi', 'url', 'record_id', 'title', 'abstract', 'authors', 'journal', 'publisher', 'year', 'date_published', 'date_created', 'subjects', 'record_type']
-#
-#         Record counts per provider for common fields:
-#                        provider_name  doi  url  record_id  title  abstract  authors  journal  publisher  year  date_published  date_created  subjects  record_type
-#         provider_name
-#         arxiv                     50    0   50         50     50        50       50       25          0    50              50            50        50            0
-#         crossref                  50   50   50         50     50         3        0       47         50    49              49            50         0           50
-#         openalex                  50   40   49         50     50         0       47       39         38    50              50            50        50           50
-#         plos                     100  100    0        100    100        99      100      100        100   100             100           100       100          100 
-```
-
-### Performance: Real-World Impact
-
-**Scenario**: Retrieve 1,250 records from 4 providers (PLOS, arXiv, OpenAlex, Crossref)
-
-| Method | Time | Speedup |
-|--------|------|---------|
-| Sequential requests | ~18 min | Baseline |
-| ScholarFlux concurrent threading | ~6 min | **3x faster** |
-
-**Why?** ScholarFlux uses concurrent threads with shared rate limiters. While PLOS thread waits 6s for rate limiting, arXiv (4s), OpenAlex (6s), and Crossref (1s) threads query simultaneously. The more providers you query, the greater the optimization.
-
-*Tested on: Standard laptop, stable connection*
+- **Threading over asyncio**: Simpler for users, better for I/O-bound workloads with rate limits
+- **Generator-based streaming**: Memory-efficient, process results incrementally without blocking
+- **Shared rate limiters**: Multiple queries to the same provider coordinate through a single `ThreadedRateLimiter`
+- **Concurrent execution**: Maximizes throughput by requesting from all providers simultaneously within rate limit constraints
+
+Each component has a specific responsibility:
+
+- **SearchAPI**: Creates HTTP requests and handles provider-specific parameter building
+- **ResponseCoordinator**: Orchestrates parsing → extraction → transformation → caching
+- **SearchCoordinator**: Delegates between SearchAPI (retrieval) and ResponseCoordinator (processing)
+
+Supporting components include:
+
+- **SensitiveDataMasker**: Pattern matching to identify, mask, and register sensitive strings (API keys, tokens)
+- **DataParser**: Parses XML, JSON, and YAML responses into dictionaries
+- **DataExtractor**: Extracts records from nested dictionaries with configurable paths
+- **DataProcessor**: Transforms records using field mappings and filtering rules
+- **ResponseMetadataMap** *(v0.3.0)*: Extracts pagination metadata across provider-specific field names
+- **DataCacheManager**: Manages caching backends (In-Memory, Redis, MongoDB, SQLAlchemy)
+- **RateLimiter**: Enforces per-provider rate limits with proactive `Retry-After` detection *(v0.3.0)*
+- **RetryHandler**: Implements exponential backoff with case-insensitive header parsing *(v0.3.0)*
 
 ### How Concurrent Orchestration Works
 
 ```python
+from scholar_flux import SearchCoordinator, MultiSearchCoordinator
 # ❌ Sequential approach (traditional)
-results_plos = plos.search()      # Request → wait 6 seconds
-results_arxiv = arxiv.search()    # Request → wait 4 seconds  
-results_crossref = crossref.search()  # Request → wait 1 second
-# Total: 11 seconds for 3 requests (waits add up)
+query = "machine learning"
+pages = [1, 2]
+plos = SearchCoordinator(query=query, provider_name='plos')
+crossref = SearchCoordinator(query=query, provider_name='crossref')
+arxiv = SearchCoordinator(query=query, provider_name='arxiv') # requires `xmltodict`
+
+results_plos = plos.search_pages(pages)  # Request → waits 6 seconds between requests
+results_arxiv = arxiv.search_pages(pages)  # Request → waits 4 seconds between requests
+results_crossref = crossref.search_pages(pages)  # Request → waits 1 second between requests
+
+# Total: ~12-13 seconds for 6 requests (the delay between requests plus processing time adds up)
 
 # ✅ ScholarFlux concurrent threading (default)
 multi = MultiSearchCoordinator()
 multi.add_coordinators([plos, arxiv, crossref])
-results = multi.search(page=1)  # multithreading=True by default
+results = multi.search_pages(pages=pages)  # multithreading=True by default
 
 # What happens:
-# t=0s: Thread 1 requests PLOS (starts 6s timer)
-# t=0s: Thread 2 requests arXiv (starts 4s timer)  
-# t=0s: Thread 3 requests Crossref (starts 1s timer)
-# t=1s: Crossref completes
-# t=4s: arXiv completes
-# t=6s: PLOS completes
-# Total: ~6 seconds for 3 requests (concurrent execution)
+# t=0s: All threads request the first page simultaneously
+# t=~0.5s: All responses received → rate limiters activate
+# t=6-7s: PLOS completes (slowest, determines total time)
+# Total: ~6-7 seconds (bottlenecked by slowest provider)
+# Speedup: Approximately 2x faster than sequential (~6s vs ~12s)
 ```
+
 
 This optimization compounds with multiple pages. For 10 pages across 4 providers, the speedup grows to **3x faster** than sequential retrieval.
 
-For more details on threading behavior and optimization, see the [Multi-Provider Search Tutorial](https://SammieH21.github.io/scholar-flux/tutorials/multi_provider_search.html).
 
-### Response Validation & Error Handling
 
-ScholarFlux validates responses at multiple stages and gives you three distinct response types for clear error handling.
+## What's New in v0.3.0
 
-**Three response types:**
+v0.3.0 focuses on **production hardening** and **edge case reliability**—refining existing orchestration capabilities to handle real-world API variability more robustly.
+
+### Enhanced Pagination Intelligence
+ScholarFlux's existing pagination logic now extracts precise metadata from API responses:
 
 ```python
-from scholar_flux.api import NonResponse, ProcessedResponse, ErrorResponse, SearchCoordinator
-coordinator = SearchCoordinator(query = 'sleep')
-result = coordinator.search(page=1)
+response = coordinator.search(page=1)
 
-# ProcessedResponse (truthy) - when retrieval and processing are successful
-if result:
-    print(f"Success: {len(result.data)} records")
-    print(f"Metadata: {result.metadata}")
-    
-# NonResponse (falsy) - couldn't reach the API or incorrect parameters/configurations
-elif isinstance(result.response_result, NonResponse):
-    print("Network error or API down")
-    print(f"Error: {result.error}: Message: {result.message}")
-    
-# ErrorResponse (falsy) - either received an invalid response code or couldn't process it successfully
-elif isinstance(result.response_result, ErrorResponse):
-    print("Response received but response validation or processing  failed")
-    print(f"Error: {result.error}: Message: {result.message}")
+# Previous: Stopped when len(records) < expected (heuristic)
+# Now: Uses provider-reported metadata for precision
+print(response.total_query_hits)    # 15,847 (reported by API)
+print(response.records_per_page)    # 25 (reported by API)
+
+# Stops at exactly page 634 (15,847 ÷ 25)
+# No more false stops from partial pages or rate limit throttling
+```
+
+The new `ResponseMetadataMap` standardizes metadata extraction and processing across provider-specific field names (`numFound` for PLOS, `count` for OpenAlex, `total-results` for Crossref).
+
+### Resilient Field Mapping
+Enhanced field mapping system supports fallback paths for API response variability:
+
+```python
+from scholar_flux.api.normalization import AcademicFieldMap
+
+field_map = AcademicFieldMap(
+    provider_name="pubmed",
+    # Handles variability: some records have .#text, others don't
+    title=["MedlineCitation.Article.ArticleTitle.#text", 
+           "MedlineCitation.Article.ArticleTitle"],
+    abstract=["MedlineCitation.Article.Abstract.AbstractText.#text",
+              "MedlineCitation.Article.Abstract.AbstractText"]
+)
+
+# Automatically tries each path until finding data
+records = response.normalize(field_map=field_map)
+```
+
+### Proactive Rate Limiting
+Rate limiter now reads `Retry-After` headers proactively:
+
+```python
+# Previous: Request → 429 error → exponential backoff → retry
+# Enhanced: Request → Response has "Retry-After: 5" → wait 5s → next request
+
+coordinator.search(page=1)  # Response includes Retry-After header
+coordinator.search(page=2)  # Automatically waits before requesting
+```
+
+Works with numeric delays and HTTP date formats, with case-insensitive header extraction.
+
+### Non-Paginated Endpoint Support
+New `parameter_search()` extends orchestration to custom endpoints:
+
+```python
+# Query specialized endpoints (recommendations, cited articles, etc.)
+result = coordinator.parameter_search(
+    endpoint="/articles/recommend",  # mock endpoint
+    article_id="PMC1234567",  # mock ID parameter
+    limit=20,  # mock page-limit parameter
+    from_request_cache=True
+)
+# Rate limiting, retry logic, caching, and processing still apply
+```
+
+### Complete v0.3.0 Improvements
+- **Metadata extraction**: `ResponseMetadataMap` for precise pagination across all providers
+- **Resilient normalization**: Fallback field paths handle API response variability  
+- **Proactive rate limiting**: Case-insensitive `Retry-After` header detection
+- **Non-paginated support**: `parameter_search()` for custom endpoints and workflows
+- **Workflow refinement**: PubMed metadata preservation across search steps
+- **Session backends**: Auto-configured Redis/MongoDB for production deployments
+- **Documentation**: 8 comprehensive Sphinx tutorials
+
+See the [full changelog](https://github.com/SammieH21/scholar-flux/blob/main/CHANGELOG.md) for detailed technical changes.
+
+
+### Multi-Provider Search with Normalization
+
+```python
+from scholar_flux import SearchCoordinator, MultiSearchCoordinator
+import pandas as pd
+
+# Create coordinators for multiple providers
+providers = ['crossref', 'arxiv', 'pubmed', 'plos']
+# [Modify this] Helps to identify the origin of the request (You)
+user_agent='MyResearchProject/1.0 (mailto:your.email@institution.edu)'
+coordinators = [
+    SearchCoordinator(query="CRISPR gene editing", provider_name=provider, user_agent=user_agent)
+    for provider in providers
+]
+
+# Coordinate concurrent searches
+multi = MultiSearchCoordinator()
+multi.add_coordinators(coordinators)
+
+# Search pages 1-10 across all providers simultaneously
+results = multi.search_pages(pages=range(1, 11))
+
+# Filter successful results and normalize to common schema
+df = pd.DataFrame(results.filter().normalize())
+
+# Unified dataset with consistent field names across providers
+print(df[['provider_name', 'title', 'doi', 'year']].head())
 ```
 
 
-**Validation happens at every stage:**
-
-1. **Request validation**: checks required parameters before sending
-2. **Response structure**: verifies HTTP response is valid JSON/XML
-3. **Schema validation**: checks parsed response has expected fields
-4. **Record validation**: validates individual records before processing
-5. **Cache validation**: checks cached data integrity before returning
+## Core Features
 
 ### Rate Limiting
-
-ScholarFlux implements relatively conservative rate limits that are adjusted to respect each provider's rate limits because these rate limits
-can potentially change over time, each limit is set higher than the actual rate limit of each API to future-proof its defaults and avoid bans.
-
-**Internally set ScholarFlux Rate limits:**
-- **PLOS**: 6.1 seconds between requests
-- **arXiv**: 4 seconds between requests
-- **OpenAlex**: conservatively set to 6 seconds between requests: OpenAlex takes into account 5 metrics for the rate of requests received
-- **PubMed**: 2 seconds between requests
-- **Crossref**: 1 second between requests
-- **Core**: 6 seconds between requests: the CORE API takes into account token usage instead of limiting by requests per second
-- **Springer Nature**: 2 seconds between requests
-
-When needed, these parameters can be modified directly when creating a SearchCoordinator or SearchAPI:
+ScholarFlux respects per-provider rate limits automatically:
 
 ```python
-# Rate limiting happens automatically:
 coordinator = SearchCoordinator(query="sleep", provider_name='plos')
 
-# Each request waits as needed to maintain the rate limit:
+# Each request waits as needed to maintain the rate limit
 results = coordinator.search_pages(pages=range(1, 3))
 ```
 
 **Override the default delay:**
-
 ```python
-from scholar_flux import SearchAPIConfig
-
-config = SearchAPIConfig(
-    provider_name='plos',
-    base_url='https://api.plos.org/search',
-    request_delay=10.0  # Increase to 10 seconds
-)
-
-api = SearchAPI(query="topic", config=config)
-coordinator = SearchCoordinator(api)
+# PLOS default is 6 seconds, override to 2 seconds
+response = coordinator.search(page=1, request_delay=2.0)
 ```
 
-### Multi-Step Workflows
+### Two-Tier Caching
 
-Some providers (like PubMed) require multiple API calls to get complete article data. ScholarFlux handles this automatically.
+ScholarFlux implements two caching layers:
 
-**PubMed workflow happens behind the scenes:**
-
-1. **PubMedSearch**: Gathers a list of IDs that can be used use to fetch manuscripts in the next step
-2. **PubMedFetch**: Retrieves each manuscript using the IDs from the search results of previous step 
+1. **HTTP Response Caching** (Layer 1): Uses `requests-cache` to cache raw API responses
+2. **Processed Result Caching** (Layer 2): Caches extracted and processed records
 
 ```python
-# This single call executes a two-step workflow automatically
+from scholar_flux import SearchCoordinator, CachedSessionManager, DataCacheManager
+
+# HTTP response caching
+session_manager = CachedSessionManager(backend='sqlite', expire_after=3600)
+session = session_manager()
+processing_cache = DataCacheManager.with_storage('memory')  # or sql/sqlite if SQLAlchemy is available
+
+# Both layers working together
+coordinator = SearchCoordinator(
+    query="neuroscience",
+    provider_name='pubmed',
+    session=session,  # Layer 1: HTTP caching
+    cache_manager=processing_cache # Layer 2: Response processing cache
+)
+
+response = coordinator.search(page=1)  # Fetches from API
+response2 = coordinator.search(page=1)  # Instant return from cache
+```
+
+For production deployments with Redis or MongoDB, see the [Caching Strategies Tutorial](https://SammieH21.github.io/scholar-flux/caching_strategies.html).
+
+### Schema Normalization
+
+ScholarFlux normalizes provider-specific field names into a common academic schema:
+
+```python
+# Raw records have provider-specific field names
+results = coordinator.search_pages(pages=range(1, 5))
+
+# Normalize to universal schema
+normalized = results.normalize()
+
+# Now all records have consistent fields:
+# 'title', 'doi', 'authors', 'abstract', 'journal', 'year', etc.
+df = pd.DataFrame(normalized)
+```
+
+For custom field mappings and advanced normalization, see the [Schema Normalization Tutorial](https://SammieH21.github.io/scholar-flux/schema_normalization.html).
+
+### Workflow Automation
+
+Some providers (like PubMed) require multiple API calls. ScholarFlux handles this automatically:
+
+```python
+# This single call executes a two-step workflow automatically:
+# 1. PubMedSearch: Get article IDs
+# 2. PubMedFetch: Retrieve full articles with abstracts
 coordinator = SearchCoordinator(query="neuroscience", provider_name='pubmed')
 result = coordinator.search(page=1)
 
-# Behind the scenes:
-# Step 1: GET eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?term=neuroscience
-# Step 2: GET eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?id=123,456,789
-
-# Displays the final response of the workflow containing record data
-print(result)
-# OUTPUT: ProcessedResponse(len=20, cache_key='pubmedefetch_neuroscience_1_20', metadata={})
-
-result.data # contains the final processed data set, including abstracts and metadata
+# Complete metadata preserved across workflow steps
+print(result.metadata)  # Query info, ID lists, result counts
+print(result.data)      # Full article records with abstracts
 ```
 
-See the [Advanced Workflows Tutorial](https://SammieH21.github.io/scholar-flux/tutorials/advanced_workflows.html) for examples of building custom multi-step workflows.
+See the [Advanced Workflows Tutorial](https://SammieH21.github.io/scholar-flux/advanced_workflows.html) for custom multi-step workflows.
 
-### Provider-Specific Configuration
+### Response Validation & Error Handling
 
-Although the target use of ScholarFlux is scholarly metadata, articles, and manuscripts, as an API client, it can be extended to additional providers.
+ScholarFlux validates responses at multiple stages and provides three distinct response types:
 
-See the [Custom Provider Configuration Tutorial](https://SammieH21.github.io/scholar-flux/tutorials/custom_providers.html) for detailed examples of adding new providers to ScholarFlux.
+```python
+response = coordinator.search(page=1)
 
-## When to Use ScholarFlux
+if response:  # Falsy if error or no response
+    # ProcessedResponse - successful retrieval and processing
+    print(f"Retrieved {len(response.data)} records")
+    print(f"Total available: {response.total_query_hits}")
+else:
+    # ErrorResponse or NonResponse - something went wrong
+    print(f"Error: {response.message}")
+    print(f"Error type: {response.error}")
+```
 
-**ScholarFlux is ideal for:**
-- ✅ Multi-provider searches (3+ academic databases)
-- ✅ Large-scale retrieval (hundreds to thousands of records)
-- ✅ ML/analytics requiring consistent schemas across providers
-- ✅ Production deployments with caching and horizontal scaling
-- ✅ Research projects requiring comprehensive database coverage
+**Response types:**
+- `ProcessedResponse`: Successful retrieval and processing
+- `ErrorResponse`: Retrieved response but encountered processing error
+- `NonResponse`: Failed to retrieve response (connection error, timeout, etc.)
 
-**Use provider-specific clients** (e.g., `habanero`, `biopython`, `arxiv`) when:
-- ❌ You only need one database
-- ❌ You need provider-specific advanced features not exposed by ScholarFlux
 
-**Use raw `requests`/`httpx` when:**
-- ❌ You're building a completely custom integration
-- ❌ ScholarFlux's abstractions don't fit your use case
+## Supported Providers
 
-## How ScholarFlux Differs from Existing Packages
+ScholarFlux includes pre-configured support for these academic databases:
 
-ScholarFlux is **not a replacement** for single-provider clients like `habanero`, `pybliometrics`, or `arxiv`. Instead, it's an **orchestration layer** that complements these tools for multi-provider research workflows.
+| Provider | Search | Normalization | Special Features |
+|----------|--------|---------------|------------------|
+| **arXiv** | ✅ | ✅ | Preprints, categories |
+| **Crossref** | ✅ | ✅ | DOI metadata, funding |
+| **CORE** | ✅ | ✅ | Open access aggregator |
+| **OpenAlex** | ✅ | ✅ | Comprehensive metadata |
+| **PLOS** | ✅ | ✅ | Open access biology |
+| **PubMed** | ✅ | ✅ | Two-step workflow (search → fetch) |
+| **Springer Nature** | ✅ | ✅ | Requires API key |
+
+All providers support:
+- Automatic rate limiting with proactive `Retry-After` handling
+- Two-tier caching (HTTP + processed results)
+- Intelligent pagination with metadata extraction
+- Schema normalization with fallback field paths
+- Comprehensive error handling and retries
+
+For adding custom providers, see the [Custom Provider Tutorial](https://SammieH21.github.io/scholar-flux/custom_providers.html).
+
+
+## Comparison with Existing Tools
+
+ScholarFlux is **not a replacement** for single-provider clients like `habanero`, `pybliometrics`, or `arxiv`. It's an **orchestration layer** that complements these tools for multi-provider research workflows.
 
 ### Architectural Differences
 
@@ -620,6 +511,9 @@ ScholarFlux is **not a replacement** for single-provider clients like `habanero`
 | **Shared rate limiter coordination** | ✅ | ❌ | ⚠️ Single provider | ❌ | ⚠️ Single provider |
 | **Two-tier caching system** | ✅ | ❌ | ⚠️ Basic file cache | ❌ | ❌ |
 | **Cross-provider schema normalization** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Metadata-driven pagination** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Proactive rate limiting** (`Retry-After`) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Resilient field mapping** (fallback paths) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Streaming generator results** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Multi-step workflow automation** | ✅ | ❌ | ❌ | ❌ | ⚠️ PubMed only |
 | **Production cache backends** | ✅ Redis, MongoDB, SQL | ❌ | ⚠️ File system | ❌ | ❌ |
@@ -635,17 +529,19 @@ from habanero import Crossref
 import arxiv
 from pymed import PubMed
 
-# Manual threading implementation needed
+# Manual threading implementation
 # Manual rate limiting for each provider
-# Manual schema normalization
-# Manual caching layer
-# Manual error handling for each API
+# Manual schema normalization across 75+ field variations
+# Manual caching layer for both requests and results
+# Manual error handling with retry logic
+# Manual workflow orchestration for PubMed's two-step process
 # Result: 200+ lines of boilerplate code
 ```
 
 **With ScholarFlux**:
 ```python
 from scholar_flux import SearchCoordinator, MultiSearchCoordinator
+import pandas as pd
 
 # Automatic concurrent execution with rate limiting
 coordinators = [
@@ -659,18 +555,25 @@ multi = MultiSearchCoordinator()
 multi.add_coordinators(coordinators)
 results = multi.search_pages(pages=range(1, 10))
 
-# Automatic normalization to common schema
+# Automatic normalization with fallback field paths
 df = pd.DataFrame(results.filter().normalize())
-# Result: 10 lines, production-ready
+
+# Metadata-driven pagination intelligence
+for result in results:
+    print(f"{result.provider_name}: {result.total_query_hits} total results")
+
+# Result: 12 lines, production-ready
 ```
 
 ### What ScholarFlux Adds
 
-1. **Concurrent Orchestration**: Query 7+ providers simultaneously with automatic rate limit coordination—**3x faster** than sequential retrieval
-2. **Schema Unification**: Normalize **75+ provider-specific fields** into consistent academic schema (`title`, `doi`, `authors`, `abstract`)
-3. **Production Infrastructure**: Redis/MongoDB/SQL caching, credential masking, comprehensive error handling
-4. **Workflow Automation**: Handle multi-step APIs (PubMed's search→fetch) transparently
-5. **Memory Efficiency**: Stream results as they arrive—process page 1 while fetching page 100
+1. **Concurrent Orchestration**: Query 7+ providers simultaneously—**3x faster** than sequential
+2. **Metadata-Driven Intelligence**: Extract pagination metadata for precise control
+3. **Resilient Schema Normalization**: Normalize **75+ provider-specific fields** with fallback paths
+4. **Proactive Rate Limiting**: Prevent 429 errors by reading `Retry-After` headers
+5. **Production Infrastructure**: Redis/MongoDB/SQL caching, credential masking, comprehensive error handling
+6. **Workflow Automation**: Multi-step APIs handled transparently with metadata preservation
+7. **Memory Efficiency**: Stream results as they arrive—process page 1 while fetching page 100
 
 ### When to Use Each Approach
 
@@ -682,12 +585,16 @@ df = pd.DataFrame(results.filter().normalize())
 **Use ScholarFlux** when:
 - ✅ You need **3+ databases** queried concurrently
 - ✅ You need **consistent schemas** for ML/analytics pipelines
-- ✅ You're building **production systems** requiring caching, monitoring, and horizontal scaling
-- ✅ You want **rapid prototyping** without writing orchestration boilerplate
+- ✅ You need **production reliability** with comprehensive error handling
+- ✅ You need **metadata-driven pagination** that knows when to stop
+- ✅ You need **resilient field mapping** that handles API inconsistencies
+- ✅ You're building **production systems** requiring caching and horizontal scaling
+- ✅ You want **rapid prototyping** without orchestration boilerplate
 
-**Complementary use**: ScholarFlux can be extended to wrap existing packages for providers it doesn't support natively. See the [Custom Provider Tutorial](https://SammieH21.github.io/scholar-flux/tutorials/custom_providers.html).
+**Complementary use**: ScholarFlux can be extended to wrap existing packages for providers it doesn't support natively. See the [Custom Provider Tutorial](https://SammieH21.github.io/scholar-flux/custom_providers.html).
 
-For a detailed comparison with alternatives, see the [documentation](https://SammieH21.github.io/scholar-flux/).
+For detailed comparison, see the [documentation](https://SammieH21.github.io/scholar-flux/).
+
 
 ## Documentation
 
@@ -695,27 +602,36 @@ For a detailed comparison with alternatives, see the [documentation](https://Sam
 
 ### 📚 Core Tutorials
 
-- **[Getting Started](https://SammieH21.github.io/scholar-flux/tutorials/getting_started.html)** - Installation through first search
-- **[Multi-Provider Search](https://SammieH21.github.io/scholar-flux/tutorials/multi_provider_search.html)** - Concurrent orchestration and streaming results
-- **[Schema Normalization](https://SammieH21.github.io/scholar-flux/tutorials/schema_normalization.html)** - Building ML-ready datasets across providers
+- **[Getting Started](https://SammieH21.github.io/scholar-flux/getting_started.html)** - Installation through first search
+- **[Response Handling Patterns](https://SammieH21.github.io/scholar-flux/response_handling_patterns.html)** - Error handling, metadata extraction, pagination control
+- **[Multi-Provider Search](https://SammieH21.github.io/scholar-flux/multi_provider_search.html)** - Concurrent orchestration and streaming results
+- **[Schema Normalization](https://SammieH21.github.io/scholar-flux/schema_normalization.html)** - Building ML-ready datasets with fallback field mapping
 
 ### 🔧 Advanced Topics
 
-- **[Caching Strategies](https://SammieH21.github.io/scholar-flux/tutorials/caching_strategies.html)** - Two-tier caching with Redis, MongoDB, SQLAlchemy
-- **[Custom Providers](https://SammieH21.github.io/scholar-flux/tutorials/custom_providers.html)** - Extending ScholarFlux to new APIs
-- **[Advanced Workflows](https://SammieH21.github.io/scholar-flux/tutorials/advanced_workflows.html)** - Multi-step retrieval and custom pipelines
-- **[Production Deployment](https://SammieH21.github.io/scholar-flux/tutorials/production_deployment.html)** - Docker, Kubernetes, monitoring
+- **[Caching Strategies](https://SammieH21.github.io/scholar-flux/caching_strategies.html)** - Two-tier caching with Redis, MongoDB, SQLAlchemy
+- **[Advanced Workflows](https://SammieH21.github.io/scholar-flux/advanced_workflows.html)** - Multi-step retrieval, custom pipelines, PubMed workflow internals
+- **[Custom Providers](https://SammieH21.github.io/scholar-flux/custom_providers.html)** - Extending ScholarFlux to new APIs with custom metadata maps
+- **[Production Deployment](https://SammieH21.github.io/scholar-flux/production_deployment.html)** - Docker, monitoring, encrypted caching, and security essentials
 
-### Contributing
 
-We welcome contributions from the community! If you have suggestions for improvements or new features, please feel free to fork the repository and submit a pull request. Please refer to our [Contributing Guidelines](CONTRIBUTING.md) for more information on how you can contribute to the ScholarFlux API.
+## Contributing
 
-### License
+We welcome contributions from the research and open-source communities! If you have suggestions for improvements or new features, please fork the repository and submit a pull request. Please refer to our [Contributing Guidelines](CONTRIBUTING.md) for more information.
+
+**Areas where contributions are especially valuable:**
+- Adding new academic database providers
+- Enhancing normalization mappings for existing providers
+- Performance optimizations for large-scale retrieval
+- Documentation improvements and tutorials
+- Bug reports with reproducible examples
+
+
+## License
 
 This project is licensed under the Apache License 2.0.
 
 [Apache License 2.0 Official Text](http://www.apache.org/licenses/LICENSE-2.0)
-
 
 See the LICENSE file for the full terms.
 
@@ -724,25 +640,31 @@ See the LICENSE file for the full terms.
 The Apache License 2.0 applies only to the code and gives no rights to the underlying data. Be sure to reference the terms of use for each provider to ensure that your use is within their terms.
 
 
-### Acknowledgments
+## Acknowledgments
 
-Thanks to Springer Nature, Crossref, PLOS, PubMed and other Providers for providing public access to their academic databases through the respective APIs.
-This project uses Poetry for dependency management and requires Python 3.10 or higher.
+Thanks to Springer Nature, Crossref, PLOS, PubMed, arXiv, OpenAlex, and CORE for providing public access to their academic databases through their respective APIs. This project uses Poetry for dependency management and requires Python 3.10 or higher.
 
-### Contact
+Special appreciation to the research software engineering community and the open-source contributors who have helped improve ScholarFlux through bug reports, feature suggestions, and pull requests.
+
+
+## Contact
 
 Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 
 ---
 
-## 📈 Project Stats
+## 📈 Project Statistics
 
-- **96% Test Coverage** (24.5k LOC production code, 15k LOC tests)
-- **7 Default Providers** with schema normalization support
-- **Type-Safe Architecture** (mypy strict mode, comprehensive type hints)
-- **Security-Audited** (automated CVE scanning via CodeQL and Safety CLI, credential masking)
-- **Beta Status** (v0.3.0 - production-ready for early adopters)
+- **~41,000 Lines of Code** - ~25,700 LOC source + ~16,600 LOC comprehensive tests
+- **96% Test Coverage** - Rigorous testing across all functionality and edge cases
+- **7 Default Providers** - Pre-configured with schema normalization and metadata extraction
+- **Type-Safe Architecture** - mypy strict mode, comprehensive type hints throughout
+- **Security-Audited** - Automated CVE scanning via CodeQL and Safety CLI, credential masking
+- **Zero Known CVEs** - Continuous security monitoring in CI/CD pipeline
+- **8 Comprehensive Tutorials** - Detailed documentation from basics through production deployment
+- **Stable Beta** (v0.3.0) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
 
 ---
 
-**Built with ❤️ for researchers, data engineers, and ML practitioners who may one day become analytical pioneers
+**Built with ❤️ for researchers, data engineers, and ML practitioners—the analytical pioneers of the future**
+

@@ -10,8 +10,10 @@ Many tools exist today that can facilitate the retrieval of scientific and schol
 
 ### Enter ScholarFlux
 
-Using modern software design principles and a focus on growth and testing, we're seeking to fill that gap. We sought to provide a single production-grade client that allows for the smooth retrieval and processing of scholarly data
-from sources such as PubMed, Crossref, SpringerNature, and others, with even more to come. In doing so, we aim to provide an extensible set of tools in the process that can be useful for data engineers, researchers, data scientists, and just about anyone else who loves working with research!
+Using modern software design principles and a focus on growth and testing, we're seeking to fill that gap. We sought to provide a single production-grade client that allows for the smooth retrieval and processing of scholarly data from sources such as PubMed, Crossref, SpringerNature, and others, with even more to come. In doing so, we aim to provide an extensible set of tools in the process that can be useful for data engineers, researchers, data scientists, and just about anyone else who loves working with research!
+
+To support this mission, ScholarFlux includes 8 comprehensive tutorials covering everything from basic usage through production deployment—ensuring contributors and users alike have clear, working examples to learn from.
+
 ## Our Philosophy
 
 ### *The Whole is Greater than the Sum of Its Parts* — Aristotle
@@ -463,7 +465,7 @@ How did you test these changes?
 
 ## Module-Specific Guidelines
 
-When contributing to specific modules, follow these conventions:
+When contributing to specific modules, follow these conventions. For practical examples of how these modules work together, see the [comprehensive tutorials](https://SammieH21.github.io/scholar-flux/).
 
 ### scholar_flux.api
 - Each API provider should have its own class
@@ -504,7 +506,21 @@ When contributing to specific modules, follow these conventions:
 
 ## Documentation
 
-The project uses Sphinx for automatic documentation generation from docstrings.
+ScholarFlux includes **8 comprehensive tutorials** in addition to full API reference documentation. When contributing, please ensure your changes are reflected in relevant documentation.
+
+### Available Tutorials
+
+**Core Tutorials:**
+- **[Getting Started](https://SammieH21.github.io/scholar-flux/getting_started.html)** - Installation, first search, environment configuration
+- **[Response Handling Patterns](https://SammieH21.github.io/scholar-flux/response_handling_patterns.html)** - Error handling, metadata extraction
+- **[Multi-Provider Search](https://SammieH21.github.io/scholar-flux/multi_provider_search.html)** - Concurrent orchestration, streaming results
+- **[Schema Normalization](https://SammieH21.github.io/scholar-flux/schema_normalization.html)** - Building ML-ready datasets across providers
+
+**Advanced Topics:**
+- **[Caching Strategies](https://SammieH21.github.io/scholar-flux/caching_strategies.html)** - Production-scale caching with Redis, MongoDB, SQLAlchemy
+- **[Advanced Workflows](https://SammieH21.github.io/scholar-flux/advanced_workflows.html)** - Multi-step retrieval, PubMed internals
+- **[Custom Providers](https://SammieH21.github.io/scholar-flux/custom_providers.html)** - Extending ScholarFlux to new APIs
+- **[Production Deployment](https://SammieH21.github.io/scholar-flux/production_deployment.html)** - Docker, monitoring, encrypted caching, and security essentials
 
 ### Building Documentation Locally
 
@@ -585,12 +601,13 @@ Visit the [Sphinx documentation](https://SammieH21.github.io/scholar-flux/) for 
 ### Resources
 
 - **Documentation**: [https://SammieH21.github.io/scholar-flux/](https://SammieH21.github.io/scholar-flux/)
+- **Tutorials**: [8 comprehensive tutorials](https://SammieH21.github.io/scholar-flux/) covering basics through production deployment
 - **Issues**: [GitHub Issues](https://github.com/SammieH21/scholar-flux/issues)
 - **Security**: See [SECURITY.md](SECURITY.md) for security-related questions
 
 ### Questions?
 
-- Check existing documentation and issues first
+- Check existing [documentation and tutorials](https://SammieH21.github.io/scholar-flux/) first
 - Open a discussion for general questions
 - Open an issue for bugs or feature requests
 - Email us at scholar.flux@gmail.com for other inquiries
