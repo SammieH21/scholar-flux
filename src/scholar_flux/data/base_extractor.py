@@ -165,7 +165,7 @@ class BaseDataExtractor:
             ) from e
         return None
 
-    def extract_metadata(self, parsed_page_dict: dict) -> dict:
+    def extract_metadata(self, parsed_page_dict: dict[str, Any]) -> dict[str, Any]:
         """Extract metadata from the parsed page dictionary.
 
         Args:

@@ -7,6 +7,7 @@ import hashlib
 import requests
 from datetime import datetime, timezone
 from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.json_processing_utils import PathUtils
 
 from typing import (
     Any,
@@ -19,6 +20,7 @@ from typing import (
     TypeVar,
     Hashable,
     Mapping,
+    Sequence,
     Callable,
 )
 from collections.abc import Iterable
@@ -113,6 +115,7 @@ def as_tuple(obj: Any) -> tuple:
         obj (Any) The object to nest as a tuple
 
     Returns:
+        tuple: The original object converted into a tuple
 
     """
     match obj:
@@ -192,12 +195,16 @@ def get_nested_dictionary_data(data: Mapping[Any, Any], path: List[str]) -> Any:
     return data
 
 
-def get_nested_data(json: list | Mapping | None, path: list) -> Any:
+def get_nested_data(
+    json: list | Mapping | None, path: str | list, flatten_nested_dictionaries: bool = True, verbose: bool = True
+) -> Any:
     """Recursively retrieves data from a nested dictionary using a sequence of keys.
 
     Args:
         json (List[Mapping[Any, Any]] | Mapping[Any, Any]): The parsed json structure from which to extract data.
         path (List[Any]): A list of keys representing the path to the desired data within `json`.
+        flatten_nested_dictionaries (bool): Determines whether single-element lists containing dictionary data should be extracted.
+        verbose (bool): Determines whether logging should occur when an error is encountered.
 
     Returns:
         Optional[Any]: The value retrieved from the nested dictionary following the path, or None if any
@@ -205,16 +212,46 @@ def get_nested_data(json: list | Mapping | None, path: list) -> Any:
 
     """
     current_data = json
-    for idx, key in enumerate(path):
+
+    path_list = PathUtils.path_split(path) if isinstance(path, str) else path
+
+    for idx, key in enumerate(path_list):
         try:
-            if current_data:
+            if isinstance(current_data, (dict, list)):
                 current_data = current_data[key]
-                if idx != len(path) - 1 and not isinstance(path[idx + 1], int):
+                if (
+                    flatten_nested_dictionaries
+                    and idx != len(path_list) - 1
+                    and not isinstance(path_list[idx + 1], int)
+                ):
                     current_data = flatten(current_data)
         except (KeyError, IndexError, TypeError) as e:
-            logger.debug(f"key not found: {str(e)}")
+            if verbose:
+                logger.debug(f"key not found: {str(e)}")
             return None
     return current_data
+
+
+def get_first_available_key(
+    data: Mapping[T | str, Any], keys: Sequence[T | str], default: Any = None, case_sensitive: bool = True
+) -> Any:
+    """Extracts the first key from a sequence of keys that can be found within a dictionary.
+
+    Args:
+        data (Mapping[T | str, Any]): A dictionary or dictionary-like object to extract an existing data element from.
+        keys (Sequence[T | str] | Set[T | str]):
+            A sequence or set of keys used for the extraction of the first available data element.
+        default (Any): The value to use if none of the checked keys are available in the dictionary.
+        case_sensitive (bool): Defines whether data element retrieval should rely on case sensitivity (Default=True).
+
+    Returns:
+        Any: The value associated with the first available dictionary key
+
+    """
+    if not case_sensitive and isinstance(data, Mapping):
+        data = {k.lower() if isinstance(k, str) else k: v for k, v in data.items()}
+        keys = [k.lower() if isinstance(k, str) else k for k in keys]
+    return next((data[key] for key in keys if key in data), default)
 
 
 def generate_response_hash(response: requests.Response | ResponseProtocol) -> str:
@@ -259,7 +296,15 @@ def compare_response_hashes(
 
 
 def coerce_int(value: Any) -> int | None:
-    """Attempts to convert a value to an integer, returning None if the conversion fails."""
+    """Attempts to convert a value to an integer, returning None if the conversion fails.
+
+    Args:
+        value (Any): The value to attempt to convert into a int.
+
+    Returns:
+        Optional[int]: The value converted into an integer if possible, otherwise None
+
+    """
     if isinstance(value, int) or value is None:
         return value
 
@@ -269,13 +314,22 @@ def coerce_int(value: Any) -> int | None:
         return None
 
 
-def coerce_str(value: Any) -> Optional[str]:
-    """Attempts to convert a value into a string, if possible, returning None if conversion fails."""
+def coerce_str(value: Any, encoding: Optional[str] = "utf-8") -> Optional[str]:
+    """Attempts to convert a value into a string, if possible, returning None if conversion fails.
+
+    Args:
+        value (Any): The value to attempt to convert into a string.
+        encoding (Optional[str]): An optional value used to decode byte strings. Not relevant for data of other types.
+
+    Returns:
+        Optional[str]: The value converted into a string if possible, otherwise None
+
+    """
     if isinstance(value, str) or value is None:
         return value
 
     try:
-        return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+        return value.decode(encoding or "utf-8") if isinstance(value, bytes) else str(value)
     except (ValueError, TypeError, UnicodeDecodeError):
         return None
 
@@ -284,10 +338,10 @@ def try_int(value: JSON_ELEMENT_TYPE | None) -> JSON_ELEMENT_TYPE | int | None:
     """Attempts to convert a value to an integer, returning the original value if the conversion fails.
 
     Args:
-        value (JSON_DATA_TYPE): the value to attempt to coerce into an integer
+        value (JSON_ELEMENT_TYPE): the value to attempt to coerce into an integer
 
     Returns:
-        Optional[JSON_DATA_TYPE | int | None]:
+        Optional[JSON_ELEMENT_TYPE| int | None]:
 
     """
     converted_value = coerce_int(value)
@@ -347,8 +401,7 @@ def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
 
 
 def is_nested(obj: Any) -> bool:
-    """Indicates whether the current value is a nested object. Useful for recursive iterations such as JSON record
-    data.
+    """Indicates whether the current value is a nested object. Useful for recursive iterations such as JSON record data.
 
     Args:
         obj: any (realistic JSON) data type - dicts, lists, strs, numbers
@@ -369,6 +422,7 @@ def get_values(obj: Iterable) -> Iterable:
     Returns:
         An iterable created from `obj.values()` if the object is a dictionary and the original object otherwise.
         If the object is empty or is not a nested object, an empty list is returned.
+
     """
     if not is_nested(obj):
         return []
@@ -383,6 +437,7 @@ def is_nested_json(obj: Any) -> bool:
 
     Returns:
         bool: False if the value is not a Json-like structure and, True if it is a nested JSON structure.
+
     """
 
     if not is_nested(obj) or not obj:
@@ -551,6 +606,7 @@ def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
 __all__ = [
     "get_nested_data",
     "nested_key_exists",
+    "get_first_available_key",
     "generate_response_hash",
     "coerce_int",
     "coerce_str",

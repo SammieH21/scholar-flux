@@ -70,11 +70,12 @@ def validate_and_process_email(email: Optional[SecretStr | str]) -> Optional[Sec
     return SecretUtils.mask_secret(email)
 
 
-def validate_url(url: str) -> bool:
+def validate_url(url: str, verbose: bool = True) -> bool:
     """Uses urlparse to determine whether the provided value is a URL.
 
     Args:
         url (str): The url string to validate
+        verbose (bool): Determines whether to log upon encountering invalid URLs
 
     Returns:
         True if the url is valid, and False otherwise
@@ -92,7 +93,8 @@ def validate_url(url: str) -> bool:
         return True
 
     except (ValueError, AttributeError) as e:
-        logger.warning(f"The value, '{url}' is not a valid URL: {e}")
+        if verbose:
+            logger.warning(f"The value, '{url}' is not a valid URL: {e}")
     return False
 
 

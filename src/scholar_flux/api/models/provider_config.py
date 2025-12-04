@@ -3,7 +3,7 @@
 interacting with APIs.
 
 It provides the foundational information necessary for the SearchAPI to resolve provider names to the URLs of the
-providers as well as basic defaults necessary for interaction.
+providers, as well as basic defaults necessary for interaction.
 
 """
 from pydantic import BaseModel, field_validator, ConfigDict, Field
@@ -11,6 +11,7 @@ from typing import Optional, ClassVar, Any
 from scholar_flux.api.validators import validate_url, normalize_url
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
 from scholar_flux.api.normalization.base_field_map import BaseFieldMap
+from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
 
@@ -20,25 +21,29 @@ logger = logging.getLogger(__name__)
 
 
 class ProviderConfig(BaseModel):
-    """Config for creating the basic instructions and settings necessary to interact with new providers. This config on
-    initialization is created for default providers on package initialization in the scholar_flux.api.providers
-    submodule. A new, custom provider or override can be added to the provider_registry (A custom user dictionary) from
+    """Config for creating the basic instructions and settings necessary to interact with new providers. This config, on
+    initialization, is created for default providers on package initialization in the scholar_flux.api.providers
+    submodule. A new, custom provider or override can be added to the provider_registry (a custom user dictionary) from
     the scholar_flux.api.providers module.
 
     Args:
         provider_name (str): The name of the provider to be associated with the config.
         base_url (str): The URL of the provider to send requests with the specified parameters.
         parameter_map (BaseAPIParameterMap): The parameter map indicating the specific semantics of the API.
-        field_map (Optional[BaseFieldMap]): A provider-specific field map that normalizes processed response records
-                                             into a universal record structure.
-        records_per_page (int): Generally the upper limit (for some APIs) or reasonable limit for the number
-                                of retrieved records per request (specific to the API provider).
-        request_delay (float): Indicates exactly how many seconds to wait before sending successive requests
-                               Note that the requested interval may vary based on the API provider.
-        api_key_env_var (Optional[str]): Indicates the environment variable to look for if the API requires or
-                                         accepts API keys.
-        docs_url: (Optional[str]): An optional URL that indicates where documentation related to the use of the
-                                   API can be found.
+        metadata_map (MetadataMap): Defines the names of metadata fields used to distinguish response characteristics.
+        field_map (Optional[BaseFieldMap]):
+            A provider-specific field map that normalizes processed response records into a universal record structure.
+        records_per_page (int):
+            Generally the upper limit (for some APIs) or reasonable limit for the number of retrieved records per request
+            (specific to the API provider).
+        request_delay (float):
+            Indicates exactly how many seconds to wait before sending successive requests. Note that the requested
+            interval may vary based on the API provider.
+        api_key_env_var (Optional[str]):
+            Indicates the environment variable to look for if the API requires or accepts API keys.
+        docs_url (Optional[str]):
+            An optional URL that indicates where documentation related to the use of the API can be found.
+
     Example Usage:
         >>> from scholar_flux.api import ProviderConfig, APIParameterMap, SearchAPI
         >>> # Maps each of the individual parameters required to interact with the Guardian API
@@ -67,6 +72,9 @@ class ProviderConfig(BaseModel):
     provider_name: str = Field(min_length=1, description="Provider Name or Base URL for the article API")
     base_url: str = Field(description="Base URL for the API")
     parameter_map: BaseAPIParameterMap = Field(description="Map detailing the parameter names used by the API")
+    metadata_map: Optional[ResponseMetadataMap] = Field(
+        default=None, description="Metadata map used to distinguish field names"
+    )
     field_map: Optional[BaseFieldMap] = Field(
         default=None, description="Maps API-Specific fields to commonly named parameters"
     )
@@ -84,20 +92,20 @@ class ProviderConfig(BaseModel):
         return cls._normalize_name(v)
 
     def search_config_defaults(self) -> dict[str, Any]:
-        """Convenience Method for retrieving ProviderConfig fields as a dict. Useful for providing the missing
+        """Convenience method for retrieving ProviderConfig fields as a dict. Useful for providing the missing
         information needed to create a SearchAPIConfig object for a provider when only the provider_name has been
         provided.
 
         Returns:
-            (dict): A dictionary containing the URL, name, records_per_page, and request_delay
-                    for the current provider.
+            dict: A dictionary containing the URL, name, records_per_page, and request_delay
+                  for the current provider.
 
         """
         return self.model_dump(include={"provider_name", "base_url", "records_per_page", "request_delay"})
 
     @field_validator("base_url")
     def validate_base_url(cls, v: str) -> str:
-        """Validates the current url and raises an APIParameterException if invalid."""
+        """Validates the current URL and raises an APIParameterException if invalid."""
         if not isinstance(v, str) or not validate_url(v):
             msg = f"Error validating the API base URL: The URL provided to the ProviderConfig is invalid: {v}"
             logger.error(msg)
@@ -106,7 +114,7 @@ class ProviderConfig(BaseModel):
 
     @field_validator("docs_url")
     def validate_docs_url(cls, v: Optional[str]) -> Optional[str]:
-        """Validates the documentation url and raises an APIParameterException if invalid."""
+        """Validates the documentation URL and raises an APIParameterException if invalid."""
         if v is not None and not validate_url(v):
             msg = f"Error validating the document URL: The URL provided to the ProviderConfig is invalid: {v}"
             logger.error(msg)
@@ -118,7 +126,7 @@ class ProviderConfig(BaseModel):
         """Helper method for normalizing names to resolve them against string input with minor differences in case.
 
         Args:
-            provider_name (str): The name of the provider to normalize
+            provider_name (str): The name of the provider to normalize.
 
         """
         return provider_name.lower().replace("_", "").strip()
@@ -131,11 +139,12 @@ class ProviderConfig(BaseModel):
         configuration from the `scholar_flux.api.providers.provider_registry` for known providers.
 
         Args:
-            url (str): The url to normalize into a consistent structure for later comparison
-            normalize_https (bool): indicates whether to normalize the http identifier on the URL.
-                                    This is True by default.
+            url (str): The url to normalize into a consistent structure for later comparison.
+            normalize_https (bool):
+                Indicates whether to normalize the HTTP identifier on the URL. This is True by default.
+
         Returns:
-            str: The normalized url
+            str: The normalized URL.
 
         """
         return normalize_url(url, normalize_https=normalize_https)

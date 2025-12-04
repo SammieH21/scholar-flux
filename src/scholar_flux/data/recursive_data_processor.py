@@ -158,7 +158,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
 
             processed_data = [record_dict for record_dict in processed_json if record_dict is not None]
 
-            logging.info(f"Total included records - {len(processed_data)}")
+            logger.info(f"Total included records - {len(processed_data)}")
 
             # Return the list of processed record dicts
             return processed_data

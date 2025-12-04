@@ -4,11 +4,12 @@ import requests_mock
 from scholar_flux.sessions import CachedSessionManager
 from scholar_flux.api import SearchAPI, BaseCoordinator, ResponseCoordinator
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
+from scholar_flux.api.validators import normalize_url
 from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
 from scholar_flux.data import BaseDataParser, DataExtractor, PassThroughDataProcessor, PathDataProcessor
 
 
-def test_initialization(caplog):
+def test_base_coordinator_initialization(caplog):
     """Tests both valid and invalid inputs to ensure that upon creating a BaseCoordinator, inputs are validated to
     accept only a SearchAPI and a ResponseCoordinator.
 
@@ -33,7 +34,7 @@ def test_initialization(caplog):
     )
 
 
-def test_build():
+def test_base_coordinator_build():
     """Tests whether the `as_coordinator` argument creates a new BaseCoordinator as a classmethod that can be extended
     by subclasses.
 
@@ -49,7 +50,7 @@ def test_build():
     assert repr(new_base_coordinator) == repr(base_search_coordinator)
 
 
-def test_override_build():
+def test_base_coordinator_override_build():
     """All additional parameters should override previous configurations as requested with updates to the properties
     that hold the search_api and response_coordinator while simultaneously not allowing bad inputs for components when
     set directly."""
@@ -119,7 +120,7 @@ def test_override_build():
         base_search_coordinator.response_coordinator = 1  # type:ignore
 
 
-def test_initialization_updates():
+def test_base_coordinator_initialization_updates():
     """Ensure that updates to core components don't directly impact the configuration of an existing base coordinator,
     and instead create new objects without changing the original."""
     api = SearchAPI(query="biology")
@@ -138,9 +139,8 @@ def test_initialization_updates():
     assert base_search_coordinator.response_coordinator.cache_manager.isnull()
 
 
-def test_request_failed_exception(monkeypatch, caplog):
-    """Ensure that, when searching for a request, the exception is caught and returned as None with the user-facing
-    `base_coordinator.search` method."""
+def test_base_coordinator_request_failed_exception(monkeypatch, caplog):
+    """Verifies that failed `BaseCoordinator.search` requests are caught, instead returning None if possible."""
 
     api = SearchAPI(query="biology")
     response_coordinator = ResponseCoordinator.build()
@@ -152,6 +152,69 @@ def test_request_failed_exception(monkeypatch, caplog):
     res = coordinator.search(page=2)
     assert f"Failed to get a valid response from the {api.provider_name} API: fail" in caplog.text
     assert res is None
+
+
+def test_base_coordinator_nonpaginated_search_success():
+    """Verifies that the `BaseCoordinator.parameter_search()` method can send non-paginated searches."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="basic coordination",
+        base_url="https://test-example-url.com",
+        request_delay=0,
+    )
+    responses = ResponseCoordinator.build()
+    coordinator = BaseCoordinator.as_coordinator(search_api=api, response_coordinator=responses)
+
+    prepared_base_url_request = coordinator.api.prepare_search(page=None, parameters={})
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_base_url_request.url,
+            status_code=200,
+            json={"status": "success"},
+            headers={"Content-Type": "application/json"},
+        )
+
+        response = coordinator.parameter_search(parameters={})
+        assert response
+        assert (
+            response.url
+            and prepared_base_url_request.url
+            and normalize_url(response.url, remove_parameters=False) == normalize_url(prepared_base_url_request.url)
+        )
+        assert normalize_url(prepared_base_url_request.url) == normalize_url(coordinator.api.base_url)
+
+
+def test_base_coordinator_nonpaginated_search_with_endpoint_success():
+    """Tests that the BaseCoordinator can send non-paginated searches via `BaseCoordinator.parameter_search()`."""
+
+    endpoint = "example-endpoint"
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="basic coordination",
+        base_url=f"https://test-example-url.com/{endpoint}",
+        request_delay=0,
+    )
+    responses = ResponseCoordinator.build()
+    coordinator = BaseCoordinator.as_coordinator(search_api=api, response_coordinator=responses)
+
+    prepared_endpoint_request = coordinator.api.prepare_search(page=None, endpoint=endpoint)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_endpoint_request.url,
+            status_code=200,
+            json={"status": "success"},
+            headers={"Content-Type": "application/json"},
+        )
+
+        endpoint_response = coordinator.parameter_search(endpoint=endpoint)
+        assert endpoint_response
+        assert endpoint_response.url and prepared_endpoint_request.url
+        assert normalize_url(endpoint_response.url) == normalize_url(prepared_endpoint_request.url)
+
+        response = coordinator.parameter_search(parameters={})
+        assert response
 
 
 def test_basic_coordinator_search(default_memory_cache_session, academic_json_response):
@@ -196,13 +259,16 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
 
         assert result and result.data and len(result.data) == 3
 
-    with requests_mock.Mocker() as m:
+        # Overwrites the previous mocked URL
         m.get(prepared_request.url, status_code=429, headers={"Content-Type": "application/json"})
+
+        # The cache should retrieve the previously cached response directly without sending a new request
         result = coordinator.search(page=1, cache_key="test-cache-key")
         assert isinstance(result, ProcessedResponse) and result
 
         request_key = api.cache.create_key(prepared_request)
         api.cache.delete(request_key)
 
+        # the previous request should be deleted at this point, sending a new request that fails with status code = 429
         result = coordinator.search(page=1, cache_key="test-cache-key")
         assert isinstance(result, ErrorResponse) and not result

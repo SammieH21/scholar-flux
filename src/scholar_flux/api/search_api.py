@@ -252,7 +252,9 @@ class SearchAPI(BaseAPI):
         )
 
         if not parameter_config:
-            parameter_config = search_api.parameter_config if config.provider_name == config.provider_name else None
+            parameter_config = (
+                search_api.parameter_config if search_api.config.provider_name == config.provider_name else None
+            )
 
         return SearchAPI.from_settings(
             query or search_api.query,
@@ -722,6 +724,7 @@ class SearchAPI(BaseAPI):
         page: Optional[int] = None,
         parameters: Optional[Dict[str, Any]] = None,
         request_delay: Optional[float] = None,
+        endpoint: Optional[str] = None,
     ) -> Response:
         """Public method to perform a search for the selected page with the current API configuration.
 
@@ -737,19 +740,20 @@ class SearchAPI(BaseAPI):
                 If provided together with `page`, these act as additional or overriding parameters on top of
                 the built config.
             request_delay (Optional[float]): Overrides the configured request delay for the current request only.
+            endpoint (Optional[str]): An Optional API endpoint to append to base_url.
 
         Returns:
             requests.Response: A response object from the API containing articles and metadata
 
         """
 
-        if page is None and parameters is not None:
+        if page is None and (parameters is not None or endpoint is not None):
 
             with self._rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
-                return self.send_request(self.base_url, parameters=parameters)
+                return self.send_request(self.base_url, endpoint=endpoint, parameters=parameters)
 
         elif page is not None:
-            return self.make_request(page, parameters, request_delay=request_delay)
+            return self.make_request(page, parameters, request_delay=request_delay, endpoint=endpoint)
         else:
             raise APIParameterException("One of 'page' or 'parameters' must be provided")
 
@@ -757,6 +761,8 @@ class SearchAPI(BaseAPI):
         self,
         page: Optional[int] = None,
         parameters: Optional[Dict[str, Any]] = None,
+        request_delay: Optional[float] = None,
+        endpoint: Optional[str] = None,
     ) -> requests.PreparedRequest:
         """Prepares the current request given the provided page and parameters.
 
@@ -769,6 +775,10 @@ class SearchAPI(BaseAPI):
                 If provided alone, used as the full parameter set to build the current request.
                 If provided together with `page`, these act as additional or overriding parameters on top of
                 the built config.
+            request_delay (Optional[float]):
+                No-Op: retained to emulate the `.search()` method's parameters to ensure that the value is not included
+                in the request parameters.
+            endpoint (Optional[str]): The API endpoint to prepare the request for.
 
         Returns:
             requests.PreparedRequest:
@@ -776,11 +786,17 @@ class SearchAPI(BaseAPI):
 
         """
 
-        if page is None and parameters is not None:
-            return self.prepare_request(self.base_url, parameters=parameters)
+        parameters = (
+            {k: v for k, v in parameters.items() if k != "request_delay"}
+            if isinstance(parameters, dict)
+            else parameters
+        )
+
+        if page is None and parameters is not None or endpoint is not None:
+            return self.prepare_request(self.base_url, endpoint=endpoint, parameters=parameters)
         elif page is not None:
             parameters = self.build_parameters(page, additional_parameters=parameters)
-            return self.prepare_request(self.base_url, parameters=parameters)
+            return self.prepare_request(self.base_url, endpoint=endpoint, parameters=parameters)
         else:
             raise APIParameterException("One of 'page' or 'parameters' must be provided")
 
@@ -789,6 +805,7 @@ class SearchAPI(BaseAPI):
         current_page: int,
         additional_parameters: Optional[dict[str, Any]] = None,
         request_delay: Optional[float] = None,
+        endpoint: Optional[str] = None,
     ) -> Response:
         """Constructs and sends a request to the chosen api:
 
@@ -798,6 +815,7 @@ class SearchAPI(BaseAPI):
             additional_parameters Optional[dict]:
                 A dictionary of additional overrides not included in the original SearchAPIConfig
             request_delay (Optional[float]): Overrides the configured request delay for the current request only.
+            endpoint (Optional[str]): The API endpoint to prepare the request for.
         Returns:
             requests.Response: The API's response to the request.
 
@@ -806,7 +824,7 @@ class SearchAPI(BaseAPI):
         parameters = self.build_parameters(current_page, additional_parameters=additional_parameters)
 
         with self._rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
-            response = self.send_request(self.base_url, parameters=parameters)
+            response = self.send_request(self.base_url, endpoint=endpoint, parameters=parameters)
 
         return response
 

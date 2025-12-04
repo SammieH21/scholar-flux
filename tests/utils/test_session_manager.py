@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 import scholar_flux.sessions.session_manager as sm
 from scholar_flux.utils import config_settings
+from scholar_flux.data_storage import RedisStorage, MongoDBStorage
 from scholar_flux.exceptions.util_exceptions import SessionCreationError
 
 
@@ -39,11 +40,12 @@ def test_session_manager_no_user_agent():
 def test_cached_session_manager_valid():
     """Validates that the configuration is being set as intended and is accessible via the manager as properties."""
     mgr = sm.CachedSessionManager(user_agent="ua", cache_name="c", cache_directory=Path("/tmp"), backend="sqlite")
-
+    representation = repr(mgr)
     assert mgr.cache_name == "c"
     assert mgr.backend == "sqlite"
     assert mgr.user_agent == "ua"
-    assert "CachedSessionManager(config=" in repr(mgr)
+    assert "CachedSessionManager(" in representation and representation.strip("\n")[-1] == ")"
+    assert "kwargs=" in representation and "backend=" in representation and "user_agent=" in representation
 
     session = mgr.configure_session()
     assert isinstance(session, CachedSession)
@@ -171,6 +173,21 @@ def test_get_cache_directory_package_and_home(monkeypatch, tmp_path):
     home = Path.home()
     result = sm.CachedSessionManager.get_cache_directory()
     assert str(home) in str(result)
+
+
+def test_redis_session_manager_default_kwargs(caplog):
+    """Verifies that default redis kwargs match `scholar_flux.data_storage.RedisStorage.DEFAULT_CONFIG`."""
+    session_manager = sm.CachedSessionManager(backend="redis")
+    assert session_manager.kwargs == RedisStorage.DEFAULT_CONFIG
+    assert "Auto-configured Redis from RedisStorage.DEFAULT_CONFIG" in caplog.text
+
+
+def test_mongodb_session_manager_default_kwargs(caplog):
+    """Verifies that default mongodb kwargs match `scholar_flux.data_storage.MongoDBStorage.DEFAULT_CONFIG`."""
+    session_manager = sm.CachedSessionManager(backend="mongodb")
+
+    assert session_manager.kwargs == {k: v for k, v in MongoDBStorage.DEFAULT_CONFIG.items() if k in ("host", "port")}
+    assert "Auto-configured MongoDB from MongoDBStorage.DEFAULT_CONFIG" in caplog.text
 
 
 def test_get_cache_directory_package_with_env(monkeypatch, tmp_path):

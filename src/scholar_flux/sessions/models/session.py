@@ -13,12 +13,13 @@ import datetime
 import importlib.util
 import requests
 import requests_cache
-from typing import Optional, ClassVar, Literal
+from typing import Optional, ClassVar, Literal, Any
 from typing_extensions import Self
 from pathlib import Path
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
-
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
+from scholar_flux.data_storage.redis_storage import RedisStorage
+from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 
 import logging
 
@@ -92,6 +93,7 @@ class CachedSessionConfig(BaseModel):
     ] = None
     expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None
     user_agent: Optional[str] = None
+    kwargs: dict[str, Any] = Field(default_factory=dict)
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator("cache_directory", mode="before")
@@ -166,6 +168,39 @@ class CachedSessionConfig(BaseModel):
             )
         return backend
 
+    @classmethod
+    def _default_backend_kwargs(
+        cls, backend: str | requests_cache.BaseCache, kwargs: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        """Auto-populate kwargs with connection settings for Redis and MongoDB backends.
+
+        References the DEFAULT_CONFIG from storage backends for consistency:
+        - RedisStorage.DEFAULT_CONFIG
+        - MongoStorage.DEFAULT_CONFIG
+
+        Args:
+            backend (str | requests_cache.BaseCache):
+                The backend in use. Note that default backend kwargs are only used when `backend in ('redis', 'pymongo)`
+            **kwargs:
+                Additional keywords to be passed to the `CachedSessionManager`
+
+        """
+        # Auto-populate using storage backend defaults (single source of truth)
+        backend = backend.lower() if isinstance(backend, str) else backend
+
+        match backend:
+            case "redis":
+                kwargs = RedisStorage.DEFAULT_CONFIG.copy()
+                logger.info("Auto-configured Redis from RedisStorage.DEFAULT_CONFIG")
+                return kwargs
+            case "mongodb":
+                config = MongoDBStorage.DEFAULT_CONFIG.copy()
+                kwargs = {"host": config["host"], "port": config["port"]}
+                logger.info("Auto-configured MongoDB from MongoDBStorage.DEFAULT_CONFIG")
+                return kwargs
+            case _:
+                return kwargs or {}
+
     @model_validator(mode="after")
     def validate_backend_filepath(self) -> Self:
         """Helper method for validating when file storage is a necessity vs when it's not required."""
@@ -193,6 +228,8 @@ class CachedSessionConfig(BaseModel):
                     f"Warning: The parent directory, {cache_path.parent}, does not exist "
                     "and need to be created before use."
                 )
+
+        self.kwargs = self.kwargs if self.kwargs else self._default_backend_kwargs(self.backend, self.kwargs)
         return self
 
     @property

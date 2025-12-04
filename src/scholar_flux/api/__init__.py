@@ -42,6 +42,7 @@ from scholar_flux.api.validators import validate_url, validate_email
 from scholar_flux.api.models import (
     APIParameterMap,
     APIParameterConfig,
+    ResponseMetadataMap,
     ProviderConfig,
     ProviderRegistry,
     SearchAPIConfig,
@@ -75,6 +76,7 @@ from scholar_flux.api.multisearch_coordinator import MultiSearchCoordinator
 __all__ = [
     "ResponseValidator",
     "APIParameterMap",
+    "ResponseMetadataMap",
     "APIParameterConfig",
     "ProviderConfig",
     "PROVIDER_DEFAULTS",

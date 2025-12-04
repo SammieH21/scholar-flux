@@ -1,5 +1,5 @@
-Source Code
-===========
+scholar_flux
+============
 
 .. toctree::
    :maxdepth: 4

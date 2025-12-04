@@ -68,7 +68,7 @@ from scholar_flux.api.workflows.search_workflow import (
     WorkflowResult,
     SearchWorkflow,
 )
-from scholar_flux.api.workflows.pubmed_workflow import PubMedSearchStep, PubMedFetchStep
+from scholar_flux.api.workflows.pubmed_workflow import PubMedSearchStep, PubMedFetchStep, PubMedSearchWorkflow
 from scholar_flux.api.workflows.workflow_defaults import WORKFLOW_DEFAULTS
 
 __all__ = [
@@ -82,5 +82,6 @@ __all__ = [
     "SearchWorkflow",
     "PubMedSearchStep",
     "PubMedFetchStep",
+    "PubMedSearchWorkflow",
     "WORKFLOW_DEFAULTS",
 ]

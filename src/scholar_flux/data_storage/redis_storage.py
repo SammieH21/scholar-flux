@@ -182,7 +182,7 @@ class RedisStorage(ABCStorage):
                 cache_data = cache_data.decode()
             return JsonDataEncoder.deserialize(cache_data)
 
-        except RedisError as e:
+        except (RedisError, ConnectionError) as e:
             msg = f"Error during attempted retrieval of key {key} (namespace = '{self.namespace}'): {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
@@ -205,7 +205,7 @@ class RedisStorage(ABCStorage):
             results = {key: self.retrieve(key) for key in matched_keys}
             return results
 
-        except RedisError as e:
+        except (RedisError, ConnectionError) as e:
             msg = f"Error during attempted retrieval of records from namespace '{self.namespace}': {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
@@ -229,7 +229,7 @@ class RedisStorage(ABCStorage):
                     key.decode() if isinstance(key, bytes) else key
                     for key in self.client.scan_iter(f"{self.namespace}:*")
                 ]
-        except RedisError as e:
+        except (RedisError, ConnectionError) as e:
             msg = f"Error during attempted retrieval of all keys from namespace '{self.namespace}': {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheRetrievalException if self.raise_on_error else None, msg=msg
@@ -260,7 +260,7 @@ class RedisStorage(ABCStorage):
                     self.client.expire(namespace_key, self.ttl)
                 logger.debug(f"Cache updated for key: '{namespace_key}'")
 
-        except RedisError as e:
+        except (RedisError, ConnectionError) as e:
             msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
@@ -286,7 +286,7 @@ class RedisStorage(ABCStorage):
             else:
                 logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
 
-        except (RedisError, StorageCacheException) as e:
+        except (RedisError, ConnectionError, StorageCacheException) as e:
             msg = f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
@@ -314,7 +314,7 @@ class RedisStorage(ABCStorage):
                 for key in matched_keys:
                     self.client.delete(key)
 
-        except RedisError as e:
+        except (RedisError, ConnectionError) as e:
             msg = f"Error during attempted deletion of all records from namespace '{self.namespace}': {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
@@ -344,7 +344,7 @@ class RedisStorage(ABCStorage):
                 if self.client.exists(namespace_key):
                     return True
 
-        except (RedisError, StorageCacheException) as e:
+        except (RedisError, ConnectionError, StorageCacheException) as e:
             msg = f"Error during the verification of the existence of key {key} (namespace = '{self.namespace}'): {e}"
             self._handle_storage_exception(
                 exception=e,

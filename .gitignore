@@ -39,10 +39,8 @@ coverage.xml
 .vale/
 
 # Python-specific
-*.py[cod]
 *.pyd
 *.pyo
-*.pyd
 *.pdb
 
 # Distribution / packaging
@@ -73,14 +71,11 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
-.coverage
 .tox/
 .pytest_cache/
 .pytest.log/
-.coverage.*
 .cache
 nosetests.xml
-coverage.xml
 *.cover
 .hypothesis/
 
@@ -104,6 +99,7 @@ instance/
 docs/_build/
 docs/_build/doctrees
 docs/_build/html
+docs/source/api
 
 # PyBuilder
 target/
@@ -129,14 +125,8 @@ archived/
 **/secrets/
 **/secure/*
 **/logs/*
-src/scholar_flux/logs/*
-src/scholar_flux/logs/*
-src/scholar_flux/logs/
 src/scholar_flux/springer_env
 src/scholar_flux/archived/
 src/scholar_flux/cache/*
 src/scholar_flux/data/cache/*
 src/scholar_flux/.vscode
-src/scholar_flux/.git
-
-

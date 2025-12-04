@@ -1,5 +1,6 @@
 # scholar_flux.api.normalization.plos_field_map.py
-"""The scholar_flux.api.normalization.plos_field_map.py module defines the normalization mappings used for the PLoS API."""
+"""The scholar_flux.api.normalization.plos_field_map.py module defines the normalization mappings used for the PLoS
+API."""
 from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap
 
 

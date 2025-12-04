@@ -6,10 +6,12 @@ import requests_mock
 from requests import Response
 from requests_cache import CachedResponse
 from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator
+import datetime
 from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep, StepContext
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse
+from tests.testing_utilities import raise_error
 
 from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
 
@@ -647,3 +649,162 @@ def test_base_coordinator_summary(Coordinator):
         f"cache_manager={response_coordinator.cache_manager.__class__.__name__}(cache_storage={response_coordinator.cache_manager.cache_storage.__class__.__name__}(...))"
         in representation
     )  # ignore padding
+
+
+def test_nonpaginated_search_success():
+    """Tests that the SearchCoordinator can send non-paginated searches via `BaseCoordinator.parameter_search()`."""
+
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="basic coordination",
+        base_url="https://test-example-url.com",
+        request_delay=0,
+    )
+
+    coordinator = SearchCoordinator(search_api=api)
+
+    prepared_api_request = coordinator.api.prepare_search(page=None, parameters={})
+    prepared_search = coordinator._prepare_request(page=None, parameters={})
+
+    # the URL should contain no additional arguments
+    assert prepared_search.url and re.search(f"{coordinator.api.base_url}/?$", prepared_search.url)
+    assert prepared_search.url == prepared_api_request.url
+
+    with requests_mock.Mocker(real_http=False) as m:
+        m.get(
+            prepared_search.url,
+            status_code=200,
+            json={"result": []},
+            headers={"Content-Type": "application/json"},
+        )
+        processed_response = coordinator.parameter_search(parameters={})
+        # indicates successful processing and confirms that the URL was successfully mocked
+        assert isinstance(processed_response, ProcessedResponse) and processed_response.url == prepared_search.url
+
+
+#       assert response.url and prepared_base_url_request.url and normalize_url(response.url, remove_parameters=False) == normalize_url(prepared_base_url_request.url)
+#       assert normalize_url(prepared_base_url_request.url) == normalize_url(coordinator.api.base_url)
+
+
+def test_nonpaginated_search_with_endpoint_success():
+    """Tests that the SearchCoordinator can send non-paginated searches via `SearchCoordinator.parameter_search()`."""
+
+    endpoint = "example-endpoint"
+    coordinator = SearchCoordinator(base_url="https://test-example-url.com", query="basic coordination")
+
+    prepared_search = coordinator.api.prepare_search(page=None, endpoint=endpoint)
+
+    assert prepared_search.url and re.search(f"{coordinator.api.base_url}/{endpoint}/?$", prepared_search.url)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_search.url,
+            status_code=200,
+            json={"results": []},
+            headers={"Content-Type": "application/json"},
+        )
+
+        processed_response = coordinator.parameter_search(endpoint=endpoint)
+        # indicates successful processing and confirms that the endpoint at the URL was successfully mocked
+        assert isinstance(processed_response, ProcessedResponse) and processed_response.url == prepared_search.url
+
+
+def test_nonpaginated_search_resolution_failure():
+    """Tests that the SearchCoordinator can send non-paginated searches via `BaseCoordinator.parameter_search()`."""
+    coordinator = SearchCoordinator(base_url="https://test-example-url.com", query="basic coordination")
+
+    with requests_mock.Mocker(real_http=False):
+        # won't work due to the endpoint not being mocked
+        nonresponse = coordinator.parameter_search(endpoint="test-endpoint")  #
+    assert isinstance(nonresponse, NonResponse)
+
+    error = nonresponse.error or ""
+    message = nonresponse.message or ""
+    assert "RequestFailedException" in error and "No mock address" in message
+
+    # cache keys for mock-responses should originate from the response URL hash: missing URL -> missing cache key
+    assert not nonresponse.url and not nonresponse.cache_key
+
+
+def test_unexpected_nonpaginated_search_failure(monkeypatch, caplog):
+    """Tests that `SearchCoordinator.parameter_search()` gracefully returns a `NonResponse` on unexpected errors."""
+
+    coordinator = SearchCoordinator(base_url="https://test-example-url.com", query="basic coordination")
+    err = "Forced unexpected error"
+    monkeypatch.setattr(coordinator, "_search", raise_error(RuntimeError, err))
+
+    with requests_mock.Mocker(real_http=False):
+        # will throw an error before a request is ever sent (mocking is retained for safety)
+        nonresponse = coordinator.parameter_search(endpoint="test-endpoint")
+
+    assert isinstance(nonresponse, NonResponse)
+
+    nonresponse_error = nonresponse.error or ""
+    nonresponse_message = nonresponse.message or ""
+    message = f"An unexpected error occurred when processing the response: {err}"
+    assert "RuntimeError" in nonresponse_error and err == nonresponse_message
+    assert message in caplog.text
+
+    # cache keys for mock-responses should originate from the response URL hash: missing URL -> missing cache key
+    assert not nonresponse.url and not nonresponse.cache_key
+
+
+def test_respect_retry_after_wait_called():
+    """Tests that `_respect_retry_after` calls `_wait` with correct delay and timestamp when retry-after is present."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        records_per_page=10,
+    )
+    coordinator = SearchCoordinator(api)
+    coordinator.api._rate_limiter._wait = MagicMock()  # type: ignore
+    coordinator.retry_handler.max_retries = 0
+
+    # Simulate a last_response with a Retry-After header as a date
+    retry_after_date = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=30)
+    date_str = retry_after_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    prepared_search = coordinator.api.prepare_search(page=1)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_search.url, status_code=429, headers={"Content-Type": "application/json", "Retry-After": date_str}
+        )
+        result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
+        coordinator._respect_retry_after()
+        assert isinstance(result, ErrorResponse)
+        assert isinstance(coordinator.last_response, ErrorResponse)
+
+    # Assert _wait was called with a positive delay and correct timestamp
+    assert coordinator.api._rate_limiter._wait.called
+    args, kwargs = coordinator.api._rate_limiter._wait.call_args
+    delay, timestamp = args
+    assert delay > 0
+    assert isinstance(timestamp, float)
+
+
+@pytest.mark.parametrize("retry_after_value", (None, "", "non-numeric", "3-23-1923"))
+def test_respect_retry_after_malformed(retry_after_value):
+    """Verifies that `_wait()` method is not called if the `retry_after` header value is malformed."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        records_per_page=10,
+    )
+    coordinator = SearchCoordinator(api)
+    coordinator.api._rate_limiter._wait = MagicMock()  # type: ignore
+    coordinator.retry_handler.max_retries = 0
+
+    prepared_search = coordinator.api.prepare_search(page=1)
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_search.url,
+            status_code=429,
+            headers={"Content-Type": "application/json", "Retry-After": retry_after_value},
+        )
+        result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
+        assert isinstance(result, ErrorResponse) and result is not None
+        coordinator._respect_retry_after()  # retry-after then defaults to 0 and skips
+
+    # Assert _wait was not called
+    assert not coordinator.api._rate_limiter._wait.called

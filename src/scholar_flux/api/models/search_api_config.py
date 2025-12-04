@@ -18,6 +18,7 @@ from typing_extensions import Self
 from urllib.parse import urlparse
 from scholar_flux.api.validators import validate_url
 from scholar_flux.api.models.provider_config import ProviderConfig
+from scholar_flux.api.models.api_parameters import APIParameterConfig
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models.base_parameters import APISpecificParameter
 from scholar_flux.utils.repr_utils import generate_repr
@@ -45,41 +46,40 @@ class SearchAPIConfig(BaseModel):
         base_url (str):
             Indicates the API URL where data will be searched and retrieved.
         records_per_page (int):
-            Controls the number of records that will appear on each page
+            Controls the number of records that will appear on each page.
         request_delay (float):
-            Indicates the minimum delay between each request to avoid exceeding API rate limits
+            Indicates the minimum delay between each request to avoid exceeding API rate limits.
         api_key (Optional[str | SecretStr]):
             This is an API-specific parameter for validating the current user's identity.
             If a `str` type is provided, it is converted into a `SecretStr`.
         api_specific_parameters (dict[str, APISpecificParameter]):
             A dictionary containing all parameters specific to the current API. API-specific parameters
-            include the following.
+            include the following:
 
             1. mailto (Optional[str | SecretStr]):
-                   An optional email address for receiving feedback on usage from providers. This parameter is
-                   currently applicable only to the Crossref API.
-            2. db: (str):
+                An optional email address for receiving feedback on usage from providers. This parameter is
+                currently applicable only to the Crossref API.
+            2. db (str):
                 The parameter used by the `NIH` to direct requests for data to the pubmed database. This parameter
-                defaults to pubmed and does not require direct specification
-
+                defaults to pubmed and does not require direct specification.
 
     Examples:
         >>> from scholar_flux.api import SearchAPIConfig, SearchAPI, provider_registry
-        # to create a CROSSREF configuration with minimal defaults and provide an api_specific_parameter:
+        # To create a CROSSREF configuration with minimal defaults and provide an api_specific_parameter:
         >>> config = SearchAPIConfig.from_defaults(provider_name = 'crossref', mailto = 'your_email_here@example.com')
-        # the configuration automatically retrieves the configuration for the "Crossref" API
+        # The configuration automatically retrieves the configuration for the "Crossref" API.
         >>> assert config.provider_name == 'crossref' and config.base_url == provider_registry['crossref'].base_url
         >>> api = SearchAPI.from_settings(query = 'q', config = config)
         >>> assert api.config == config
-        # to retrieve all defaults associated with a provider and automatically read an API key if needed
+        # To retrieve all defaults associated with a provider and automatically read an API key if needed:
         >>> config = SearchAPIConfig.from_defaults(provider_name = 'pubmed', api_key = 'your api key goes here')
-        # the API key is retrieved automatically if you have the API key specified as an environment variable
+        # The API key is retrieved automatically if you have the API key specified as an environment variable.
         >>> assert config.api_key is not None
-        # Default provider API specifications are already pre-populated if they are set with defaults
-        >>> assert config.api_specific_parameters['db'] == 'pubmed'  # required by pubmed and defaults to pubmed
-        # Update a provider and automatically retrieve its API key - the previous API key will no longer apply
+        # Default provider API specifications are already pre-populated if they are set with defaults.
+        >>> assert config.api_specific_parameters['db'] == 'pubmed'  # Required by pubmed and defaults to pubmed.
+        # Update a provider and automatically retrieve its API key - the previous API key will no longer apply.
         >>> updated_config = SearchAPIConfig.update(config, provider_name = 'core')
-        # The API key should have been overwritten to use core. Looks for a `CORE_API_KEY` env variable by default
+        # The API key should have been overwritten to use core. Looks for a `CORE_API_KEY` env variable by default.
         >>> assert updated_config.provider_name  == 'core' and  updated_config.api_key != config.api_key
 
     """
@@ -181,8 +181,8 @@ class SearchAPIConfig(BaseModel):
     def set_records_per_page(cls, v: Optional[int]):
         """Sets the records_per_page parameter with the default if the supplied value is not valid:
 
-        Triggers a validation error when records_per_page is an invalid type. Otherwise uses the `DEFAULT_RECORDS_PER_PAGE`
-        class attribute if the supplied value is missing or is a negative number.
+        Triggers a validation error when records_per_page is an invalid type. Otherwise uses the
+        `DEFAULT_RECORDS_PER_PAGE` class attribute if the supplied value is missing or is a negative number.
 
         """
         if v is not None and not isinstance(v, int):
@@ -280,6 +280,19 @@ class SearchAPIConfig(BaseModel):
                 for parameter, parameter_metadata in api_specific_parameter_mappings.items()
             }
         return api_specific_parameter_values
+
+    @classmethod
+    def _remove_nonprovider_config_parameters(
+        cls, config_parameters: dict[str, Any], current_provider: Optional[str]
+    ) -> dict[str, Any]:
+        """Helper method for removing unneeded API-specific parameters that aren't defined for the current provider."""
+        current_config = APIParameterConfig.get_defaults(current_provider or "")
+        valid_config_parameters = set(
+            current_config.show_parameters() + list(SearchAPIConfig.model_fields.keys()) if current_config else []
+        )
+
+        removal_fields = config_parameters.keys() - valid_config_parameters
+        return {field: value for field, value in config_parameters.items() if field not in removal_fields}
 
     @classmethod
     def _prepare_provider_info(
@@ -499,6 +512,7 @@ class SearchAPIConfig(BaseModel):
 
         # resolve provider inconsistencies: highest priority = base_url, second = provider_name
         # retrieve provider from base URL if couldn't retrieve it from the provider name
+        previous_provider_name = ProviderConfig._normalize_name(current_config.provider_name)
         provider_name = overrides.get("provider_name", "")
         base_url = overrides.get("base_url", "")
         provider_info = None
@@ -548,6 +562,9 @@ class SearchAPIConfig(BaseModel):
         config_dict |= {k: v for k, v in api_specific_parameters.items() if v is not None}
         config_dict |= {k: v for k, v in overrides.items() if v is not None}
 
+        # if the configuration changed providers, then update the API-specific parameter list
+        if provider_info and provider_info.provider_name != previous_provider_name:
+            config_dict = cls._remove_nonprovider_config_parameters(config_dict, provider_info.provider_name)
         # make the additional parameters a harmonized field in the dictionary
         config_dict = cls._extract_api_specific_parameter(config_dict)
 

@@ -1,6 +1,7 @@
 import pytest
 from scholar_flux.data import PassThroughDataProcessor
 from scholar_flux.exceptions import DataProcessingException
+import re
 
 
 def test_process_page(mock_api_parsed_json_records):
@@ -101,7 +102,7 @@ def test_validate_inputs_with_invalid_types():
         PassThroughDataProcessor._validate_inputs(None, None, 123)  # type:ignore
 
 
-def test_processing_with_invalidated_inputs():
+def test_processing_with_invalidated_inputs(caplog):
     """Verifies that a DataProcessingException is raised when invalid inputs are passed to `process_page`.
 
     The `_validate_inputs()` method is used on the backend to verify inputs before processing, and the error raised
@@ -118,8 +119,17 @@ def test_processing_with_invalidated_inputs():
             "b": 2,
         },
     ]
+    invalid_parsed_records = 23
+
+    message = "An unexpected error occurred during data processing:"
     err = f"ignore_keys must be a list, got {type(invalid_ignore_keys)}"
-    message = f"An unexpected error occurred during data processing: {err}"
+    full_message = f"{message} {err}"
     with pytest.raises(DataProcessingException) as excinfo:
         _ = processor.process_page(parsed_records, ignore_keys=invalid_ignore_keys)  # type: ignore
-        assert message in str(excinfo.value)
+        assert full_message in str(excinfo.value)
+
+    with pytest.raises(DataProcessingException) as excinfo:
+        _ = processor.process_page(invalid_parsed_records)  # type: ignore
+
+    pattern_message = f"{message}.*is not iterable"
+    assert re.search(pattern_message, str(excinfo.value))

@@ -17,6 +17,7 @@ from scholar_flux.security import SecretUtils
 from scholar_flux.utils import config_settings
 
 from scholar_flux.exceptions import QueryValidationException, APIParameterException, RequestCreationException
+from urllib.parse import urljoin
 
 
 @pytest.fixture
@@ -307,33 +308,44 @@ def test_build_with_additional_parameters(caplog):
     )
 
 
-def test_basic_parameter_overrides(monkeypatch, caplog):
-    """Verifies that additional parameters (api keys/emails) can be overridden during the parameter building step."""
+def test_basic_parameter_overrides(caplog):
+    """Verifies that API-specific parameters (e.g., emails) can be overridden during the parameter building steps."""
     mailto = "atestemail@anaddress.com"
 
-    api = SearchAPI(query="test", provider_name="crossref", mailto=mailto, api_key=None)
-    # mock a scenario where a crossref api key is not available
-    api.config.api_key = None
+    api = SearchAPI(query="test", provider_name="crossref", mailto=mailto)
 
-    key = SecretStr("A nonmissing api key")
     updated_mailto = "another@validemail.com"
     # An api key can be swapped mid parameter build, but not encouraged
-    params = api.build_parameters(page=1, api_key=key, mailto=updated_mailto)
-    secret_api_key = params.get(api.parameter_config.parameter_map.api_key_parameter or "")
-
-    assert isinstance(secret_api_key, SecretStr) and secret_api_key == key
-    assert params["mailto"] == updated_mailto
-    assert (
-        "Note that, while dynamic changes to a missing API key is possible in request building, "
-        "is not encouraged. Instead, redefine the `api_key` parameter as an "
-        "attribute in the current SearchAPI."
-    ) in caplog.text
+    params = api.build_parameters(page=1, mailto=updated_mailto)
 
     # Verifies that the mailto attribute can be successfully overridden
     assert (
         "The following additional parameters will be used to override the current parameter list: {'mailto': '***'}"
         in caplog.text
     )
+
+    assert params["mailto"] == updated_mailto
+
+
+def test_api_key_build_parameter_overrides(caplog):
+    """Verifies that api keys can be overridden during the parameter building step."""
+    api = SearchAPI(query="test", provider_name="springernature", api_key=None)
+    # Mock a scenario where a springer nature api key is not available
+    api.config.api_key = None
+    key = SecretStr("A nonmissing api key")
+
+    # An api key can be swapped mid-parameter build, but not encouraged
+    params = api.build_parameters(page=1, api_key=key)
+
+    # Gets the secret api key using the name of the API key parameter  specific to SpringerNature
+    secret_api_key = params.get(api.parameter_config.parameter_map.api_key_parameter or "")
+
+    assert isinstance(secret_api_key, SecretStr) and secret_api_key == key
+    assert (
+        "Note that, while dynamic changes to a missing API key is possible in request building, "
+        "is not encouraged. Instead, redefine the `api_key` parameter as an "
+        "attribute in the current SearchAPI."
+    ) in caplog.text
 
 
 def test_search_api_initialization(default_api_parameter_config):
@@ -832,6 +844,33 @@ def test_prepare_search_and_prepare_request_equivalence(page, default_search_api
 
     # the built parameters should be sufficient to generate the original request
     assert prepared_request.url == default_search_api.prepare_search(parameters=parameters).url
+
+
+def test_search_with_endpoint_only(default_search_api):
+    """Verifies that searches specifying only `endpoint` without a `page` or `parameters` argument are successful.
+
+    The `search()` argument, by default should only allow searches if at least one parameter/endpoit is specified
+    when `page` is not directly provided and will otherwise raise an APIParameterException.
+
+    """
+    expected_url = urljoin(default_search_api.base_url, "works")
+
+    # mocks a URL with an endpoint
+    with requests_mock.Mocker() as m:
+        m.get(expected_url, status_code=200, json={"status": "success"})
+
+        # retrieves a mocked response with the /works endpoint
+        response = default_search_api.search(page=None, endpoint="works")
+        assert response and str(expected_url) == response.url
+        json_response = response.json()
+        assert json_response["status"] == "success"
+
+        # method number two - direct retrieval with `send_request`, no additional parameters
+        direct_search_response = default_search_api.send_request(default_search_api.base_url, endpoint="works")
+        assert direct_search_response and direct_search_response.json() == json_response
+
+        # verifies that the URL from the response is the same as the URL from the prepared request
+        assert direct_search_response.url == default_search_api.prepare_search(page=None, endpoint="works").url
 
 
 def test_rate_limited_searches(monkeypatch, mock_successful_response):

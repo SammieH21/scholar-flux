@@ -127,7 +127,7 @@ def test_calculate_retry_delay_with_invalid_retry_after(caplog):
     # Should fallback to exponential backoff
     assert delay == 4  # 2 * 2^1
     assert f"'Retry-After' is not a valid number: {retry_after}. Attempting to parse as a date.." in caplog.text
-    assert "Couldn't parse 'Retry-After' as a date." in caplog.text
+    assert "Couldn't parse 'Retry-After' as a date:" in caplog.text
     assert "Defaulting to using 'max_backoff'..." in caplog.text
 
 
@@ -225,18 +225,48 @@ def test_calculate_retry_delay_with_retry_after_date():
 
 def test_parse_retry_after_int():
     """Verifies that simple integer parsing works as intended."""
-    handler = RetryHandler()
-    assert handler.parse_retry_after("7") == 7
+    assert RetryHandler.parse_retry_after("7") == 7
+
+
+def test_parse_retry_after_None():
+    """Verifies that simple integer parsing works as intended."""
+    assert RetryHandler.parse_retry_after(None) is None
 
 
 def test_parse_retry_after_date():
     """Verifies that date parsing works as intended upon receiving a datetime GMT string."""
-    handler = RetryHandler()
     future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=15)
     date_str = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
-    delay = handler.parse_retry_after(date_str)
+    delay = RetryHandler.parse_retry_after(date_str)
     assert delay is not None
     assert 0 <= delay <= 15
+
+
+@pytest.mark.parametrize("retry_header", ("retry-after", "Retry-After", "x-ratelimit-retry-after"))
+def test_get_retry_after_date(retry_header):
+    """Verifies that timezone-aware response headers can be retrieved and parsed as intended with case-insensitivity."""
+    future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=15, hours=-5)
+    date_str = future.strftime("%a, %d %b %Y %H:%M:%S -0500")
+
+    response = response_factory(headers={retry_header: date_str})
+
+    delay = RetryHandler.get_retry_after(response)
+    assert delay is not None
+    assert 0 <= delay <= 15
+
+
+def test_get_retry_after_invalid_parameter():
+    """Verifies that timezone-aware response headers can be retrieved and parsed as intended with case-insensitivity."""
+    invalid_str = "invalid date parameter"
+    response = response_factory(headers={"retry-after": invalid_str})
+
+    delay = RetryHandler.get_retry_after(response)
+    assert delay is None
+
+    nonresponse = "non-response class"
+
+    delay = RetryHandler.get_retry_after(nonresponse)  # type: ignore
+    assert delay is None
 
 
 def test_log_retry_attempt_and_warning(caplog):

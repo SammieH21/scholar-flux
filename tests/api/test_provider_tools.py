@@ -12,6 +12,7 @@ def test_provider_config_validation(caplog):
     """Test that ProviderConfig logs and raises APIParameterException for invalid base or documentation URLs.
 
     Also verifies that valid URLs do not raise errors.
+
     """
     invalid_url: dict = {}
     with pytest.raises(APIParameterException) as excinfo:
@@ -47,6 +48,43 @@ def test_unknown_provider_retrieval():
     assert provider_registry.get_from_url(provider_url="https://non-existent-provider.com") is None
     assert provider_registry.get_from_url(provider_url=None) is None  # type: ignore
     assert provider_registry.get("non-existent-provider") is None
+
+
+def test_provider_config_base_url_provider_name_resolution(caplog):
+    """Tests if the registry resolves URLs and provider names to a ProviderConfig, prioritizing the URL if available."""
+    provider_registry = ProviderRegistry.from_defaults()
+    test_plos_config = provider_registry["plos"]
+    test_crossref_config = provider_registry["crossref"]
+
+    plos_url, plos_name = test_plos_config.base_url, test_plos_config.provider_name
+    crossref_url, crossref_name = test_crossref_config.base_url, test_crossref_config.provider_name
+    bad_url, bad_name = "https://bad_url.com", "bad_provider_name"
+
+    # Should resolve easily
+    assert provider_registry.resolve_config(provider_url=plos_url, provider_name=plos_name) == test_plos_config
+    assert (
+        provider_registry.resolve_config(provider_url=crossref_url, provider_name=crossref_name) == test_crossref_config
+    )
+    assert "The configuration was resolved from the URL." in caplog.text
+    caplog.clear()
+
+    # URLs are prioritized
+    assert provider_registry.resolve_config(provider_url=plos_url, provider_name=bad_name) == test_plos_config
+    assert provider_registry.resolve_config(provider_url=plos_url, provider_name=crossref_name) == test_plos_config
+    assert "The configuration was resolved from the URL." in caplog.text
+    caplog.clear()
+    # Provider Names used only if URLs don't resolve
+    assert provider_registry.resolve_config(provider_url=bad_url, provider_name=crossref_name) == test_crossref_config
+    assert "The configuration was resolved from the provider name." in caplog.text
+
+    # If no input can  be resolved, None is returned
+    assert provider_registry.resolve_config(provider_url=bad_url, provider_name=bad_name) is None
+    assert (
+        f"A configuration associated with the URL ({bad_url}) or provider name ({bad_name}) was not located."
+        in caplog.text
+    )
+    assert provider_registry.resolve_config(provider_url=None, provider_name=None) is None
+    assert "A configuration associated with the URL (None) or provider name (None) was not located." in caplog.text
 
 
 def test_unknown_provider_deletion(caplog):

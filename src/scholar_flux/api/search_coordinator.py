@@ -18,12 +18,16 @@ from scholar_flux.api import (
     NonResponse,
 )
 from scholar_flux.api.models import PageListInput, SearchResult, SearchResultList
+from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
+from scholar_flux.api.validators import normalize_url, validate_url
 
 from scholar_flux.data.base_parser import BaseDataParser
 from scholar_flux.data.base_extractor import BaseDataExtractor
 from scholar_flux.data.abc_processor import ABCDataProcessor
 
 from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.helpers import parse_iso_timestamp, try_call
+from scholar_flux.api.providers import provider_registry
 
 from scholar_flux.exceptions import (
     RequestFailedException,
@@ -399,6 +403,52 @@ class SearchCoordinator(BaseCoordinator):
             cache_key = self._create_cache_key(page=page) if isinstance(page, int) and page >= 0 else None
             return NonResponse.from_error(error=e, message=str(e), cache_key=cache_key)
 
+    def parameter_search(
+        self,
+        from_request_cache: bool = True,
+        from_process_cache: bool = True,
+        normalize_records: Optional[bool] = None,
+        **api_specific_parameters,
+    ) -> Optional[ProcessedResponse | ErrorResponse]:
+        """Public method for retrieving and processing records from the API with pre-specified parameters.
+
+        Note that the response object is saved under the last_response attribute in the event that the response is
+        retrieved and processed successfully, irrespective of whether the response was cached.
+
+        Args:
+            from_request_cache (bool): This parameter determines whether to try to retrieve
+                                       the response from the requests-cache storage
+            from_process_cache (bool): This parameter determines whether to attempt to pull
+                                       processed responses from the cache storage
+            normalize_records (Optional[bool]): Determines whether records should be normalized after processing
+            **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
+        Returns:
+            Optional[ProcessedResponse | ErrorResponse]:
+                A ProcessedResponse model containing the response (response), processed records (data), and article
+                metadata (metadata) if the response was successful. Otherwise returns an ErrorResponse where the reason
+                behind the error (message), exception type (error), and response (response) are provided.
+                Possible error responses also include a `NonResponse` (an `ErrorResponse` subclass) for cases where a
+                response object is irretrievable. Like the `ErrorResponse` class, `NonResponse` is also Falsy
+                (i.e., `not NonResponse` returns True)
+
+        """
+        # remove parameters that aren't relevant for parameter_searches
+        api_specific_parameters.pop("page", None)
+        api_specific_parameters.pop("use_workflow", None)
+
+        try:
+            return self._search(
+                page=None,
+                from_request_cache=from_request_cache,
+                from_process_cache=from_process_cache,
+                normalize_records=normalize_records,
+                **api_specific_parameters,
+            )
+        except Exception as e:
+            logger.error(f"An unexpected error occurred when processing the response: {e}")
+            # `page` input could have a type issue, so create a cache key only if valid
+            return NonResponse.from_error(error=e, message=str(e), cache_key=None)
+
     def search_pages(
         self,
         pages: Sequence[int] | PageListInput,
@@ -408,23 +458,44 @@ class SearchCoordinator(BaseCoordinator):
         **api_specific_parameters,
     ) -> SearchResultList:
         """Public method for retrieving and processing records from the API specifying the page and records per page in
-        sequence. Note that the response object is saved under the last_response attribute in the event that
-        the data is processed successfully, irrespective of whether responses are cached or not.
+        sequence.
+
+        This method collects search results from multiple pages into a SearchResultList, which provides
+        specialized methods for filtering, normalization, selection, and aggregation. Unlike iter_pages(),
+        which streams results one at a time, this method returns the full collection for cross-page analysis
+        and batch operations.
+
+        The SearchResultList return type enables powerful operations like filtering out failures, normalizing
+        records across different providers, selecting subsets by query/provider/page, and joining all records
+        into a single list for DataFrame creation.
 
         Args:
-            page (int): The current page number. Used for process caching purposes even if not required by the API
-            from_request_cache (bool): This parameter determines whether to try to retrieve
-                                       the response from the requests-cache storage
-            from_process_cache (bool): This parameter determines whether to attempt to pull
-                                       processed responses from the cache storage
-            use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
+            pages (Sequence[int] | PageListInput):
+                A sequence of page numbers to request from the API Provider. Can be a list, range, or
+                PageListInput instance.
+            from_request_cache (bool):
+                This parameter determines whether to try to retrieve the response from the requests-cache
+                storage.
+            from_process_cache (bool):
+                This parameter determines whether to attempt to pull processed responses from the cache storage.
+            use_workflow (bool):
+                Indicates whether to use a workflow if available Workflows are utilized by default.
+            **api_specific_parameters (SearchAPIConfig):
+                Fields to temporarily override when building the request.
 
-            **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
         Returns:
-            List[ProcessedResponse]: A list of response data classes containing processed article data (data).
-                                     Note that processing stops if the response for a given page is None,
-                                     is not retrievable, or contains less than the expected number of responses,
-                                     indicating that the next page may contain no more records.
+            SearchResultList:
+                A specialized list containing SearchResult instances for each requested page. The SearchResultList
+                provides methods including:
+                - filter(): Retain only successful ProcessedResponses or filter by success/failure
+                - select(): Filter results by query, provider_name, or page number
+                - normalize(): - Apply field mapping to create provider-agnostic record schemas
+                - join(): - Combine all records into a single list with optional metadata
+                - process_metadata(): - Extract and process metadata across all results
+                - record_count: - Total number of records across all pages
+
+                Note that retrieval stops early if a page response is None, not retrievable, or contains fewer
+                than the expected number of records, indicating that subsequent pages may be empty.
 
         """
         page_results: SearchResultList = SearchResultList()
@@ -486,7 +557,7 @@ class SearchCoordinator(BaseCoordinator):
 
         for page in page_list_input.page_numbers:
 
-            search_result = self._search_page_result(
+            search_result = self.search_page(
                 page=page,
                 from_request_cache=from_request_cache,
                 from_process_cache=from_process_cache,
@@ -501,7 +572,7 @@ class SearchCoordinator(BaseCoordinator):
             if halt:
                 break
 
-    def _search_page_result(
+    def search_page(
         self,
         page: int,
         from_request_cache: bool = True,
@@ -509,31 +580,41 @@ class SearchCoordinator(BaseCoordinator):
         use_workflow: Optional[bool] = True,
         **api_specific_parameters,
     ) -> SearchResult:
-        """Helper method for retrieving and processing a search result for a particular page from an API Provider.
+        """Retrieves a single-page `SearchResult`, returning the processed response with additional metadata.
 
         This method is used to support the retrieval of a page range while wrapping each result in a
         SearchResult class as a BaseModel that provides more structured information about the received API Response,
         including the provider's name, the page number, and the response result.
 
-        The SearchResult can hold three different results:
-            1)ProcessedResponse - indicates the successful retrieval and processing of the data
-            2) ErrorResponse - indicates that a response was successfully received, but that an error occurred
-                               during retrieval or processing (unsuccessful statuses or processing errors)
-            3) None - indicates an issue in the retrieval of the response or formatting/preparation of the request
+        The `SearchResult.response_result` attribute can hold three different types of responses:
+
+        1. ProcessedResponse - indicates the successful retrieval and processing of the data
+        2. ErrorResponse/Nonresponse - indicates that a response was successfully received, but that an error
+                                       occurred during request building, response retrieval or response processing
+        3. None - indicates an issue in the retrieval of the response or formatting/preparation of the request
+
+        The SearchResult wrapper enables:
+        - **Introspection**: Access provider, query, and page without unpacking the response
+        - **Aggregation**: Combine results across pages with consistent metadata
+        - **Normalization**: Apply field mapping to create provider-agnostic schemas
+
+        When a workflow is active, the provider name is determined from the last-queried URL to ensure correct labeling.
+        For non-workflow searches, the SearchAPI's provider name is used.
 
         Args:
             page (int): The current page number. Used for process caching purposes even if not required by the API
-            from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
-                                       requests-cache storage.
-            from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
-                                       the cache storage.
+            from_request_cache (bool):
+                This parameter determines whether to try to retrieve the response from the requests-cache storage.
+            from_process_cache (bool):
+                This parameter determines whether to attempt to pull processed responses from the cache storage.
             use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
 
         Returns:
-            SearchResult: A search result containing the requested page number (page), the name of the provider
-                          (provider_name), and the result of the search (api_response) which contains
-                          a ProcessedResponse, an ErrorResponse, or None.
+            SearchResult:
+                A search result containing the requested page number (page), the name of the provider (provider_name),
+                and the result of the search (api_response) which contains a ProcessedResponse, an ErrorResponse,
+                or None.
 
         """
 
@@ -545,9 +626,17 @@ class SearchCoordinator(BaseCoordinator):
             **api_specific_parameters,
         )
 
+        # for workflow resolution where needed
+        if self.workflow and use_workflow:
+            provider_url = api_response.url if api_response is not None else None
+            provider_config = provider_registry.resolve_config(provider_url, self.api.provider_name, verbose=False)
+            provider_name = provider_config.provider_name if provider_config else self.api.provider_name
+        else:
+            provider_name = self.api.provider_name
+
         search_result = SearchResult(
             response_result=api_response,
-            provider_name=self.api.provider_name,
+            provider_name=provider_name,
             query=self.api.query,
             page=page,
         )
@@ -587,8 +676,18 @@ class SearchCoordinator(BaseCoordinator):
 
         if isinstance(response_result, ProcessedResponse):
             expected_page_count = self.search_api.config.records_per_page
+            total_hits = response_result.total_query_hits
 
-            if expected_page_count and len(response_result.extracted_records or []) < expected_page_count:
+            # 0 and None signal that processing should halt or reference the expected_page_count, respectively
+            pages_remaining = (
+                ResponseMetadataMap._calculate_pages_remaining(page, total_hits, expected_page_count)
+                if page is not None and total_hits is not None and expected_page_count is not None
+                else None
+            )
+
+            if pages_remaining == 0 or (
+                len(response_result.extracted_records or []) < expected_page_count and pages_remaining is None
+            ):
                 logger.warning(
                     f"The response for page, {page} contains less than the expected "
                     f"{expected_page_count} records. Received {repr(response_result)}. "
@@ -617,33 +716,26 @@ class SearchCoordinator(BaseCoordinator):
             )
         return halt
 
-    def search_data(
-        self,
-        page: int = 1,
-        from_request_cache: bool = True,
-        from_process_cache: bool = True,
-    ) -> Optional[List[Dict]]:
-        """Public method to perform a search, specifying the page and records per page. Note that instead of returning a
-        ProcessedResponse or ErrorResponse, this calls the `search` method and retrieves only the list of processed
-        dictionary records from the ProcessedResponse.
+    def search_data(self, page: int = 1, *args, **kwargs) -> Optional[List[Dict]]:
+        """Public convenience method to perform a search, specifying the page and records per page.
+
+        Note that instead of returning a ProcessedResponse or ErrorResponse, this calls the `search` method an
+        retrieves only the list of processed dictionary records from the ProcessedResponse.
 
         Args:
             page (int): The current page number.
-            from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
-                                       requests-cache storage stored within the SearchCoordinator.search_api.cache
-            from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
-                                       the processing cache stored within the SearchCoordinator.response_coordinator.cache
+            *args: Positional arguments to pass directly to the `.search()` method
+            **kwargs: Keyword arguments to pass directly to the `.search()` method
 
         Returns:
-            Optional[List[Dict]]: A List of records containing processed article data
+            Optional[List[Dict]]:
+                A List of record dictionaries containing the processed article data when parsed successfully
+                and records exist. If no records exist, or an error occurs somewhere within the processes,
+                None is returned, instead.
 
         """
         try:
-            response = self.search(
-                page,
-                from_request_cache=from_request_cache,
-                from_process_cache=from_process_cache,
-            )
+            response = self.search(page, *args, **kwargs)
             if response:
                 return response.data
 
@@ -654,7 +746,7 @@ class SearchCoordinator(BaseCoordinator):
     # Search Execution
     def _search(
         self,
-        page: int = 1,
+        page: Optional[int] = 1,
         from_request_cache: bool = True,
         from_process_cache: bool = True,
         normalize_records: Optional[bool] = None,
@@ -698,12 +790,19 @@ class SearchCoordinator(BaseCoordinator):
 
     # Request Handling
     def fetch(
-        self, page: int, from_request_cache: bool = True, raise_on_error: bool = False, **api_specific_parameters
+        self,
+        page: Optional[int],
+        from_request_cache: bool = True,
+        raise_on_error: bool = False,
+        **api_specific_parameters,
     ) -> Optional[Response | ResponseProtocol]:
         """Fetches the raw response from the current API or from cache if available.
 
+        If `page` is None, `fetch` will default to a basic parameter search using the API base URL given the specified
+        parameters.
+
         Args:
-            page (int): The page number to retrieve from the cache.
+            page (Optional[int]): The page number to retrieve from the cache.
             from_request_cache (bool): This parameter determines whether to try to fetch a valid response from cache.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
 
@@ -711,6 +810,7 @@ class SearchCoordinator(BaseCoordinator):
             Optional[Response]: The response object if available, otherwise None.
 
         """
+        current_page = str(page) if page is not None else f" for {self.api.base_url}"
         try:
 
             if from_request_cache:
@@ -720,22 +820,63 @@ class SearchCoordinator(BaseCoordinator):
             else:
                 # if the key does not exist, will log at the INFO level and continue
                 self._delete_cached_request(page, **api_specific_parameters)
+                self._respect_retry_after()
 
             response = self.robust_request(page, **api_specific_parameters)
             return response
         except RequestFailedException as e:
-            msg = f"Failed to fetch page {page}"
+            msg = f"Failed to fetch page {current_page}"
             err = f"{msg}: {e}" if str(e) else msg
             logger.warning(err)
             if raise_on_error:
                 raise RequestFailedException(err)
         return None
 
-    def robust_request(self, page: int, **api_specific_parameters) -> Optional[Response | ResponseProtocol]:
+    def _respect_retry_after(self) -> None:
+        """Helper method that respects `retry_after` field before requests exceed dynamic API rate limits."""
+
+        # If the current URL has not changed from the last request, attempt to extract a Retry-After parameter directly
+        if (
+            self.last_response is not None
+            and self.last_response.response is not None
+            and self.last_response.url
+            and normalize_url(self.api.base_url) == normalize_url(self.last_response.url, remove_parameters=True)
+        ):
+            response_headers = getattr(self.last_response.response, "headers", {})
+            # unparsed `retry-after` value
+            retry_after_value = self.retry_handler.extract_retry_after(response_headers)
+            # parsed `retry-after` value as a float
+            delay = (
+                self.retry_handler.get_retry_after(self.last_response.response)
+                if isinstance(retry_after_value, str)
+                else 0
+            )
+
+            # attempts to coerce the unparsed value into a numeric value
+            last_request_created = try_call(
+                self.retry_handler._parse_retry_after_date, (retry_after_value,), suppress=(ValueError,), log_level=10
+            )
+
+            # if not possible, attempt to extract a creation date from the APIResponse container
+            created_date = (
+                parse_iso_timestamp(self.last_response.created_at or "")
+                if last_request_created is None
+                else last_request_created
+            )
+
+            # parse the datetime into a numeric timestamp
+            timestamp = created_date.timestamp() if created_date else None
+            if delay and timestamp:
+                # waits for a max of `delay` seconds without updating the `_last_called` timestamp
+                self.api._rate_limiter._wait(delay, timestamp)
+
+    def robust_request(self, page: Optional[int], **api_specific_parameters) -> Optional[Response | ResponseProtocol]:
         """Constructs and sends a request to the current API. Fetches a response from the current API.
 
         Args:
-            page (int): The page number to retrieve from the cache.
+            page (Optional[int]):
+                The page number to retrieve from the cache. If missing, this implementation relies on
+                `api_specific_parameters` to retrieve data from an API.
             **kwargs: Optional Additional parameters to pass to the SearchAPI
         Returns:
             Optional[Response]: The request object if available, otherwise None.
@@ -760,11 +901,11 @@ class SearchCoordinator(BaseCoordinator):
             logger.info(f"Retrieved cached response for query: {self.search_api.query} and page: {page}")
         return response
 
-    def get_cached_request(self, page: int, **kwargs) -> Optional[Response | ResponseProtocol]:
+    def get_cached_request(self, page: Optional[int], **kwargs) -> Optional[Response | ResponseProtocol]:
         """Retrieves the cached request for a given page number if available.
 
         Args:
-            page (int): The page number to retrieve from the cache.
+            page (Optional[int]): The page number to retrieve from the cache.
         Returns:
             Optional[Response]: The cached request object if available, otherwise None.
 
@@ -781,11 +922,12 @@ class SearchCoordinator(BaseCoordinator):
             logger.error(f"Error retrieving cached request: {e}")
             return None
 
-    def get_cached_response(self, page: int) -> Optional[Dict[str, Any]]:
+    def get_cached_response(self, page: int, url: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Retrieves the cached response for a given page number if available.
 
         Args:
             page (int): The page number to retrieve from the cache.
+            url (Optional[str]): The request URL for parameter-based cache keys. Used when page is None.
 
         Returns:
             Optional[Dict[str, Any]]: The cached response data if available, otherwise None.
@@ -794,7 +936,7 @@ class SearchCoordinator(BaseCoordinator):
         try:
             if not self.response_coordinator.cache_manager:
                 return None
-            cache_key = self._create_cache_key(page)
+            cache_key = self._create_cache_key(page, url)
             cached = self.response_coordinator.cache_manager.retrieve(cache_key)
             if cached:
                 logger.info(f"Cache hit for key: {cache_key}")
@@ -805,11 +947,13 @@ class SearchCoordinator(BaseCoordinator):
             logger.error(f"Error retrieving cached response: {e}")
             return None
 
-    def _fetch_api_response(self, page: int, from_request_cache: bool = True, **api_specific_parameters) -> APIResponse:
+    def _fetch_api_response(
+        self, page: Optional[int], from_request_cache: bool = True, **api_specific_parameters
+    ) -> APIResponse:
         """Helper method for fetching the response and retrieving the cache key.
 
         Args:
-            page (int): The page number to retrieve from the cache.
+            page (Optional[int]): The page number to retrieve from the cache.
             from_request_cache (bool): This parameter determines whether to try to fetch a valid response from cache.
             **api_specific_parameters (SearchAPIConfig): Fields to temporarily override when building the request.
 
@@ -819,11 +963,13 @@ class SearchCoordinator(BaseCoordinator):
                                        unsuccessful due to an error.
 
         """
-        cache_key = self._create_cache_key(page)
+        cache_key = self._create_cache_key(page) if page is not None else None
         try:
             response = self.fetch(
                 page, from_request_cache=from_request_cache, raise_on_error=True, **api_specific_parameters
             )
+            if not cache_key and response and response.url:
+                cache_key = self._create_cache_key(page=None, url=response.url)
         except RequestFailedException as e:
             return NonResponse.from_error(error=e, message=str(e), cache_key=cache_key)
 
@@ -832,7 +978,7 @@ class SearchCoordinator(BaseCoordinator):
         return APIResponse(response=response, cache_key=cache_key)
 
     def _log_response_source(
-        self, response: Optional[Response | ResponseProtocol], page: int, cache_key: Optional[str]
+        self, response: Optional[Response | ResponseProtocol], page: Optional[int], cache_key: Optional[str]
     ) -> None:
         """Logs and indicates whether the response originated from a requests- cache session or was retrieved directly
         from the current API. Also indicates whether we're using a cache key to attempt to pull from cache if available.
@@ -843,9 +989,11 @@ class SearchCoordinator(BaseCoordinator):
             cache_key (Optional[str]): An optional cache key associated with the current request.
 
         """
+        current_page = str(page) if page is not None else getattr(response, "url", None)
+        current_page = f"page {current_page}" if current_page else "the current page"
 
         if not response:
-            logger.warning(f"Response retrieval and processing for page {page} was unsuccessful.")
+            logger.warning(f"Response retrieval and processing for {current_page} was unsuccessful.")
             return
 
         if getattr(response, "from_cache", False):
@@ -892,46 +1040,70 @@ class SearchCoordinator(BaseCoordinator):
 
         return processed_response
 
-    def _prepare_request(self, page: int, **kwargs) -> PreparedRequest:
-        """
-        Prepares the request after constructing the request parameters for the API call.
+    def _prepare_request(self, page: Optional[int], **kwargs) -> PreparedRequest:
+        """Prepares the request after constructing the request parameters for the API call.
+
+        If neither a page nor extra keyword arguments are prepared, the request URL defaults
+        to the base URL.
+
+        Supports two parameter styles that are functionally equivalent:
+            - Nested: `_prepare_request(page=None, parameters={'filter': 'value'})`
+            - Flat: `_prepare_request(page=None, filter='value')`
+
+        When both are provided, flat kwargs take precedence over nested parameters.
+
         Args:
-            page (int): The page number to request.
-            **kwargs: Additional parameters for the request.
+            page (Optional[int]): The page number to request.
+            **kwargs:
+                Additional parameters for the request. Can include a 'parameters' dict that will be merged with other
+                kwargs. Note that the `endpoint` parameter is directly extracted from the parameter list and formatted
+                as a valid endpoint, separate from the parameter list. No preprocessing for `endpoint` is required.
+
         Returns:
             PreparedRequest: The prepared request object to send to the api
-        """
 
-        parameters = self.search_api.build_parameters(page=page, **kwargs)
-        request = self.search_api.prepare_request(parameters=parameters)
+        """
+        parameters = self.api._validate_parameters((kwargs.pop("parameters", {}))) | kwargs
+        endpoint = parameters.pop("endpoint", None)
+        request = self.search_api.prepare_search(page, parameters, endpoint=endpoint)
         return request
 
     # Cache Management
-    def _create_cache_key(self, page: int) -> str:
-        """Combines information about the query type and current page to create an identifier for the current query. The
-        cache key is always generated using the current page argument as well as the provider_name, query, and
-        records_per_page, all of which originate from the SearchAPIConfig (accessible as properties). As a result,
-        consistency is guaranteed.
+    def _create_cache_key(self, page: Optional[int], url: Optional[str] = None) -> str:
+        """Combines information about the query type and current page to create an identifier for the current query.
+
+        The cache key is generated using the current page argument, as well as the provider_name, query, and
+        records_per_page, all of which originate from the SearchAPIConfig (accessible as properties). If a page
+        parameter is not provided and a valid URL is given, a cache key can instead be calculated by hashing the URL
+        with hashlib's sha256 implementation (via `DataCacheManager._cache_key_from_url`) when possible. As a result,
+        consistency in cache key formation is guaranteed for the same input.
 
         Args:
-            page (int): The current page number.
+            page (Optional[int]): The current page number. None for parameter-based searches.
+            url (Optional[str]): The request URL for parameter-based cache keys. Used when page is None.
 
-        Returns:
-            str: A unique cache key based on the provided parameters.
+         Returns:
+             str: A unique cache key based on the provided parameters.
 
         """
+        if not page and url is not None and validate_url(url, verbose=False):
+            return DataCacheManager._cache_key_from_url(url)
         return (
             f"{self.search_api.provider_name}_{self.search_api.query}_{page}_{self.search_api.records_per_page}".lower()
         )
 
-    def _get_request_key(self, page: int, **kwargs) -> Optional[str]:
-        """
-        Creates a request key from the requests session cache if available
+    def _get_request_key(self, page: Optional[int], **kwargs) -> Optional[str]:
+        """Creates a request key from the requests session cache if available.
+
+        If a page is not supplied (is NA), then keyword arguments are instead
+        used to generate a cache key from the prepared request.
+
         Args:
-            page (int): The page number associated with the request key.
+            page (Optional[int]): The page number associated with the request key.
             **kwargs: Additional parameters for the request.
         Returns:
             str: The prepared request key to be associated with the request
+
         """
 
         try:
@@ -946,11 +1118,11 @@ class SearchCoordinator(BaseCoordinator):
             )
         return None
 
-    def _delete_cached_request(self, page: int, **kwargs) -> None:
+    def _delete_cached_request(self, page: Optional[int], **kwargs) -> None:
         """Deletes the cached request for a given page number if available.
 
         Args:
-            page (int): The page number to delete from the cache.
+            page (Optional[int]): The page number to delete from the cache.
 
         """
         if self.search_api.cache:
@@ -971,16 +1143,17 @@ class SearchCoordinator(BaseCoordinator):
             except Exception as e:
                 logger.error(f"Error deleting cached request: {e}")
 
-    def _delete_cached_response(self, page: int) -> None:
+    def _delete_cached_response(self, page: Optional[int], url: Optional[str] = None) -> None:
         """Deletes the cached response for a given page number if available.
 
         Args:
             page (int): The page number to delete from the cache.
+            url (Optional[str]): The request URL for parameter-based cache keys. Used when page is None.
 
         """
         if self.response_coordinator.cache_manager:
             try:
-                cache_key = self._create_cache_key(page)
+                cache_key = self._create_cache_key(page, url)
                 logger.debug(f"Attempting to delete processing cache key: {cache_key}")
                 self.response_coordinator.cache_manager.delete(cache_key)
             except Exception as e:

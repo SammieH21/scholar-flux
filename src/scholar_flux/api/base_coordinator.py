@@ -175,6 +175,21 @@ class BaseCoordinator:
         """
         return self._search(**kwargs)
 
+    def parameter_search(
+        self,
+        **kwargs,
+    ) -> Optional[ProcessedResponse | ErrorResponse]:
+        """Public method for retrieving and processing non-paginated records with directly specified parameters.
+
+        This method is designed as a direct entrypoint to performing searches without the addition of otherwise
+        automatically populated, pagination-related fields such as `query`, `records_per_page`, etc. while still taking
+        advantage of the orchestration features of the current coordinator.
+
+        """
+        # remove the `page` parameter to prevent potential errors
+        kwargs.pop("page", None)
+        return self._search(page=None, **kwargs)
+
     def _search(self, **kwargs) -> Optional[ProcessedResponse | ErrorResponse]:
         """
         Basic Search Method implementing the core components needed to coordinate the

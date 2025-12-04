@@ -13,7 +13,7 @@ Classes:
 import datetime
 import requests
 import requests_cache
-from typing import Optional, Type, Literal, TYPE_CHECKING
+from typing import Optional, Type, Literal, TYPE_CHECKING, Any
 from pathlib import Path
 import logging
 from scholar_flux.package_metadata import get_default_writable_directory
@@ -25,6 +25,7 @@ from scholar_flux.exceptions.util_exceptions import (
 )
 import scholar_flux.sessions.models.session as session_models
 from scholar_flux.utils import config_settings
+from scholar_flux.utils.repr_utils import generate_repr_from_string
 
 from pydantic import ValidationError
 
@@ -199,6 +200,11 @@ class CachedSessionManager(SessionManager):
         return self.config.backend
 
     @property
+    def kwargs(self) -> dict[str, Any]:
+        """Additional keyword arguments that can be passed to `CachedSession` on the creation of the session."""
+        return self.config.kwargs
+
+    @property
     def serializer(
         self,
     ) -> Optional[
@@ -296,6 +302,7 @@ class CachedSessionManager(SessionManager):
                 expire_after=self.expire_after,
                 allowable_methods=("GET",),
                 allowable_codes=[200],
+                **self.kwargs,
             )
 
             if self.user_agent:
@@ -322,14 +329,9 @@ class CachedSessionManager(SessionManager):
             (str): a string representation of the class
 
         """
-        nm = __class__.__name__
-
-        indent = " " * (len(nm) + 1)
-        sep = f",\n{indent}"
-        config = f"{sep}".join(f"{option}={value}" for option, value in self.config.model_dump().items())
-
-        string_representation = f"{nm}(config={config})"
-        return string_representation
+        class_name = __class__.__name__
+        config = dict(self.config)
+        return generate_repr_from_string(class_name, config)
 
 
 __all__ = ["SessionManager", "CachedSessionManager"]

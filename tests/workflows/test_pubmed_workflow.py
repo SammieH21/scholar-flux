@@ -17,7 +17,7 @@ def test_pubmed_workflow_context(caplog):
     response = Response()
     response.status_code = 200
 
-    metadata = MagicMock()
+    metadata = MagicMock(spec=dict)
     metadata.result = {}
 
     search_step = PubMedSearchStep()
@@ -91,6 +91,7 @@ def test_direct_pubmed_workflow(
 
         pubmed_coordinator = SearchCoordinator(api)
         result = pubmed_workflow(pubmed_coordinator, page=3)
+
     assert isinstance(result, WorkflowResult)
     for step_context in result.history:
         assert isinstance(step_context, StepContext)
@@ -137,17 +138,22 @@ def test_workflow_default(
             "anxiety", "pubmed", user_agent="scholar_flux", api_key=pubmed_api_key, request_delay=0.01, use_cache=True
         )
         pubmed_coordinator = SearchCoordinator(api)
-        search_result = pubmed_coordinator.search(page=3, use_workflow=False)
-        fetch_result = pubmed_coordinator.search(page=3)
+        search_result = pubmed_coordinator.search_page(page=3, use_workflow=False)
+        fetch_result = pubmed_coordinator.search_page(page=3)
 
-    assert isinstance(search_result, ProcessedResponse)
+    assert isinstance(search_result.response_result, ProcessedResponse)
+    # originates from the eSearch Step while records originate from the eFetch Step
+    assert search_result.metadata and search_result.metadata == pubmed_coordinator.workflow._history[0].result.metadata  # type: ignore
     assert search_result.response and search_result.response.content == mock_pubmed_search_data["_content"].encode(
         "utf-8"
     )
 
-    assert isinstance(fetch_result, ProcessedResponse)
+    assert isinstance(fetch_result.response_result, ProcessedResponse)
     assert fetch_result.response and fetch_result.response.content == mock_pubmed_fetch_data["_content"].encode("utf-8")
     assert search_result.response.content != fetch_result.response.content
+
+    assert search_result.provider_name == "pubmed"  # original URL - indicates that workflow was not used (only eSearch)
+    assert fetch_result.provider_name == "pubmedefetch"  # indicates that the workflow was used (eFetch is step 2)
 
 
 def test_dependency_error(mock_pubmed_search_endpoint, mock_pubmed_search_data, monkeypatch, caplog):

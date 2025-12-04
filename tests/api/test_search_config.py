@@ -81,6 +81,38 @@ def test_api_key_format(api_key_dictionary, request):
         assert (api_key is None and env_api_key is None) or env_api_key == api_key == config_api_key
 
 
+@pytest.mark.parametrize(
+    "provider_name",
+    (
+        "plos",
+        "openalex",
+        "arxiv",
+        "pubmed",
+        "pubmed_efetch",
+        "springernature",
+        "crossref",
+        "core",
+    ),
+)
+def test_uneeded_parameter_removal(provider_name):
+    """Verifies the removal of API-specific parameters that aren't specific to the current provider."""
+    provider_parameters = SearchAPIConfig.from_defaults(provider_name)
+    provider_api_specific_parameters = provider_parameters.api_specific_parameters or {}
+    universal_parameters = provider_parameters.model_dump(exclude={"api_specific_parameters"})
+    provider_parameter_dict = universal_parameters | provider_api_specific_parameters
+
+    # This should be preciesly equal to the original config and removing no parameters
+    assert provider_parameter_dict == SearchAPIConfig._remove_nonprovider_config_parameters(
+        provider_parameter_dict, provider_name
+    )
+
+    # Not defined as API-specific parameters for any provider
+    unused_parameters = {"non-existent-offset": 1, "non-existent-parameter_max": 23}
+    assert provider_parameter_dict == SearchAPIConfig._remove_nonprovider_config_parameters(
+        provider_parameter_dict | unused_parameters, provider_name
+    )
+
+
 def test_url_parse_error_config(caplog):
     """Tests whether the configuration only prints a warning on URL extraction when the input is not empty."""
     assert SearchAPIConfig._extract_url_basename("") == ""

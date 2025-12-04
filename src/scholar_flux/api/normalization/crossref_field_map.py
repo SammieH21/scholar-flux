@@ -1,5 +1,6 @@
 # scholar_flux.api.normalization.crossref_field_map.py
-"""The scholar_flux.api.normalization.crossref_field_map.py module defines the normalization mappings used for Crossref."""
+"""The scholar_flux.api.normalization.crossref_field_map.py module defines the normalization mappings used for
+Crossref."""
 from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap
 
 

@@ -10,7 +10,7 @@ import pytest
 
 @pytest.fixture
 def extracted_records() -> list[dict[str, int]]:
-    """Mocks the extracted_records attribute that indicates the total number of records present in the response."""
+    """Mocks the `extracted_records` attribute with list of dictionaries, each representing a record in the response."""
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
     return extracted_records
 
@@ -43,7 +43,7 @@ def metadata() -> dict[str, Any]:
 def success_response(
     mock_successful_response, extracted_records, metadata, processed_records, normalized_records
 ) -> ProcessedResponse:
-    """Fixture used to mock an SuccessResponse to be later encapsulated in a SearchResult."""
+    """Fixture used to mock an `SuccessResponse` to be later encapsulated in a SearchResult."""
     success_response = ProcessedResponse(
         cache_key="test-cache-key",
         response=mock_successful_response,
@@ -57,7 +57,7 @@ def success_response(
 
 @pytest.fixture
 def unauthorized_response(mock_unauthorized_response) -> ErrorResponse:
-    """Fixture used to mock an ErrorResponse to be later encapsulated in a SearchResult."""
+    """Fixture used to mock an `ErrorResponse` to be later encapsulated in a SearchResult."""
     unauthorized_response = ErrorResponse(
         response=mock_unauthorized_response,
         message="This is an unauthorized response",
@@ -110,7 +110,7 @@ def search_result_none() -> SearchResult:
 
 
 def test_search_result_errors(unauthorized_response):
-    """Tests the instantiation of SearchResult with ErrorResponses and verifies whether the attributes are retrievable.
+    """Tests the instantiation of SearchResult with `ErrorResponses` and verifies whether each attribute is retrievable.
 
     Also verifies whether error responses contain the logged errors involved and associated messages.
 
@@ -126,6 +126,9 @@ def test_search_result_errors(unauthorized_response):
     assert search_result_error != unauthorized_response  # the two aren't the same class, so this shouldn't equal
     assert search_result_error.data is None
     assert search_result_error.metadata is None
+    assert search_result_error.processed_metadata is None
+    assert search_result_error.total_query_hits is None
+    assert search_result_error.records_per_page is None
     assert search_result_error.extracted_records is None
     assert search_result_error.response == unauthorized_response.response
     assert search_result_error.error == "Unauthorized"
@@ -138,7 +141,7 @@ def test_search_result_errors(unauthorized_response):
 
 
 def test_search_result_success(success_response, extracted_records, metadata, processed_records, normalized_records):
-    """Tests the instantiation of SearchResults with ProcessedResponses to verifies whether attributes are retrievable.
+    """Tests the instantiation of `SearchResults` with `ProcessedResponses` to verify if each attribute is retrievable.
 
     Also verifies whether processed responses contain the correct extracted and processed records and whether error
     responses contain the logged errors involved and associated messages.
@@ -160,6 +163,9 @@ def test_search_result_success(success_response, extracted_records, metadata, pr
     assert search_result_success.parsed_response is None
     assert search_result_success.extracted_records == extracted_records
     assert search_result_success.response == success_response.response
+    assert search_result_success.processed_metadata is None
+    assert search_result_success.total_query_hits is None
+    assert search_result_success.records_per_page is None
     assert search_result_success.error is None
     assert search_result_success.message is None
 
@@ -174,7 +180,7 @@ def test_search_result_success(success_response, extracted_records, metadata, pr
 
 
 def test_invalid_search_list_elements():
-    """Tests whether the SearchResultList correctly raises a type error when encountering invalid values."""
+    """Tests whether the `SearchResultList` correctly raises a type error when encountering invalid values."""
     result_list = SearchResultList()
 
     with pytest.raises(TypeError):
@@ -188,7 +194,7 @@ def test_invalid_search_list_elements():
 
 
 def test_valid_search_list_elements(search_result_success, search_result_error, search_result_none):
-    """Verifies whether the SearchResultList successfully adds SearchResult instances to the list."""
+    """Verifies whether the `SearchResultList` successfully adds SearchResult instances to the list."""
     result_list = SearchResultList()
 
     result_list.extend(SearchResultList([search_result_success, search_result_error]))
@@ -206,14 +212,14 @@ def test_valid_search_list_elements(search_result_success, search_result_error, 
     )
 
     data_records = filtered_records[0].response_result.data or []  # type: ignore
-    joined_records = result_list.join()
+    joined_records = result_list.join(include={"provider_name", "page"})
 
     response_record_total = sum(
         len(result.response_result.data or []) for result in filtered_records if result.response_result
     )
 
     assert len(joined_records) == response_record_total == result_list.record_count
-    assert joined_records == [record | {"provider_name": "test-provider", "page_number": 1} for record in data_records]
+    assert joined_records == [record | {"provider_name": "test-provider", "page": 1} for record in data_records]
 
 
 def test_search_result_selection():
