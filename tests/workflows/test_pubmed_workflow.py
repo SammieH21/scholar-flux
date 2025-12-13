@@ -1,17 +1,18 @@
 from scholar_flux.api.workflows import PubMedSearchStep, PubMedFetchStep, SearchWorkflow, WorkflowResult, StepContext
 from scholar_flux.api import SearchAPI, SearchCoordinator, ProcessedResponse, ErrorResponse, NonResponse
-from scholar_flux.exceptions import XMLToDictImportError
+from scholar_flux.exceptions import XMLToDictImportError, NoRecordsAvailableException
+from scholar_flux.api import ReconstructedResponse
 from requests import Response
 from unittest.mock import MagicMock
 import requests_mock
 import pytest
 
 
-def test_pubmed_workflow_context(caplog):
+def test_pubmed_workflow_context_without_records():
     """Validates whether the use of a pubmed workflow with missing IDs will correctly be flagged.
 
     When a received response is valid and contains a valid formatted metadata field, the metadata dictionary will
-    contain {'IdList':{'Id': [...]}. If unavailable, a type error should be raised.
+    contain {'IdList':{'Id': [...]} ...}. If unavailable, a type error should be raised.
 
     """
     response = Response()
@@ -24,10 +25,33 @@ def test_pubmed_workflow_context(caplog):
     fetch_step = PubMedFetchStep()
     ctx = StepContext(step_number=1, step=search_step, result=ProcessedResponse(response=response, metadata=metadata))
 
-    with pytest.raises(TypeError):
+    with pytest.raises(NoRecordsAvailableException) as excinfo:
         _ = fetch_step.pre_transform(ctx)
 
-    assert "The metadata from the pubmed search is not in the expected format" in caplog.text
+    assert "The metadata from the PubMed eSearch step returned no record IDs." in str(excinfo.value)
+
+
+def test_successful_pubmed_workflow_search_without_records(monkeypatch, caplog):
+    """Verifies that the original eSearch response returned when the previous step is successful but contains no
+    records."""
+    coordinator = SearchCoordinator(provider_name="pubmed", query="Cardiovascular Endurance")
+    prepared_search = coordinator.api.prepare_search(page=1)
+    processed_response = ProcessedResponse(
+        response=ReconstructedResponse.build(
+            url=prepared_search.url, status_code=200, json={"status": "ok", "data": []}
+        ),
+        metadata={},
+        processed_records=None,
+    )
+    monkeypatch.setattr(coordinator, "_search", lambda *args, **kwargs: processed_response)
+
+    with requests_mock.Mocker() as _:
+        mock_response = coordinator.search(page=1, use_workflow=True)
+        assert processed_response is mock_response
+    assert (
+        "The metadata from the PubMed eSearch step returned no record IDs. Halting the PubMed eFetch step and returning the processed eSearch response..."
+        in caplog.text
+    )
 
 
 def test_pubmed_missing_step_ctx():
@@ -192,3 +216,25 @@ def test_dependency_error(mock_pubmed_search_endpoint, mock_pubmed_search_data, 
         )
 
         assert nonresponse_error_message in nonresponse_search_result.message
+
+
+def test_pubmed_workflow_no_initial_esearch_result(monkeypatch):
+    """Covers the failure case where `NoRecordsAvailableException` is raised and no initial eSearch result exists."""
+
+    coordinator = SearchCoordinator(provider_name="pubmed", query="Cardiovascular Endurance")
+    assert coordinator.workflow
+
+    # Patch super()._run to raise NoRecordsAvailableException
+    def raise_no_records(*args, **kwargs):
+        """Temporary function used to patch the `SearchWorkflow._run` method to raise a `NoRecordsAvailableException`"""
+        raise NoRecordsAvailableException("No records found.")
+
+    monkeypatch.setattr(SearchWorkflow, "_run", raise_no_records)
+
+    # Ensures no actual requests are sent
+    with requests_mock.Mocker() as _:
+        response = coordinator.search(page=1)
+
+    assert isinstance(response, NonResponse) and response.message and response.error
+    assert "RuntimeError" in response.error
+    assert "The PubMed Workflow failed without the retrieval of an initial eSearch response" in response.message

@@ -284,6 +284,101 @@ As nested metadata paths are traversed directly on extraction, we simply tell Sc
        records_per_page='pageSize' # path to page-size
    )
 
+Inspecting and Extending Parameters
+------------------------------------
+
+ScholarFlux provides tools for inspecting supported parameters and extending them at runtime. For maximum applicability amidst changing APIs in the future, the API explicitly defines only the bare minimum of parameters that could be most beneficial to users. Users are encouraged to add new parameters to each provider's configuration as needed on runtime.
+
+Viewing Supported Parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``SearchAPI.describe()`` to see all accepted universal and API-specific parameters for a provider:
+
+.. code-block:: python
+
+   from scholar_flux import SearchAPI
+   
+   # View parameters for a built-in provider
+   api = SearchAPI.from_defaults(query="test", provider_name="crossref")
+   api.describe()
+   
+   # Output:
+   # {'config_fields': ['provider_name', 'base_url', 'records_per_page', 
+   #                    'request_delay', 'api_key', 'api_specific_parameters'],
+   #  'api_specific_parameters': {
+   #      'mailto': APISpecificParameter(name='mailto', 
+   #                    description='An optional contact email...', 
+   #                    validator='validate_and_process_email (function)', ...),
+   #      'sort': APISpecificParameter(name='sort', 
+   #                    description="Sort field (e.g., 'published', 'deposited')...", ...),
+   #      'order': APISpecificParameter(name='order', 
+   #                    description="Sort direction: 'asc' or 'desc'.", ...),
+   #  }}
+
+This is especially useful when:
+
+- Discovering which API-specific parameters a provider supports
+- Understanding parameter validation and requirements
+- Debugging why a parameter isn't being accepted
+
+Adding Parameters at Runtime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Extend parameter support without modifying provider configuration:
+
+.. code-block:: python
+
+   from scholar_flux import SearchCoordinator
+   from scholar_flux.api.validators import validate_str
+   
+   coordinator = SearchCoordinator(query="machine learning", provider_name="crossref")
+   
+   # Add a custom API-specific parameter for the current session
+   new_parameter_config = coordinator.api.parameter_config.add_parameter(
+           name='select',           # Actual API parameter name
+           description="A Custom filter to remove unwanted fields from retrieved records (e.g. select='doi,title')",  # Documentation
+           validator=validate_str,      # Ensures that the value is a string and raises an error otherwise
+           required=False,              # Optional parameter
+           inplace=False,              # Determines whether the global configuration settings should be modified
+   )
+   coordinator.api.parameter_config = new_parameter_config
+   
+   # Now you can use the parameter
+   result = coordinator.search(page=1, select="DOI,title,page")
+
+For lower-level control, use ``BaseAPIParameterMap.add_parameter()``:
+
+.. code-block:: python
+
+   from scholar_flux.api import provider_registry
+   from scholar_flux.api.validators import api_validator
+   from scholar_flux.api.models import APISpecificParameter
+
+   name = 'crossref'
+   # The decorator just provides more information on the field and provider if a validation error occurs.
+   @api_validator(provider_name=name, field="select")
+   def check_selection(value: str):
+       """Simple validator for ensuring that received values are strings."""
+       if value is not None and not isinstance(value, str):
+           raise TypeError(f"The received value ({value}) is not a string...")
+       return value
+   
+   # Get the provider's parameter map
+   config = provider_registry.get(name)
+   
+   # Add a single parameter efficiently
+   config.parameter_map.api_specific_parameters['select'] = APISpecificParameter(
+           name='select',           # Actual API parameter name
+           description="A Custom filter to remove unwanted fields from retrieved records (e.g. select='doi,title')",  # Documentation
+           validator=validate_str,      # Ensures that the value is a string and raises an error otherwise
+           required=False,              # Optional parameter
+   )
+
+   result = coordinator.search(page=2, select="DOI,title,page")
+
+.. tip::
+   Runtime parameter extensions are session-scoped and don't persist. For permanent additions, define them in your ``ProviderConfig``.
+
 Common Patterns
 ===============
 

@@ -62,6 +62,7 @@ def truncate(
 
         >>> truncate({'a': 1}, max_length=50, show_count=False)
         "{'a': 1}"
+
     """
     # Handle None explicitly
     if value is None:

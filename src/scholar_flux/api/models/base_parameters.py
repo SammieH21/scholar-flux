@@ -10,6 +10,7 @@ Classes:
 """
 from __future__ import annotations
 from typing import Optional, Dict, Any, Callable
+from typing_extensions import Self
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 from scholar_flux.utils.repr_utils import generate_repr, generate_repr_from_string
@@ -156,6 +157,50 @@ class BaseAPIParameterMap(BaseModel):
 
         parameters += list(self.api_specific_parameters.keys())
         return parameters
+
+    def add_parameter(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        validator: Optional[Callable[[Any], Any]] = None,
+        default: Any = None,
+        required: bool = False,
+        inplace=True,
+    ) -> Self:
+        """Helper method that enables the efficient addition of parameters to the current parameter map.
+
+        Args:
+            name (str):
+                The name of the parameter used when sending requests to APis.
+            description (str):
+                A description of the API-specific parameter.
+            validator (Optional[Callable[[Any], Any]]):
+                An optional function/method for verifying and pre-processing parameter input based on required types,
+                constrained values, etc.
+            default (Any):
+                An default value used for the parameter if not specified by the user
+            required (bool):
+                Indicates whether the current parameter is required for API calls.
+            inplace (bool):
+                A flag that, if True, modifies the current parameter map instance in place. If False, it returns a new
+                parameter map that contains the added parameter, while leaving the original unchanged.
+
+                Note: If this instance is shared (e.g., retrieved from provider_registry), changes will affect all
+                references to this parameter map. if `inplace=True` .
+
+        Returns:
+            Self: A parameter map containing the specified parameter. If `inplace=True`, the original is
+            returned. Otherwise a new parameter map containing an updated `api_specific_parameters` dict is returned.
+
+        """
+
+        description = description if description else f"Custom Parameter: {name}"
+
+        parameter_map = self if inplace else self.model_copy(deep=True)
+        parameter_map.api_specific_parameters[name] = APISpecificParameter(
+            name=name, description=description, validator=validator, default=default, required=required
+        )
+        return parameter_map
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the BaseAPIParameterMap."""

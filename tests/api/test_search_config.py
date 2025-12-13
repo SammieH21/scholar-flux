@@ -345,8 +345,8 @@ def test_missing_required_parameter():
     """Validates that, when a parameter is required but missing, it throws an error if a default is otherwise not
     specified.
 
-    Uses crossref to validate that a value error is thrown when a SearchAPIConfig instance is created without the
-    API-specific parameter being assigned a value.
+    Uses crossref to validate that a value error is thrown when a SearchAPIConfig instance is created without the API-
+    specific parameter being assigned a value.
 
     """
     provider_name = "crossref"

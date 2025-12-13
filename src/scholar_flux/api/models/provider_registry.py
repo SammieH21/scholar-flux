@@ -38,7 +38,7 @@ class ProviderRegistry(BaseProviderDict):
         """Attempt to retrieve a ProviderConfig instance for the given provider name.
 
         Args:
-            provider_name (str): Name of the default provider
+            key (str): Name of the provider
 
         Returns:
             ProviderConfig: instance configuration for the provider if it exists
@@ -74,7 +74,7 @@ class ProviderRegistry(BaseProviderDict):
         """Helper method that creates and registers a new ProviderConfig with the current provider registry.
 
         Args:
-            key (str):
+            provider_name (str):
                 The name of the provider to create a new provider_config for.
             `**kwargs`:
                 Additional keyword arguments to pass to `scholar_flux.api.models.ProviderConfig`
@@ -125,7 +125,7 @@ class ProviderRegistry(BaseProviderDict):
         provider's base URL. Will not throw an error in the event that the provider does not exist.
 
         Args:
-            provider_url (Optional[str]): Name of the default provider
+            provider_url (Optional[str]): URL of the provider to look up.
 
         Returns:
             Optional[ProviderConfig]: Instance configuration for the provider if it exists, else None
@@ -147,8 +147,10 @@ class ProviderRegistry(BaseProviderDict):
 
     @classmethod
     def from_defaults(cls) -> ProviderRegistry:
-        """Helper method that dynamically loads providers from the scholar_flux.api.providers module specifically
-        reserved for default provider configs.
+        """Dynamically loads provider configurations from the scholar_flux.api.providers module.
+
+        This method specifically uses the `provider_name` of each provider listed within the
+        `scholar_flux.api.providers.provider_registry` to lookup and return its `ProviderConfig`.
 
         Returns:
             ProviderRegistry: A new registry containing the loaded default provider configurations
@@ -177,7 +179,7 @@ class ProviderRegistry(BaseProviderDict):
                 The prospective URL associated with a provider configuration.
             provider_name (Optional[str]):
                 The prospective name of the provider associated with a provider configuration.
-            verbose (Optional[str]):
+            verbose (bool):
                 Determines whether the origin of the configuration should be logged.
         Returns:
             Optional[ProviderConfig]:

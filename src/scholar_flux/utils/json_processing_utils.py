@@ -109,7 +109,7 @@ class PathUtils:
 
     @classmethod
     def path_split(cls, path: str, delimiter: Optional[str] = None) -> List[str]:
-        """Splits a path on the cls.DELIMITER value
+        """Splits a path on the cls.DELIMITER value.
 
         Args:
             path (str): A string-based path to be split into a list
@@ -141,6 +141,7 @@ class PathUtils:
             ['authors', '0', 'name']
             >>> PathUtils.to_path_sequence(["authors", 0, "name"])
             ['authors', 0, 'name']
+
         """
         if isinstance(path, str):
             return cls.path_split(path, delimiter)
@@ -357,7 +358,7 @@ class JsonRecordData:
     data: Dict[str, Any]
 
     def structure(self) -> str:
-        """Helper method used to identify duplicate paths before addition"""
+        """Helper method used to identify duplicate paths before addition."""
         return f"{self.__class__.__name__}(path={self.path}, data={self.data})"
 
     def __repr__(self) -> str:
@@ -365,7 +366,7 @@ class JsonRecordData:
         return self.structure()
 
     def __hash__(self) -> int:
-        """Helper method used to resolve"""
+        """Helper method used to resolve."""
         return hash(self.structure())
 
 
@@ -570,7 +571,7 @@ class RecursiveJsonProcessor:
         return []
 
     def create_record(self, obj: Any, path: List[Any]) -> List[JsonRecordData]:
-        """Helper method for creating a new record within the current JsonProcessor"""
+        """Helper method for creating a new record within the current JsonProcessor."""
         obj = list(obj) if isinstance(obj, tuple) else obj
         obj_info = JsonRecordData(data=obj, path=path)
         if obj_info not in self.extracted_record_data_list:

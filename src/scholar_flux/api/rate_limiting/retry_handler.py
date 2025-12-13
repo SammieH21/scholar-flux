@@ -15,7 +15,7 @@ from scholar_flux.exceptions import RequestFailedException, InvalidResponseExcep
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.utils.helpers import get_first_available_key, parse_iso_timestamp
 from scholar_flux.utils.repr_utils import generate_repr
-from typing import Optional, Callable, Mapping
+from typing import Any, Optional, Callable, Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -33,23 +33,29 @@ class RetryHandler:
         self,
         max_retries: int = 3,
         backoff_factor: float = 0.5,
-        max_backoff: int = 120,
+        max_backoff: int | float = 120,
         retry_statuses: Optional[set[int] | list[int]] = None,
         raise_on_error: Optional[bool] = None,
+        min_retry_delay: Optional[int | float] = None,
     ):
         """Helper class to send and retry requests of a specific status code. The RetryHandler also dynamically controls
         the degree of rate limiting that occurs upon observing a rate limiting error status code.
 
         Args:
-            max_retries (int): indicates how many attempts should be performed before
-                               halting retries at retrieving a valid response
-            backoff_factor (float): indicates the factor used to adjust when the next request is
-                                  should be attempted based on past unsuccessful attempts
-            max_backoff (int): describes the maximum number of seconds to wait before submitting
+            max_retries (int):
+                Indicates how many attempts should be performed before halting retries at retrieving a valid response.
+            backoff_factor (float):
+                Indicates the factor used to adjust when the next request is should be attempted based on past
+                unsuccessful attempts.
+            max_backoff (int | float):
+                Describes the maximum number of seconds to wait before submitting the next request.
             retry_statuses (Optional[set[int]]):
-                Indicates the full list of status codes that should be retried if encountered
-            raise_on_error (Optional[bool]): Flag that indicates whether or not to raise an error
-                upon encountering an invalid status_code or exception
+                Indicates the full list of status codes that should be retried if encountered.
+            raise_on_error (Optional[bool]):
+                A flag that indicates whether or not to raise an error upon encountering an invalid status_code or
+                exception.
+            min_retry_delay (Optional[int | float]):
+                The minimum delay in seconds between requests.
 
         """
         self.max_retries = max_retries if max_retries >= 0 else 0
@@ -57,20 +63,37 @@ class RetryHandler:
         self.max_backoff = max_backoff if max_backoff >= 0 else 0
         self.retry_statuses = retry_statuses if retry_statuses is not None else self.DEFAULT_RETRY_STATUSES
         self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
+        self.min_retry_delay = min_retry_delay if min_retry_delay and min_retry_delay >= 0 else 0
 
     def execute_with_retry(
         self,
         request_func: Callable,
         validator_func: Optional[Callable] = None,
+        sleep_func: Optional[Callable[[float], None]] = None,
         *args,
+        backoff_factor: Optional[int | float] = None,
+        max_backoff: Optional[int | float] = None,
+        min_retry_delay: Optional[int | float] = None,
         **kwargs,
     ) -> Optional[requests.Response | ResponseProtocol]:
         """Sends a request and retries on failure based on predefined criteria and validation function.
 
         Args:
-            request_func: The function to send the request.
-            validator_func: A function that takes a response and returns True if valid.
-            *args: Positional arguments for the request function.
+            request_func:
+                The function to send the request.
+            validator_func:
+                A function that takes a response and returns True if valid.
+            sleep_func:
+                An optional function used for blocking the next request until a specified duration has passed.
+            *args:
+                Positional arguments for the request function.
+            min_retry_delay:
+                The minimum delay in seconds between requests.
+            backoff_factor (float):
+                Indicates the factor used to adjust when the next request is should be attempted based on past
+                unsuccessful attempts.
+            max_backoff (int | float):
+                Describes the maximum number of seconds to wait before submitting the next request.
             **kwargs: Arbitrary keyword arguments for the request function.
 
         Returns:
@@ -84,6 +107,7 @@ class RetryHandler:
         attempts = 0
 
         validator_func = validator_func or self._default_validator_func
+        sleep_func = sleep_func or time.sleep
 
         response = None
         msg = None
@@ -106,7 +130,7 @@ class RetryHandler:
 
                 attempts += 1
                 if attempts <= self.max_retries:
-                    delay = self.calculate_retry_delay(attempts, response)
+                    delay = self.calculate_retry_delay(attempts, response, min_retry_delay, backoff_factor, max_backoff)
                     self.log_retry_attempt(
                         delay,
                         (
@@ -115,7 +139,7 @@ class RetryHandler:
                             else None
                         ),
                     )
-                    time.sleep(delay)
+                    sleep_func(delay)
             else:
                 msg = "Max retries exceeded without a valid response."
                 self.log_retry_warning(msg)
@@ -155,9 +179,17 @@ class RetryHandler:
         return response.status_code in self.retry_statuses
 
     def calculate_retry_delay(
-        self, attempt_count: int, response: Optional[requests.Response | ResponseProtocol] = None
-    ) -> float:
+        self,
+        attempt_count: int,
+        response: Optional[requests.Response | ResponseProtocol] = None,
+        min_retry_delay: Optional[int | float] = None,
+        backoff_factor: Optional[int | float] = None,
+        max_backoff: Optional[int | float] = None,
+    ) -> int | float:
         """Calculate delay for the next retry attempt."""
+        min_retry_delay = min_retry_delay if isinstance(min_retry_delay, (int, float)) else self.min_retry_delay
+        backoff_factor = backoff_factor if isinstance(backoff_factor, (int, float)) else self.backoff_factor
+        max_backoff = max_backoff if isinstance(max_backoff, (int, float)) else self.max_backoff
 
         retry_after = self.get_retry_after(response)
 
@@ -165,17 +197,37 @@ class RetryHandler:
             return retry_after
 
         logger.debug("Defaulting to using 'max_backoff'...")
-        return min(self.backoff_factor * (2**attempt_count), self.max_backoff)
+        return min_retry_delay + min(backoff_factor * (2**attempt_count), max_backoff)
 
     @classmethod
-    def extract_retry_after(cls, headers: Optional[Mapping], keys: Optional[tuple] = None) -> Optional[str]:
+    def extract_retry_after_from_response(
+        cls, response: Optional[requests.Response | ResponseProtocol]
+    ) -> Optional[str]:
+        """Extracts and parses retry-after delay from any response type.
+
+        This method handles both raw responses (Response/ResponseProtocol) and processed responses
+        (ProcessedResponse/ErrorResponse), making it the single entry point for retry-after extraction.
+
+        Args:
+            response: Any response object with headers
+
+        Returns:
+            Optional[str]: The unparsed `retry-after` header in seconds, or None if not present
+
+        """
+        if isinstance(response, requests.Response) or isinstance(response, ResponseProtocol):
+            return cls.extract_retry_after({k: v for k, v in (response.headers or {}).items() if v is not None})
+        return None
+
+    @classmethod
+    def extract_retry_after(cls, headers: Optional[Mapping[str, Any]], keys: Optional[tuple] = None) -> Optional[str]:
         """Extracts the `retry-after field from dictionary headers if the field exists."""
         candidate_rate_limiter_keys: tuple = keys or cls.DEFAULT_RETRY_AFTER_HEADERS
         value = get_first_available_key(headers or {}, candidate_rate_limiter_keys, case_sensitive=False)
         return value
 
     @classmethod
-    def get_retry_after(cls, response: Optional[requests.Response] | ResponseProtocol) -> Optional[int | float]:
+    def get_retry_after(cls, response: Optional[requests.Response | ResponseProtocol]) -> Optional[int | float]:
         """Calculates the time that must elapse before the next request is sent according to the headers.
 
         Args:
@@ -185,11 +237,9 @@ class RetryHandler:
             Optional[float]: Indicates the number of seconds that must elapse before the next request is sent.
 
         """
-        if response is not None and (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)):
-            value = cls.extract_retry_after({k: v for k, v in (response.headers or {}).items() if v is not None})
-            retry_after = cls.parse_retry_after(value) if value is not None else None
-            return retry_after
-        return None
+        value = cls.extract_retry_after_from_response(response)
+        retry_after = cls.parse_retry_after(value) if value is not None else None
+        return retry_after
 
     @classmethod
     def _parse_retry_after_date(cls, retry_after: str) -> datetime.datetime:

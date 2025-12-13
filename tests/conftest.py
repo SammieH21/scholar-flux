@@ -6,9 +6,9 @@ The test suite fixtures are prepared to aid the testing of both simulated and kn
 
 """
 
-from tests.testing_utilities import enable_debugging
+from tests.testing_utilities import prepare_env
 
-enable_debugging()
+prepare_env()
 
 from tests.fixtures.plos_api import (
     plos_search_api,

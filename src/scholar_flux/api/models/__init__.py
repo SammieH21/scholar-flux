@@ -23,6 +23,7 @@ from scholar_flux.api.models.api_parameters import APIParameterMap, APIParameter
 from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.provider_registry import ProviderRegistry
+from scholar_flux.api.models.response_history import ResponseHistoryRegistry
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 
 from scholar_flux.api.models.response_types import APIResponseType
@@ -51,6 +52,7 @@ __all__ = [
     "AcademicFieldMap",
     "ProviderConfig",
     "ProviderRegistry",
+    "ResponseHistoryRegistry",
     "BaseProviderDict",
     "APIResponse",
     "ErrorResponse",

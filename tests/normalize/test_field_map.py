@@ -29,7 +29,7 @@ def mock_simple_record_dictionary() -> dict[str, Any]:
 
 @pytest.fixture
 def mock_complex_record_dictionary(mock_simple_record_dictionary: dict[str, Any]) -> dict[str, Any]:
-    """A somewhat complex, mock record dictionary used to verify the normalization of academic API fields"""
+    """A somewhat complex, mock record dictionary used to verify the normalization of academic API fields."""
     (paraphrased_abstract_text, attribution) = mock_simple_record_dictionary["mock_abstract"].split("—")
     attribution = f"—{attribution}"
     mock_complex_record_dictionary = {
@@ -227,7 +227,7 @@ def test_incorrect_record_normalization(caplog):
 
 
 def test_incorrect_field_map_provider_type():
-    """Verifies that the BaseFieldMap raises an error when the provider type is of the incorrect type"""
+    """Verifies that the BaseFieldMap raises an error when the provider type is of the incorrect type."""
     invalid_provider_name = ["not a valid provider"]
     with pytest.raises(ValueError) as excinfo:
         _ = BaseFieldMap(provider_name=invalid_provider_name)  # type: ignore

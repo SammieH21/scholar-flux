@@ -1,9 +1,14 @@
 # /api/providers/pubmed_efetch.py
 """Defines the core configuration necessary to interact with the PubMed eFetch API using the scholar_flux package."""
+from functools import partial
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
 from scholar_flux.api.normalization.pubmed_efetch_field_map import field_map
+from scholar_flux.api.validators import validate_api_specific_field, validate_str
+
+name = "pubmed_efetch"
+validate_pubmed_efetch_field = partial(validate_api_specific_field, provider_name=name)
 
 provider = ProviderConfig(
     parameter_map=BaseAPIParameterMap(
@@ -17,7 +22,7 @@ provider = ProviderConfig(
             db=APISpecificParameter(
                 name="db",
                 description="A database to connect to for retrieving records/metadata",
-                validator=None,
+                validator=validate_pubmed_efetch_field(validate_str, field="db"),
                 default="pubmed",
                 required=False,
             ),
@@ -28,7 +33,7 @@ provider = ProviderConfig(
                     "Example: cmd=neighbor_history (Used to determine computational neighbors "
                     "during an Entrez search)"
                 ),
-                validator=None,
+                validator=validate_pubmed_efetch_field(validate_str, field="cmd"),
                 required=False,
             ),
             query_key=APISpecificParameter(
@@ -39,7 +44,7 @@ provider = ProviderConfig(
                     "for the retrieval of abstracts/metadata associated with the previous search term. "
                     "without the explicit specification of article Ids"
                 ),
-                validator=None,
+                validator=validate_pubmed_efetch_field(validate_str, field="query_key"),
                 required=False,
             ),
             WebEnv=APISpecificParameter(
@@ -62,14 +67,14 @@ provider = ProviderConfig(
                 name="retmode",
                 description="The format to retrieve",
                 default="xml",
-                validator=None,
+                validator=validate_pubmed_efetch_field(validate_str, field="retmode"),
                 required=False,
             ),
         ),
     ),
     metadata_map=ResponseMetadataMap(total_query_hits="Count", records_per_page="RetMax"),
     field_map=field_map,
-    provider_name="pubmed_efetch",
+    provider_name=name,
     base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
     api_key_env_var="PUBMED_API_KEY",
     records_per_page=20,

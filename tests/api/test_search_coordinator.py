@@ -14,11 +14,19 @@ from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonRespons
 from tests.testing_utilities import raise_error
 
 from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
+from scholar_flux.api import ReconstructedResponse
 
 from scholar_flux.exceptions import (
     RequestCacheException,
     StorageCacheException,
 )
+
+
+@pytest.fixture(autouse=True)
+def clear_response_history():
+    """Helper fixture that clears response history in between tests to ensure that invalid mocks don't carry over."""
+    yield
+    SearchCoordinator._response_history.clear()
 
 
 @pytest.mark.parametrize(
@@ -66,8 +74,7 @@ def test_incorrect_config(param_overrides, caplog):
 
 
 def test_blank_create_api():
-    """Verifies that an attempt to create a Search API without any arguments correctly raises a
-    QueryValidationError."""
+    """Verifies that an attempt to create a Search API without any arguments correctly raises a QueryValidationError."""
     with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
         _ = SearchCoordinator._create_search_api()
     assert "Either 'query' or 'search_api' must be provided." in str(excinfo.value)
@@ -335,12 +342,12 @@ def test_initialization_updates():
 
     # as a template rather than modify it inplace altogether
     assert api is not new_api
-    assert new_api._rate_limiter != api._rate_limiter
+    assert new_api.rate_limiter != api.rate_limiter
 
     # reinitializes the original API object in comparison with a new query, config, and rate limiter
     api._initialize(api.query, config=api.config, parameter_config=api.parameter_config, rate_limiter=rate_limiter)
     # ensure that the rate limiter is overridden as intended and the newly created search APIs use a previous SearchAPI
-    assert api._rate_limiter is rate_limiter and api.config.request_delay == rate_limiter.min_interval == 30
+    assert api.rate_limiter is rate_limiter and api.config.request_delay == rate_limiter.min_interval == 30
 
     # the SearchCoordinator should also use the same rate limiter from the current API
     search_coordinator2 = SearchCoordinator.as_coordinator(new_api, search_coordinator.responses)
@@ -749,19 +756,19 @@ def test_unexpected_nonpaginated_search_failure(monkeypatch, caplog):
     assert not nonresponse.url and not nonresponse.cache_key
 
 
-def test_respect_retry_after_wait_called():
-    """Tests that `_respect_retry_after` calls `_wait` with correct delay and timestamp when retry-after is present."""
+def test_respect_retry_after_date_sleep_called():
+    """Tests that `_respect_retry_after` calls `sleep` with correct delay and timestamp when retry-after is present."""
     api = SearchAPI.from_defaults(
         provider_name="plos",
         query="test",
         records_per_page=10,
     )
     coordinator = SearchCoordinator(api)
-    coordinator.api._rate_limiter._wait = MagicMock()  # type: ignore
+    coordinator.api.rate_limiter._sleep = MagicMock()  # type: ignore
     coordinator.retry_handler.max_retries = 0
 
     # Simulate a last_response with a Retry-After header as a date
-    retry_after_date = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=30)
+    retry_after_date = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=3)
     date_str = retry_after_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     prepared_search = coordinator.api.prepare_search(page=1)
@@ -775,9 +782,37 @@ def test_respect_retry_after_wait_called():
         assert isinstance(result, ErrorResponse)
         assert isinstance(coordinator.last_response, ErrorResponse)
 
+    # Assert sleep was called with a positive delay and correct timestamp
+    assert coordinator.api.rate_limiter._sleep.called
+    args, _ = coordinator.api.rate_limiter._sleep.call_args
+    delay = args[0]
+    assert delay > 0
+    assert isinstance(delay, (int, float))
+
+
+def test_respect_retry_after_wait_called():
+    """Tests that `_respect_retry_after` calls `_wait` with correct delay and timestamp when retry-after is present."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        records_per_page=10,
+    )
+    coordinator = SearchCoordinator(api)
+    coordinator.api.rate_limiter._wait = MagicMock()  # type: ignore
+    coordinator.retry_handler.max_retries = 0
+
+    prepared_search = coordinator.api.prepare_search(page=1)
+
+    with requests_mock.Mocker() as m:
+        m.get(prepared_search.url, status_code=429, headers={"Content-Type": "application/json", "Retry-After": "2"})
+        result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
+        coordinator._respect_retry_after()
+        assert isinstance(result, ErrorResponse)
+        assert isinstance(coordinator.last_response, ErrorResponse)
+
     # Assert _wait was called with a positive delay and correct timestamp
-    assert coordinator.api._rate_limiter._wait.called
-    args, kwargs = coordinator.api._rate_limiter._wait.call_args
+    assert coordinator.api.rate_limiter._wait.called
+    args, kwargs = coordinator.api.rate_limiter._wait.call_args
     delay, timestamp = args
     assert delay > 0
     assert isinstance(timestamp, float)
@@ -785,14 +820,14 @@ def test_respect_retry_after_wait_called():
 
 @pytest.mark.parametrize("retry_after_value", (None, "", "non-numeric", "3-23-1923"))
 def test_respect_retry_after_malformed(retry_after_value):
-    """Verifies that `_wait()` method is not called if the `retry_after` header value is malformed."""
+    """Verifies that `sleep()` method is not called if the `retry_after` header value is malformed."""
     api = SearchAPI.from_defaults(
         provider_name="plos",
         query="test",
         records_per_page=10,
     )
     coordinator = SearchCoordinator(api)
-    coordinator.api._rate_limiter._wait = MagicMock()  # type: ignore
+    coordinator.api.rate_limiter.sleep = MagicMock()  # type: ignore
     coordinator.retry_handler.max_retries = 0
 
     prepared_search = coordinator.api.prepare_search(page=1)
@@ -801,10 +836,98 @@ def test_respect_retry_after_malformed(retry_after_value):
             prepared_search.url,
             status_code=429,
             headers={"Content-Type": "application/json", "Retry-After": retry_after_value},
+            json={"status": "not ok"},
         )
         result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
         assert isinstance(result, ErrorResponse) and result is not None
         coordinator._respect_retry_after()  # retry-after then defaults to 0 and skips
 
-    # Assert _wait was not called
-    assert not coordinator.api._rate_limiter._wait.called
+    # Assert sleep was not called
+    assert not coordinator.api.rate_limiter.sleep.called
+
+
+def test_respect_retry_after_implicit_wait():
+    """Verifies that `wait()` method is called when the retry-handler requires the request to be re-sent."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        records_per_page=10,
+    )
+    coordinator = SearchCoordinator(api, request_delay=0.01)
+
+    coordinator.api.rate_limiter._wait = MagicMock()  # type: ignore
+    coordinator.retry_handler.max_retries = 4
+    coordinator.retry_handler.backoff_factor = 0
+
+    prepared_search = coordinator.api.prepare_search(page=1)
+    with requests_mock.Mocker() as m:
+        m.get(
+            prepared_search.url,
+            status_code=429,
+            headers={"Content-Type": "application/json"},
+        )
+
+        result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
+        assert coordinator.api.rate_limiter._wait.called
+        assert isinstance(result, ErrorResponse) and result is not None
+        assert len(coordinator.api.rate_limiter._wait.call_args_list) == coordinator.retry_handler.max_retries
+
+
+def test_robust_request_min_retry_delay(monkeypatch):
+    """Test that robust_request passes min_retry_delay from request_delay to RetryHandler."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        base_url="https://api.example.com",
+        request_delay=2.0,
+    )
+    coordinator = SearchCoordinator(api)
+    called_kwargs = {}
+
+    def mock_execute_with_retry(*args, **kwargs) -> None:
+        """Helper function for monitoring keywords that are passed to the `RetryHandler.execute_with_retry` method."""
+        called_kwargs.update(kwargs)
+        return None
+
+    monkeypatch.setattr(coordinator.retry_handler, "execute_with_retry", mock_execute_with_retry)
+    coordinator.robust_request(page=1)
+    assert called_kwargs["min_retry_delay"] == 2.0
+    coordinator.robust_request(page=1, request_delay=3.0)
+    assert called_kwargs["min_retry_delay"] == 3.0
+
+
+def test_api_specific_parameter_field_overrides(monkeypatch):
+    """Test that the `SearchAPI.search` method correctly accepts keyword parameters specified in the parameter map."""
+
+    api = SearchAPI.from_defaults(
+        provider_name="crossref",
+        query="test",
+        base_url="https://api.example.com",
+        request_delay=2.0,
+    )
+    coordinator = SearchCoordinator(api)
+    called_kwargs = {}
+
+    def monitor_and_mock_response(*args, **kwargs) -> ReconstructedResponse:
+        """Monitors the keyword args that are passed to the `api.search` method and returns a response-like object."""
+        mock_response = ReconstructedResponse.build(status_code=200, json={"status": "ok"}, url=api.base_url)
+        called_kwargs.update(kwargs)
+        return mock_response
+
+    monkeypatch.setattr(coordinator.api, "search", monitor_and_mock_response)
+
+    email = "a.valid@email.com"
+    sort_parameter = "published"
+    sort_order = "asc"
+
+    # The first call should not add any API-specific parameters to the API-call if they aren't directly specified.
+    _ = coordinator.search(1, mailto=email, sort=sort_parameter, order=sort_order)
+    assert called_kwargs["page"] == 1
+    assert "mailto" not in called_kwargs and "sort" not in called_kwargs and "order" not in called_kwargs
+
+    # The second call explicitly sets overrides for these variables which should be extracted into a `parameters` dict
+    _ = coordinator.search(2, mailto=email, sort=sort_parameter, order=sort_order)
+    assert called_kwargs["page"] == 2
+    assert called_kwargs["parameters"]["mailto"] == email
+    assert called_kwargs["parameters"]["sort"] == sort_parameter
+    assert called_kwargs["parameters"]["order"] == sort_order

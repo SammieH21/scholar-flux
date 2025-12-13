@@ -99,6 +99,7 @@ class NormalizingDataProcessor(DataProcessor):
 
         Returns:
             str: The flattened key name (without indices).
+
         """
         # Remove integer indices to get the base path
         key_path = PathUtils.remove_path_indices(path)
@@ -120,6 +121,7 @@ class NormalizingDataProcessor(DataProcessor):
 
         Returns:
             dict: A processed record with specified keys extracted.
+
         """
         if not record_dict:
             logger.debug("Record is empty: skipping...")

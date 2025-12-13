@@ -147,7 +147,8 @@ def test_repr():
         f"             backoff_factor={handler.backoff_factor},\n"
         f"             max_backoff={handler.max_backoff},\n"
         f"             retry_statuses={handler.retry_statuses},\n"
-        f"             raise_on_error={handler.raise_on_error})"
+        f"             raise_on_error={handler.raise_on_error},\n"
+        f"             min_retry_delay={handler.min_retry_delay})"
     )
 
 

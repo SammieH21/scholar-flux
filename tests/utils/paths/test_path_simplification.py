@@ -11,8 +11,8 @@ import pytest
 def test_path_uniqueness():
     """Verifies edge cases in the path simplification and flattening of data structures with redundant names.
 
-    Paths should be handled predictably without the need to use indexes if it can be helped. The path simplifier
-    will attempt to find the shortest available name that satisfies uniqueness if possible.
+    Paths should be handled predictably without the need to use indexes if it can be helped. The path simplifier will
+    attempt to find the shortest available name that satisfies uniqueness if possible.
 
     """
     record_list: list[dict] = [

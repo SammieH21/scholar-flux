@@ -209,6 +209,57 @@ Similar to Redis but with document-oriented storage:
        ttl=604800  # Expire after 7 days
    )
 
+Environment Variable Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For production deployments, you can configure default cache backends using environment variables instead of specifying them in code:
+
+.. code-block:: bash
+
+   # Session cache (HTTP responses) - used by CachedSessionManager
+   # Options: sqlite (default), redis, mongodb, memory, filesystem
+   export SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND=redis
+
+   # Processing cache (parsed data) - used by DataCacheManager
+   # Options: inmemory (default), redis, sql/sqlalchemy, mongodb, null
+   export SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE=redis
+
+   # Connection settings (optional - uses localhost defaults if not set)
+   export SCHOLAR_FLUX_REDIS_HOST=localhost
+   export SCHOLAR_FLUX_REDIS_PORT=6379
+
+With these variables set, caches use the configured backends automatically:
+
+.. code-block:: python
+
+   from scholar_flux import SearchCoordinator
+   from scholar_flux.sessions import CachedSessionManager
+   from scholar_flux.data_storage import DataCacheManager
+
+   # Backends automatically configured from environment
+   session_manager = CachedSessionManager()  # Uses SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND
+   cache_manager = DataCacheManager.from_defaults()  # Uses SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE
+
+   coordinator = SearchCoordinator(
+       query="machine learning",
+       provider_name="pubmed",
+       session=session_manager(),
+       cache_manager=cache_manager
+   )
+
+You can also configure backends programmatically at runtime:
+
+.. code-block:: python
+
+   from scholar_flux.utils import config_settings
+
+   # Set defaults before creating coordinators
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND", "redis")
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE", "redis")
+
+.. seealso::
+   See :doc:`production_deployment` for comprehensive environment configuration including ``SCHOLAR_FLUX_HOME`` setup.
+
 Using Namespaces
 ----------------
 

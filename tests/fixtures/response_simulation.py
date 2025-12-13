@@ -23,6 +23,7 @@ def mock_response() -> Response:
 def mock_successful_response() -> Response:
     """Creates a response object that simulates a 429 rate limit exceeded error."""
     mock_response = Response()
+    mock_response.url = "https://api.example.com/test"
     mock_response.status_code = 200
     mock_response.status = responses[200]  # type:ignore
     return mock_response
@@ -32,6 +33,7 @@ def mock_successful_response() -> Response:
 def mock_internal_error_response() -> Response:
     """Creates a response object that simulates a 500 internal error."""
     mock_response = Response()
+    mock_response.url = "https://api.example.com/test"
     mock_response.status_code = 500
     mock_response.status = responses[500]  # type:ignore
     return mock_response
@@ -41,6 +43,7 @@ def mock_internal_error_response() -> Response:
 def mock_unauthorized_response() -> Response:
     """Creates a response object that simulates a 401 unauthorized error."""
     mock_response = Response()
+    mock_response.url = "https://api.example.com/test"
     mock_response.status_code = 401
     mock_response.status = responses[401]  # type:ignore
     return mock_response
@@ -50,6 +53,7 @@ def mock_unauthorized_response() -> Response:
 def mock_rate_limit_exceeded_response() -> Response:
     """Creates a response object that simulates a 429 rate limit exceeded error."""
     mock_response = Response()
+    mock_response.url = "https://api.example.com/test"
     mock_response.status_code = 429
     mock_response.status = responses[429]  # type:ignore
     return mock_response

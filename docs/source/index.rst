@@ -96,6 +96,15 @@ Key Features
 * **Data Processing**: Transform responses into pandas DataFrames
 * **Response Management**: Coordinate searches with automatic caching
 
+Example Pipelines
+=================
+
+Production-quality examples demonstrating AI/ML integration patterns are available in the `examples/ <https://github.com/SammieH21/scholar-flux/tree/main/examples>`_ directory:
+
+* **Retrieval Pipeline Orchestration** - Scheduled data preparation with date filtering, deduplication, and Parquet export
+* **Semantic Similarity Search** - Embedding-based interdisciplinary paper discovery with ModernBERT
+* **Agentic Literature Review** - Multi-provider search with LLM classification via PydanticAI
+
 API Reference
 =============
 

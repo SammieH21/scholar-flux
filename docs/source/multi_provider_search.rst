@@ -1,6 +1,5 @@
-========================
 Multi-Provider Search
-========================
+=====================
 
 ScholarFlux enables concurrent searches across multiple academic databases with automatic rate limiting, shared thread management, and unified result handling. This guide demonstrates how to query multiple providers simultaneously and work with aggregated results.
 
@@ -335,7 +334,7 @@ ScholarFlux implements conservative rate limits for each provider:
 +------------------+------------------------+
 | arXiv            | 4.0 seconds            |
 +------------------+------------------------+
-| OpenAlex         | 6.0 seconds            |
+| OpenAlex         | 1.0 seconds            |
 +------------------+------------------------+
 | PubMed           | 2.0 seconds            |
 +------------------+------------------------+

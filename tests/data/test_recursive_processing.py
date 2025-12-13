@@ -79,8 +79,8 @@ def test_process_page_with_json_traverssal(mock_api_parsed_json_records):
 
 
 def test_mixed_path_formats(mock_api_parsed_json_records):
-    """Verifies that the DataProcessor accepts both string and list path formats,
-    including integer indices for non-standard JSONs."""
+    """Verifies that the DataProcessor accepts both string and list path formats, including integer indices for non-
+    standard JSONs."""
 
     # Mixed path formats
     record_keys: list = [

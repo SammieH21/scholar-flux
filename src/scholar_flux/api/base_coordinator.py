@@ -6,7 +6,7 @@ from typing_extensions import Self
 import logging
 
 from scholar_flux.api import SearchAPI, ResponseCoordinator
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse
+from scholar_flux.api.models import ProcessedResponse, ErrorResponse, ResponseHistoryRegistry
 from scholar_flux.exceptions import (
     RequestFailedException,
     InvalidCoordinatorParameterException,
@@ -58,6 +58,8 @@ class BaseCoordinator:
 
     """
 
+    _response_history: ResponseHistoryRegistry = ResponseHistoryRegistry()
+
     def __init__(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator):
         """Initializes the base coordinator by delegating assignment of attributes to the _initialize method. Future
         coordinators can follow a similar pattern of using an _initialize for initial parameter assignment.
@@ -75,7 +77,16 @@ class BaseCoordinator:
         """Initializes the BaseCoordinator with a SearchApi and the constructed ResponseCoordinator."""
         self.search_api = search_api
         self.response_coordinator = response_coordinator
-        self.last_response: Optional[ProcessedResponse | ErrorResponse] = None
+
+    @property
+    def last_response(self) -> Optional[ProcessedResponse | ErrorResponse]:
+        """Retrieves the last response sent to a provider."""
+        return self._response_history.get(self.search_api.provider_name)
+
+    @last_response.setter
+    def last_response(self, response: ProcessedResponse | ErrorResponse) -> None:
+        """Records the last response sent to a provider."""
+        self._response_history.add(self.search_api.provider_name, response)
 
     @property
     def api(self) -> SearchAPI:
@@ -238,7 +249,10 @@ class BaseCoordinator:
         """Helper method for showing the structure of the current search coordinator."""
         class_name = self.__class__.__name__
 
-        attributes = {"search_api": self.api.summary(), "response_coordinator": self.response_coordinator.summary()}
+        attributes = {
+            "search_api": self.search_api.summary(),
+            "response_coordinator": self.response_coordinator.summary(),
+        }
 
         return generate_repr_from_string(class_name, attributes)
 

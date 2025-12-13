@@ -112,7 +112,9 @@ def test_parameter_build_successful(provider_name, original_config_test_api_key)
         required_provider_parameters.add(api_parameter_map.api_key_parameter)
 
     # uses the default configuration under the hood for the current provider with a mocked API key to verify the result
-    crossref_user_email = "avalid@email.com" if provider_name == "crossref" else None
+    crossref_user_email = (
+        "avalid@email.com" if "mailto" in provider_config.parameter_map.api_specific_parameters else None
+    )
     api = SearchAPI(
         query="test_query",
         provider_name=provider_name,
@@ -296,7 +298,7 @@ def test_build_with_additional_parameters(caplog):
 
     # won't show in the map if config["CROSSREF_API_KEY"] is None
     assert api.parameter_config.map.api_key_parameter not in params or isinstance(
-        config_settings.config["CROSSREF_API_KEY"], SecretStr
+        config_settings.get("CROSSREF_API_KEY"), SecretStr
     )
 
     assert "new_parameter" in params
@@ -317,14 +319,18 @@ def test_basic_parameter_overrides(caplog):
     updated_mailto = "another@validemail.com"
     # An api key can be swapped mid parameter build, but not encouraged
     params = api.build_parameters(page=1, mailto=updated_mailto)
-
     # Verifies that the mailto attribute can be successfully overridden
-    assert (
-        "The following additional parameters will be used to override the current parameter list: {'mailto': '***'}"
-        in caplog.text
+    pattern = (
+        r"The following additional parameters will be used to override the current parameter list: "
+        r"{.*'mailto': '\*\*\*'.*}"
     )
+    assert re.search(pattern, caplog.text)
 
     assert params["mailto"] == updated_mailto
+
+    # remaining parameters should be missing because a value was not provided during parameter building
+    assert "sort" not in params
+    assert "order" not in params
 
 
 def test_api_key_build_parameter_overrides(caplog):
@@ -849,8 +855,8 @@ def test_prepare_search_and_prepare_request_equivalence(page, default_search_api
 def test_search_with_endpoint_only(default_search_api):
     """Verifies that searches specifying only `endpoint` without a `page` or `parameters` argument are successful.
 
-    The `search()` argument, by default should only allow searches if at least one parameter/endpoit is specified
-    when `page` is not directly provided and will otherwise raise an APIParameterException.
+    The `search()` argument, by default should only allow searches if at least one parameter/endpoit is specified when
+    `page` is not directly provided and will otherwise raise an APIParameterException.
 
     """
     expected_url = urljoin(default_search_api.base_url, "works")

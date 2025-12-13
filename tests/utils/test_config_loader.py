@@ -76,6 +76,34 @@ def test_config_saving_equivalence(cleanup, tmp_path):
     assert new_loader.config == loader.config
 
 
+@pytest.mark.parametrize(
+    ("key", "mock_value"),
+    (
+        ("SECRET_TOKEN", "123456789"),
+        ("A_RANDOM_API_KEY", "53210___"),
+        ("SCHOLAR_FLUX_DEFAULT_MAILTO", "a.valid@mail.com"),
+    ),
+)
+def test_config_sensitive_string_masking_roundtrip(key, mock_value, caplog):
+    """Verifies that sensitive values (emails, tokens, API keys) are masked when storing and retrieving from config."""
+    loader = ConfigLoader()
+
+    masked_value = SensitiveDataMasker.mask_secret(mock_value)
+
+    # Assume that the pydantic.SecretStr is already present within the config - setup
+    loader.config[key] = masked_value
+
+    # Retrieve the masked value - should remain a secret. Use `SensitiveDataMasker.unmask_secret` to unmask if masked
+    assert masked_value == loader.get(key)
+
+    # Set the unmasked value - should mask on storage if unmasked
+    loader.set(key, mock_value, verbose=True)
+    # When retrieved, the value should still be masked
+    assert loader.get(key) == masked_value
+    # Verify that the previous value was the overwritten and logged
+    assert f"Overwriting configuration setting: {key}" in caplog.text
+
+
 def test_write_key_creates_env_file_if_missing(cleanup, tmp_path):
     """Validates whether the creation of a new env file on `self.write_key` is successful when not already created."""
     env_path = tmp_path / ".env"

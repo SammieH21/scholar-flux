@@ -38,9 +38,21 @@ def test_validate_invalid_type():
 
 
 def test_validate_negative():
-    """Verifies that an error is thrown when min_interval is assigned a negative number."""
+    """Verifies that an error is thrown when timestamp is assigned a negative number."""
     with pytest.raises(APIParameterException):
         RateLimiter._validate(-1)
+
+
+def test_validate_timestamp_type():
+    """Verifies that the use of strings raises an error upon assignment."""
+    with pytest.raises(APIParameterException):
+        RateLimiter._validate_timestamp("bad")  # type:ignore
+
+
+def test_validate_timestamp_negative():
+    """Verifies that an error is thrown when timestamp is assigned a negative number."""
+    with pytest.raises(APIParameterException):
+        RateLimiter._validate_timestamp(-1)
 
 
 @pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
@@ -52,7 +64,7 @@ def test_wait_sleeps_when_needed_real_time(Limiter):
     recording the time when sleep was last performed.
 
     """
-    limiter = Limiter(0.05)
+    limiter = Limiter(5.00)
     limiter._last_call = time.time()
     # Simulate a call before min_interval has passed
     with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
@@ -64,11 +76,58 @@ def test_wait_sleeps_when_needed_real_time(Limiter):
 
 
 @pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
-def test_wait_no_sleep_if_enough_time_real_time(Limiter):
+def test_basic_sleep_real_time(Limiter):
     """Verifies that the sleep function will not wait if enough time has passed between the last call of the `wait()`
     method."""
-    limiter = Limiter(0.01)
-    limiter._last_call = time.time() - 0.02  # Enough time has passed
+    interval = 5.00
+    limiter = Limiter(interval)
+    with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
+        limiter.sleep()
+        mock_sleep.assert_called()
+        sleep_arg = mock_sleep.call_args[0][0]
+        assert sleep_arg == interval
+
+
+@pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
+def test_wait_since_now_real_time(Limiter):
+    """Verifies that the `_sleep` function will be called if `wait_since()` does not receive a timestamp method."""
+    interval = 5.00
+    limiter = Limiter()
+    with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
+        limiter.wait_since(interval)
+        mock_sleep.assert_called()
+        sleep_arg = mock_sleep.call_args[0][0]
+        assert sleep_arg == interval
+
+
+@pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
+def test_wait_since_timestamp_real_time(Limiter):
+    """Verifies that the sleep time will be adjusted if `wait_since()` receives a timestamp."""
+    interval = 1.01
+    limiter = Limiter()
+    with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
+        limiter.wait_since(interval, timestamp=time.time() - 1)
+        mock_sleep.assert_called()
+        sleep_arg = mock_sleep.call_args[0][0]
+        assert 0 < sleep_arg < 0.02  # should be approximately .01 seconds slept
+
+
+@pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
+def test_wait_no_sleep_when_time_elapsed(Limiter):
+    """Verifies that the sleep function will not wait if enough time has passed between the last call of the `wait()`
+    method."""
+    limiter = Limiter(1.01)
+    limiter._last_call = time.time() - 1.02  # Enough time has passed
+    with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
+        limiter.wait()
+        mock_sleep.assert_not_called()
+
+
+@pytest.mark.parametrize("Limiter", (RateLimiter, ThreadedRateLimiter))
+def test_skip_sleep_if_not_positive_time(Limiter):
+    """Verifies that the sleep function will not wait if enough time has passed between the last call of the `wait()`
+    method."""
+    limiter = Limiter(0)
     with patch("scholar_flux.api.rate_limiting.rate_limiter.time.sleep") as mock_sleep:
         limiter.wait()
         mock_sleep.assert_not_called()
@@ -121,8 +180,9 @@ def test_rate_context_manager_temporary_interval(mock_time):
     limiter = RateLimiter(5)
     mock_time.side_effect = ["method called 0 times", "called 1 time"]
     orig_interval = limiter.min_interval
-    with limiter.rate(2):
-        assert limiter.min_interval == orig_interval  # min_interval is not changed permanently
+    new_interval = 2
+    with limiter.rate(new_interval):
+        assert limiter.min_interval == new_interval  # min_interval is not changed permanently
     assert limiter.min_interval == orig_interval
 
 

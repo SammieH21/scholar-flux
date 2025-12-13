@@ -17,7 +17,7 @@ ScholarFlux is designed for production-grade data collection from academic APIs.
 - **Essential patterns**: Caching, concurrency, and security basics
 
 .. note::
-   ScholarFlux is currently **beta (v0.3.0)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
+   ScholarFlux is currently **beta (v0.3.1)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
 
 Prerequisites
 -------------
@@ -151,24 +151,137 @@ API Provider Keys
    OPEN_ALEX_API_KEY=<insert_your_key>
    CROSSREF_API_KEY=<insert_your_key>
 
-Cache Backend Configuration
+ Session and Request Defaults
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Configure default behavior for API requests across all providers:
 
 .. code-block:: bash
 
-   # Redis (recommended for production)
+   # Default User-Agent for all sessions (recommended for production)
+   SCHOLAR_FLUX_DEFAULT_USER_AGENT=MyApp/1.0 (https://example.com; mailto:contact@example.com)
+
+   # Default mailto for Crossref and OpenAlex (enables "polite pool" access)
+   SCHOLAR_FLUX_DEFAULT_MAILTO=your.email@institution.edu
+
+.. tip::
+   **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` with a valid email automatically enables higher rate limits for Crossref and OpenAlex:
+   
+   - **OpenAlex**: 10 requests/second with mailto (vs. 1 req/sec without) — a 10x improvement
+   - **Crossref**: Priority access and faster responses for identified users
+   
+   As of v0.3.1, ScholarFlux reduced the default OpenAlex ``request_delay`` from 6s to 1s to align with their documented rate limits. Combined with ``mailto``, this significantly improves throughput for OpenAlex queries.
+
+These variables are read automatically when creating sessions and search coordinators, eliminating the need to specify them in code:
+
+.. code-block:: python
+
+   # Without environment variables - must specify each time
+   coordinator = SearchCoordinator(
+       query="machine learning",
+       provider_name="crossref",
+       mailto="your.email@institution.edu"
+   )
+
+   # With SCHOLAR_FLUX_DEFAULT_MAILTO set - automatically applied
+   coordinator = SearchCoordinator(
+       query="machine learning",
+       provider_name="crossref"
+   )
+   # mailto is automatically read from environment
+
+Cache Backend Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Configure default cache backends via environment variables. This eliminates the need to specify backends in code:
+
+.. code-block:: bash
+
+   # Layer 1: HTTP Response Cache (CachedSessionManager)
+   # Controls the default backend for requests-cache session caching
+   # Options: sqlite (default), redis, mongodb, memory, filesystem, gridfs, dynamodb
+   SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND=redis
+
+   # Layer 2: Processed Response Cache (DataCacheManager)
+   # Controls the default storage for processed API response caching
+   # Options: inmemory (default), redis, sql/sqlalchemy, mongodb, null
+   SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE=redis
+
+   # Redis connection (used by both layers when redis backend is selected)
    SCHOLAR_FLUX_REDIS_HOST=localhost        # or REDIS_HOST
    SCHOLAR_FLUX_REDIS_PORT=6379             # or REDIS_PORT
 
-   # MongoDB (alternative)
+   # MongoDB connection (alternative)
    SCHOLAR_FLUX_MONGODB_HOST=mongodb://127.0.0.1   # or MONGODB_HOST
    SCHOLAR_FLUX_MONGODB_PORT=27017                 # or MONGODB_PORT
 
    # Default provider (optional)
    SCHOLAR_FLUX_DEFAULT_PROVIDER=plos
 
+With these environment variables set, cache backends are configured automatically:
+
+.. code-block:: python
+
+   from scholar_flux import SearchCoordinator
+   from scholar_flux.sessions import CachedSessionManager
+   from scholar_flux.data_storage import DataCacheManager
+
+   # Without environment variables - must specify backends explicitly
+   session_manager = CachedSessionManager(backend='redis')
+   cache_manager = DataCacheManager.with_storage('redis')
+
+   # With SCHOLAR_FLUX_DEFAULT_*_CACHE_* variables set - automatic configuration
+   session_manager = CachedSessionManager()  # Uses SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND
+   cache_manager = DataCacheManager.from_defaults()  # Uses SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE
+
+   # SearchCoordinator also respects these defaults
+   coordinator = SearchCoordinator(
+       query="machine learning",
+       provider_name="pubmed",
+       session=session_manager(),
+       cache_manager=cache_manager
+   )
+
 .. tip::
    ScholarFlux accepts both prefixed (``SCHOLAR_FLUX_*``) and unprefixed (``REDIS_HOST``) variables for cache backends, prioritizing the prefixed version.
+
+Runtime Configuration
+---------------------
+
+For scenarios where environment variables aren't suitable (e.g., dynamic configuration, testing), use ``config_settings`` to configure defaults at runtime:
+
+.. code-block:: python
+
+   from scholar_flux.utils import config_settings
+
+   # Set defaults programmatically (equivalent to environment variables)
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_USER_AGENT", "MyResearchApp/1.0")
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_PROVIDER", "Crossref")
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_MAILTO", "researcher@university.edu")
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND", "redis")
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE", "redis")
+
+   # Read configuration (checks config dict first, then falls back to environment)
+   user_agent = config_settings.get("SCHOLAR_FLUX_DEFAULT_USER_AGENT")
+   cache_backend = config_settings.get("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND", default="sqlite")
+
+   # Now all SearchCoordinators will use these defaults to search for academic records via Crossref
+   from scholar_flux import SearchCoordinator
+   coordinator = SearchCoordinator(query="test") 
+   # Automatically uses the configured user_agent and mailto
+
+**Priority order for configuration:**
+
+1. Explicit parameters passed to constructors
+2. Values set via ``config_settings.set()``
+3. Environment variables (from OS or ``.env`` file)
+4. Built-in defaults
+
+This pattern is useful for:
+
+- **Testing**: Override production settings without changing environment
+- **Multi-tenant applications**: Different configurations per request
+- **Dynamic configuration**: Change settings based on runtime conditions
 
 Loading Configuration
 ---------------------
@@ -307,7 +420,7 @@ Create reproducible research environments:
 
 .. code-block:: text
 
-   scholar-flux[parsing,database,cryptography]>=0.2.0
+   scholar-flux[parsing,database,cryptography]>=0.3.1
    redis>=5.0.0
    pymongo>=4.0.0
    pandas>=2.0.0
@@ -872,6 +985,14 @@ Next Steps
 ==========
 
 You now understand production deployment essentials for ScholarFlux. Continue with:
+
+**Example Pipelines:**
+
+Production-quality examples demonstrating real-world integration patterns:
+
+- `Retrieval Pipeline Orchestration <https://github.com/SammieH21/scholar-flux/tree/main/examples/retrieval_pipeline_orchestration.py>`_ - Scheduled data preparation with date filtering, deduplication, and Parquet export
+- `Semantic Similarity Search <https://github.com/SammieH21/scholar-flux/tree/main/examples/ml_springer_nature_embeddings_similarity.py>`_ - Embedding-based paper discovery with ModernBERT
+- `Agentic Literature Review <https://github.com/SammieH21/scholar-flux/tree/main/examples/agentic_literature_review.py>`_ - Multi-provider search with LLM classification via PydanticAI
 
 **Related Guides:**
 

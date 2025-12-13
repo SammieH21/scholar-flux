@@ -18,6 +18,7 @@ from scholar_flux.exceptions import (
 
 from scholar_flux.sessions import SessionManager, CachedSessionManager
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils import config_settings
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class BaseAPI:
     """
 
     DEFAULT_TIMEOUT: int = 20
-    DEFAULT_USE_CACHE: bool = False
+    DEFAULT_USE_CACHE: bool = config_settings.get("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND") is not None
 
     def __init__(
         self,
@@ -155,7 +156,10 @@ class BaseAPI:
                 ]
             ):
                 logger.debug("Creating a cached session for the BaseAPI...")
-                session = CachedSessionManager(user_agent=user_agent, backend="memory").configure_session()
+                session = CachedSessionManager(
+                    user_agent=user_agent,
+                    backend=config_settings.get("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND", "memory"),
+                ).configure_session()
 
             # create a regular non-cached session and override only if `use_cache` is explicitly set to False
             if use_cache is False and isinstance(session, CachedSession):

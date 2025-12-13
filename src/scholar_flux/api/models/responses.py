@@ -1,7 +1,9 @@
 # /api/models/responses.py
-"""The scholar_flux.api.models.responses module contains the core response types used to indicate whether the retrieval
-and processing of API responses was successful or unsuccessful. Each class uses pydantic to ensure type-validated
-responses while ensuring flexibility in how responses can be used and applied.
+"""The scholar_flux.api.models.responses module contains the core response types used during API response retrieval.
+
+These responses are designed to indicate whether the retrieval and processing of API responses was successful or
+unsuccessful while also storing relevant fields that aid in post-retrieval diagnostics. Each class uses pydantic to
+ensure type-validated responses while also ensuring flexibility in how responses can be used and applied.
 
 Classes:
     ProcessedResponse:
@@ -41,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 class APIResponse(BaseModel):
     """A Response wrapper for responses of different types that allows consistency when using several possible backends.
+
     The purpose of this class is to serve as the base for managing responses received from scholarly APIs while
     processing each component in a predictable, reproducible manner.
 
@@ -104,9 +107,9 @@ class APIResponse(BaseModel):
 
     @field_validator("response", mode="after")
     def transform_response(cls, v: Any) -> Optional[requests.Response | ResponseProtocol]:
-        """Attempts to resolve a response object as an original or
-        ReconstructedResponse: All original response objects (duck-typed or
-        requests response) with valid values will be returned as is.
+        """Attempts to resolve a valid or a serialized response-like object as an original or `ReconstructedResponse`.
+
+        All original response objects (duck-typed or requests response) with valid values will be returned as is.
 
         If the passed object is a string - this function will attempt to serialize it before
         attempting to parse it as a dictionary.
@@ -115,8 +118,8 @@ class APIResponse(BaseModel):
         if possible.
 
         Otherwise, the original object is returned as is.
-        """
 
+        """
         if isinstance(v, (requests.Response, ReconstructedResponse)) or cls._is_response_like(v):
             return v
         try:
@@ -144,8 +147,7 @@ class APIResponse(BaseModel):
 
     @property
     def reason(self) -> Optional[str]:
-        """Uses the underlying reason attribute on the response object, if available, to create a human readable status
-        description.
+        """Uses the reason or status code attribute on the response object, to retrieve or create a status description.
 
         Returns:
             Optional[str]: The status description associated with the response.
@@ -201,8 +203,9 @@ class APIResponse(BaseModel):
 
     @property
     def text(self) -> Optional[str]:
-        """Attempts to retrieve the response text by first decoding the bytes of its content. If not available, this
-        property attempts to directly reference the text attribute directly.
+        """Attempts to retrieve the response text by first decoding the bytes of its content.
+
+        If not available, this property attempts to directly reference the text attribute directly.
 
         Returns:
             Optional[str]: A text string if the text is available in the correct format, otherwise None
@@ -253,8 +256,7 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _is_response_like(cls, response: Any) -> bool:
-        """Helper method for validating whether each of the core components of a response are populated with the correct
-        response types or are instead missing.
+        """Validates whether each of the core components of a response are populated with the correct response types.
 
         The following properties that refer back to the original response should be available:
 
@@ -287,7 +289,6 @@ class APIResponse(BaseModel):
         If response is not a valid response object, builds a minimal response-like object from kwargs.
 
         """
-
         model_kwargs = {field: kwargs.pop(field, None) for field in cls.model_fields if field in kwargs}
 
         response = (
@@ -300,8 +301,9 @@ class APIResponse(BaseModel):
 
     @field_serializer("response", when_used="json")
     def encode_response(self, response: Any) -> Optional[Dict[str, Any] | List[Any]]:
-        """Helper method for serializing a response into a json format. Accounts for special cases such as
-        CaseInsensitiveDict fields that are otherwise unserializable.
+        """Helper method for serializing a response into a json format.
+
+        Accounts for special cases such as `CaseInsensitiveDict` fields that are otherwise unserializable.
 
         From this step, pydantic can safely use json internally to dump the encoded response fields
 
@@ -312,11 +314,16 @@ class APIResponse(BaseModel):
 
     @classmethod
     def serialize_response(cls, response: requests.Response | ResponseProtocol) -> Optional[str]:
-        """Helper method for serializing a response into a json format. The response object is first converted into a
-        serialized string and subsequently dumped after ensuring that the field is serializable.
+        """Helper method for serializing a response into a json format.
+
+        The response object is first converted into a serialized string and subsequently dumped after ensuring that the
+        field is serializable.
 
         Args:
             response (Response, ResponseProtocol)
+
+        Returns:
+            Optional[str]: A serialized response when response serialization is possible. Otherwise None.
 
         """
         try:
@@ -334,8 +341,7 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _encode_response(cls, response: requests.Response | ResponseProtocol) -> Dict[str, Any]:
-        """Helper method for encoding a response using a ReconstructedResponse to store the core fields for responses
-        and response-like objects.
+        """Encodes a response using a `ReconstructedResponse` to store core fields from response-like objects.
 
         Elements from the response are first extracted from the response object using the ReconstructedResponse data
         model. After extracting the fields from the model as a dictionary, the fields are subsequently encoded using
@@ -361,10 +367,10 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _decode_response(cls, encoded_response_dict: Dict[str, Any], **kwargs) -> Optional[ReconstructedResponse]:
-        """Helper method for decoding a dictionary of encoded fields that were previously encoded using
-        _encode_response. This class approximately creates the previous response object by creating a
-        ReconstructedResponse that retains core fields from the original response to support the orchestration of
-        response processing and caching.
+        """Helper method for decoding a dict of encoded fields that were previously encoded using _encode_response.
+
+        This class approximately creates the previous response object by creating a `ReconstructedResponse` that
+        retains core fields from the original response to support the orchestration of response processing and caching.
 
         Args:
             encoded_response_dict (Dict[str, Any]):
@@ -414,7 +420,6 @@ class APIResponse(BaseModel):
             Optional[ReconstructedResponse]: A reconstructed response object, if possible. Otherwise returns None
 
         """
-
         if isinstance(response, str):
             response = cls._deserialize_response_dict(response)
 
@@ -437,15 +442,15 @@ class APIResponse(BaseModel):
                                    other processes in the scholar_flux module such as response parsing and caching.
 
         """
-
         if isinstance(response, APIResponse):
             response = response.response
 
         return ReconstructedResponse.build(response)
 
     def __eq__(self, other: Any) -> bool:
-        """Helper method for validating whether responses are equal. Elements of the same type are considered a
-        necessary quality for processing components to be considered equal.
+        """Helper method for validating whether responses are equal.
+
+        Elements of the same type are considered a necessary quality for processing components to be considered equal.
 
         Args:
             other (Any): An object to compare against the current APIResponse object/subclass
@@ -480,8 +485,10 @@ class APIResponse(BaseModel):
         If the attribute isn't a response or reconstructed response, the code will coerce the class into a response
         object to verify the status code for the request URL and response.
 
-        """
+        Raises:
+            requests.RequestException: Errors for status codes that indicate unsuccessfully received responses.
 
+        """
         if self.response is not None and isinstance(self.response, (requests.Response, ReconstructedResponse)):
             self.response.raise_for_status()
         else:
@@ -489,6 +496,10 @@ class APIResponse(BaseModel):
 
     def process_metadata(self, *args, **kwargs) -> Optional[dict[str, Any]]:
         """Abstract processing method that successfully `APIResponse` subclasses can override to process_metadata.
+
+        Args:
+            *args: No-Op - Added for compatibility with the `APIResponse` subclasses.
+            *kwargs: No-Op - Added for compatibility with the `APIResponse` subclasses.
 
         Raises:
             NotImplementedError: Unless overridden, this method will raise an error unless defined in a subclass.
@@ -546,7 +557,6 @@ class ErrorResponse(APIResponse):
                             and background information on what precipitated the error.
 
         """
-
         creation_timestamp = generate_iso_timestamp()
         return cls(
             cache_key=cache_key,
@@ -769,6 +779,13 @@ class ProcessedResponse(APIResponse):
         Args:
             metadata_map (Optional[ResponseMetadataMap]):
                 A mapping that resolve api-specific metadata names to a universal parameter name.
+            update_metadata (Optional[bool]):
+                Determines whether the underlying `processed_metadata` field should be updated. If True,
+                the processed_metadata field is updated inplace. If `None`, the field is only updated when
+                metadata fields have been successfully processed and the `processed_metadata ` field is None.
+
+        Returns:
+            Optional[dict[str, Any]]: The processed metadata returned as a dictionary when available. None otherwise.
 
         """
         if not self.metadata:

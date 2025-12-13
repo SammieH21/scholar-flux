@@ -161,15 +161,15 @@ class SearchAPI(BaseAPI):
 
         Args:
             query (str): The query to send to the current API provider. Note, this must be non-missing
-            search_api_config (SearchAPIConfig): Configuration settings to used when sending requests to APIs.
-            parameter_config: (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
+            config (SearchAPIConfig): Configuration settings to used when sending requests to APIs.
+            parameter_config (Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig]):
                 Maps global scholar_flux parameters to those that are specific to the provider's API.
-            masker: (Optional[SensitiveDataMasker]):
+            masker (Optional[SensitiveDataMasker]):
                 A masker used to filter logs of API keys and other sensitive data that may flow through the
                 SearchAPI during parameter building and response retrieval.
-           rate_limiter (Optional[RateLimiter]):
-               An optional rate limiter to control the number of requests sent. When the request_delay and min_interval
-               do not agree, `min_interval` is preferred.
+            rate_limiter (Optional[RateLimiter]):
+                An optional rate limiter to control the number of requests sent. When the request_delay and min_interval
+                do not agree, `min_interval` is preferred.
 
         """
         self.config = config
@@ -307,14 +307,14 @@ class SearchAPI(BaseAPI):
     @parameter_config.setter
     def parameter_config(self, _parameter_config: BaseAPIParameterMap | APIParameterMap | APIParameterConfig) -> None:
         """Used to ensure that assignments and updates to the SearchAPI configuration will work as intended. It first
-        validates the configuration for the search api, and assigns the value if it is a SearchAPIConfig element.
+        validates the configuration for the search api, and assigns the value if it is an APIParameterConfig element.
 
         Args:
-            _config (BaseAPIParameterMap | APIParameterMap | APIParameterConfig):
+            _parameter_config (BaseAPIParameterMap | APIParameterMap | APIParameterConfig):
                 The parameter mapping configuration to assign to the SearchAPI instance
 
         Raises:
-            APIParameterException: Indicating that the provided value is not a APIParameterConfig
+            APIParameterException: Indicating that the provided value is not an APIParameterConfig
 
         """
         if not isinstance(_parameter_config, APIParameterConfig):
@@ -376,6 +376,16 @@ class SearchAPI(BaseAPI):
 
         """
         return self.config.records_per_page
+
+    @property
+    def rate_limiter(self) -> RateLimiter:
+        """Property enabling public access to the rate limiter for ease of use.
+
+        Returns:
+            RateLimiter: Throttles the number of requests that can sent to an API within a time interval.
+
+        """
+        return self._rate_limiter
 
     @property
     def request_delay(self) -> float:
@@ -555,7 +565,7 @@ class SearchAPI(BaseAPI):
 
         """
         try:
-            default_provider_name = provider_name or config_settings.config.get("SCHOLAR_FLUX_DEFAULT_PROVIDER", "PLOS")
+            default_provider_name = provider_name or config_settings.get("SCHOLAR_FLUX_DEFAULT_PROVIDER", "PLOS")
             search_api_config = SearchAPIConfig.from_defaults(
                 provider_name=default_provider_name, **api_specific_parameters
             )
@@ -691,7 +701,7 @@ class SearchAPI(BaseAPI):
 
         # log when api specific parameter overrides are applied
         if api_specific_parameters:
-            logger.info(
+            logger.debug(
                 "The following additional parameters will be used to override the current parameter list:"
                 f" {api_specific_parameters}"
             )
@@ -749,7 +759,7 @@ class SearchAPI(BaseAPI):
 
         if page is None and (parameters is not None or endpoint is not None):
 
-            with self._rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
+            with self.rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
                 return self.send_request(self.base_url, endpoint=endpoint, parameters=parameters)
 
         elif page is not None:
@@ -823,7 +833,7 @@ class SearchAPI(BaseAPI):
 
         parameters = self.build_parameters(current_page, additional_parameters=additional_parameters)
 
-        with self._rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
+        with self.rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
             response = self.send_request(self.base_url, endpoint=endpoint, parameters=parameters)
 
         return response

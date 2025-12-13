@@ -17,6 +17,24 @@ def enable_debugging():
     os.environ["SCHOLAR_FLUX_PROPAGATE_LOGS"] = "TRUE"
 
 
+def prepare_env():
+    """Helper function that temporarily configures env variables needed to enable consistent logging and testing."""
+    enable_debugging()
+
+    disable_env_list = [
+        "SCHOLAR_FLUX_DEFAULT_MAILTO",
+        "SCHOLAR_FLUX_DEFAULT_USER_AGENT",
+        "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND",
+        "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE",
+        "SCHOLAR_FLUX_DEFAULT_PROVIDER",
+        "SCHOLAR_FLUX_DEFAULT_CACHE_DIRECTORY",
+        "SCHOLAR_FLUX_DEFAULT_LOG_DIRECTORY",
+    ]
+
+    for env_var in disable_env_list:
+        os.environ.pop(env_var, None)
+
+
 def raise_error(exception_type: Type[BaseException], message: Optional[str] = None) -> Callable:
     """Helper method for manually raising an error message."""
     return lambda *args, **kwargs: (_ for _ in ()).throw(exception_type(message) if message else exception_type())
@@ -41,4 +59,4 @@ def search_coordinator_mocking_context(
         yield m
 
 
-__all__ = ["enable_debugging", "raise_error", "search_coordinator_mocking_context"]
+__all__ = ["enable_debugging", "prepare_env", "raise_error", "search_coordinator_mocking_context"]
