@@ -98,7 +98,7 @@ Test your installation:
 
    import scholar_flux
    print(scholar_flux.__version__)
-   # Output: 0.3.0
+   # Output: 0.3.1
 
 .. code-block:: python
 
@@ -137,6 +137,45 @@ ScholarFlux supports configuration via environment variables. Create a ``.env`` 
 
    # Cache encryption (optional)
    SCHOLAR_FLUX_CACHE_SECRET_KEY=your_secret_key_here
+
+Session and Request Defaults
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The default behavior for API requests across all providers can also be configured:
+
+.. code-block:: bash
+
+   # Default User-Agent for all sessions (recommended for production)
+   SCHOLAR_FLUX_DEFAULT_USER_AGENT=MyApp/1.0 (https://example.com; mailto:contact@example.com)
+
+   # Default mailto for Crossref and OpenAlex (enables "polite pool" access)
+   SCHOLAR_FLUX_DEFAULT_MAILTO=your.email@institution.edu
+
+.. tip::
+   **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` automatically enables higher rate limits:
+   
+   - **OpenAlex**: 10 requests/second (vs 1 req/sec without)
+   - **Crossref**: Priority access and faster responses
+
+In addition to request defaults, you can pre-configure caching backends system-wide:
+
+Cache Backend Defaults
+^^^^^^^^^^^^^^^^^^^^^^
+
+Environment variables can also control the default cache backends used for session requests and response processing:
+
+.. code-block:: bash
+
+   # Session cache backend (HTTP responses)
+   # Options: sqlite (default), redis, mongodb, memory, filesystem
+   SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND=redis
+
+   # Processing cache backend (parsed data)
+   # Options: inmemory (default), redis, sql/sqlalchemy/sqlite, mongodb, null
+   SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE=redis
+
+.. seealso::
+   For comprehensive environment configuration, see :doc:`production_deployment`.
 
 .. warning::
    Never commit ``.env`` files to version control! Add ``.env`` to your ``.gitignore``.
@@ -191,7 +230,7 @@ Providers requiring API keys
 +---------------------+----------------+---------------------------------------+
 | arXiv               |    No          | Works out-of-the-box                  |
 +---------------------+----------------+---------------------------------------+
-| OpenAlex            |    No          | Works out-of-the-box                  |
+| OpenAlex            |    No          | Optional ``mailto`` for higher limits |
 +---------------------+----------------+---------------------------------------+
 | Crossref            |    No          | Optional ``mailto`` for higher limits |
 +---------------------+----------------+---------------------------------------+

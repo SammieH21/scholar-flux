@@ -6,7 +6,7 @@ using the `SearchCoordinator.search_pages` method.
 
 """
 
-from typing import Sequence
+from typing import Sequence, Mapping, Iterable
 from pydantic import RootModel, field_validator
 import logging
 
@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class PageListInput(RootModel[Sequence[int]]):
-    """Helper class for processing page information in a predictable manner. The PageListInput class expects to receive
-    a list, string, or generator that contains at least one page number. If a singular integer is received, the result
-    is transformed into a single-item list containing that integer.
+    """Helper class for processing page information in a predictable manner.
+
+    The PageListInput class expects to receive a list, string, or generator that contains at least one page number.
+    If a singular integer is received, the result is transformed into a single-item list containing that integer.
 
     Args:
         root (Sequence[int]): A list containing at least one page number.
@@ -26,7 +27,7 @@ class PageListInput(RootModel[Sequence[int]]):
         >>> PageListInput(5)
         PageListInput([5])
         >>> PageListInput(range(5))
-        PageListInput([1, 2, 3, 4])
+        PageListInput([0, 1, 2, 3, 4])
 
     """
 
@@ -48,7 +49,7 @@ class PageListInput(RootModel[Sequence[int]]):
         if isinstance(v, (str, int)):
             return [cls.process_page(v)]
 
-        if isinstance(v, Sequence):
+        if isinstance(v, (Sequence, Iterable)) and not isinstance(v, Mapping):
             return sorted(set({cls.process_page(v_i) for v_i in v}))
 
         err_msg = f"Expected a list, set, or generator containing page numbers. Received: '{type(v)}'"

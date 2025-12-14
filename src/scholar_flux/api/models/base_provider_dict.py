@@ -112,6 +112,16 @@ class BaseProviderDict(UserDict[str, Any]):
         normalized_key = ProviderConfig._normalize_name(key)
         return normalized_key
 
+    @property
+    def providers(self) -> list[str]:
+        """Returns a list containing the names of all (keys) in the current registry.
+
+        Returns:
+            A complete list of all keys shown in the current registry
+
+        """
+        return list(self.data)
+
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the BaseProviderDict or subclass."""
         class_name = self.__class__.__name__

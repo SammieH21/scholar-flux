@@ -11,7 +11,12 @@ logger = logging.getLogger(__name__)
 import scholar_flux.sessions.session_manager as sm
 from scholar_flux.utils import config_settings
 from scholar_flux.data_storage import RedisStorage, MongoDBStorage
-from scholar_flux.exceptions.util_exceptions import SessionCreationError
+from scholar_flux.exceptions.util_exceptions import (
+    SessionCreationError,
+    SessionCacheDirectoryError,
+    SessionConfigurationError,
+)
+from tests.testing_utilities import raise_error
 
 
 def test_session_manager_valid_user_agent():
@@ -26,6 +31,24 @@ def test_session_manager_invalid_user_agent():
     """Tests whether an error will be thrown as expected when a user_agent is left blank."""
     with pytest.raises(SessionCreationError):
         sm.SessionManager(user_agent="")
+
+
+@pytest.fixture
+def restore_config_user_agent_default():
+    """Helper fixture temporarily removes the `SCHOLAR_FLUX_DEFAULT_USER_AGENT` config value during test execution."""
+    agent_env_var = "SCHOLAR_FLUX_DEFAULT_USER_AGENT"
+    config_user_agent = config_settings.config.pop(agent_env_var, None)
+    yield
+    config_settings.set(agent_env_var, config_user_agent, verbose=False)
+
+
+def test_session_manager_user_agent_os_override(monkeypatch, restore_config_user_agent_default):
+    """Tests whether an error will be thrown as expected when a user_agent is left blank."""
+    default_user_agent = "sessions-test-default-user-agent"
+    with monkeypatch.context():
+        monkeypatch.setenv("SCHOLAR_FLUX_DEFAULT_USER_AGENT", default_user_agent)
+        session_manager = sm.SessionManager()
+        assert session_manager.user_agent == default_user_agent
 
 
 def test_session_manager_no_user_agent():
@@ -59,7 +82,7 @@ def test_cached_session_manager_valid():
         {"cache_name": "a/nested/cache"},  # cache name cannot be None, used by all caches
         {"expire_after": -2},  # a negative expire_after (other than -1) should trigger a session creation error
         {"backend": "a-non existent backend"},  # requests_cache.CachedSession must receive a valid backend
-        {"backend": None},  # backend cannot be None
+        {"backend": ""},  # backend cannot be an empty string
     ],
 )
 def test_session_manager_invalid(param_overrides):
@@ -116,6 +139,63 @@ def test_session_manager_raise(caplog):
     )
     session = mgr()
     assert isinstance(session, requests.Session)
+
+
+def test_session_manager_backend_resolution(monkeypatch, caplog):
+    """Evaluates whether the CachedSessionManager catches and raises the intended error on env resolution failure."""
+
+    env_variable = "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND"
+
+    with monkeypatch.context() as m:
+        m.setenv(env_variable, "REDIS")
+        # Redis (case-insensitive) is a valid backend - so no error should be raised
+        assert sm.CachedSessionManager(raise_on_error=True).backend == "redis"
+
+        invalid_backend = "REDISSS"
+        m.setenv(env_variable, invalid_backend)
+
+        # the fallback should be validated before use and raise a warning if the env variable is invalid
+        sqlite_session_fallback = sm.CachedSessionManager(raise_on_error=False)
+        assert sqlite_session_fallback.backend == "sqlite"
+        assert (
+            f"A cached session backend cannot be created with the environment variable '{env_variable}'.: "
+            "Defaulting to the `sqlite` backend instead..."
+        ) in caplog.text
+
+        # when errors are enabled, validation should occur normally
+        with pytest.raises(SessionConfigurationError) as excinfo:
+            _ = sm.CachedSessionManager(raise_on_error=True)
+        assert f"Requests-Cache does not support a backend by the name of {invalid_backend.lower()}" in str(
+            excinfo.value
+        )
+
+    # after the context the default backnd should be SQLite otherwise
+    assert sm.CachedSessionManager(raise_on_error=True).backend == "sqlite"
+
+
+def test_session_manager_cache_directory_creation_error(monkeypatch):
+    """Evaluates whether the CachedSessionManager catches and raises the intended error on directory resolution failure.
+
+    This method mocks the get_default_writable_directory directly to raise a permission error to directly determine how
+    the `get_cache_directory` class method handles the failure.
+
+    """
+
+    err = "Directly Raised Error"
+    monkeypatch.setattr(sm, "get_default_writable_directory", raise_error(PermissionError, err))
+    with pytest.raises(SessionCacheDirectoryError) as excinfo:
+        _ = sm.CachedSessionManager._default_cache_directory()
+
+    assert f"Could not create cache directory due to an exception: {err}" in str(excinfo.value)
+
+
+#
+#   mgr = sm.CachedSessionManager(
+#       user_agent="ua", cache_name="c", backend="sqlite", raise_on_error=False
+#   )
+
+#   session = mgr()
+#   assert isinstance(session, requests.Session)
 
 
 def test_path_edge_case():

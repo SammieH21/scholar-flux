@@ -39,6 +39,12 @@ class MissingResponseException(ValueError):
     pass
 
 
+class NoRecordsAvailableException(APIException):
+    """Exception raised when an operation depends on the presence of records but none exist."""
+
+    pass
+
+
 class PermissionException(APIException):
     """Exception raised for permission errors."""
 
@@ -162,6 +168,7 @@ __all__ = [
     "MissingAPISpecificParameterException",
     "MissingProviderException",
     "MissingResponseException",
+    "NoRecordsAvailableException",
     "PermissionException",
     "InvalidResponseException",
     "NotFoundException",

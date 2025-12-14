@@ -3,7 +3,7 @@ from unittest.mock import Mock
 from requests import Response
 from scholar_flux.data_storage.null_storage import NullStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
-from scholar_flux.data_storage import DataCacheManager
+from scholar_flux.data_storage import DataCacheManager, ABCStorage
 from scholar_flux.exceptions import StorageCacheException
 from tests.testing_utilities import raise_error
 import copy
@@ -68,6 +68,54 @@ def test_basic_cache_operations(
     # Test delete
     cache_manager.delete(cache_key)
     assert cache_manager.verify_cache(cache_key) is False
+
+
+@pytest.mark.parametrize("invalid_cache", (12345, 0, {}, (1, 2, 3)))
+def test_invalid_data_cache_storage_device(invalid_cache):
+    """Verifies that a storage cache exception is raised when an incorrect type is received."""
+    invalid_cache = 12345
+    with pytest.raises(StorageCacheException) as excinfo:
+        _ = DataCacheManager(invalid_cache)  # type: ignore
+
+    assert (
+        "The chosen storage device for caching processed responses is not valid. Expected a valid subclass of "
+        f"the `ABCStorage`, but received {type(invalid_cache)}."
+    ) in str(excinfo.value)
+
+
+def test_default_cache_storage_device():
+    """Verifies that the creation of a DataCacheManager without input makes a simple, default cache."""
+    cache_manager = DataCacheManager()
+    assert isinstance(cache_manager.cache_storage, ABCStorage)  # generally an InMemoryStorage
+
+
+def test_data_cache_env_storage_resolution(monkeypatch, caplog):
+    """Evaluates whether the DataCacheManager catches and raises the intended error on storage resolution failure."""
+
+    env_variable = "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE"
+
+    with monkeypatch.context() as m:
+        m.setenv(env_variable, "null")
+        # The Null storage is `falsy`
+        assert not DataCacheManager.from_defaults()
+
+        invalid_backend = "mdb"
+        m.setenv(env_variable, invalid_backend)
+
+        err = (
+            "The chosen storage device does not exist. Expected one of the following:"
+            " ['redis', 'sql', 'mongodb', 'inmemory', 'null']"
+        )
+
+        # the fallback should be validated before use and raise a warning if the env variable is invalid
+        memory_cache_session_fallback = DataCacheManager.from_defaults(raise_on_error=False)
+        assert isinstance(memory_cache_session_fallback.cache_storage, InMemoryStorage)
+        assert err in caplog.text
+        #
+        #       # when errors are enabled, validation should occur normally
+        with pytest.raises(StorageCacheException) as excinfo:
+            _ = DataCacheManager.from_defaults(raise_on_error=True)
+        assert err in str(excinfo.value)
 
 
 def test_null_storage_behavior(mock_response):

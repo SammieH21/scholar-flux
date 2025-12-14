@@ -1,10 +1,17 @@
 # /api/utils/config_loader.py
-"""The scholar_flux.api.utils.config_loader is the primary configuration loader used by the scholar_flux package to
-ensure that user-specified package default settings are registered via the use of environment variables.
+"""The scholar_flux.api.utils.config_loader module defines the primary `ConfigLoader` for the scholar_flux package.
 
-The ConfigLoader is used alongside the scholar_flux.utils.initializer to fully initialize the scholar_flux package with
-the chosen configuration. This includes the initialization of importing API keys as secret strings, defining log levels,
-default API providers, etc.
+The `ConfigLoader` is designed to ensure that user-specified package default settings are registered via the use of
+.env files when available, and OS environment variables otherwise.
+
+ScholarFlux uses the `ConfigLoader` alongside the `scholar_flux.utils.initializer` to fully initialize the scholar_flux
+package with the chosen configuration. This includes the initialization of importing API keys as secret strings,
+defining log levels, default API providers, etc.
+
+See Also
+--------
+:doc:`getting_started` - Basic configuration setup and API key management
+:doc:`production_deployment` - Production environment configuration with SCHOLAR_FLUX_HOME
 
 """
 import os
@@ -26,33 +33,61 @@ config_logger = logging.getLogger(__name__)
 
 
 class ConfigLoader:
-    """Helper class used to load the configuration of the scholar_flux package on initialization to dynamically
-    configure package options. Using the config loader with environment variables, the following settings can be defined
-    at runtime.
+    """Configuration loader for the scholar_flux package settings and environment variables.
 
-        Package Level Settings:
-            - SCHOLAR_FLUX_DEFAULT_PROVIDER: Defines the provider to use by default when creating a SearchAPI instance
-        API_KEYS:
-            - ARXIV_API_KEY: API key used when retrieving academic data from arXiv
-            - OPEN_ALEX_API_KEY: API key used when retrieving academic data from OpenAlex
-            - SPRINGER_NATURE_API_KEY: API key used when retrieving academic data from Springer Nature
-            - CROSSREF_API_KEY: API key used to retrieve academic metadata from Crossref (API key not required)
-            - CORE_API_KEY: API key used to retrieve metadata and full-text publications from the CORE API
-            - PUBMED_API_KEY: API key used to retrieve publications from the NIH PubMed database
-        Session Cache:
-            - SCHOLAR_FLUX_CACHE_DIRECTORY: defines where requests and response processing cache will be stored when
-                                             using sqlite and similar cache storages
-            - SCHOLAR_FLUX_CACHE_SECRET_KEY: defines the secret key used to create encrypted session cache for request
-                                             retrieval
-        Logging:
-            - SCHOLAR_FLUX_ENABLE_LOGGING: defines whether logging should be enabled or not
-            - SCHOLAR_FLUX_LOG_DIRECTORY: defines where rotating logs will be stored when logging is enabled
-            - SCHOLAR_FLUX_LOG_LEVEL: defines the default log level used for package level logging during and after
-                                      scholar_flux package initialization
-            - SCHOLAR_FLUX_PROPAGATE_LOGS: determines whether logs should be propagated or not. (True by default)
+    The `ConfigLoader` is used on package initialization to dynamically configure package options from .env files and
+    the OS environment. ScholarFlux uses this class to define package-level settings at runtime while prioritizing
+    .env file configurations when available.
+
+    Configuration Variables
+    -----------------------
+
+    Package Level Settings
+    ~~~~~~~~~~~~~~~~~~~~~~
+        - SCHOLAR_FLUX_DEFAULT_PROVIDER: Defines the provider to use by default when creating a SearchAPI instance.
+        - SCHOLAR_FLUX_DEFAULT_USER_AGENT:
+              The default User-Agent to use when sending requests via `requests-cache`. If not specified,
+              a default User-Agent will be generated automatically.
+        - SCHOLAR_FLUX_DEFAULT_MAILTO:
+            Defines the default `mailto` address that is used when creating a new search coordinator.
+        - SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND:
+              Controls the default backend for CachedSession instances created when initializing SearchAPI or
+              SearchCoordinator. Supported `requests_cache` backends include `sqlite`, `redis`, `mongodb`, and
+              `memory`.
+        - SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE:
+              Defines the default cache storage backend that the `DataCacheManager` creates for response caching
+              during orchestration of the response processing steps. Supported options are `redis`, `sql`,
+              `mongodb`, `memory`, and `null`. Defaults to `memory` if not specified.
+        - SCHOLAR_FLUX_CACHE_DIRECTORY:
+              Defines the directory path where requests and response processing cache will be stored when using
+              filesystem-based cache backends (e.g., `sqlite`).
+    API_KEYS
+    ~~~~~~~~
+        - ARXIV_API_KEY: API key used when retrieving academic data from arXiv.
+        - OPEN_ALEX_API_KEY: API key used when retrieving academic data from OpenAlex.
+        - SPRINGER_NATURE_API_KEY: API key used when retrieving academic data from Springer Nature.
+        - CROSSREF_API_KEY: API key used to retrieve academic metadata from Crossref (API key not required).
+        - CORE_API_KEY: API key used to retrieve metadata and full-text publications from the CORE API.
+        - PUBMED_API_KEY: API key used to retrieve publications from the NIH PubMed database.
+        - SCHOLAR_FLUX_CACHE_SECRET_KEY:
+            Defines the secret key used to create encrypted session cache for request retrieval.
+    Logging
+    ~~~~~~~~
+        - SCHOLAR_FLUX_ENABLE_LOGGING: Defines whether logging should be enabled when `ScholarFlux` is initialized.
+        - SCHOLAR_FLUX_LOG_DIRECTORY: Defines where rotating logs will be stored when logging is enabled.
+        - SCHOLAR_FLUX_LOG_LEVEL:
+            Defines the default log level used for package level logging during and after scholar_flux package
+            initialization.
+        - SCHOLAR_FLUX_PROPAGATE_LOGS: Determines whether logs should be propagated or not. (True by default).
+
+    Database Connections
+    ~~~~~~~~~~~~~~~~~~~~
+        - SCHOLAR_FLUX_MONGODB_HOST: MongoDB connection string (default: "mongodb://127.0.0.1")
+        - SCHOLAR_FLUX_MONGODB_PORT: MongoDB port (default: 27017)
+        - SCHOLAR_FLUX_REDIS_HOST: Redis host (default: "localhost")
+        - SCHOLAR_FLUX_REDIS_PORT: Redis port (default: 6379)
 
     Examples:
-
         >>> from scholar_flux.utils import ConfigLoader
         >>> from pydantic import SecretStr
         >>> config_loader = ConfigLoader()
@@ -91,16 +126,45 @@ class ConfigLoader:
         "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL", "").upper(),
         "SCHOLAR_FLUX_PROPAGATE_LOGS": os.getenv("SCHOLAR_FLUX_PROPAGATE_LOGS", "").upper(),
         "SCHOLAR_FLUX_DEFAULT_PROVIDER": os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
+        "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND": os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND"),
+        "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE": os.getenv("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE"),
+        "SCHOLAR_FLUX_DEFAULT_USER_AGENT": os.getenv("SCHOLAR_FLUX_DEFAULT_USER_AGENT"),
+        "SCHOLAR_FLUX_DEFAULT_MAILTO": os.getenv("SCHOLAR_FLUX_DEFAULT_MAILTO"),
     }
 
     def __init__(self, env_path: Optional[Path | str] = None):
-        """Utility class for loading environment variables from the operating system and .env files."""
+        """Initializes the `ConfigLoader` with class-level defaults and establishes the `.env` path to read from.
 
+        If a custom path is provided and valid, it will be used when it points to a valid file that exists; otherwise,
+        the path will default to a readable package location (SCHOLAR_FLUX_HOME, ~/.scholar_flux, or current directory).
+
+        Args:
+            env_path (Optional[Path | str]):
+                The dotenv file to read environment variables from. If not passed, environment variables are scanned and
+                checked from default package locations or the current directory when available.
+
+        Attributes:
+            env_path (Path):
+                The location of the .env file to load for reading/writing configuration.
+            config : (Dict[str, Any]):
+                The current configuration dictionary with masked sensitive values.
+
+        """
         self.env_path: Path = self._process_env_path(env_path)
         self.config: Dict[str, Any] = self.DEFAULT_ENV.copy()  # Use a copy to avoid modifying the class attribute
 
     def try_loadenv(self, env_path: Optional[Path | str] = None, verbose: bool = False) -> Optional[Dict[str, Any]]:
-        """Try to load environment variables from a specified .env file into the environment and return as a dict."""
+        """Try to load environment variables from a specified .env file into the environment and return as a dict.
+
+        Args:
+            env_path (Optional[Path | str]): Location of the .env file where env variables will be retrieved from.
+            verbose (bool): Flag indicating whether logging should be shown in the output. This is False by default.
+
+        Returns:
+            Optional[Dict[str, Any]]: A loaded configuration that is returned as a dictionary when available.
+            Otherwise, None is returned.
+
+        """
         env_path = self._process_env_path(env_path or self.env_path)
         if load_dotenv(env_path):  # Load environment variables from a .env file
             return dotenv_values(env_path)
@@ -114,16 +178,20 @@ class ConfigLoader:
         env_path: Optional[Path | str] = None,
         replace_all: bool = False,
         verbose: bool = False,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Retrieves a list of non-missing environment variables from the current .env file that are non-null.
 
         Args:
-            env_path: Optional[Path | str]: Location of the .env file where env variables will be retrieved from
-            replace_all: bool = False: Indicates whether all environment variables should be replaced vs. only non-missing variables
-            verbose: bool = False: Flag indicating whether logging should be shown in the output
+            env_path (Optional[Path | str]):
+                Location of the .env file where env variables will be retrieved from.
+            replace_all (bool):
+                Indicates whether all environment variables should be replaced vs. only non-missing variables.
+                by default, only previously non-existent variables are assigned updated values.
+            verbose (bool):
+                Flag indicating whether logging should be shown in the output. This is set to False by default.
 
         Returns:
-            dict: A dictionary of key-value pairs corresponding to environment variables
+            dict[str, Any]: A dictionary of key-value pairs corresponding to environment variables
 
         """
         if env_path is not None and not isinstance(env_path, (str, Path)):
@@ -200,11 +268,14 @@ class ConfigLoader:
         `update_config` method allows direct updates to the config settings.
 
         Args:
-            replace_all: bool = False: Indicates whether all environment variables should be replaced vs. only non-missing variables
-            verbose: bool = False: Flag indicating whether logging should be shown in the output
+            replace_all (bool):
+                Indicates whether all environment variables should be replaced vs. only non-missing variables. This is
+                false by default.
+            verbose (bool):
+                Flag indicating whether logging should be shown in the output. This is False by default.
 
         Returns:
-            dict: A dictionary of key-value pairs corresponding to environment variables
+            dict[str, Any]: A dictionary of key-value pairs corresponding to environment variables
 
         """
         if verbose:
@@ -224,13 +295,15 @@ class ConfigLoader:
         reload_os_env: bool = False,
         verbose: bool = False,
     ) -> None:
-        """Load configuration settings from the global OS environment or an .env file while optionally overwriting
+        """Load configuration settings from a .env file and the global OS environment.
+
+        This package allows users to set new defaults on changes to the environment while optionally overwriting
         previously set configuration settings.
 
         Optionally attempt to reload and overwrite previously set ConfigLoader using either or both sources
         of config settings.
 
-        Note that config settings from an .env file are prioritized over globally set OS environment variables.
+        Note that config settings from a .env file are prioritized over globally set OS environment variables.
         If neither `reload_os_env` or `reload_env` are chosen, this function has no effect on the current configuration.
 
         Args:
@@ -238,7 +311,7 @@ class ConfigLoader:
                 An optional env path to read from. Defaults to the current env_path if None.
             reload_env (bool):
                 Determines whether environment variables will be loaded/reloaded from the provided `env_path` or a
-                current `self.env_path`. Defaults to False, indicating that variables are not reloaded from an .env.
+                current `self.env_path`. Defaults to False, indicating that variables are not reloaded from a .env.
             reload_os_env (bool):
                 Determines whether environment variables will be loaded/reloaded from the Operating System's global
                 environment.
@@ -246,7 +319,6 @@ class ConfigLoader:
                 Convenience setting indicating whether or not to log changed configuration variable names.
 
         """
-
         os_config = self.load_os_env(verbose=verbose, replace_all=True) if reload_os_env else {}
         dotenv_config = self.load_dotenv(env_path, replace_all=True, verbose=verbose) if reload_env else {}
 
@@ -262,6 +334,13 @@ class ConfigLoader:
         guard against logging and recording API keys without masking. Although the `load_env` and `load_os_env` methods
         also mask API keys, this is particularly useful if the end-user calls `update_config` directly.
 
+        Args:
+            env_dict (dict[str, Any]):
+                An dictionary containing environment variables that will be used to update the package-level config.
+                dictionary for the current session.
+            verbose (bool):
+                Determines whether updates to the configuration should be logged when they occur.
+
         """
         # guard sensitive environment variables when this method is used directly if not already guarded
         env_dict = {k: self._guard_secret(try_int(v), k) for k, v in env_dict.items()}
@@ -274,7 +353,15 @@ class ConfigLoader:
     def save_config(self, env_path: Optional[Path | str] = None) -> None:
         """Save configuration settings to a .env file.
 
-        Unmasks strings read as secrets if the are of the type, `SecretStr`.
+        Automatically unmasks `SecretStr` values before writing to disk.
+
+        Args:
+            env_path (Optional[Path | str]):
+                The location to save the configuration settings to.
+
+        Note:
+            Sensitive values (`SecretStr`) are unmasked during write. Ensure .env files have appropriate permissions
+            (For example, with permissions such as `chmod 600`).
 
         """
         env_path = env_path or self.env_path
@@ -289,7 +376,23 @@ class ConfigLoader:
         env_path: Optional[Path | str] = None,
         create: bool = True,
     ) -> None:
-        """Write a key-value pair to a .env file."""
+        """Write a key-value pair to a .env file.
+
+        Args:
+            key_name (str):
+                The name of the key to write to a environment configuration file
+            key_value (str):
+                The value of the key to write to a environment configuration file
+            env_path (Optional[Path | str]):
+                The dotenv filepath indicating where to write the key-value pair.
+            create (bool):
+                Determines whether a new dotenv file should be created if it doesn't already exist. True by default.
+
+        Raises:
+            IOError: If file cannot be written
+            PermissionError: If insufficient permissions to create/modify file
+
+        """
         env_path = self._process_env_path(env_path or self.env_path)
         try:
             if create and not env_path.exists():
@@ -305,9 +408,19 @@ class ConfigLoader:
 
     @classmethod
     def _process_env_path(cls, env_path: Optional[Union[str, Path]]) -> Path:
-        """Try to load from the provided `env_path` variable first.
+        """Attempts to find a valid dotenv file containing package configuration settings to load when available.
 
-        Otherwise try to load from DEFAULT_ENV_PATH
+        The method first tries to find a valid file from the provided `env_path` variable first. If an env_path isn't
+        provided or the env_path isn't valid, this method will otherwise try to load from the `DEFAULT_ENV_PATH` class
+        variable.
+
+        Args:
+            env_path (Optional[Path | str]):
+                A dotenv filepath indicating where to write the key-value pair. When None, the default env path will be
+                used.
+
+        Returns:
+            Path: A environment variable path indicating where configuration settings should be read from.
 
         """
         if not env_path:
@@ -318,6 +431,44 @@ class ConfigLoader:
         raw_env_parent_path = raw_env_path.parent if raw_env_path_string.endswith(".env") else raw_env_path
         current_env_path = raw_env_path.resolve() if raw_env_parent_path.exists() else cls.DEFAULT_ENV_PATH
         return current_env_path / ".env" if not str(current_env_path).endswith(".env") else current_env_path
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Retrieve a configuration value from the config dictionary, falling back to the environment if not present.
+
+        Args:
+            key (str):
+                The name of the variable from which to retrieve the configuration value.
+            default (Any):
+                A fallback value that is returned when the key exists in neither the config dictionary nor the
+                environment.
+
+        Note:
+            Any values set during the current session are prioritized over values from the environment. If a value
+            can't be found within the config dictionary, the `get()` method will fallback to checking for the
+            environment variable within the operating system environment.
+
+        """
+        if self.config.get(key) is not None:
+            return self.config[key]
+        return os.getenv(key, default)
+
+    def set(self, key: str, value: Any, verbose: bool = True) -> None:
+        """Sets a configuration value for a key within the config dictionary.
+
+        Args:
+            key (str): The name of the variable to set or overwrite within the current session.
+            value (Any): The value to assign to the setting in the config dictionary.
+            verbose (bool): Determines whether overrides to defaults or previously existing variables should be logged.
+
+        Note:
+            Values set with the `.set()` method are prioritized over values from the environment when `.get()`
+            is called. To override this behavior and use environment variables instead,, either remove the
+            environment variable from the config dictionary, or set the value associated with the key to `None`.
+
+        """
+        if self.config.get(key) is not None and verbose:
+            config_logger.warning(f"Overwriting configuration setting: {key}")
+        self.config[key] = self._guard_secret(value, key)
 
 
 __all__ = ["ConfigLoader"]

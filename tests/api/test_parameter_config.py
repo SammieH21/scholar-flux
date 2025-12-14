@@ -63,6 +63,47 @@ def test_overwrite_mapping():
     assert parameter_config.map.records_per_page == "maxpagesize" != plos_parameter_config.map.records_per_page
 
 
+def test_overwrite_api_specific_parameter():
+    """Tests that custom parameters can be added to a parameter map inplace or on a copy of the original parameter map.
+
+    The parameter map should create a new parameter map without modifying the original if `inplace=False`. Otherwise,
+    `inplace=True` should both modify and return the original parameter map.
+
+    """
+    plos_parameter_map = APIParameterMap.from_defaults(provider_name="PLOS")
+    new_parameter_map = plos_parameter_map.add_parameter(name="new_filter_parameter")
+    assert (
+        new_parameter_map.api_specific_parameters["new_filter_parameter"].description
+        == "Custom Parameter: new_filter_parameter"
+    )
+    assert new_parameter_map is plos_parameter_map
+    additional_parameter_map = plos_parameter_map.add_parameter(
+        name="new_sort_parameter", description="Optional mock parameter for sorting", inplace=False
+    )
+    assert additional_parameter_map != plos_parameter_map
+
+
+def test_overwrite_api_specific_parameter_from_parameter_config():
+    """Tests that custom parameters can be added to a parameter map directly from the parameter config via delegation.
+
+    Similar to the last test, The parameter config should create a new config without modifying the original if
+    `inplace=False`. Otherwise, `inplace=True` should both modify and return the original parameter config.
+
+    """
+    plos_parameter_map = APIParameterMap.from_defaults(provider_name="PLOS")
+    plos_parameter_config = APIParameterConfig.as_config(plos_parameter_map)
+    new_parameter_config = plos_parameter_config.add_parameter(name="new_filter_parameter")
+    assert (
+        new_parameter_config.map.api_specific_parameters["new_filter_parameter"].description
+        == "Custom Parameter: new_filter_parameter"
+    )
+    assert new_parameter_config.map is plos_parameter_map
+    additional_parameter_config = plos_parameter_config.add_parameter(
+        name="new_sort_parameter", description="Optional mock parameter for sorting", inplace=False
+    )
+    assert additional_parameter_config != plos_parameter_config
+
+
 def test_api_parameter_config_repr():
     """Tests whether the representation provides basic information about the parameter map in the CLI."""
     base_parameter_map = BaseAPIParameterMap(query="q", start="start", records_per_page="size")

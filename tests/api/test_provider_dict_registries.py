@@ -13,7 +13,7 @@ from scholar_flux.exceptions import APIParameterException
 import copy
 import re
 
-EXPECTED_PROVIDERS = ["arxiv", "crossref", "pubmed", "pubmedefetch", "openalex", "springernature", "core"]
+EXPECTED_PROVIDERS = provider_registry.providers
 
 NAME_VARIATIONS = (
     ("arxiv", "arXiv"),
@@ -63,7 +63,7 @@ def test_provider_registry_representation():
     """Tests whether the representation of the current ProviderDictRegistry displays as intended in the CLI."""
     registry_representation = provider_registry.structure(show_value_attributes=False)
     assert registry_representation == repr(provider_registry)
-    provider_config_line_representation = r"'{provider_name}': ProviderConfig\(provider_name='{provider_name}'"
+    provider_config_line_representation = r"'{provider_name}': ProviderConfig\(provider_name='{provider_name}'.*[,\)]"
     assert all(
         re.search(
             provider_config_line_representation.format(provider_name=provider_name),
@@ -80,6 +80,21 @@ def test_provider_registry_mappings(provider_name):
     config = provider_registry[provider_name]
     assert config
     assert isinstance(config.field_map, BaseFieldMap) and isinstance(config.parameter_map, BaseAPIParameterMap)
+
+
+@pytest.mark.parametrize("provider_name", EXPECTED_PROVIDERS)
+def test_rate_limiter_registry_get_from_url_resolution(provider_name):
+    """Verifies that all providers have URLs that can be resolved from both `get()` and `get_from_url()`."""
+    rate_limiter = rate_limiter_registry.get(provider_name)
+    provider_config = provider_registry[provider_name]
+    assert rate_limiter and rate_limiter == rate_limiter_registry.get_from_url(provider_config.base_url)
+
+
+@pytest.mark.parametrize("bad_url", ("https://example-url-with-no-limiter.com", "", None))
+def test_rate_limiter_registry_get_from_url_unresolvable(bad_url):
+    """Verifies that unkown or missing URLs ('', None) return a `None` result on URL resolution."""
+    limiter_from_none = rate_limiter_registry.get_from_url(bad_url)
+    assert limiter_from_none is None
 
 
 def test_rate_limiter_representations():

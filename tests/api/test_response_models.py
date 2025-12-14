@@ -586,7 +586,7 @@ def test_json(caplog):
     assert "The current response object does not contain jsonable content" in caplog.text
 
     # non-jsonable
-    response = ReconstructedResponse.build(text="{{]", status_code=200, url="https://example-site.com")
+    response = ReconstructedResponse.build(text="{[][]}", status_code=200, url="https://example-site.com")
     assert response.json() is None
 
     assert ("The current ReconstructedResponse object " "does not have a valid json format.") in caplog.text
@@ -627,6 +627,45 @@ def test_error_response_properties():
     assert api_response.metadata is None
     assert api_response.data is None
     assert api_response.record_count == len(api_response) == 0  # for error responses, this should always be 0 (no data)
+
+
+def test_successful_search_result_core_properties(mock_successful_response):
+    """Verifies that core ProcessedResponse elements can be extracted from SearchResult instances as properties."""
+    success_response = ProcessedResponse.from_response(response=mock_successful_response, cache_key="MOCK_CACHE_KEY")
+    response_search_result = SearchResult(
+        query="test-query", page=1, provider_name="mock_provider", response_result=success_response
+    )
+    assert response_search_result.response_result is not None
+    assert response_search_result.url and response_search_result.status_code and response_search_result.status
+    assert response_search_result.url == response_search_result.response_result.url
+    assert response_search_result.status_code == response_search_result.response_result.status_code
+    assert response_search_result.status == response_search_result.response_result.status
+
+
+def test_error_search_result_core_properties(mock_unauthorized_response):
+    """Verifies that core ErrorResponse elements can be extracted from SearchResult instances as properties."""
+    error_response = ErrorResponse.from_response(response=mock_unauthorized_response, cache_key="MOCK_CACHE_KEY")
+    err_response_search_result = SearchResult(
+        query="test-query", page=1, provider_name="mock_provider", response_result=error_response
+    )
+    assert err_response_search_result.response_result is not None
+    assert (
+        err_response_search_result.url and err_response_search_result.status_code and err_response_search_result.status
+    )
+    assert err_response_search_result.url == err_response_search_result.response_result.url
+    assert err_response_search_result.status_code == err_response_search_result.response_result.status_code
+    assert err_response_search_result.status == err_response_search_result.response_result.status
+
+
+def test_no_response_search_result_core_properties(mock_successful_response):
+    """Verifies that core response elements can be extracted from SearchResult instances as `None` when unavailable."""
+    no_response_search_result = SearchResult(
+        query="test-query", page=1, provider_name="mock_provider", response_result=None
+    )
+    assert no_response_search_result.response_result is None
+    assert no_response_search_result.url is None
+    assert no_response_search_result.status_code is None
+    assert no_response_search_result.status is None
 
 
 def test_search_result_equality():

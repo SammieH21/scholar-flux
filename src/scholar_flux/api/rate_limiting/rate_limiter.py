@@ -12,6 +12,7 @@ import time
 from functools import wraps
 from scholar_flux.exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
+from datetime import datetime
 from typing import Optional, Iterator
 import logging
 
@@ -98,6 +99,15 @@ class RateLimiter:
             raise APIParameterException("min_interval must be non-negative")
         return min_interval
 
+    @staticmethod
+    def _validate_timestamp(timestamp: float | int) -> float | int:
+        """Validates timestamp is a non-negative number."""
+        if not isinstance(timestamp, (float, int)) or timestamp < 0:
+            raise APIParameterException(
+                f"`timestamp` must a valid timestamp formatted as a non-negative number. Received value, '{timestamp}'"
+            )
+        return timestamp
+
     def wait(self, min_interval: Optional[float | int] = None) -> None:
         """Block (`time.sleep`) until at least `min_interval` has passed since last call.
 
@@ -115,19 +125,15 @@ class RateLimiter:
             APIParameterException: Occurs if the value provided is either not an integer/float or is less than 0
 
         """
-        min_interval = self._validate(
-            min_interval
-            if min_interval is not None
-            else (self.min_interval if self.min_interval is not None else self.DEFAULT_MIN_INTERVAL)
-        )
+        min_interval = self._validate(min_interval if min_interval is not None else self.default_min_interval())
 
         if self._last_call is not None and min_interval:
             self._wait(min_interval, self._last_call)
         # record the time we actually proceed
         self._last_call = time.time()
 
-    @staticmethod
-    def _wait(min_interval: float | int, last_call: float | int):
+    @classmethod
+    def _wait(cls, min_interval: float | int, last_call: float | int):
         """Helper Method that calls `time.sleep()` in the background to wait for a specific number of seconds.
 
         This method determines how long to wait by referencing when `._wait()` was last called along with the
@@ -153,8 +159,55 @@ class RateLimiter:
         remaining = min_interval - elapsed
 
         if remaining > 0:
-            logger.info(f"RateLimiter: sleeping {remaining:.2f}s to respect rate limit")
-            time.sleep(remaining)
+            cls._sleep(remaining)
+
+    def default_min_interval(self) -> float | int:
+        """Returns the default minimum interval for the current rate limiter."""
+        return self.min_interval if self.min_interval is not None else self.DEFAULT_MIN_INTERVAL
+
+    def sleep(self, interval: Optional[float | int] = None) -> None:
+        """Simple Instance level implementation of `sleep` that can be overridden when needed.
+
+        Args:
+            interval (Optional[float | int] = None):
+                The time interval to sleep. If None, the default minimum interval for the current rate limiter is used.
+                must be non-null, otherwise, the default min_interval value is used.
+
+        Exceptions:
+            APIParameterException: Occurs if the value provided is either not an integer/float or is less than 0
+
+        """
+        interval = self._validate(interval if interval is not None else self.default_min_interval())
+        if interval > 0:
+            self._sleep(interval)
+
+    def wait_since(
+        self, min_interval: Optional[float | int] = None, timestamp: Optional[float | int | datetime] = None
+    ) -> None:
+        """Wait based on a reference timestamp or datetime.
+
+        Args:
+            min_interval: Minimum interval to wait. Uses default if None.
+            timestamp: Reference time as Unix timestamp or datetime. If None, sleeps for min_interval.
+
+        """
+        if timestamp is not None:
+            timestamp = self._validate_timestamp(
+                timestamp.timestamp() if isinstance(timestamp, datetime) else timestamp
+            )
+
+        min_interval = self._validate(min_interval if min_interval is not None else self.default_min_interval())
+
+        if timestamp is None:
+            self._sleep(min_interval)
+        else:
+            self._wait(min_interval, timestamp)
+
+    @classmethod
+    def _sleep(cls, interval: int | float) -> None:
+        """Logs the sleeping duration and blocks (`time.sleep`) until at `interval` has passed."""
+        logger.info(f"RateLimiter: sleeping {interval:.2f}s to respect rate limit")
+        time.sleep(interval)
 
     def __call__(self, fn):
         """Implements a rate limit for the defined function when the `RateLimiter` is used as a decorator.
@@ -211,7 +264,8 @@ class RateLimiter:
         """
         current_min_interval = self.min_interval
         try:
-            self.wait(min_interval)
+            self.min_interval = self._validate(min_interval)
+            self.wait()
             yield self
 
         finally:

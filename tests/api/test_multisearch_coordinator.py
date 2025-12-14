@@ -323,6 +323,35 @@ def test_multisearch_initialization(coordinator_dict, pause_rate_limiting):
     assert multisearch_coordinator_one == multisearch_coordinator_two
 
 
+def test_multisearch_coordinator_selection(coordinator_dict):
+    """Verifies that the selection of coordinators by query and provider name works as intended."""
+    multisearch_coordinator = MultiSearchCoordinator()
+    multisearch_coordinator.add_coordinators(list(coordinator_dict.values()))
+
+    # without specifying a query or provider name, no filtering should occur
+    assert multisearch_coordinator.select() == multisearch_coordinator.coordinators
+
+    # only coordinators with matching provider names should be retrieved
+    for provider_name in multisearch_coordinator.current_providers():
+
+        assert multisearch_coordinator.select(provider_name=provider_name) == [
+            coordinator
+            for coordinator in multisearch_coordinator.coordinators
+            if coordinator.api.provider_name == provider_name
+        ]
+
+    queries = {coordinator.api.query for coordinator in multisearch_coordinator.coordinators}
+
+    # only coordinators with matching queries should be retrieved
+    for query in queries:
+        assert multisearch_coordinator.select(query=query) == [
+            coordinator for coordinator in multisearch_coordinator.coordinators if coordinator.api.query == query
+        ]
+
+    # no coordinators should be found
+    assert multisearch_coordinator.select(query="notaquery", provider_name="notaprovider") == []
+
+
 def test_page_iteration(coordinator_dict, initialize_mocker, path_component_dict, pause_rate_limiting):
     """Tests whether iter_pages returns a generator that iteratively returns each page for as long as there is a page
     with data to return.
@@ -354,7 +383,7 @@ def test_page_iteration(coordinator_dict, initialize_mocker, path_component_dict
             result_list_two.append(page)
 
         assert len(result_list) == len(result_list_two) == total_pages
-        assert sorted(result_list_two.join(), key=lambda x: str(x)) == sorted(result_list.join(), key=lambda x: str(x))
+        assert sorted(result_list_two.join(), key=str) == sorted(result_list.join(), key=str)
 
         # initial_api_responses = [other.response_result for other in result_list]
 
@@ -366,9 +395,7 @@ def test_page_iteration(coordinator_dict, initialize_mocker, path_component_dict
         # as all elements should be successful, the size should be equal before and after filtering
         assert len(result_list) == len(result_list_three) == total_pages
         assert len(result_list.filter()) == len(result_list_three.filter()) == total_pages
-        assert sorted(result_list_two.join(), key=lambda x: str(x)) == sorted(
-            result_list_three.join(), key=lambda x: str(x)
-        )
+        assert sorted(result_list_two.join(), key=str) == sorted(result_list_three.join(), key=str)
 
         # cached responses should be equally found across all tables
         assert len(result_list_two) == len(result_list_three) and all(
@@ -426,6 +453,29 @@ def test_page_search(coordinator_dict, initialize_mocker, pause_rate_limiting):
         )
 
 
+def test_search_page_and_search_equivalence(coordinator_dict, initialize_mocker, pause_rate_limiting):
+    """Validates result equivalence between `MultiSearchCoordinator.search` and `MultiSearchCoordinator.search_page`.
+
+    Both `search` and `search_pages` should return the same result when requesting a single page. This test passes if
+    both methods produce equivalent `data` fields across all coordinators.
+
+    """
+    multisearch_coordinator = MultiSearchCoordinator()
+    multisearch_coordinator.add_coordinators(coordinator_dict.values())
+
+    with initialize_mocker() as _:
+        # Should have the same number of coordinators as results, no providers repeated with differing queries
+        result_list_one = multisearch_coordinator.search(page=1, from_request_cache=False, multithreading=False)
+        result_list_two = multisearch_coordinator.search_page(page=1, from_request_cache=False, multithreading=False)
+
+    # Each should have equivalent processed data
+    assert len(result_list_one) == len(result_list_two)
+    assert result_list_one.record_count == result_list_two.record_count
+
+    # Insurance for accurate comparisons for when the order returned is non-deterministic
+    assert sorted(result_list_one.join(), key=str) == sorted(result_list_two.join(), key=str)
+
+
 def test_page_range_search(coordinator_dict, initialize_mocker, path_component_dict, pause_rate_limiting):
     """Attempts to retrieve the full length of pages available from each mock provider.
 
@@ -452,7 +502,7 @@ def test_page_range_search(coordinator_dict, initialize_mocker, path_component_d
         )
 
         assert len(result_list) == len(result_list_two) == total_pages
-        assert sorted(result_list_two.join(), key=lambda x: str(x)) == sorted(result_list.join(), key=lambda x: str(x))
+        assert sorted(result_list_two.join(), key=str) == sorted(result_list.join(), key=str)
 
         # iterate_by_group irrelevant when using multithreading
         result_list_three = multisearch_coordinator.search_pages(pages=page_range, multithreading=True)
@@ -461,9 +511,7 @@ def test_page_range_search(coordinator_dict, initialize_mocker, path_component_d
         # should give the same results as iter pages, just performed automatically instead of requiring manual iteration
         assert len(result_list) == len(result_list_three) == total_pages
         assert len(result_list.filter()) == len(result_list_three.filter()) == total_pages
-        assert sorted(result_list_two.join(), key=lambda x: str(x)) == sorted(
-            result_list_three.join(), key=lambda x: str(x)
-        )
+        assert sorted(result_list_two.join(), key=str) == sorted(result_list_three.join(), key=str)
 
 
 def test_rate_limiter_normalization(
@@ -635,9 +683,9 @@ def test_failed_response(coordinator_dict, monkeypatch, initialize_mocker, caplo
         assert f"Encountered an unexpected error during iteration for provider, {provider_name}" in caplog.text
 
         assert (
-            sorted(search_results_list.join(), key=lambda x: str(x))
-            == sorted(search_results_list_two.join(), key=lambda x: str(x))
-            == sorted(search_results_list_three.join(), key=lambda x: str(x))
+            sorted(search_results_list.join(), key=str)
+            == sorted(search_results_list_two.join(), key=str)
+            == sorted(search_results_list_three.join(), key=str)
         )
         assert (
             len(search_results_list.filter()) == len(multisearch_coordinator.coordinators) - 1

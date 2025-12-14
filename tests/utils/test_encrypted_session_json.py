@@ -49,7 +49,7 @@ def test_env_key_loader(skip_missing_encryption_dependency, caplog):
     fernet = EncryptionPipelineFactory.generate_secret_key()
 
     # simulates the fernet key being saved as a bytes object in the config
-    with patch.dict(scholar_flux.sessions.encryption.config, {"SCHOLAR_FLUX_CACHE_SECRET_KEY": fernet}):
+    with patch.dict(scholar_flux.sessions.encryption.config_settings.config, {"SCHOLAR_FLUX_CACHE_SECRET_KEY": fernet}):
         # verifies whether, when a fernet key is not provided, the secret key will be used by default
         new_fernet = EncryptionPipelineFactory._prepare_key(None)
         assert "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY" in caplog.text

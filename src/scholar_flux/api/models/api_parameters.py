@@ -15,7 +15,7 @@ Classes:
 """
 from __future__ import annotations
 from pydantic import model_validator, ValidationError
-from typing import Optional, Dict, Any, ClassVar
+from typing import Optional, Dict, Any, Callable, ClassVar
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
@@ -348,6 +348,75 @@ class APIParameterConfig:
 
         """
         return self.parameter_map.show_parameters()
+
+    def add_parameter(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        validator: Optional[Callable[[Any], Any]] = None,
+        default: Any = None,
+        required: bool = False,
+        inplace=True,
+    ) -> APIParameterConfig:
+        """Passes keyword arguments to the current parameter map to add a new API-specific parameter to its config.
+
+        Args:
+            name (str):
+                The name of the parameter used when sending requests to APis.
+            description (str):
+                A description of the API-specific parameter.
+            validator (Optional[Callable[[Any], Any]]):
+                An optional function/method for verifying and pre-processing parameter input based on required types,
+                constrained values, etc.
+            default (Any):
+                An default value used for the parameter if not specified by the user
+            required (bool):
+                Indicates whether the current parameter is required for API calls.
+            inplace (bool):
+                A flag that, if True, modifies the current parameter map instance in place. If False, it returns a new
+                parameter map that contains the added parameter, while leaving the original unchanged.
+
+                Note: If this instance is shared (e.g., retrieved from provider_registry), changes will affect all
+                references to this parameter map. if `inplace=True`.
+
+        Returns:
+            APIParameterConfig:
+                An APIParameterConfig with the updated parameter map. If `inplace=True`, the original is returned.
+                Otherwise a new parameter map containing an updated `api_specific_parameters` dict is returned.
+
+        """
+        parameter_map = self.parameter_map.add_parameter(
+            name=name, description=description, validator=validator, default=default, required=required, inplace=inplace
+        )
+
+        return self if inplace else APIParameterConfig.as_config(parameter_map)
+
+    def extract_parameters(self, parameters: Optional[dict[str, Any]]) -> dict[str, Any]:
+        """Extracts all parameters from a dictionary: Helpful for when keywords must be extracted by provider.
+
+        Note: this method modifies the original parameter dictionary, using the `pop()` method to `extract` all
+        values identified as `api_specific_parameters` from the `parameters` dictionary when possible. These
+        extracted parameters are then returned in a separate dictionary.
+
+        Useful for reorganizing dictionaries that contain dynamically specified input parameters for distinct APIs.
+
+        Args:
+            parameters (Optional[dict[str, Any]]):
+                An optional parameter dictionary from which to extract API-specific parameters.
+
+        Returns:
+            (dict[str, Any]): A dictionary containing all extracted parameters if available.
+
+        """
+        if not parameters:
+            return {}
+
+        api_specific_parameters = {
+            parameter: parameters.pop(parameter, None) for parameter in self.parameter_map.api_specific_parameters
+        }
+
+        api_specific_parameters |= parameters.get("parameters", {})
+        return api_specific_parameters
 
     def _get_api_key(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
         """Helper method for extracting the api key from a dictionary of parameters.

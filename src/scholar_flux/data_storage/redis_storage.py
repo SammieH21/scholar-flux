@@ -82,8 +82,8 @@ class RedisStorage(ABCStorage):
 
     DEFAULT_NAMESPACE: str = "SFAPI"
     DEFAULT_CONFIG: dict = {
-        "host": config_settings.config.get("SCHOLAR_FLUX_REDIS_HOST") or "localhost",
-        "port": config_settings.config.get("SCHOLAR_FLUX_REDIS_PORT") or 6379,
+        "host": config_settings.get("SCHOLAR_FLUX_REDIS_HOST") or "localhost",
+        "port": config_settings.get("SCHOLAR_FLUX_REDIS_PORT") or 6379,
     }
     DEFAULT_RAISE_ON_ERROR: bool = False
 

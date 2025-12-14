@@ -285,6 +285,7 @@ Customize the built-in retry handler:
    retry_handler = coordinator.retry_handler
    
    # Customize settings
+   retry_handler.min_retry_interval = .25     # Default: 0
    retry_handler.max_retries = 5              # Default: 3
    retry_handler.backoff_factor = 1.0         # Default: 0.5
    retry_handler.max_backoff = 180            # Default: 120s
@@ -293,17 +294,19 @@ Customize the built-in retry handler:
 
 **Configuration parameters:**
 
-+---------------------+----------+------------------------------------------------+
-| Parameter           | Default  | Description                                    |
-+=====================+==========+================================================+
-| ``max_retries``     | 3        | Maximum retry attempts                         |
-+---------------------+----------+------------------------------------------------+
-| ``backoff_factor``  | 0.5      | Multiplier for exponential backoff             |
-+---------------------+----------+------------------------------------------------+
-| ``max_backoff``     | 120      | Maximum wait time (seconds)                    |
-+---------------------+----------+------------------------------------------------+
-| ``raise_on_error``  | False    | Raise exception on max retries exceeded        |
-+---------------------+----------+------------------------------------------------+
++---------------------+----------+------------------------------------------------------+
+| Parameter                 | Default  | Description                                    |
++=====================+==========+======================================================+
+| ``max_retries``           | 0        | Maximum retry attempts                         |
++---------------------+----------+------------------------------------------------------+
+| ``backoff_factor``        | 0.5      | Multiplier for exponential backoff             |
++---------------------+----------+------------------------------------------------------+
+| ``max_backoff``           | 120      | Maximum wait time (seconds)                    |
++---------------------+----------+------------------------------------------------------+
+| ``raise_on_error``        | False    | Raise exception on max retries exceeded        |
++---------------------+----------+------------------------------------------------------+
+| ``min_retry_interval``    |  0       | Minimum wait time before the next retry        |
++---------------------+----------+------------------------------------------------------+
 
 Retry Delay Calculation
 ------------------------
@@ -312,7 +315,7 @@ Delays use exponential backoff:
 
 .. code-block:: text
 
-   delay = min(backoff_factor * (2 ** attempt_number), max_backoff)
+   delay = min_retry_interval + min(backoff_factor * (2 ** attempt_number), max_backoff)
    
    Default settings (backoff_factor=0.5, max_backoff=120):
    - Attempt 1: 0.5 * 2^1 = 1.0 seconds

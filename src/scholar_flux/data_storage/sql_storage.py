@@ -1,10 +1,10 @@
 # /data_storage/sql_storage.py
-"""The scholar_flux.data_storage.sql_storage module implements the SQLAlchemyStorage class that implements the abstract
-methods required for compatibility with the DataCacheManager in the scholar_flux package.
+"""The scholar_flux.data_storage.sql_storage module implements the SQLAlchemyStorage for the DataCacheManager.
 
-This class implements caching by recording each of the fields of a ProcessedResponse into and parsed fields into a
-recursively encoded and serialized JSON data structure. When retrieving the data, the data is then decoded and
-deserialized to return the original object.
+This class implements  abstract methods required for compatibility with the DataCacheManager in the scholar_flux
+package and uses SQLite as the default storage device. The `SQLAlchemyStorage` implements caching by recording each
+of the fields of a ProcessedResponse into and parsed fields into a recursively encoded and serialized JSON data
+structure. When retrieving the data, the data is then decoded and deserialized to return the original object.
 
 Classes:
     - CacheTable:
@@ -83,8 +83,9 @@ else:
 
 
 class SQLAlchemyStorage(ABCStorage):
-    """Implements the storage methods necessary to interact with SQLite3 in addition to other SQL flavors via
-    sqlalchemy. This implementation is designed to use a relational database as a cache by which data can be stored and
+    """Implements the storage methods necessary to interact with SQLite3 along with other SQL flavors via sqlalchemy.
+
+    This implementation is designed to use a relational database as a cache by which data can be stored and
     retrieved in a relatively straightforward manner that associates records in key-value pairs similar to the In-Memory
     Storage.
 
@@ -264,7 +265,6 @@ class SQLAlchemyStorage(ABCStorage):
             list: A list of all keys saved via SQL.
 
         """
-
         with self.Session() as session, self.lock:
             try:
                 keys = [
@@ -359,9 +359,11 @@ class SQLAlchemyStorage(ABCStorage):
                 )
 
     def _serialize_data(self, record_data: Any) -> Any:
-        """Helper method for serializing and encoding cached data. The data is first encoded, identifying nested
-        structures that need to be encoded recursively. If a value is already in a serializable format, then the record
-        is left as is. The data is finally unstructured and returned.
+        """Helper method for serializing and encoding cached data.
+
+        The data is first encoded, identifying nested structures that need to be encoded recursively.
+        If a value is already in a serializable format, then the record is left as is. The data is finally
+        unstructured and returned.
 
         Returns:
             The serialized version of the input data
@@ -401,11 +403,11 @@ class SQLAlchemyStorage(ABCStorage):
 
         Returns:
             bool: True if the key is found otherwise False.
+
         Raises:
             ValueError: If provided key is empty or None.
 
         """
-
         if not key:
             raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
         try:
@@ -422,12 +424,10 @@ class SQLAlchemyStorage(ABCStorage):
 
     @classmethod
     def is_available(cls, url: Optional[str] = None, verbose: bool = True) -> bool:
-        """Helper class method for testing whether the SQL service can be accessed. If so, this function returns True,
-        otherwise False.
+        """Tests whether the SQL service can be accessed. If so, this function returns True, otherwise False.
 
         Args:
-            host (str): Indicates the location to attempt a connection
-            port (int): Indicates the port where the service can be accessed
+            url (str): Indicates the location to attempt a connection
             verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
 
         """

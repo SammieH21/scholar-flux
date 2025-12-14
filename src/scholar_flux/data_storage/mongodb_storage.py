@@ -84,8 +84,8 @@ class MongoDBStorage(ABCStorage):
     """
 
     DEFAULT_CONFIG: Dict[str, Any] = {
-        "host": config_settings.config.get("SCHOLAR_FLUX_MONGODB_HOST") or "mongodb://127.0.0.1",
-        "port": config_settings.config.get("SCHOLAR_FLUX_MONGODB_PORT") or 27017,
+        "host": config_settings.get("SCHOLAR_FLUX_MONGODB_HOST") or "mongodb://127.0.0.1",
+        "port": config_settings.get("SCHOLAR_FLUX_MONGODB_PORT") or 27017,
         "db": "storage_manager_db",
         "collection": "result_page",
     }

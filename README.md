@@ -55,18 +55,51 @@ ScholarFlux handles that complexity through:
 - **🗄️ Two-Tier Caching**: HTTP response caching + processed result caching with production backends
 - **🛡️ Security-First**: Automatic credential masking and optional encrypted caching
 
+### Features at a Glance
+
+- **Rate limiting** - Automatically respects per-provider rate limits to avoid getting banned
+- **Two-layer caching** - Optionally caches successful requests and response processing to avoid redundant requests
+- **Security-first** - Identifies and masks sensitive data (API keys, emails, credentials) before they appear in logs
+- **Request preparation** - Configures provider-specific API parameters and settings for data retrieval
+- **Response validation** - Verifies response structure before attempting to process data
+- **Record processing** - Prepares, logs, and returns intermediate data steps and final processed results
+- **Concurrent orchestration** - Retrieves data from multiple APIs concurrently with multithreading
+- **Intelligent halting** - After unsuccessful requests, knows when to retry or halt multi-page retrieval
+
 ### Performance: Real-World Impact
 
-**Scenario**: Retrieve 1,250 records from 4 providers (PLOS, arXiv, OpenAlex, Crossref)
+**Scenario**: Retrieve 1,250 records from 5 providers (PLOS, arXiv, Core API, OpenAlex, Crossref)
 
 | Method | Time | Speedup |
 |--------|------|---------|
-| Sequential requests | ~18 min | Baseline |
+| Sequential requests | ~19 min | Baseline |
 | ScholarFlux concurrent threading | ~6 min | **3x faster** |
 
-**Why?** ScholarFlux uses concurrent threads with shared rate limiters. While PLOS thread waits 6s for rate limiting, arXiv (4s), OpenAlex (6s), and Crossref (1s) threads query simultaneously. The more providers you query, the greater the optimization.
+**Why?** ScholarFlux uses concurrent threads with shared rate limiters. While PLOS thread waits 6s for rate limiting, arXiv (4s), Core API (~6s), OpenAlex (1s), and Crossref (1s) threads query simultaneously. The more providers you query, the greater the optimization.
+
+## Focus
+
+- **Unified Access**: Aggregate searches across multiple academic databases and publishers
+- **Rich Metadata Retrieval**: Fetch detailed metadata for each publication, including authors, publication date, abstracts, and more
+- **Advanced Search Capabilities**: Support both simple searches and provider-specific, complex query structures to filter by publication date, authorship, and keywords
+- **Open Access Integration**: Prioritize and query open-access resources (for use within the terms of service for each provider)
+- **Production-Ready Architecture**: Built with dependency injection, comprehensive error handling, and type safety for deployment in production environments
 
 ## Installation
+
+### Prerequisites
+
+- Python 3.10+
+- [Poetry](https://python-poetry.org/) for dependency management (for development)
+- An API key depending on the API Service Provider (may be available through your academic institution or by registering directly with the provider)
+
+### Provider Access
+
+While some APIs may require an API key, the majority of providers do not. **OpenAlex, PLOS, Crossref, and arXiv work out-of-the-box** and seamlessly for both single-page and multi-page/provider retrieval, even with the default settings.
+
+APIs such as PubMed, CORE, and Springer Nature do, however, provide API access without payment or subscription for uses within the terms of service.
+
+All sources have rate limits that users should abide by to prevent `Too Many Requests` status codes when requesting data. Luckily, **ScholarFlux handles this part automatically for you**!
 
 ### Basic Installation
 
@@ -89,7 +122,33 @@ pip install scholar-flux[database]
 pip install scholar-flux[cryptography]
 ```
 
-### Quick Start
+## Quick Start
+
+### Simplest Example
+
+Just want to see it work? Here's the absolute minimum:
+
+```python
+from scholar_flux import SearchCoordinator
+
+coordinator = SearchCoordinator(query="machine learning", provider_name="arxiv")
+result = coordinator.search_page(page=1)
+
+if result:
+    print(f"Success! Got {result.record_count} records")
+
+    # Note: result.data might be empty if the query matches no documents
+    if result.data:
+        print(f"Title of first article: {result.data[0].get('title')}") 
+    else:
+        print("Query returned no results. Try a different search term.")
+else:
+    print(f"Error: {result.error}")
+```
+
+### Complete Example
+
+For real-world usage with normalization and error handling:
 
 ```python
 from scholar_flux import SearchCoordinator
@@ -97,18 +156,27 @@ from scholar_flux import SearchCoordinator
 # Create a coordinator for a single provider
 coordinator = SearchCoordinator(query="machine learning", provider_name="arxiv")
 
-# Search and get results
-response = coordinator.search(page=1)
+# Search and get results:
+response = coordinator.search_page(page=1)
+
+print(response)
+# OUTPUT: SearchResult(query='machine learning', provider_name='arxiv', page=1, response_result=ProcessedResponse(...))
 
 if response:
-    articles = response.data or []
-    print(f"Found {response.total_query_hits} total results")
-    print(f"Retrieved {len(articles)} records on this page")
-    
-    # Access processed data
-    for article in articles:
+    # show the total number of records that were retrieved and process
+    print(f"Found {response.total_query_hits} total results for the query, {response.query}")
+    print(f"Retrieved {response.record_count} records from page {response.page}")
+
+    # Access processed data with predictable fields:
+    for article in response.normalize():
+        abstract = article.get('abstract')
+        summary = abstract[:80] + '...' if abstract else 'Not Found'
+
         print(f"Title: {article.get('title')}")
         print(f"Authors: {article.get('authors')}")
+        print(f"Abstract: {summary}")
+else:
+    print(f"Oops, An error occurred during response retrieval for page {response.page}: ", response.error, response.message)
 ```
 
 ## 🔬 Origin Story
@@ -122,7 +190,7 @@ Built and presented at CDC meetings as a solution for AI-assisted systematic lit
 After the fellowship, I recognized the broader need beyond public health research and open-sourced it, expanding from the initial Springer Nature integration to 7+ providers with comprehensive documentation and production-ready features.
 
 **Technical foundation:**
-- **41,000 lines of code**: 25,700 LOC source + 16,600 LOC comprehensive tests
+- **~45,000 lines of code**: ~27,000 LOC source + ~18,000 LOC comprehensive tests
 - **96% test coverage**: Rigorous testing across all functionality and edge cases
 - **Security-focused**: Automated CVE scanning, credential masking, encrypted caching
 - **Type-safe**: mypy strict mode throughout entire codebase
@@ -130,7 +198,7 @@ After the fellowship, I recognized the broader need beyond public health researc
 
 ## 📚 Comprehensive Documentation
 
-ScholarFlux includes **8 detailed tutorials** covering everything from basic setup to production deployment:
+ScholarFlux includes **8 detailed tutorials** and **3 AI/ML example pipelines** covering everything from basic setup to production deployment:
 
 ### Core Tutorials
 - **Getting Started** - Installation, first search, environment configuration
@@ -143,6 +211,11 @@ ScholarFlux includes **8 detailed tutorials** covering everything from basic set
 - **Advanced Workflows** - Multi-step retrieval patterns, PubMed workflow internals
 - **Custom Providers** - Extending ScholarFlux to new APIs with custom configurations
 - **Production Deployment** - Docker, monitoring, encrypted caching, and security essentials
+
+### Example Pipelines
+- **Retrieval Pipeline Orchestration** - Scheduled data preparation with Parquet export
+- **Semantic Similarity Search** - Embedding-based paper discovery with ModernBERT
+- **Agentic Literature Review** - LLM-powered classification with PydanticAI
 
 Each tutorial includes working code examples and real-world use cases. The documentation depth reflects the package's maturity and production-readiness.
 
@@ -239,88 +312,8 @@ results = multi.search_pages(pages=pages)  # multithreading=True by default
 # Speedup: Approximately 2x faster than sequential (~6s vs ~12s)
 ```
 
-
 This optimization compounds with multiple pages. For 10 pages across 4 providers, the speedup grows to **3x faster** than sequential retrieval.
 
-
-
-## What's New in v0.3.0
-
-v0.3.0 focuses on **production hardening** and **edge case reliability**—refining existing orchestration capabilities to handle real-world API variability more robustly.
-
-### Enhanced Pagination Intelligence
-ScholarFlux's existing pagination logic now extracts precise metadata from API responses:
-
-```python
-response = coordinator.search(page=1)
-
-# Previous: Stopped when len(records) < expected (heuristic)
-# Now: Uses provider-reported metadata for precision
-print(response.total_query_hits)    # 15,847 (reported by API)
-print(response.records_per_page)    # 25 (reported by API)
-
-# Stops at exactly page 634 (15,847 ÷ 25)
-# No more false stops from partial pages or rate limit throttling
-```
-
-The new `ResponseMetadataMap` standardizes metadata extraction and processing across provider-specific field names (`numFound` for PLOS, `count` for OpenAlex, `total-results` for Crossref).
-
-### Resilient Field Mapping
-Enhanced field mapping system supports fallback paths for API response variability:
-
-```python
-from scholar_flux.api.normalization import AcademicFieldMap
-
-field_map = AcademicFieldMap(
-    provider_name="pubmed",
-    # Handles variability: some records have .#text, others don't
-    title=["MedlineCitation.Article.ArticleTitle.#text", 
-           "MedlineCitation.Article.ArticleTitle"],
-    abstract=["MedlineCitation.Article.Abstract.AbstractText.#text",
-              "MedlineCitation.Article.Abstract.AbstractText"]
-)
-
-# Automatically tries each path until finding data
-records = response.normalize(field_map=field_map)
-```
-
-### Proactive Rate Limiting
-Rate limiter now reads `Retry-After` headers proactively:
-
-```python
-# Previous: Request → 429 error → exponential backoff → retry
-# Enhanced: Request → Response has "Retry-After: 5" → wait 5s → next request
-
-coordinator.search(page=1)  # Response includes Retry-After header
-coordinator.search(page=2)  # Automatically waits before requesting
-```
-
-Works with numeric delays and HTTP date formats, with case-insensitive header extraction.
-
-### Non-Paginated Endpoint Support
-New `parameter_search()` extends orchestration to custom endpoints:
-
-```python
-# Query specialized endpoints (recommendations, cited articles, etc.)
-result = coordinator.parameter_search(
-    endpoint="/articles/recommend",  # mock endpoint
-    article_id="PMC1234567",  # mock ID parameter
-    limit=20,  # mock page-limit parameter
-    from_request_cache=True
-)
-# Rate limiting, retry logic, caching, and processing still apply
-```
-
-### Complete v0.3.0 Improvements
-- **Metadata extraction**: `ResponseMetadataMap` for precise pagination across all providers
-- **Resilient normalization**: Fallback field paths handle API response variability  
-- **Proactive rate limiting**: Case-insensitive `Retry-After` header detection
-- **Non-paginated support**: `parameter_search()` for custom endpoints and workflows
-- **Workflow refinement**: PubMed metadata preservation across search steps
-- **Session backends**: Auto-configured Redis/MongoDB for production deployments
-- **Documentation**: 8 comprehensive Sphinx tutorials
-
-See the [full changelog](https://github.com/SammieH21/scholar-flux/blob/main/CHANGELOG.md) for detailed technical changes.
 
 
 ### Multi-Provider Search with Normalization
@@ -356,6 +349,7 @@ print(df[['provider_name', 'title', 'doi', 'year']].head())
 ## Core Features
 
 ### Rate Limiting
+
 ScholarFlux respects per-provider rate limits automatically:
 
 ```python
@@ -364,6 +358,18 @@ coordinator = SearchCoordinator(query="sleep", provider_name='plos')
 # Each request waits as needed to maintain the rate limit
 results = coordinator.search_pages(pages=range(1, 3))
 ```
+
+**Default Rate Limits:**
+
+ScholarFlux implements conservative rate limits that respect each provider's requirements:
+
+- **PLOS**: 6.1 seconds between requests
+- **arXiv**: 4 seconds between requests
+- **OpenAlex**: 1 second between requests (conservative—OpenAlex uses 5 metrics)
+- **PubMed**: 2 seconds between requests (3 req/sec → 10 req/sec with API key)
+- **Crossref**: 1 second between requests
+- **CORE**: 6 seconds between requests (token-based, not request-based)
+- **Springer Nature**: 2 seconds between requests
 
 **Override the default delay:**
 ```python
@@ -595,6 +601,132 @@ for result in results:
 
 For detailed comparison, see the [documentation](https://SammieH21.github.io/scholar-flux/).
 
+## What's New in v0.3.1
+
+v0.3.1 delivers **AI/ML pipeline examples**, **API parameter enhancements**,  and **configuration enhancements** that make ScholarFlux easier to integrate into research workflows.
+
+### 🤖 New AI/ML Pipeline Examples
+
+Three production-ready examples demonstrating ScholarFlux integration with modern AI/ML workflows:
+
+- **[Retrieval Pipeline Orchestration](examples/retrieval_pipeline_orchestration.py)** — Scheduled data preparation pipeline with date filtering, incremental accumulation, and Parquet export. Includes optional daily scheduling via `schedule` or cron.
+
+- **[Semantic Similarity Search](examples/ml_springer_nature_embeddings_similarity.py)** — Combines ScholarFlux with ModernBERT embeddings to discover interdisciplinary research. Searches Springer Nature and ranks papers by semantic similarity to target topics.
+
+- **[Agentic Literature Review](examples/agentic_literature_review.py)** — Multi-provider search with LLM-powered classification using PydanticAI. Demonstrates how to build automated literature review pipelines with structured AI output.
+
+### ⚡ Rate Limiting Improvements
+- **OpenAlex optimization**: Reduced default `request_delay` from 6s to 1s to align with documented rate limits. Using the `mailto` parameter enables 10 requests/second via the "polite pool."
+- **Thread-safe response history**: New `ResponseHistoryRegistry` tracks last responses per provider across threads, enabling smarter rate limit coordination for concurrent queries.
+
+### 🔧 Configuration Enhancements
+- **New environment variables**: `SCHOLAR_FLUX_DEFAULT_USER_AGENT`, `SCHOLAR_FLUX_DEFAULT_MAILTO`, `SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND`, and `SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE` allow setting defaults without code changes. Useful for containerized deployments.
+- **Unified config access**: Use `config_settings.get()` and `config_settings.set()` for cleaner configuration with automatic environment variable fallback.
+### Retry Logic Improvements
+- **Configurable minimum retry delay**: `RetryHandler` now respects `min_retry_delay` parameter for more predictable backoff
+- **Smarter backoff calculation**: Retry delays now use `min_retry_delay + exponential_backoff` instead of just exponential backoff
+- **SearchCoordinator integration**: Automatically sets `min_retry_delay` based on `request_delay` for consistent rate limiting behavior
+
+### Documentation Enhancements
+- **Expanded Quick Start**: Added "Simplest Example" section for immediate usage
+- **Improved Getting Started**: Added Prerequisites, Provider Access, and Developer Installation sections
+- **Enhanced Feature Documentation**: Added "Features at a Glance" summary and detailed rate limit documentation
+
+### API-Specific Parameters
+Each provider now supports sorting, filtering, and provider-native options directly in searches:
+```python
+# OpenAlex with sorting and filtering
+coordinator = SearchCoordinator(query="sunspots", provider_name="openalex")
+results = coordinator.search_pages(range(1, 5), sort="cited_by_count:desc", filter="publication_year:2024")
+
+# Crossref with polite pool access
+coordinator = SearchCoordinator(query="neural networks", provider_name="crossref")
+results = coordinator.search_pages(range(1, 3), sort="published", order="desc", mailto="you@institution.edu")
+```
+
+Use `SearchAPI.describe()` to see available parameters for any provider.
+
+
+These refinements build on v0.3.0's production hardening, making ScholarFlux more reliable and easier to integrate into AI/ML research pipelines.
+
+## What's New in v0.3.0
+
+v0.3.0 focuses on **production hardening** and **edge case reliability**—refining existing orchestration capabilities to handle real-world API variability more robustly.
+
+### Enhanced Pagination Intelligence
+ScholarFlux's existing pagination logic now extracts precise metadata from API responses:
+
+```python
+response = coordinator.search(page=1)
+
+# Previous: Stopped when len(records) < expected (heuristic)
+# Now: Uses provider-reported metadata for precision
+print(response.total_query_hits)    # 15,847 (reported by API)
+print(response.records_per_page)    # 25 (reported by API)
+
+# Stops at exactly page 634 (15,847 ÷ 25)
+# No more false stops from partial pages or rate limit throttling
+```
+
+The new `ResponseMetadataMap` standardizes metadata extraction and processing across provider-specific field names (`numFound` for PLOS, `count` for OpenAlex, `total-results` for Crossref).
+
+### Resilient Field Mapping
+Enhanced field mapping system supports fallback paths for API response variability:
+
+```python
+from scholar_flux.api.normalization import AcademicFieldMap
+
+field_map = AcademicFieldMap(
+    provider_name="pubmed",
+    # Handles variability: some records have .#text, others don't
+    title=["MedlineCitation.Article.ArticleTitle.#text", 
+           "MedlineCitation.Article.ArticleTitle"],
+    abstract=["MedlineCitation.Article.Abstract.AbstractText.#text",
+              "MedlineCitation.Article.Abstract.AbstractText"]
+)
+
+# Automatically tries each path until finding data
+records = response.normalize(field_map=field_map)
+```
+
+### Proactive Rate Limiting
+Rate limiter now reads `Retry-After` headers proactively:
+
+```python
+# Previous: Request → 429 error → exponential backoff → retry
+# Enhanced: Request → Response has "Retry-After: 5" → wait 5s → next request
+
+coordinator.search(page=1)  # Response includes Retry-After header
+coordinator.search(page=2)  # Automatically waits before requesting
+```
+
+Works with numeric delays and HTTP date formats, with case-insensitive header extraction.
+
+### Non-Paginated Endpoint Support
+New `parameter_search()` extends orchestration to custom endpoints:
+
+```python
+# Query specialized endpoints (recommendations, cited articles, etc.)
+result = coordinator.parameter_search(
+    endpoint="/articles/recommend",  # mock endpoint
+    article_id="PMC1234567",  # mock ID parameter
+    limit=20,  # mock page-limit parameter
+    from_request_cache=True
+)
+# Rate limiting, retry logic, caching, and processing still apply
+```
+
+### Complete v0.3.0 Improvements
+- **Metadata extraction**: `ResponseMetadataMap` for precise pagination across all providers
+- **Resilient normalization**: Fallback field paths handle API response variability  
+- **Proactive rate limiting**: Case-insensitive `Retry-After` header detection
+- **Non-paginated support**: `parameter_search()` for custom endpoints and workflows
+- **Workflow refinement**: PubMed metadata preservation across search steps
+- **Session backends**: Auto-configured Redis/MongoDB for production deployments
+- **Documentation**: 8 comprehensive Sphinx tutorials
+
+See the [full changelog](https://github.com/SammieH21/scholar-flux/blob/main/CHANGELOG.md) for detailed technical changes.
+
 
 ## Documentation
 
@@ -614,10 +746,38 @@ For detailed comparison, see the [documentation](https://SammieH21.github.io/sch
 - **[Custom Providers](https://SammieH21.github.io/scholar-flux/custom_providers.html)** - Extending ScholarFlux to new APIs with custom metadata maps
 - **[Production Deployment](https://SammieH21.github.io/scholar-flux/production_deployment.html)** - Docker, monitoring, encrypted caching, and security essentials
 
+### 🧪 Example Pipelines
+
+Production-quality example templates demonstrating how ScholarFlux can be integrated with AI/ML and data orchestration pipelines. These provide well-tested starting points that can be adapted for production deployments.
+
+- **[Retrieval Pipeline Orchestration](examples/retrieval_pipeline_orchestration.py)** - Scheduled data preparation with date filtering, deduplication, and Parquet export
+- **[Semantic Similarity Search](examples/ml_springer_nature_embeddings_similarity.py)** - Embedding-based interdisciplinary paper discovery with ModernBERT
+- **[Agentic Literature Review](examples/agentic_literature_review.py)** - Multi-provider search with LLM classification via PydanticAI
+
 
 ## Contributing
 
 We welcome contributions from the research and open-source communities! If you have suggestions for improvements or new features, please fork the repository and submit a pull request. Please refer to our [Contributing Guidelines](CONTRIBUTING.md) for more information.
+
+### Developer Installation
+
+For those who want to contribute or work with the source code:
+
+1. **Clone the repository:**
+```bash
+git clone https://github.com/SammieH21/scholar-flux.git
+cd scholar-flux
+```
+
+2. **Install dependencies using Poetry:**
+```bash
+poetry install
+```
+
+3. **Or to download development tools, testing packages, and all extras:**
+```bash
+poetry install --with dev --with tests --all-extras
+```
 
 **Areas where contributions are especially valuable:**
 - Adding new academic database providers
@@ -655,16 +815,16 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 
 ## 📈 Project Statistics
 
-- **~41,000 Lines of Code** - ~25,700 LOC source + ~16,600 LOC comprehensive tests
+- **~45,000 Lines of Code** - ~27,000 LOC source + ~18,000 LOC comprehensive tests
 - **96% Test Coverage** - Rigorous testing across all functionality and edge cases
 - **7 Default Providers** - Pre-configured with schema normalization and metadata extraction
 - **Type-Safe Architecture** - mypy strict mode, comprehensive type hints throughout
 - **Security-Audited** - Automated CVE scanning via CodeQL and Safety CLI, credential masking
 - **Zero Known CVEs** - Continuous security monitoring in CI/CD pipeline
 - **8 Comprehensive Tutorials** - Detailed documentation from basics through production deployment
-- **Stable Beta** (v0.3.0) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
+- **3 AI/ML Example Pipelines** - Production-ready examples for embeddings, agents, and scheduled retrieval
+- **Stable Beta** (v0.3.1) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
 
 ---
 
 **Built with ❤️ for researchers, data engineers, and ML practitioners—the analytical pioneers of the future**
-

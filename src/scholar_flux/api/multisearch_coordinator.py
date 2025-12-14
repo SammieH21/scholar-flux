@@ -172,16 +172,27 @@ class MultiSearchCoordinator(UserDict):
 
         Args:
             pages (Sequence[int]): A sequence of page numbers to iteratively request from the API Provider.
-            from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
-                                       requests-cache storage.
-            from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
-                                       the cache storage.
-            use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
+            iterate_by_group (bool):
+                Determines whether all searches should be performed by page or by group. Note that page-based
+                iteration is significantly faster due to API rate limits. This is set to `False` by default as a result.
+            max_workers (Optional[int]):
+                Determines how many threads should operate at one time. Applies when only when `multithreading` is
+                set to `True`. When `None`, as many threads are used as required.
+            multithreading (bool):
+                Multithreading is used when this parameter is set to `True`. Otherwise, sequential iteration is
+                performed. Multithreading is enabled by default.
+            from_request_cache (bool):
+                This parameter determines whether to try to retrieve the response from the requests-cache storage.
+            from_process_cache (bool):
+                This parameter determines whether to attempt to pull processed responses from the cache storage.
+            use_workflow (bool):
+                Indicates whether to use a workflow if available Workflows are utilized by default.
 
         Returns:
-            SearchResultList: The list containing all retrieved and processed pages from the API. If any non-stopping
-                              errors occur, this will return an ErrorResponse instead with error and message attributes
-                              further explaining any issues that occurred during processing.
+            SearchResultList:
+                The list containing all retrieved and processed pages from the API. If any non-stopping errors occur,
+                this will return an ErrorResponse instead with error and message attributes further explaining any
+                issues that occurred during processing.
 
         """
         return self.search_pages(
@@ -189,6 +200,34 @@ class MultiSearchCoordinator(UserDict):
             iterate_by_group=iterate_by_group,
             max_workers=max_workers,
             multithreading=multithreading,
+            **kwargs,
+        )
+
+    def search_page(
+        self,
+        page: int = 1,
+        **kwargs,
+    ) -> SearchResultList:
+        """Retrieves a single page from all registered coordinators.
+
+        This method provides API compatibility with SearchCoordinator.search_page, returning results wrapped in
+        SearchResult containers with provider metadata.
+
+        Args:
+            page (int):
+                The page number to retrieve from each provider.
+            **kwargs:
+                Additional arguments to pass to `MultiSearchCoordinator.search_pages` or the `search_pages` method
+                for each individual coordinator
+                method otherwise.
+
+        Returns:
+            SearchResultList: Results from all coordinators for the specified page.
+
+        """
+        return self.search_pages(
+            pages=[page] if isinstance(page, int) else page,
+            **kwargs,
         )
 
     def search_pages(
@@ -524,6 +563,23 @@ class MultiSearchCoordinator(UserDict):
         query = str(search_coordinator.api.query)
         key = f"{provider_name}_{query}:{hash_value}"
         return key
+
+    def select(
+        self,
+        query: Optional[str] = None,
+        provider_name: Optional[str] = None,
+    ) -> list[SearchCoordinator]:
+        """Helper method that enables the selection of coordinators based on their query or provider name."""
+        provider_name = (
+            ProviderConfig._normalize_name(provider_name) if isinstance(provider_name, str) else provider_name
+        )
+        return [
+            coordinator
+            for coordinator in self.coordinators
+            if (query is None or query == coordinator.api.query)
+            and provider_name is None
+            or provider_name == coordinator.api.provider_name
+        ]
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the MultiSearchCoordinator."""

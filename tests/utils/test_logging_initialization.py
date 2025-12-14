@@ -126,7 +126,7 @@ def test_initializer_with_env(restore_config, cleanup, tmp_path, monkeypatch, ca
     )
 
     assert test_logger.level == logging.ERROR
-    assert config_settings.config.get("SCHOLAR_FLUX_DEFAULT_PROVIDER") == provider
+    assert config_settings.get("SCHOLAR_FLUX_DEFAULT_PROVIDER") == provider
     assert "Attempting to load updated settings from the system environment." in caplog.text
     assert SecretStr(mocked_crossref_api_key) == config.get(crossref_api_key_env_var)
     assert mocked_crossref_api_key not in caplog.text

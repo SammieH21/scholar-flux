@@ -22,6 +22,8 @@ from pydantic import Field
 from typing import Optional, List
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, SearchAPIConfig
 from scholar_flux.api.workflows.search_workflow import StepContext, WorkflowStep, SearchWorkflow, WorkflowResult
+from scholar_flux.exceptions import NoRecordsAvailableException
+from scholar_flux.api.base_coordinator import BaseCoordinator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -104,17 +106,14 @@ class PubMedFetchStep(WorkflowStep):
                 else:
                     err += " The result from the previous step is `None`."
                 raise RuntimeError(err)
-            ids = getattr(ctx.result, "metadata", {}).get("IdList", {}).get("Id")
+
+            metadata = getattr(ctx.result, "metadata", None) or {}
+            id_list = metadata.get("IdList") or {}
+            ids = id_list.get("Id") or {}
             config_parameters["id"] = ",".join(ids) or "" if ids else None
 
             if not config_parameters["id"]:
-                msg = (
-                    f"The metadata from the pubmed search is not in the expected format: "
-                    f"{ctx.result.__dict__ if ctx.result else ctx}"
-                )
-
-                logger.error(msg)
-                raise TypeError(msg)
+                raise NoRecordsAvailableException("The metadata from the PubMed eSearch step returned no record IDs.")
 
             config_parameters["records_per_page"] = len(ids)
 
@@ -149,6 +148,24 @@ class PubMedSearchWorkflow(SearchWorkflow):
     """
 
     steps: List[WorkflowStep] = Field(default_factory=lambda: [PubMedSearchStep(), PubMedFetchStep()])
+
+    def _run(
+        self,
+        search_coordinator: BaseCoordinator,
+        verbose: bool = True,
+        **keyword_parameters,
+    ) -> WorkflowResult:
+        """Executes the PubMed workflow and catches edge-cases where successful eSearches return no records for a
+        query."""
+        try:
+            return super()._run(search_coordinator, verbose, **keyword_parameters)
+        except NoRecordsAvailableException as e:
+            if not (self._history and self._history[0] and self._history[0].result):
+                raise RuntimeError(
+                    f"The PubMed Workflow failed without the retrieval of an initial eSearch response: {e}"
+                )
+            logger.info(f"{e} Halting the PubMed eFetch step and returning the processed eSearch response...")
+            return WorkflowResult(history=self._history, result=self._history[0].result)
 
     def _create_workflow_result(self, result: Optional[ProcessedResponse | ErrorResponse] = None) -> WorkflowResult:
         """Updates the metadata field of the PubMed eFetch search result with eSearch metadata if available.

@@ -1,6 +1,5 @@
 # /data_storage/data_cache_manager.py
-"""The scholar_flux.data_storage.data_cache_manager implements a DataCacheManager that allows the storage and cached
-retrieval of processed responses.
+"""The scholar_flux.data_storage.data_cache_manager implements a DataCacheManager for response caching and retrieval.
 
 This class is the user-interface that implements a unified interface for different cache storage devices that inherit
 from the ABCStorage class.
@@ -10,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from typing import Any, Dict, Optional, Literal
+from typing_extensions import Self
 from urllib.parse import urlparse
 from requests import Response
 from scholar_flux.data_storage.abc_storage import ABCStorage
@@ -19,6 +19,7 @@ from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils import config_settings
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.exceptions import (
     StorageCacheException,
@@ -69,7 +70,59 @@ class DataCacheManager:
 
     def __init__(self, cache_storage: Optional[ABCStorage] = None) -> None:
         """Initializes the DataCacheManager with the selected cache storage."""
-        self.cache_storage: ABCStorage = cache_storage if cache_storage is not None else InMemoryStorage()
+        if cache_storage is not None and not isinstance(cache_storage, ABCStorage):
+            raise StorageCacheException(
+                "The chosen storage device for caching processed responses is not valid. Expected a valid subclass of "
+                f"the `ABCStorage`, but received {type(cache_storage)}."
+            )
+        self.cache_storage: ABCStorage = cache_storage if cache_storage is not None else self.default_cache_storage()
+
+    @classmethod
+    def from_defaults(cls, raise_on_error: bool = False) -> Self:
+        """Creates a cache from `SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE` or an In-memory cache otherwise.
+
+        Args:
+            raise_on_error (bool):
+                If True, an exception is raised when unknown storage types are received. If False, a warning is logged
+                and defaults to this method defaults to creating a `DataCacheManager` using an `InMemoryStorage`.
+
+        Returns:
+            Self: A new DataCacheManager instance with the default storage backend.
+
+        """
+        storage = cls.default_cache_storage(raise_on_error=raise_on_error)
+        return cls(cache_storage=storage)
+
+    @classmethod
+    def default_cache_storage(cls, raise_on_error: bool = False) -> ABCStorage:
+        """Creates a storage device from `SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE` or an In-memory cache otherwise.
+
+        This storage device, once created, define the storage mechanism used by the `DataCacheManager` to cache
+        processed response data.
+
+        Args:
+            raise_on_error (bool):
+                If True, an exception is raised when the environment variable exists but attempts
+                to use an unknown storage device. If False, this method instead logs a warning on errors and
+                create a default `DataCacheManager` with an `InMemoryStorage` device instead.
+
+        Returns:
+            ABCStorage: A new, subclassed default storage backend.
+
+        """
+        env_variable = "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE"
+        cache_storage_type: Literal[
+            "redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"
+        ] = (config_settings.get(env_variable) or "inmemory")
+
+        try:
+            return cls._create_storage(cache_storage_type)
+        except StorageCacheException as e:
+            error_msg = f"A storage cache could not be created with the environment variable '{env_variable}': {e}. "
+            if raise_on_error:
+                raise StorageCacheException(error_msg) from e
+            logger.warning(f"{error_msg}: Defaulting to `InMemoryStorage`.")
+            return cls._create_storage("inmemory")
 
     def verify_cache(self, cache_key: Optional[str]) -> bool:
         """Checks if the provided cache_key exists in the cache storage.
@@ -98,8 +151,11 @@ class DataCacheManager:
         response: Optional[Response | ResponseProtocol] = None,
         cached_response: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """Determines whether the cached data for a given key is still valid or needs reprocessing due to missing fields
-        or modified content when checked against the current response.
+        """Determines whether the cached data for a cache key is valid or needs reprocessing due to missing fields.
+
+        To verify the freshness of a cached response, the content hash is compared against a fresh response if
+        available. Checks for validity are also performed to determine whether the cache key recorded within the
+        metadata matches the currently provided key and whether other core fields haven't changed.
 
         If a cached_response dictionary was not directly passed, the cache key will be retrieved from
         storage before comparison.
@@ -114,7 +170,6 @@ class DataCacheManager:
             bool: True if the cache is valid, False otherwise.
 
         """
-
         if not cached_response and not self.verify_cache(cache_key):
             return False
 
@@ -141,7 +196,7 @@ class DataCacheManager:
         processed_records: Optional[Any] = None,
         **kwargs,
     ) -> None:
-        """Updates the cache storage with new data.
+        """Updates the cache storage with data from intermediate and final steps in response retrieval and processing.
 
         Args:
             cache_key: A unique identifier for the cached data.
@@ -149,6 +204,7 @@ class DataCacheManager:
             store_raw: (Optional) A boolean indicating whether to store the raw response. Defaults to False.
             metadata: (Optional) Additional metadata associated with the cached data. Defaults to None.
             parsed_response: (Optional) The response data parsed into a structured format. Defaults to None.
+            extracted_records: (Optional) The records extracted from a parsed response prior to record processing.
             processed_records: (Optional) The response data processed for specific use. Defaults to None.
             kwargs: Optional additional hashable dictionary fields that can be stored using sql cattrs encodings or in-memory cache.
 
@@ -245,8 +301,7 @@ class DataCacheManager:
 
     @classmethod
     def _cache_key_from_url(cls, url: str, status_code: int = 200, use_parameters: bool = True) -> str:
-        """
-        Generates a cache key from a URL and status code, with optional inclusion of query parameters.
+        """Generates a cache key from a URL and status code, with optional inclusion of query parameters.
 
         Args:
             url (str): The URL to generate the cache key from.
@@ -257,6 +312,7 @@ class DataCacheManager:
 
         Returns:
             str: A SHA-256 hash representing the cache key for the given URL and status code.
+
         """
         parsed_url = urlparse(url)
         query = f"?{parsed_url.query}" if use_parameters and parsed_url.query else ""
@@ -269,6 +325,8 @@ class DataCacheManager:
     def generate_response_hash(cls, response: Response | ResponseProtocol) -> str:
         """Generates a hash of the response content.
 
+        The `hashlib` library is used to generate a `sha256` sum that returns a consistent hash for the same input.
+
         Args:
             response: The API response object.
 
@@ -280,16 +338,19 @@ class DataCacheManager:
 
     @classmethod
     def _verify_cached_response(cls, cache_key: str, cached_response: Dict[str, Any]) -> bool:
-        """Verifies whether the cache key matches the key from cached_response (if available)
-            Note that this method expects that a cache key is provided
+        """Verifies that the cache key matches the previously recorded cache key from `cached_response` if available.
+
+        This method expects that a valid cache key is provided and will otherwise return `False` for any value of
+        `cache_key` that is not a string.
+
         Args:
             cache_key (str): The unique identifier for cached data.
-            cached_response: Optional[Dict[str, Any]]: The cached data associated with the key
+            cached_response (Dict[str, Any]): The cached data associated with the key
 
         Returns:
             bool: True if the cache is valid, False otherwise.
-        """
 
+        """
         if not (cached_response and isinstance(cached_response, dict)):
             logger.warning("The provided cached_response is not a dictionary")
             return False
@@ -309,9 +370,11 @@ class DataCacheManager:
 
     @classmethod
     def _verify_hash(cls, response: Response | ResponseProtocol, cached_response: Dict[str, Any]) -> bool:
-        """Determines whether the cached data for a given key is still valid and the hashed content hasn't significantly
-        changed. If the hash between the current response and cached response_dict has changed, True is returned, and
-        False otherwise.
+        """Determines whether the cached data for a given key is still valid and fresh.
+
+        If the hashed content hasn't significantly changed and the duration of validity (if used) for the cache has not
+        expired, the cache key will be considered fresh. If the hash between the current response and cached
+        response (represented as a dictionary) has changed, True is returned, and False otherwise.
 
         Args:
             response: The API response or response-like object used to validate the cache.
@@ -321,15 +384,14 @@ class DataCacheManager:
             bool: True if the cache is valid, False otherwise.
 
         """
-
         current_hash = cls.generate_response_hash(response)
         previous_hash = cached_response.get("response_hash")
 
         return current_hash == previous_hash
 
     @classmethod
-    def null(cls) -> DataCacheManager:
-        """Creates a DataCacheManager using a NullStorage (no storage.
+    def null(cls) -> Self:
+        """Creates a DataCacheManager using a NullStorage (no storage).
 
         This storage device has the effect of returning False when validating
         whether the current DataCacheManager is in operation or not
@@ -341,6 +403,51 @@ class DataCacheManager:
         return cls(NullStorage())
 
     @classmethod
+    def _create_storage(
+        cls,
+        cache_storage: Optional[
+            Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"]
+        ],
+        *args,
+        **kwargs,
+    ) -> ABCStorage:
+        """Creates a new `ABCStorage` subclass used by the `DataCacheManager` to cache responses.
+
+        Args:
+            cache_storage (Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"]):
+                A default ABCStorage subclass implementation to use as a response processing cache.
+            *args:
+                Positional arguments to pass to the chosen ABCStorage subclass constructor.
+            **kwargs:
+                Keyword arguments to pass to the chosen ABCStorage subclass constructor.
+
+        Returns:
+            ABCStorage: A new cache storage subclass for caching both raw and processed response records/metadata.
+
+        """
+        if cache_storage is not None and not isinstance(cache_storage, str):
+            raise StorageCacheException(
+                "The chosen storage device for caching processed responses is not valid. Expected a valid string"
+            )
+        storage_type = cache_storage.lower().removesuffix("storage") if isinstance(cache_storage, str) else None
+        match storage_type:
+            case "inmemory" | "memory":
+                return InMemoryStorage(*args, **kwargs)
+            case "sql" | "sqlite" | "sqlalchemy":
+                return SQLAlchemyStorage(*args, **kwargs)
+            case "mongodb" | "pymongo":
+                return MongoDBStorage(*args, **kwargs)
+            case "redis":
+                return RedisStorage(*args, **kwargs)
+            case "null" | None:
+                return NullStorage()
+            case _:
+                raise StorageCacheException(
+                    "The chosen storage device does not exist. Expected one of the following:"
+                    " ['redis', 'sql', 'mongodb', 'inmemory', 'null']"
+                )
+
+    @classmethod
     def with_storage(
         cls,
         cache_storage: Optional[
@@ -348,7 +455,7 @@ class DataCacheManager:
         ] = None,
         *args,
         **kwargs,
-    ) -> DataCacheManager:
+    ) -> Self:
         """Creates a DataCacheManager using a known storage device.
 
         This is a convenience function allowing the user to create a DataCacheManager with
@@ -358,34 +465,23 @@ class DataCacheManager:
         Note that sql is shorthand for the SQLAlchemy cache storage and uses `SQLite. Compatible implementations of
         other storage devices can by used instead via SQLAlchemy as well (e.g. DuckDB).
 
+        Args:
+            cache_storage (Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"]):
+                A default ABCStorage subclass implementation to use as a response processing cache.
+            *args:
+                Positional arguments to pass to the chosen ABCStorage subclass constructor.
+            **kwargs:
+                Keyword arguments to pass to the chosen ABCStorage subclass constructor.
+
         Returns:
             DataCacheManager: The current class initialized the chosen storage
 
         """
-        if not isinstance(cache_storage, str):
-            raise StorageCacheException(
-                "The chosen storage device for caching processed responses is not valid. Expected a valid string"
-            )
-        match cache_storage.lower():
-            case "inmemory" | "memory":
-                return cls(InMemoryStorage(*args, **kwargs))
-            case "sql" | "sqlite" | "sqlalchemy":
-                return cls(SQLAlchemyStorage(*args, **kwargs))
-            case "mongodb" | "pymongo":
-                return cls(MongoDBStorage(*args, **kwargs))
-            case "redis":
-                return cls(RedisStorage(*args, **kwargs))
-            case "null" | None:
-                return cls.null()
-            case _:
-                raise StorageCacheException(
-                    "The chosen storage device does not exist. Expected one of the following:"
-                    " ['redis', 'sql', 'mongodb', 'inmemory', 'null']"
-                )
+        storage = cls._create_storage(cache_storage, *args, **kwargs)
+        return cls(cache_storage=storage)
 
     def __bool__(self) -> bool:
-        """This method has the effect of returning 'False' when the DataCacheManager class is initialized with
-        NullStorage() and will return 'True' otherwise."""
+        """Returns `False` when the DataCacheManager class is initialized with NullStorage() and `True` otherwise."""
         return bool(self.cache_storage)
 
     def isnull(self) -> bool:
@@ -394,12 +490,11 @@ class DataCacheManager:
 
     @classmethod
     def cache_fingerprint(cls, obj: Optional[str | Any] = None, package_version: Optional[str] = __version__) -> str:
-        """This method helps identify changes in class/configuration for later cache retrieval. It generates a unique
-        string based on the object and the package version.
+        """Generates a unique string to identify an object's structure and configuration for later cache retrieval.
 
         By default, a fingerprint is generated from the current package version and object representation, if provided.
         If otherwise not provided, a new human-readable object representation is generated using the
-        `scholar_flux.utils.generate_repr` helper function that represents the object name and its current state. A
+        `scholar_flux.utils.generate_repr` helper function that represents the object name and its current state. The
         package version is also prepended to the current finger-print if enabled (not None), and can be customized if
         needed for object-specific versioning.
 
@@ -412,7 +507,6 @@ class DataCacheManager:
             str: A human-readable string including the version, object identity
 
         """
-
         # coerce provided objects to a string representation if not already. Otherwise generate a new representation
         obj_repr = f"{obj}" if obj and isinstance(obj, str) else generate_repr(obj)
 
@@ -421,6 +515,7 @@ class DataCacheManager:
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
         """Helper method for quickly showing a representation of the overall structure of the current DataCacheManager.
+
         The instance uses the generate_repr helper function to produce human-readable representations of the core
         structure of the storage subclass with its defaults.
 
@@ -428,7 +523,6 @@ class DataCacheManager:
             str: The structure of the current DataCacheManager as a string.
 
         """
-
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __copy__(self) -> DataCacheManager:
@@ -437,15 +531,14 @@ class DataCacheManager:
         storage = copy.copy(self.cache_storage)
         return cls(cache_storage=storage)
 
-    def clone(self) -> DataCacheManager:
-        """Helper method for creating a newly cloned instance of the current DataCacheManager."""
+    def clone(self) -> Self:
+        """Creates a newly cloned instance of the current DataCacheManager."""
         cls = self.__class__
         storage_cls = self.cache_storage
         return cls(storage_cls.clone())
 
-    def __deepcopy__(self, memo) -> DataCacheManager:
-        """Helper method for creating a new DataCacheManager with the same configuration as the original
-        DataCacheManager.
+    def __deepcopy__(self, memo) -> Self:
+        """Creates a new DataCacheManager with the same configuration as the original DataCacheManager.
 
         Note that many clients cannot be directly deep-copied, and as a result, this implementation uses `clone` instead
         to create a new instance with a similar configuration. For easier API compatibility

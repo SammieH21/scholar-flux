@@ -90,7 +90,6 @@ def test_merged_workflow():
     print("✅ MergedWorkflow test passed")
     print(f"   - Merged {result.metadata['total_steps']} steps")
     print(f"   - Deduplicated to {result.metadata['unique_records']} unique records")
-    return True
 
 
 def test_with_context_pattern():
@@ -139,7 +138,6 @@ def test_with_context_pattern():
     print(f"   ✓ Delay restored: {modified_delay} → {restored_delay}")
 
     print("✅ with_context() pattern test passed")
-    return True
 
 
 def test_workflow_history_inspection():
@@ -209,7 +207,6 @@ def test_workflow_history_inspection():
             print(f"       Metadata: {step_ctx.result.metadata}")
 
     print("✅ Workflow history inspection test passed")
-    return True
 
 
 def test_pre_transform_error_handling():
@@ -280,7 +277,6 @@ def test_pre_transform_error_handling():
         assert False, f"Should not raise error with valid data: {e}"
 
     print("✅ pre_transform error handling test passed")
-    return True
 
 
 def test_pubmed_workflow_automatic_configuration():
@@ -304,7 +300,6 @@ def test_pubmed_workflow_automatic_configuration():
     print(f"   ✓ Steps: {', '.join(step_names)}")
 
     print("✅ PubMed automatic workflow configuration test passed")
-    return True
 
 
 def test_stop_on_error_configuration():
@@ -362,7 +357,6 @@ def test_stop_on_error_configuration():
         print(f"   ✓ stop_on_error=False: All {history_len} steps executed")
 
     print("✅ stop_on_error configuration test passed")
-    return True
 
 
 def run_all_tests():

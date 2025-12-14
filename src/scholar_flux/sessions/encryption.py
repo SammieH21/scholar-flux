@@ -17,7 +17,7 @@ from scholar_flux.exceptions import (
 )
 from requests_cache.serializers.pipeline import SerializerPipeline, Stage
 from requests_cache.serializers.cattrs import CattrStage
-from scholar_flux import config
+from scholar_flux.utils import config_settings
 from pydantic import SecretStr
 import logging
 
@@ -105,7 +105,7 @@ class EncryptionPipelineFactory:
         If the key is None, the function will also return None
 
         """
-        cache_secret_key = config.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
+        cache_secret_key = config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
 
         if not key and cache_secret_key:
             logger.debug(

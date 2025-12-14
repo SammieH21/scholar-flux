@@ -99,20 +99,20 @@ def initialize_package(
 
     # turn off file rotation logging if not enabled
     log_file = (
-        config_settings.config.get("SCHOLAR_FLUX_LOG_FILE", "application.log")
-        if config_settings.config.get("SCHOLAR_FLUX_ENABLE_LOGGING") in ("T", "TRUE", "1")
+        config_settings.get("SCHOLAR_FLUX_LOG_FILE", "application.log")
+        if config_settings.get("SCHOLAR_FLUX_ENABLE_LOGGING") in ("T", "TRUE", "1")
         else None
     )
 
-    propagate_logs = config_settings.config.get("SCHOLAR_FLUX_PROPAGATE_LOGS") not in ("F", "FALSE", "0")
+    propagate_logs = config_settings.get("SCHOLAR_FLUX_PROPAGATE_LOGS") not in ("F", "FALSE", "0")
 
     # for logging resolution, fallback to WARNING
-    log_level = getattr(logging, config_settings.config.get("SCHOLAR_FLUX_LOG_LEVEL", ""), logging.WARNING)
+    log_level = getattr(logging, config_settings.get("SCHOLAR_FLUX_LOG_LEVEL", ""), logging.WARNING)
 
     # declares the default parameters from scholar_flux after loading configuration environment variables
     logging_params_dict: dict = {
         "logger": logger,
-        "log_directory": config_settings.config.get("SCHOLAR_FLUX_LOG_DIRECTORY"),
+        "log_directory": config_settings.get("SCHOLAR_FLUX_LOG_DIRECTORY"),
         "log_file": log_file,
         "log_level": log_level,
         "logging_filter": masking_filter,

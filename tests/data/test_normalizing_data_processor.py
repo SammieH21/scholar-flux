@@ -73,7 +73,7 @@ def test_processing_without_record_keys(caplog):
 
 
 def test_normalizing_processor_unnested():
-    """Tests whether the processor functions as intended with a simple structure"""
+    """Tests whether the processor functions as intended with a simple structure."""
     data: list[dict] = [{"key1": "value1", "key2": 2, "key3": True}]
     processor = NormalizingDataProcessor(record_keys=["key1", "key2", "key3"], value_delimiter="; ")
 
@@ -83,7 +83,7 @@ def test_normalizing_processor_unnested():
 
 
 def test_normalizing_processor_simple_nested():
-    """Tests whether the processor also handles nested structures"""
+    """Tests whether the processor also handles nested structures."""
     data: list[dict] = [{"a": {"key1": "value1"}, "b": {"key2": 2}, "c": {"d": {"key3": True}}}]
     keys = ["a.key1", "b.key2", "c.d.key3"]
     flattened_dict = dict(zip(keys, ["value1", 2, True]))

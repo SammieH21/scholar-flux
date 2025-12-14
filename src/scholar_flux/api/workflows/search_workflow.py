@@ -28,6 +28,7 @@ from scholar_flux.api.workflows.models import (
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.base_coordinator import BaseCoordinator
+from scholar_flux.exceptions import NoRecordsAvailableException
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +267,13 @@ class SearchWorkflow(BaseWorkflow):
         Returns:
             List[StepContext]: A list of StepContext objects representing the state at each step.
 
+        Raises:
+            RuntimeError: If an unexpected error occurs during a step
+            NoRecordsAvailableException:
+                When a successful response contains no records associated with a query and should halt further
+                processing. This exception can be handled directly by subclasses to further tailor the logic of
+                the workflow to an API.
+
         """
         i = 0
         result = None
@@ -304,6 +312,8 @@ class SearchWorkflow(BaseWorkflow):
                     logger.warning(f"Halting the current workflow and returning the result from step {i}...")
                     break
 
+        except NoRecordsAvailableException:
+            raise
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during processing step {i}: {e}") from e
 

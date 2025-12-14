@@ -2,6 +2,7 @@ import pytest
 from scholar_flux.data_storage import DataCacheManager
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage.null_storage import NullStorage
+from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
 from datetime import datetime, timezone
 from time import sleep
 import re
@@ -125,18 +126,28 @@ def test_bool_operator(request, storage_type, db_dependency_unavailable):
     "storage_type",
     ["redis_test_storage", "mongo_test_storage", "sqlite_test_storage", "in_memory_test_storage", "null_test_storage"],
 )
-def test_basic_instance_structure(storage_type, request):
+def test_basic_instance_structure(storage_type, request, db_dependency_unavailable):
     """Verifies that all methods have the same set of fundamental variable names in their namespace.
 
     If any of the storage devices do not have a class/instance variable, it should raise a NameError.
 
     """
+    dependency_name = storage_type.split("_")[0] if not storage_type.startswith("sql") else "sqlalchemy"
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+
     storage = request.getfixturevalue(storage_type)
     assert storage.DEFAULT_NAMESPACE is None or isinstance(storage.DEFAULT_NAMESPACE, str)
     assert isinstance(storage.DEFAULT_RAISE_ON_ERROR, bool)
     assert isinstance(storage.raise_on_error, bool)
     assert isinstance(storage.ttl, float) or storage.ttl is None
     assert storage.namespace is None or isinstance(storage.namespace, str)
+
+
+def test_ttl_warn(sqlite_test_storage, caplog):
+    """Verifies that a warning is thrown when a user attempts to use ttl expiration cache with sqlalchemy."""
+    SQLAlchemyStorage(**sqlite_test_storage.config, ttl=3)  # type: ignore
+    assert "TTL is not enabled for SQLAlchemyStorage. Skipping" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -172,8 +183,11 @@ def test_cache_retrieval_with_none_data(request, mock_response, storage_type, db
     assert retrieved["processed_records"] == {}
 
 
-def test_redis_expiration(redis_test_storage):
+def test_redis_expiration(redis_test_storage, db_dependency_unavailable):
     """Verifies that cached Redis records successfully remove expired records after a certain interval of time."""
+    if db_dependency_unavailable("redis"):
+        pytest.skip()
+
     key = "some_temp_key"
     value = {"data": "some_temp_value"}
 
@@ -188,8 +202,11 @@ def test_redis_expiration(redis_test_storage):
         redis_test_storage.delete(key)
 
 
-def test_mongo_expiration(mongo_test_storage):
+def test_mongo_expiration(mongo_test_storage, db_dependency_unavailable):
     """Verifies that cached MongoDB records successfully remove expired records after a certain interval of time."""
+    if db_dependency_unavailable("mongodb"):
+        pytest.skip()
+
     key = "some_temp_key"
     value = {"data": "some_temp_value"}
 

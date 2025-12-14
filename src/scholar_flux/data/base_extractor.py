@@ -102,6 +102,7 @@ class BaseDataExtractor:
         Returns:
              metadata_path (List[List[str]] | Optional[Dict[str, List[str]]]):
                  The formatted record path representing the keys that must be traversed to arrive at response records.
+
         """
         return PathUtils.path_split(record_path) if isinstance(record_path, str) else record_path
 

@@ -30,7 +30,7 @@ class RateLimiterRegistry(BaseProviderDict):
     """
 
     def __init__(self, *args, threaded: bool = False, **kwargs):
-        """Initializes the RateLimiterRegistry and enforces the use of ThreadedRateLimiters when `threaded=True`"""
+        """Initializes the RateLimiterRegistry and enforces the use of ThreadedRateLimiters when `threaded=True`."""
         self.threaded = threaded
         super().__init__(*args, **kwargs)
 
@@ -48,7 +48,7 @@ class RateLimiterRegistry(BaseProviderDict):
         """Attempt to retrieve a RateLimiter instance for the given provider name.
 
         Args:
-            provider_name (str): Name of the default provider
+            key (str): Name of the provider
 
         Returns:
             RateLimiter: The RateLimiter for the provider if it exists
@@ -64,7 +64,7 @@ class RateLimiterRegistry(BaseProviderDict):
         """Sets a key-value pair to the current registry where all keys are strings and values are RateLimiters.
 
         This method overrides the core functionality of dictionaries to ensure that validation for the `value`
-        parameter occurs before saving the provider name - rate limiter pair
+        parameter occurs before saving the provider name-rate limiter pair
 
         Args:
             key (str): Name of the provider to add to the registry
@@ -82,6 +82,24 @@ class RateLimiterRegistry(BaseProviderDict):
             super().__setitem__(key, value)
         except (TypeError, ValueError) as e:
             raise APIParameterException(e) from e
+
+    def get_from_url(self, provider_url: Optional[str]) -> Optional[RateLimiter | ThreadedRateLimiter]:
+        """Attempts to retrieve a RateLimiter for the specified provider from a URL.
+
+        This method retrieves the rate limiter of the provider associated with the provided URL if the URL after normalization exists within
+        the `scholar_flux.api.provider_registry`. If a provider does not exist, a value of None will be returned instead.
+
+        Args:
+            provider_url (Optional[str]): URL of the provider to look up.
+
+        Returns:
+            Optional[RateLimiter | ThreadedRateLimiter]:
+                The rate limiter of the provider when available. Otherwise None.
+
+        """
+        if provider_config := api_providers.provider_registry.get_from_url(provider_url):
+            return self.data.get(provider_config.provider_name)
+        return None
 
     def get_or_create(
         self, key: str, default_request_delay: Optional[int | float] = None
@@ -183,11 +201,13 @@ class RateLimiterRegistry(BaseProviderDict):
 
     @classmethod
     def from_defaults(cls, threaded: bool = False) -> Self:
-        """Helper method that dynamically loads providers from the scholar_flux.api.providers module specifically
-        reserved for default provider configs.
+        """Initializes a new `RateLimiterRegistry` for known providers based on their configurations.
+
+        This method specifically uses the `provider_name` and `request_delay` of each provider listed within the
+        `scholar_flux.api.providers.provider_registry` to create rate limiters for all known configurations.
 
         Returns:
-            RateLimiterRegistry: A new registry containing default provider rate limiters
+            RateLimiterRegistry: A new rate limiter registry that contains default rate limiters for known providers.
 
         """
         Limiter = ThreadedRateLimiter if threaded else RateLimiter

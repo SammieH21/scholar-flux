@@ -17,6 +17,7 @@ requirements.txt
 **/requests_cache
 **/http_cache/*
 **/testing_encrypted_session_cache/*
+**/examples/output
 
 # Virtual environment
 **/.env
@@ -119,7 +120,6 @@ dmypy.json
 
 # Other Directories
 notes/
-examples/
 archived/
 /profiling
 **/secrets/
