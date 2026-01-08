@@ -65,7 +65,7 @@ def sample_nonmatching_extracted_records(sample_extracted_records) -> list[dict]
 
 @pytest.fixture
 def sample_extracted_records_with_int_ids(sample_extracted_records) -> list[dict]:
-    """Extracted records with nested structure and annotated IDs that don't have the expected string data type ."""
+    """Extracted records with nested structure and annotated IDs that don't have the expected string data type."""
     return [record | {DataExtractor.RECORD_ID_KEY: id} for id, record in enumerate(sample_extracted_records)]
 
 

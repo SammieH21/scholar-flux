@@ -32,6 +32,7 @@ from scholar_flux.api.providers import provider_registry
 
 from scholar_flux.exceptions import (
     RequestFailedException,
+    RetryAfterDelayExceededException,
     RequestCacheException,
     StorageCacheException,
     APIParameterException,
@@ -863,8 +864,8 @@ class SearchCoordinator(BaseCoordinator):
 
         self._log_response_source(api_response.response, page, api_response.cache_key)
 
-        # if there is no data to process within the response, return it as is
-        if isinstance(api_response, NonResponse):
+        # if there is no data to process within the response or if there is an existing ErrorResponse, return it as is
+        if isinstance(api_response, ErrorResponse):
             return api_response
 
         # otherwise process the data before returning it
@@ -899,6 +900,7 @@ class SearchCoordinator(BaseCoordinator):
 
         """
         current_page = str(page) if page is not None else f" for {self.api.base_url}"
+        response: Optional[Response | ResponseProtocol] = None
         try:
 
             if from_request_cache:
@@ -911,14 +913,20 @@ class SearchCoordinator(BaseCoordinator):
                 self._respect_retry_after()
 
             response = self.robust_request(page, **api_specific_parameters)
-            return response
+        except RetryAfterDelayExceededException as e:
+            msg = f"Failed to fetch page {current_page}"
+            e.message = f"{msg}: {e}" if str(e) else msg
+            logger.warning(e.message)
+            if raise_on_error:
+                raise
+            response = e.response
         except RequestFailedException as e:
             msg = f"Failed to fetch page {current_page}"
             err = f"{msg}: {e}" if str(e) else msg
             logger.warning(err)
             if raise_on_error:
-                raise RequestFailedException(err)
-        return None
+                raise RequestFailedException(err) from e
+        return response
 
     def _respect_retry_after(self) -> None:
         """Helper method that respects `retry_after` field before requests exceed dynamic API rate limits."""
@@ -965,7 +973,7 @@ class SearchCoordinator(BaseCoordinator):
                 `api_specific_parameters` to retrieve data from an API.
             **kwargs: Optional Additional parameters to pass to the SearchAPI
         Returns:
-            Optional[Response]: The request object if available, otherwise None.
+            Optional[Response | ResponseProtocol]: The request/response-like object if available, otherwise None.
 
         """
         try:
@@ -990,6 +998,12 @@ class SearchCoordinator(BaseCoordinator):
                 backoff_factor=max(min(request_delay * 0.25, 0.5), self.retry_handler.backoff_factor),
                 **api_specific_parameters,
             )
+
+        except RetryAfterDelayExceededException as e:
+            msg = f"Failed to get a valid response from the {self.search_api.provider_name} API"
+            e.message = f"{msg}: {e}" if str(e) else msg
+            logger.error(e.message)
+            raise
 
         except RequestFailedException as e:
             msg = f"Failed to get a valid response from the {self.search_api.provider_name} API"
@@ -1070,6 +1084,11 @@ class SearchCoordinator(BaseCoordinator):
             )
             if not cache_key and response and response.url:
                 cache_key = self._create_cache_key(page=None, url=response.url)
+        except RetryAfterDelayExceededException as e:
+            error_response = ErrorResponse.from_error(
+                response=e.response, cache_key=cache_key, message=e.message, error=e
+            )
+            return error_response
         except RequestFailedException as e:
             return NonResponse.from_error(error=e, message=str(e), cache_key=cache_key)
 

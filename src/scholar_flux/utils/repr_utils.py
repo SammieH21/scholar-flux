@@ -182,7 +182,8 @@ def format_repr_value(
     Args:
         value (Any): The value containing the repr to format
         pad_length (Optional[int]): Indicates the total additional padding to add for each individual line
-        show_value_attributes (Optional[bool]): If False, all attributes within the current object will be replaced with '...'. As an example: e.g. StorageDevice(...)
+        show_value_attributes (Optional[bool]):
+            If False, all attributes within the current object will be replaced with '...'. (e.g., `StorageDevice(...)`)
         flatten (bool): Determines whether to show each individual value inline or separated by a newline character
         replace_numeric (bool): Determines whether count values in strings should be replaced.
 

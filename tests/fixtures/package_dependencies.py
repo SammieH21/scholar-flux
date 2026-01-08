@@ -46,7 +46,7 @@ def sqlalchemy_dependency() -> bool:
 
 @pytest.fixture(scope="session")
 def duckdb_dependency() -> bool:
-    """Indicates whether the sqlalchemy module is available."""
+    """Indicates whether the duckdb-engine module for sqlalchemy is available."""
     return bool(importlib.util.find_spec("duckdb_engine"))
 
 
@@ -61,10 +61,19 @@ def mongodb_available(host: Optional[str] = None, port: Optional[int] = None) ->
 
 @lru_cache(maxsize=1)
 def sqlalchemy_available(url: Optional[str] = None) -> bool:
-    """Helper function for determining whether SQL Alchemy is available."""
+    """Helper function for determining whether SQLAlchemy is available."""
     available = SQLAlchemyStorage.is_available(url=url)
     if not available:
-        logger.warning("Skipping tests for SQL Alchemy")
+        logger.warning("Skipping tests for SQLAlchemy")
+    return available
+
+
+@lru_cache(maxsize=1)
+def duckdb_available(url: Optional[str] = None) -> bool:
+    """Helper function for determining whether the SQLAlchemy DuckDB engine is available."""
+    available = DuckDBStorage.is_available(url=url)
+    if not available:
+        logger.warning("Skipping tests for the SQLAlchemy DuckDB engine")
     return available
 
 

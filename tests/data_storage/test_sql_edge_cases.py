@@ -177,7 +177,7 @@ def test_sqlalchemy_unavailable(sqlite_test_storage, caplog):
 
 
 def test_duckdb_unavailable(monkeypatch, caplog):
-    """Verifies that, when the sqlalchemy package is not installed, an error will be raised."""
+    """Verifies that, when the DuckDB package is not installed, an error will be raised."""
     monkeypatch.setattr("scholar_flux.data_storage.sql_storage.importlib.util.find_spec", lambda mod: None)
 
     assert DuckDBStorage.is_available() is False
@@ -188,7 +188,7 @@ def test_duckdb_unavailable(monkeypatch, caplog):
 
 
 def test_duckdb_unavailable_at_incorrect_url(db_dependency_unavailable, caplog):
-    """Verifies that, when the sqlalchemy package is not installed, an error will be raised."""
+    """Verifies that `is_available` identifies an invalid DB URL as not available."""
     if db_dependency_unavailable("duckdb"):
         pytest.skip()
     invalid_db_url = "duckdb:///"
@@ -231,7 +231,7 @@ def test_verify_connection_error_on_failed_connection(storage_class, monkeypatch
         _ = storage_class(verify_connection=True)
 
 
-def test_duckdb_verify_connection_error_invalid_inputs():
+def test_duckdb_verify_url_string_invalid_inputs():
     """Verifies that providing the wrong type to `verify_url_string` raises a CacheParameterValidationException."""
     invalid_numeric_url = 23
     err = f"Expected a valid DuckDB URI, but received type {type(invalid_numeric_url)}"

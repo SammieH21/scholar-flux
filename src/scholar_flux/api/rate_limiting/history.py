@@ -1,5 +1,5 @@
 # /api/rate_limiting/history.py
-"""The scholar_flux.api.rate_limiting.history module implements the core dataclasses used for Request observability.
+"""The scholar_flux.api.rate_limiting.history module implements the core dataclasses used for request observability.
 
 These dataclasses provide typed, self-documenting records of retry attempts and applied rate-limiting intervals used
 to observe the total number of outbound requests being made, the status of each request, and the intervals waited in

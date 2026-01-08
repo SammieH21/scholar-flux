@@ -109,9 +109,9 @@ def test_invalid_response_exception_non_json(caplog):
     exc = InvalidResponseException(response)
     assert exc.error_details == ""
 
-    with pytest.raises(InvalidResponseException):
+    with pytest.raises(InvalidResponseException) as excinfo:
         raise InvalidResponseException(None)  # type: ignore
-    assert f"An error occurred when making the request - Received a nonresponse: {type(None)}" in caplog.text
+    assert f"An error occurred when making the request - Received a nonresponse: {type(None)}" in excinfo.value.message
 
 
 def test_calculate_retry_delay_with_invalid_retry_after(caplog):

@@ -257,7 +257,7 @@ def test_reconstruct_pubmed_url_invalid_type():
 # ==================== Tests for Abstract Extraction ====================
 
 
-def test_extract_abstract_data_successfully():
+def test_basic_extract_abstract():
     """Tests that abstract information is returned as is when the type is a string."""
     record = {"abstract": "Research exploring computational approaches..."}
     abstract_data = PubMedFieldMap.extract_abstract(record)

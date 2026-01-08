@@ -105,7 +105,7 @@ ScholarFlux handles and abstracts away the complexity of retrieving and processi
 
 While some APIs may require an API key, the majority of providers do not. **OpenAlex, PLOS, Crossref, CORE, and arXiv work out-of-the-box** and seamlessly for both single-page and multi-page/provider retrieval, even with the default settings.
 
-APIs such as PubMed and Springer Nature, while requiring API keys, provide API access without payment or subscription for uses within the terms of service. The CORE API while not requiring an API key greatly increases the allowable requests per second with an API key.
+APIs such as Springer Nature, while requiring API keys, provide API access without payment or subscription for uses within the terms of service. PubMed and the CORE API, while not requiring API keys, greatly increase the allowable requests per second with an API key.
 
 All sources have rate limits that users should abide by to prevent `Too Many Requests` status codes. ScholarFlux handles rate limiting automatically.
 
@@ -222,7 +222,7 @@ Built and presented at CDC meetings as a solution for AI-assisted systematic lit
 After the fellowship, I recognized the broader need beyond public health research and open-sourced it, expanding from the initial Springer Nature integration to 7+ providers with comprehensive documentation and production-ready features.
 
 **Technical foundation:**
-- **~57,000 lines of code**: ~31,900 LOC source + ~25,100 LOC comprehensive tests
+- **~57,500 lines of code**: ~32,100 LOC source + ~25,400 LOC comprehensive tests
 - **97% test coverage**: Rigorous testing across all functionality and edge cases
 - **Security-focused**: Automated CVE scanning, credential masking, encrypted caching
 - **Type-safe**: mypy strict mode throughout entire codebase
@@ -396,9 +396,13 @@ ScholarFlux implements conservative rate limits that respect each provider's req
 
 **Override the default delay:**
 ```python
-# PLOS default is 6 seconds, override to 2 seconds
-response = coordinator.search(page=1, request_delay=2.0)
+# Override the default delay for a provider
+coordinator = SearchCoordinator(query = 'AI in Academia', provider_name = "arXiv", request_delay=5)
+# Or set the delay dynamically during a search
+response = coordinator.search(page=1, request_delay=3.1)
 ```
+
+**Note:** Retry attempts and dynamic throttling are handled at the level of the `RetryHandler` for successive failed requests. If a provider requests a `Retry-After` delay longer than the configured `max_backoff` (default: 120s), ScholarFlux will raise a `RetryAfterDelayExceededException` to prevent indefinite waiting. You can adjust this behavior by changing `max_backoff` or disabling strict enforcement with `RetryHandler.RAISE_ON_DELAY_EXCEEDED = False`. See the documentation for details.
 
 ### Two-Tier Caching
 
@@ -925,7 +929,7 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 
 ## 📊 Project Statistics
 
-- **~57,000 Lines of Code** - ~31,900 LOC source + ~25,100 LOC comprehensive tests
+- **~57,500 Lines of Code** - ~32,100 LOC source + ~25,400 LOC comprehensive tests
 - **97% Test Coverage** - Rigorous testing across all functionality and edge cases
 - **7 Default Providers** - Pre-configured with schema normalization and metadata extraction
 - **Type-Safe Architecture** - mypy strict mode, comprehensive type hints throughout

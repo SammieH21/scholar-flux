@@ -13,7 +13,7 @@ import time
 import requests
 import datetime
 import logging
-from scholar_flux.exceptions import RequestFailedException, InvalidResponseException
+from scholar_flux.exceptions import RequestFailedException, InvalidResponseException, RetryAfterDelayExceededException
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.utils.helpers import get_first_available_key, parse_iso_timestamp
 from scholar_flux.utils.repr_utils import generate_repr
@@ -55,7 +55,8 @@ class RetryHandler:
     Attributes:
         max_retries (int): Maximum number of retry attempts (default: 3)
         backoff_factor (float): The multiplier used for exponential backoff (default: 0.5)
-        max_backoff (float): Maximum delay between retries in seconds (default: 120)
+        max_backoff (float): Maximum delay between retries in seconds (default: 120). Also enforced as a hard
+            ceiling for server-requested delays via Retry-After headers.
         retry_statuses (set): HTTP status codes that trigger retries (default: {429, 500, 501, 502, 503, 504})
         history (HistoryDeque): Thread-safe storage of all retry attempts
 
@@ -63,12 +64,23 @@ class RetryHandler:
         The retry handler is automatically used by SearchCoordinator for all requests. Each parameter is adjusted
         dynamically based on the provider. No manual intervention is required for basic usage.
 
+        If too many requests are sent to a single server within a specific time interval, it may return a 429 `Too Many
+        Requests` error and indicate the delay that should be respected before sending another request. If the class
+        attribute, `RAISE_ON_DELAY_EXCEEDED` is True (default), a `RetryAfterDelayExceededException` is raised. To turn
+        this feature off, either set the `max_backoff` parameter directly or set
+        `RetryHandler.RAISE_ON_DELAY_EXCEEDED=False` to wait the full interval upon receiving a `Retry-After` header.
+
+        For observability, request information, delays, and response statuses are recorded in the `RetryHandler.history`
+        class attribute for later inspection and can be referenced to help modify the rate limiting configuration when
+        needed.
+
     """
 
     DEFAULT_VALID_STATUSES = {200}
     DEFAULT_RETRY_STATUSES = {429, 500, 501, 502, 503, 504}
     DEFAULT_RETRY_AFTER_HEADERS = ("retry-after", "x-ratelimit-retry-after")
     DEFAULT_RAISE_ON_ERROR = False
+    RAISE_ON_DELAY_EXCEEDED: bool = True
     history: HistoryDeque[RetryAttempt] = HistoryDeque.create()
 
     def __init__(
@@ -145,12 +157,35 @@ class RetryHandler:
             **kwargs: Arbitrary keyword arguments for the request function.
 
         Returns:
-            Optional[requests.Response | ResponseProtocol]: The response received, or None if no valid response was obtained.
+            Optional[requests.Response | ResponseProtocol]:
+                The response received, or None if no valid response was obtained.
 
         Raises:
             RequestFailedException: When a request raises an exception for whatever reason.
             TimeoutError: When a request times out during response retrieval.
             InvalidResponseException: When the number of retries has been exceeded and self.raise_on_error is True.
+            RetryAfterDelayExceededException: When the Retry-After delay requested from the server exceeds `max_backoff`
+
+        Note:
+            If a `Retry-After` header exceeds the max_backoff and `RetryHandler.RAISE_ON_DELAY_EXCEEDED=True`, the
+            exception will be raised immediately and halt the series of retry attempts.
+
+            Also note that response objects can be extracted from handled `InvalidResponseException` or
+            `RetryAfterDelayExceededException` classes, to extract the raw response, handle it with a `try/except`
+            block and extract it from the `response` attribute:
+
+        Example:
+            >>> from scholar_flux.api.rate_limiting.retry_handler import RetryHandler
+            >>> from scholar_flux.exceptions import InvalidResponseException, RetryAfterDelayExceededException
+            >>> import requests
+            >>> retry_handler = RetryHandler(raise_on_error=True)
+            >>> try:
+            ...     response = retry_handler.execute_with_retry(requests.get, url= "https://httpbin.org/status/200")
+            ... except (RetryAfterDelayExceededException, InvalidResponseException) as e:
+            ...     response = e.response
+            >>> print(response)
+
+
 
         """
         attempts = 0
@@ -166,6 +201,7 @@ class RetryHandler:
         retrieval_time = None
         duration = None
         delay: Optional[float] = None
+        max_backoff = max_backoff or self.max_backoff
 
         try:
             while attempts <= self.max_retries:
@@ -203,6 +239,30 @@ class RetryHandler:
                 attempts += 1
                 if attempts <= self.max_retries:
                     delay = self.calculate_retry_delay(attempts, response, min_retry_delay, backoff_factor, max_backoff)
+                    self._record_attempt(
+                        response=response,
+                        delay=delay,
+                        min_retry_delay=min_retry_delay,
+                        backoff_factor=backoff_factor,
+                        attempt_number=attempts - 1,
+                        duration=duration,
+                    )
+
+                    # An error can only ever be raised if the `retry-after` header has a delay larger than `max-backoff`
+                    delay_exceeded = max_backoff and delay > max_backoff
+                    if delay_exceeded and self.RAISE_ON_DELAY_EXCEEDED:
+                        msg = (
+                            f"Server requested a {delay}s wait before retrying, which exceeds the configured limit "
+                            f"of {max_backoff}s. This typically means you've hit a rate limit. Try again later or "
+                            "increase `max_backoff` for the `RetryHandler`."
+                        )
+                        raise RetryAfterDelayExceededException(response=response, message=msg)
+                    elif delay_exceeded:
+                        self.log_retry_warning(
+                            "RAISE_ON_DELAY_EXCEEDED is disabled. The retry handler will wait for the full duration "
+                            f"of {delay}s as requested by the server, even if it exceeds your configured maximum. This "
+                            "may result in long waits."
+                        )
                     self.log_retry_attempt(
                         delay,
                         (
@@ -243,7 +303,8 @@ class RetryHandler:
                 message=str(e),
             )
             raise
-        except InvalidResponseException:
+        except (InvalidResponseException, RetryAfterDelayExceededException) as e:
+            logger.error(e.message)
             raise
         except Exception as e:
             msg = f"A valid response could not be retrieved after {attempts} attempts"
@@ -303,7 +364,7 @@ class RetryHandler:
             return retry_after
 
         logger.debug("Defaulting to using 'max_backoff'...")
-        return min_retry_delay + min(backoff_factor * (2**attempt_count), max_backoff)
+        return min(min_retry_delay + backoff_factor * (2**attempt_count), max_backoff)
 
     @classmethod
     def extract_retry_after_from_response(
