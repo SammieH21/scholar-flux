@@ -1,4 +1,4 @@
-# tests/api/models/test_record_resolution_edge_cases.py
+# tests/normalize/test_record_resolution_edge_cases.py
 """Edge case tests for record resolution, including nested JSON detection.
 
 These tests cover scenarios where the merge behavior should be skipped,

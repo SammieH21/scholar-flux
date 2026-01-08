@@ -2,7 +2,9 @@
 
 This file provides Claude Code (claude.ai/code) with quick-reference context for ScholarFlux development. For complete information, consult the linked documentation which serves as the authoritative source.
 
-> **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.  
+### Last updated 1/16/2026 (**v0.4.0**)
+
+> **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.
 > For complete, authoritative information, consult:
 > - [README.md](README.md) (overview, features, quickstart)
 > - [CONTRIBUTING.md](CONTRIBUTING.md) (development guidelines)
@@ -27,7 +29,7 @@ user_agent= None #'MyResearchProject/1.0 (mailto:your.email@institution.edu)'
 coordinator = SearchCoordinator(
     query="machine learning",
     provider_name="arxiv", # Normalized under the hood, not case sensitive
-    user_agent=user_agent, 
+    user_agent=user_agent,
     use_cache=True, # For caching requests
     )
 
@@ -75,6 +77,8 @@ poetry run tox -e coverage                                       # Runs the test
 
 # Linting
 poetry run tox -e lint                      # All checks (mypy, ruff, docstr-coverage)
+poetry run mypy src tests                   # Quick Type Checking
+poetry run docstr-coverage src              # Checking 100% docstring coverage for source code
 poetry run ruff check --fix src tests       # Auto-fix
 ```
 

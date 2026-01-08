@@ -40,6 +40,10 @@ from scholar_flux.exceptions import (
 )
 from scholar_flux.api import BaseCoordinator
 from scholar_flux.api.workflows import WORKFLOW_DEFAULTS, SearchWorkflow
+from time import time
+from datetime import datetime
+
+from functools import partial
 
 from functools import partial
 
@@ -956,6 +960,17 @@ class SearchCoordinator(BaseCoordinator):
             # Refer to the delay calculated from a valid `retry_after_date` as the source of truth when possible.
             # If not available, attempt to extract a creation date from the APIResponse container.
             reference_time = None if retry_after_date else parse_iso_timestamp(last_response.created_at or "")
+            retry_after_timestamp = (
+                delay + reference_time.timestamp() if isinstance(reference_time, datetime) and delay else None
+            )
+
+            if reference_time and retry_after_timestamp and time() < retry_after_timestamp:
+                formatted_timestamp = reference_time.strftime("%Y-%m-%d at %H:%M:%S")
+                logger.warning(
+                    f"{self.display_name} sent a `Retry-After` field of {delay}s on {formatted_timestamp}. Respecting "
+                    f"the delay of ~{retry_after_timestamp - time():.2f}s..."
+                )
+
             self.api.rate_limiter.wait_since(
                 delay,
                 reference_time,

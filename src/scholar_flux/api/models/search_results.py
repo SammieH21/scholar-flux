@@ -698,11 +698,53 @@ class SearchResultList(list[SearchResult]):
                 instances
 
         """
-        if not isinstance(other, SearchResultList) and not (
-            isinstance(other, (MutableSequence, Iterable)) and all(isinstance(item, SearchResult) for item in other)
-        ):
-            raise TypeError(f"Expected an iterable of SearchResults, received an object type {type(other)}")
+
+        if isinstance(other, Iterator):
+            other = list(other)
+
+        if not isinstance(other, (MutableSequence, Iterable)):
+            raise TypeError(f"Expected an iterable of SearchResults, received an object of type {type(other)}")
+
+        if not (all(isinstance(item, SearchResult) for item in other)):
+            raise TypeError(
+                "Expected an iterable of SearchResults, but not all elements in the iterable are SearchResult elements."
+            )
+
         super().extend(other)
+
+    def __add__(  # type: ignore[override]
+        self, other: SearchResultList | MutableSequence[SearchResult] | Iterable[SearchResult]
+    ) -> SearchResultList:
+        """Overrides the default `list.__add__` to return a SearchResultList.
+
+        Args:
+            other (SearchResultList | MutableSequence[SearchResult] | Iterable[SearchResult]):
+                A SearchResultList, list of SearchResults, or an iterable of SearchResult instances to concatenate.
+
+        Returns:
+            SearchResultList: A new SearchResultList containing elements from both objects.
+
+        Raises:
+            TypeError: When `other` contains non-SearchResult items.
+
+        """
+        search_result_list = self.copy()
+        try:
+            search_result_list.extend(other)
+        except TypeError as e:
+            raise TypeError(
+                f"Encountered an error while attempting to concatenate search results to a SearchResultList: {e} "
+            ) from e
+        return search_result_list
+
+    def copy(self) -> SearchResultList:
+        """Overrides the default `list.copy` to return a shallow copy as a SearchResultList.
+
+        Returns:
+            SearchResultList: A new, shallow copy of the current list.
+
+        """
+        return SearchResultList(self)
 
     def join(
         self,
@@ -763,7 +805,8 @@ class SearchResultList(list[SearchResult]):
 
         Returns:
             list[MetadataType]:
-                A list of processed metadata dictionaries mapping `total_query_hits` and `records_per_page` fields where possible.
+                A list of processed metadata dictionaries mapping `total_query_hits` and `records_per_page` fields where
+                possible.
 
         Raises:
             RecordNormalizationException: If raise_on_error=True and no field map found.

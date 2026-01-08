@@ -106,7 +106,16 @@ make docs      # Build documentation locally
 make shell     # Enter the Poetry virtual environment
 ```
 
-**Note**: The Makefile was mainly designed for use on Unix/Linux operating systems but should be compatible across platforms (including Windows). If you encounter any issues using Makefile shortcuts on Windows, try using [Git Bash](https://gitforwindows.org/), or use the poetry commands directly.
+You can find the Makefile [here](Makefile)
+
+### `Makefile` Prerequisites
+
+The `Makefile` requires the `make` utility:
+
+- **Windows**: Install via [Chocolatey](https://chocolatey.org/install) with `choco install make`, or see [this guide](https://gnuwin32.sourceforge.net/packages/make.htm) for manual installation
+- **macOS/Linux**: `make` is usually pre-installed. If not, install via your package manager (`brew install make`, `apt-get install make`, etc.)
+
+**Note**: The Makefile was mainly designed for use on Unix/Linux operating systems but should be compatible across platforms (including Windows). If you encounter any issues using Makefile shortcuts on Windows (regardless of the installation method), try using [Git Bash](https://gitforwindows.org/), or use the equivalent poetry commands directly.
 
 ## Understanding Extras
 

@@ -5,6 +5,7 @@ from scholar_flux.api.models import (
     SearchResultList,
 )
 from scholar_flux.api.providers import get_display_name
+from copy import deepcopy
 from typing import Any
 import re
 import pytest
@@ -263,6 +264,31 @@ def test_valid_search_list_elements(search_result_success, search_result_error, 
     assert joined_records == [record | {"provider_name": "test-provider", "page": 1} for record in data_records]
 
 
+def test_search_result_concatenation_invalid_objects():
+    """Verifies that `__add__` raises a TypeError when encountering non-SearchResult objects."""
+    result_list = SearchResultList()
+    invalid_list = [1, 2, 3]
+
+    with pytest.raises(
+        TypeError,
+        match=(
+            "Encountered an error while attempting to concatenate search results to a SearchResultList: Expected an "
+            "iterable of SearchResults, but not all elements in the iterable are SearchResult elements."
+        ),
+    ):
+        _ = result_list + invalid_list  # type: ignore
+
+    invalid_object = 123
+    with pytest.raises(
+        TypeError,
+        match=(
+            "Encountered an error while attempting to concatenate search results to a SearchResultList: Expected an "
+            f"iterable of SearchResults, received an object of type {type(invalid_object)}"
+        ),
+    ):
+        _ = result_list + invalid_object  # type: ignore
+
+
 def test_search_result_selection():
     """Verifies elements of a SearchResultList can be selected based on query, provider, and/or page."""
 
@@ -353,3 +379,43 @@ def test_search_result_fuzzy_filtering(mock_search_result_list):
 
     # There should be no providers that match an empty string
     assert mock_search_result_list.select(provider_name=re.compile(""), fuzzy=False) == []
+
+
+def test_search_result_addition():
+    """Verifies that two SearchResultList instances can be joined using the overridden `__add__` operator."""
+    pages = list(range(1, 3))
+
+    search_result_list = SearchResultList(SearchResult(page=i, provider_name="Provider 1", query="q") for i in pages)
+
+    search_result_list2 = SearchResultList(SearchResult(page=i, provider_name="Provider 2", query="q") for i in pages)
+
+    search_result_iter2 = iter(SearchResult(page=i, provider_name="Provider 2", query="q") for i in pages)
+
+    search_result_list_concat = search_result_list + search_result_list2
+    assert isinstance(search_result_list_concat, SearchResultList)
+    search_result_list_concat = search_result_list + search_result_list2
+    assert search_result_list_concat == SearchResultList(list(search_result_list) + list(search_result_list2))
+    assert all(
+        search_result_list_concat[i] == result
+        for i, result in enumerate(list(search_result_list) + list(search_result_list2))
+    )
+
+    search_result_list_concat2 = search_result_list + search_result_iter2
+    assert search_result_list_concat == search_result_list_concat2
+
+
+def test_search_result_copy():
+    """Verifies that the `__copy__` method correctly creates a shallow copy of the current SearchResultList"""
+    pages = list(range(1, 5))  # 1 to 4
+    mock_providers = ["Provider_one", "ProviderTwo", "ProviderThree"]
+    search_result_list = SearchResultList(
+        SearchResult(page=i, provider_name=provider_name, query="q") for i in pages for provider_name in mock_providers
+    )
+    copied_search_result_list = search_result_list.copy()
+    copied_search_result_list2 = deepcopy(search_result_list)
+
+    assert copied_search_result_list == search_result_list and id(copied_search_result_list) != id(search_result_list)
+    assert copied_search_result_list == copied_search_result_list2
+    assert id(copied_search_result_list) != id(copied_search_result_list2)
+    assert isinstance(copied_search_result_list, SearchResultList)
+    assert isinstance(copied_search_result_list2, SearchResultList)

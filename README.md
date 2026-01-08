@@ -402,7 +402,7 @@ coordinator = SearchCoordinator(query = 'AI in Academia', provider_name = "arXiv
 response = coordinator.search(page=1, request_delay=3.1)
 ```
 
-**Note:** Retry attempts and dynamic throttling are handled at the level of the `RetryHandler` for successive failed requests. If a provider requests a `Retry-After` delay longer than the configured `max_backoff` (default: 120s), ScholarFlux will raise a `RetryAfterDelayExceededException` to prevent indefinite waiting. You can adjust this behavior by changing `max_backoff` or disabling strict enforcement with `RetryHandler.RAISE_ON_DELAY_EXCEEDED = False`. See the documentation for details.
+**Note:** Retry attempts and dynamic throttling are handled at the level of the `RetryHandler` for successive failed requests. If a provider requests a `Retry-After` delay longer than the configured `max_backoff` (default: 120s), ScholarFlux will raise a `RetryAfterDelayExceededException` to prevent indefinite waiting. When this occurs during coordinated searches, an `ErrorResponse` is returned, containing the complete response details for inspection and debugging. You can adjust this behavior by increasing the `max_backoff` or disabling strict enforcement with `RetryHandler.RAISE_ON_DELAY_EXCEEDED = False`. See the [Response Handling Patterns Tutorial](https://SammieH21.github.io/scholar-flux/response_handling_patterns.html) for details.
 
 ### Two-Tier Caching
 
@@ -919,6 +919,23 @@ The Apache License 2.0 applies only to the code and gives no rights to the under
 Thanks to Springer Nature, Crossref, PLOS, PubMed, arXiv, OpenAlex, and CORE for providing public access to their academic databases through their respective APIs. This project uses Poetry for dependency management and requires Python 3.10 or higher.
 
 Special appreciation to the research software engineering community and the open-source contributors who have helped improve ScholarFlux through bug reports, feature suggestions, and pull requests.
+
+
+## Citation
+
+If you use ScholarFlux in your research, please cite it:
+
+```bibtex
+@software{scholarflux,
+  author = {Haskin, Sammie},
+  title = {ScholarFlux: Production-Grade Orchestration for Academic APIs},
+  year = {2026},
+  url = {https://github.com/SammieH21/scholar-flux},
+  version = {0.4.0}
+}
+```
+
+Citing the tools you use helps support open-source development and aids reproducibility.
 
 
 ## Contact

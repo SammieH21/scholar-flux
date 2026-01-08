@@ -1,4 +1,4 @@
-# tests/api/models/test_record_resolution.py
+# tests/normalize/test_response_record_resolution.py
 """Tests for record resolution functionality in ProcessedResponse.
 
 This module tests the ability to resolve processed (flattened) records back to their
@@ -603,7 +603,9 @@ class TestRecordResolutionIntegration:
         assert "author" in call_args[0]  # Nested from extracted
         assert "author.name" in call_args[0]  # Flattened from processed
 
-    def test_search_result_record_resolution_equality(self, sample_extracted_records, sample_processed_records):
+    def test_search_result_extracted_record_resolution_delegates_to_processed_response(
+        self, sample_extracted_records, sample_processed_records
+    ):
         """Tests whether `SearchResult.resolve_extracted_record` delegates resolution to the processed API Response."""
         mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
         response = ProcessedResponse(
@@ -620,7 +622,9 @@ class TestRecordResolutionIntegration:
             for record in response.processed_records or []
         )
 
-    def test_search_result_build_record_id_index_equality(self, sample_extracted_records, sample_processed_records):
+    def test_search_result_build_record_id_index_delegates_to_processed_response(
+        self, sample_extracted_records, sample_processed_records
+    ):
         """Tests whether `SearchResult.build_record_id_index` delegates resolution to the processed API Response."""
         mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
         response = ProcessedResponse(

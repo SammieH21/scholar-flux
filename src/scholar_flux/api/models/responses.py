@@ -975,16 +975,18 @@ class ProcessedResponse(APIResponse):
             >>> response = coordinator.search_page(page = 1)
             >>> normalized_records = response.normalize()
             >>> for record in normalized_records[:5]:
-            ...     print(f"Title: {record['title']}\nURL:{record['url']}\nSource:{record['provider_name']}")
-            ...     print(f"Abstract:{truncate(record['abstract'] or 'Not available')}")
+            ...     print(f"Title: {record['title']}")
+            ...     print(f"URL: {record['url']}")
+            ...     print(f"Source: {record['provider_name']}")
+            ...     print(f"Abstract: {truncate(record['abstract'] or 'Not available')}")
             ...     print(f"Authors: {coerce_flattened_str(record['authors'])}")
-            ...     print('-'*100)
+            ...     print("-"*100)
 
             # OUTPUT:
             Title: Are we prepared? The development of performance indicators for ...
-            URL:https://journals.plos.org/plosone/article?id=...
-            Source:plos
-            Abstract:Background: Disasters and emergencies...
+            URL: https://journals.plos.org/plosone/article?id=...
+            Source: plos
+            Abstract: Background: Disasters and emergencies...
             Authors: ...
             ----------------------------------------------------------------------------------------------------
 
