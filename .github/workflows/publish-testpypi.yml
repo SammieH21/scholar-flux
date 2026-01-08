@@ -2,8 +2,8 @@ name: Publish to TestPyPI
 
 on:
   push:
-    branches: [ develop ]
-    tags: [ 'v*' ]
+    branches: [ develop, staging ]
+    tags: [ 'v*b[0-9]+' ]
     paths:
       - 'src/scholar_flux/**'
       - 'pyproject.toml'

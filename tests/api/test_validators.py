@@ -5,14 +5,14 @@ Coverage:
     Wrapper: validate_api_specific_field, api_validator decorator
 
     Provider Integration:
-        arXiv         - sortBy, sortOrder (constrained choices)
-        Crossref      - mailto, sort, order
-        Springer      - sort, datefrom, dateto (date validation)
-        PLOS          - sort, fq
-        CORE          - sort, entityType
-        PubMed        - db, sort, mindate, maxdate
-        PubMed eFetch - db, cmd, query_key
-        OpenAlex      - mailto, sort, filter
+        arXiv         - `sortBy`, `sortOrder` (constrained choices)
+        Crossref      - `mailto`, `sort`, `order`
+        Springer      - `sort`, `datefrom`, `dateto` (date validation)
+        PLOS          - `sort`, `fq`
+        CORE          - `sort`, `entityType`
+        PubMed        - `db`, `sort`, `mindate`, `maxdate`
+        PubMed eFetch - `db`, `cmd`, `query_key`
+        OpenAlex      - `mailto`, `sort`, `filter`
 
 """
 
@@ -269,7 +269,7 @@ class TestProviderValidators:
     """
 
     # -------------------------------------------------------------------------
-    # arXiv: sortBy (constrained), sortOrder (constrained)
+    # arXiv: `sortBy` (constrained), `sortOrder` (constrained)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("value", ["relevance", "lastUpdatedDate", "submittedDate"])
@@ -285,7 +285,7 @@ class TestProviderValidators:
         assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # Crossref: mailto (email), sort (str), order (str)
+    # Crossref: `mailto` (email), `sort` (str), `order` (str)
     # -------------------------------------------------------------------------
 
     def test_crossref_mailto_valid(self):
@@ -313,7 +313,7 @@ class TestProviderValidators:
             assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # Springer Nature: sort (str), datefrom/dateto (date)
+    # Springer Nature: `sort` (str), `datefrom`/`dateto` (date)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("value", ["date", "relevance:desc"])
@@ -343,7 +343,7 @@ class TestProviderValidators:
             validator("01/01/2023")  # type: ignore
 
     # -------------------------------------------------------------------------
-    # PLOS: sort (str)
+    # PLOS: `sort` (str)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("value", ["publication_date desc", "score desc"])
@@ -353,7 +353,7 @@ class TestProviderValidators:
         assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # PLOS: fq (str)
+    # PLOS: `fq` (str)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("value", ["journal:PLoS ONE", "article_type:Research Article"])
@@ -363,7 +363,7 @@ class TestProviderValidators:
         assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # CORE: sort (str)
+    # CORE: `sort` (str)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("value", ["publishedDate:desc", "citationCount:desc"])
@@ -373,7 +373,7 @@ class TestProviderValidators:
         assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # CORE: entityType (str)
+    # CORE: `entityType` (str)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("value", ["works", "journal"])
@@ -383,7 +383,7 @@ class TestProviderValidators:
         assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # PubMed: db (str), sort (str), mindate/maxdate (flexible str)
+    # PubMed: `db` (str), `sort` (str), `mindate`/`maxdate` (flexible str)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize(
@@ -413,7 +413,7 @@ class TestProviderValidators:
             assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # OpenAlex: mailto (email), sort (str), filter (str)
+    # OpenAlex: `mailto` (email), `sort` (str), `filter` (str)
     # -------------------------------------------------------------------------
 
     def test_openalex_mailto_valid(self):
@@ -441,7 +441,7 @@ class TestProviderValidators:
             assert validator(value) == value
 
     # -------------------------------------------------------------------------
-    # PubMed eFetch: db (str), cmd (str), query_key (str)
+    # PubMed eFetch: `db` (str), `cmd` (str), `query_key` (str)
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize(

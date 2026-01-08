@@ -1,4 +1,3 @@
-extended_main.py
 poetry.lock
 requirements.txt
 
@@ -14,6 +13,8 @@ requirements.txt
 
 # Databases and Requests Caching
 **/*.sqlite
+**/*.duckdb
+**/*.db
 **/requests_cache
 **/http_cache/*
 **/testing_encrypted_session_cache/*
@@ -121,7 +122,9 @@ dmypy.json
 # Other Directories
 notes/
 archived/
-/profiling
+package_data/
+package_cache/
+profiling/
 **/secrets/
 **/secure/*
 **/logs/*

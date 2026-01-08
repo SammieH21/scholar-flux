@@ -1,5 +1,5 @@
 import pytest
-from scholar_flux import config
+from scholar_flux import config, config_settings
 from scholar_flux import logger
 from scholar_flux.api import SearchAPIConfig, APIParameterConfig
 from scholar_flux.security import SecretUtils
@@ -176,6 +176,14 @@ def new_api_parameter_config():
     return APIParameterConfig.from_defaults("plos")
 
 
+@pytest.fixture()
+def restore_config_settings():
+    """Restores the package configuration settings and environment after the conclusion of each test when used."""
+    config = config_settings.config.copy()
+    yield config
+    config_settings.config = config
+
+
 __all__ = [
     "scholar_flux_logger",
     "original_config_test_api_key",
@@ -184,6 +192,7 @@ __all__ = [
     "new_config",
     "original_api_parameter_config",
     "new_api_parameter_config",
+    "restore_config_settings",
     "core_api_key",
     "arxiv_api_key",
     "open_alex_api_key",

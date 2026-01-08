@@ -5,8 +5,11 @@ from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import try_int, PathUtils
 from unittest.mock import patch
+from tests.testing_utilities import raise_error
 from typing import List
 import re
+import json
+import copy
 
 
 def test_extract_with_manual_paths(mock_academic_json):
@@ -53,6 +56,19 @@ def test_extract_with_manual_paths(mock_academic_json):
     assert metadata["recordsDisplayed"] == try_int(mock_academic_json["recordsDisplayed"])
     # No other keys should appear because we didn't override ``apiMessage`` or ``query``.
     assert isinstance(metadata, dict) and set(metadata.keys()) == {"total", "start", "pageLength", "recordsDisplayed"}
+
+
+def test_extract_records_with_annotations(mock_academic_json):
+    """Verifies that DataExtractor correctly retrieves and annotates extracted records with `annotate_records=True`."""
+    extractor = DataExtractor(annotate_records=True)
+
+    records, _ = extractor(mock_academic_json)
+
+    assert records and len(records) == 3
+    assert all(
+        record[DataExtractor.EXTRACTION_INDEX_KEY] == i and record[DataExtractor.RECORD_ID_KEY].endswith(f"_{i}")
+        for i, record in enumerate(records)
+    )
 
 
 def test_prepare_mixed_path_list_string_representations(mock_academic_json):
@@ -241,7 +257,6 @@ def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, moc
     assert records is None
     assert metadata.get("starting") is None
     assert f"The following metadata keys are missing or None: {', '.join(['starting'])}" in caplog.text
-    # assert "Error extracting metadata due to missing key: " in caplog.text
 
 
 def test_key_error(mock_academic_json, extractor_manual_paths, caplog):
@@ -330,8 +345,12 @@ def test_invalid_extract_records(extractor_manual_paths: DataExtractor, mock_aca
 
 
 def test_basic_dynamic_identification(mock_academic_json):
-    """Verifies that the extractor can split the payload into metadata (query, total, etc.) and records (the items in
-    ``data``) when no explicit paths are provided."""
+    """Verifies that the extractor can split the payload into metadata (query, total, etc.) and records.
+
+    Each of the items in `data` should be extracted into a separate list of dictionary records, even when no explicit
+    paths are provided.
+
+    """
     extractor = DataExtractor()  # no paths
     records, metadata = extractor.dynamic_identification(mock_academic_json)
 
@@ -395,6 +414,7 @@ def test_invalid_metadata_path_type(bad_path: Any, mock_academic_json: List):
 
 
 def test_key_discovery(caplog):
+    """Verifies that keys are discovered correctly with the default dynamic record identification heuristics."""
     extractor = DataExtractor(dynamic_metadata_identifiers=["a", "b"])
     # specifying metadata directly
     json_records = [{"x": 1, "y": 0}, {"x": 3, "y": 2}, {"x": 5, "y": 6}]
@@ -453,3 +473,174 @@ def test_representation():
     assert f"metadata_path={metadata_paths}" in representation
     assert f"dynamic_record_identifiers={extractor.dynamic_record_identifiers}" in representation
     assert f"dynamic_metadata_identifiers={extractor.dynamic_metadata_identifiers}" in representation
+
+
+def test_generate_record_id_basic():
+    """Verifies that generate record ID produces a basic hash with two underscore delimited pieces."""
+    record = {"id": 1, "title": "Test Paper"}
+    record_id = DataExtractor._generate_record_id(record, 0)
+
+    # The hash should always be a string
+    assert isinstance(record_id, str)
+
+    parts = record_id.split("_")
+
+    # The hash should have two basic parts (hash and index)
+    assert len(parts) == 2
+    hash, index = parts[0], parts[1]
+
+    # the first portion should be a 16 digit alphanumeric hash
+    assert len(hash) == 16 and re.match(r"[a-zA-Z0-9]{16}", hash) is not None
+
+    # The index should match the second argument to `_generate_record_id`
+    assert index == "0"
+
+
+def test_generate_record_id_stable_hash():
+    """Verifies that two equal dictionaries, regardless of order, should always produce the same hash."""
+    record1 = {"id": 1, "title": "Test"}
+    record2 = {"title": "Test", "id": 1}
+    record3 = {"title": "Test B", "id": 1}
+
+    id1 = DataExtractor._generate_record_id(record1, 0)
+    id2 = DataExtractor._generate_record_id(record2, 0)
+    id3 = DataExtractor._generate_record_id(record3, 0)
+
+    assert id1 == id2  # should be equal regardless of order
+    assert id1 != id3 and id2 != id3  # shouldn't be equal - a value differs
+
+
+def test_generate_record_id_excludes_internal_fields():
+    """Verifies that private record metadata are excluded when calculating the hash of a record.."""
+    record1 = {"id": 1, "title": "Test", "_internal": "value1"}
+    record2 = {"id": 1, "title": "Test", "_internal": "value2"}
+    record3 = {"id": 1, "title": "Test", "_different": "value3"}
+
+    # All records should have same hash since internal fields are excluded and all other fields are equal
+    id1 = DataExtractor._generate_record_id(record1, 0)
+    id2 = DataExtractor._generate_record_id(record2, 0)
+    id3 = DataExtractor._generate_record_id(record3, 0)
+
+    assert id1 == id2 == id3
+
+
+def test_generate_record_id_non_serializable_fallback(monkeypatch):
+    """Verifies that hash creation fails due to non-serializable content falls back to `record_id=f'idx_{index}'`."""
+    monkeypatch.setattr(json, "dumps", raise_error(TypeError))
+    record = {"a": 1, "b": 2, "c": 3}
+    index = 5
+    record_id = DataExtractor._generate_record_id(record, index)
+    expected = f"idx_{index}"
+
+    assert record_id == expected
+
+
+def test_generate_record_id_empty_record():
+    """Verifies that ID generation doesn't fail in the calculation of record hashes for empty dictionaries."""
+    record: dict = {}
+    index = 0
+    record_id = DataExtractor._generate_record_id(record, index)
+
+    assert record_id.endswith(f"_{index}") and len(record_id.split("_")[0]) == 16
+
+
+def test_strip_annotations():
+    """Verifies the functionality of `strip_annotations` with different inputs.
+
+    The core logic is delegated to `filter_records`
+
+    """
+    record_one = {
+        "title": "A title",
+        "author": "Anonymous",
+        "_extraction_index": 0,
+        "_record_id": "abcdefghijklmpqrs_0",
+    }
+    record_two = {
+        "title": "Another title",
+        "author": "Unknown",
+        "_extraction_index": 1,
+        "_record_id": "'srqpmlkjihgfedcba'_1",
+    }
+
+    stripped_record_one = {"title": "A title", "author": "Anonymous"}
+    stripped_record_two = {"title": "Another title", "author": "Unknown"}
+
+    record_list = [record_one, record_two]
+    stripped_record_list = [stripped_record_one, stripped_record_two]
+
+    assert DataExtractor.strip_annotations(record_one) == stripped_record_one
+    assert DataExtractor.strip_annotations(record_two) == stripped_record_two
+    assert DataExtractor.strip_annotations(record_list) == stripped_record_list
+
+    # When an anotation is not available, return None instead to continue processing
+    assert DataExtractor.strip_annotations(None) is None
+
+    # `None` should ideally be handled and accounted for to ensure that a valid `RecordList` is returned.
+    assert DataExtractor.strip_annotations(record_list + [None]) == stripped_record_list + [{}]  # type: ignore
+
+
+def test_strip_annotations_invalid_type():
+    """Verifies the functionality of `strip_annotations` with different inputs.
+
+    The core logic is delegated to `filter_records`
+
+    """
+    invalid_record = "an invalid record"
+    invalid_record_error = (
+        f"Expected a dict or list of dicts to strip metadata annotations from, but received type {type(invalid_record)}"
+    )
+    with pytest.raises(
+        TypeError,
+        match=invalid_record_error,
+    ):
+        _ = DataExtractor.strip_annotations(invalid_record)  # type: ignore
+
+    invalid_record_list = ["an invalid record"]
+    invalid_record_list_error = (
+        f"Expected a dictionary record to filter key prefixes from, but received type {type(invalid_record)}"
+    )
+    with pytest.raises(TypeError, match=invalid_record_list_error):
+        _ = DataExtractor.strip_annotations(invalid_record_list)  # type: ignore
+
+
+def test_extractor_updates(extractor_manual_paths):
+    """Verifies that updates to the DataExtractor class account for passed keywords, ignoring unspecified keys."""
+    copied_extractor = copy.deepcopy(extractor_manual_paths)
+    updated_extractor = DataExtractor.update(extractor_manual_paths, record_path=None)
+    original_attribute_dict = extractor_manual_paths.__dict__
+    assert copied_extractor.__dict__ == original_attribute_dict
+    assert all(
+        value == original_attribute_dict[attribute]
+        for attribute, value in updated_extractor.__dict__.items()
+        if attribute != "record_path"
+    )
+    assert extractor_manual_paths.record_path != updated_extractor.record_path
+
+
+def test_base_extractor_updates(extractor_manual_paths):
+    """Verifies that updates to the BaseDataExtractor account for passed keywords, ignoring undefined attributes."""
+    base_extractor = BaseDataExtractor.update(
+        extractor_manual_paths, metadata_path=None
+    )  # should retain only native fields
+    assert extractor_manual_paths.record_path is base_extractor.record_path
+    assert extractor_manual_paths.metadata_path != base_extractor.metadata_path
+
+    updated_extractor = DataExtractor.update(base_extractor)
+
+    # assigned the default values when not specified
+    assert updated_extractor.dynamic_metadata_identifiers is DataExtractor.DEFAULT_DYNAMIC_METADATA_IDENTIFIERS
+    assert updated_extractor.dynamic_record_identifiers is DataExtractor.DEFAULT_DYNAMIC_RECORD_IDENTIFIERS
+    assert updated_extractor.annotate_records is False
+
+
+@pytest.mark.parametrize("extractor_class", (BaseDataExtractor, DataExtractor))
+def test_invalid_data_extractor_update(extractor_class):
+    """Verifies that a TypeError is raised when encountering a non-extractor subclass"""
+    invalid_extractor = "not a data extractor"
+    err = (
+        "Expected a BaseDataExtractor or subclass to perform parameter updates. Received type "
+        f"{type(invalid_extractor)}"
+    )
+    with pytest.raises(TypeError, match=err):
+        _ = extractor_class.update(invalid_extractor)  # type: ignore

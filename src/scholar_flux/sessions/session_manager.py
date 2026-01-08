@@ -274,7 +274,7 @@ class CachedSessionManager(SessionManager):
 
         Args:
             raise_on_error (bool):
-                If True, an exception is raised when the the environment variable exists but attempts
+                If True, an exception is raised when the environment variable exists but attempts
                 to use an unknown requests_cache backend. If False, this method instead raises a warning
                 defaulting to `sqlite` instead.
 

@@ -58,6 +58,7 @@ provider = ProviderConfig(
     records_per_page=25,
     request_delay=4,
     docs_url="https://info.arxiv.org/help/api/basics.html",
+    display_name="arXiv",
 )
 
 __all__ = ["provider"]

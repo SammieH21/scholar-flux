@@ -68,6 +68,7 @@ provider = ProviderConfig(
     request_delay=1.0,
     records_per_page=25,
     docs_url="https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
+    display_name="Crossref",
 )
 
 __all__ = ["provider"]

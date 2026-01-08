@@ -18,7 +18,7 @@ topics. Manual approaches are tedious and error-prone:
 This pipeline solves these problems by:
 
 1. Searching for articles published within a configurable time window
-2. Flattening nested JSON responses for DataFrame/Parquet compatibility
+2. Encoding nested JSON responses for DataFrame/Parquet compatibility
 3. Deduplicating against previously retrieved records
 4. Persisting results with full audit logging
 
@@ -26,15 +26,16 @@ Workflow Overview
 -----------------
 1. **Configure**: Set global defaults via ``config_settings`` (user agent, cache backends)
 2. **Search**: Query provider APIs with date filters to retrieve recent publications
-3. **Flatten**: Use ``RecursiveDataProcessor`` to convert nested structures to flat records
+3. **Process**: Use the internal processing pipeline to parse responses and process records 
 4. **Normalize**: Combine ScholarFlux's normalized schema with provider-specific fields
-5. **Deduplicate**: Merge with existing dataset, removing duplicates by article ID
-6. **Persist**: Save to Parquet format for efficient storage and retrieval
+5. **Encode**: Use ``JsonDataEncoder`` to convert nested structures to JSON encoded records
+6. **Deduplicate**: Merge with the existing dataset, removing duplicates by article ID
+7. **Persist**: Save to Parquet format for efficient storage and retrieval
 
 Key Concepts Demonstrated
 -------------------------
 - ``config_settings``: Global configuration without explicit parameter passing
-- ``RecursiveDataProcessor``: Flatten nested JSON for tabular data formats
+- ``JsonDataEncoder``: Convert nested JSON structures into dumpable strings for tabular data formats and reload
 - ``SearchResultList``: Batch operations (filter, join, normalize) on search results
 - ``api_specific_parameters``: Provider-native query options (date filters, sorting)
 - Incremental accumulation with deduplication
@@ -129,10 +130,10 @@ import re
 
 import pandas as pd
 
-from scholar_flux import RecursiveDataProcessor, SearchCoordinator, logger as scholar_flux_logger
+from scholar_flux import SearchCoordinator, logger as scholar_flux_logger
 from scholar_flux.api.models import SearchResultList
 from scholar_flux.exceptions import NoRecordsAvailableException
-from scholar_flux.utils import config_settings, setup_logging
+from scholar_flux.utils import config_settings, setup_logging, JsonDataEncoder
 
 # ============================================================================
 # SCHOLARFLUX CONFIGURATION
@@ -236,9 +237,13 @@ def create_coordinator(
 ) -> SearchCoordinator:
     """Create a SearchCoordinator configured for the data pipeline.
 
-    The coordinator is configured with a ``RecursiveDataProcessor`` that
-    flattens nested JSON structures into a format suitable for DataFrames
-    and Parquet files.
+    The coordinator is configured with a ``PassthroughDataProcessor`` (the default)
+    that retains the structure of nested JSON structures as is. Given that nested objects
+    (common in API data structures) are not suitable for storage, the pipeline later uses
+    a ``JsonDataEncoder`` class to recursively encode and convert nested objects into JSON
+    to generate a data set suitable for parquet storage.
+
+    The exact structure can later be reloaded into a format suitable for DataFrames.
 
     Args:
         provider_name: API provider to search. Supported providers include
@@ -253,25 +258,12 @@ def create_coordinator(
     Returns:
         A configured SearchCoordinator instance ready for searching.
 
-    Note:
-        The ``RecursiveDataProcessor`` uses ``value_delimiter=';'`` to join
-        list fields (e.g., multiple authors) into semicolon-separated strings.
-        This is required for Parquet compatibility, which doesn't support
-        nested list structures. If you need lists preserved for downstream
-        processing, use ``value_delimiter=None`` and export to a format that
-        supports nesting (JSON, pickle).
 
     """
-    # RecursiveDataProcessor flattens nested JSON for DataFrame compatibility.
-    # value_delimiter=';' joins lists into strings: ["A", "B"] → "A;B"
-    # This is necessary because Parquet doesn't support nested lists.
-    processor = RecursiveDataProcessor(value_delimiter=";")
-
     coordinator = SearchCoordinator(
         query=query,
         provider_name=provider_name,
         records_per_page=records_per_page,
-        processor=processor,
         **kwargs,
     )
 
@@ -342,6 +334,11 @@ def postprocess_papers(search_results: SearchResultList) -> pd.DataFrame:
         normalized value takes precedence (dict union behavior: ``a | b``
         keeps values from ``b`` for duplicate keys).
 
+        Also note that the encoder.dumps and encoder.loads implementation is idempotent
+        with lists, dicts, and other common data types. That is, calling
+        `series.apply(JsonDataEncoder.dumps).apply(JsonDataEncoder.loads)` to serialize each
+        element in the series should return the same structure as the original series.
+
     """
     if not search_results.record_count:
         err = dedent(
@@ -361,14 +358,21 @@ def postprocess_papers(search_results: SearchResultList) -> pd.DataFrame:
     # normalized records: consistent schema across all providers
     # non-normalized records: original provider-specific fields
     normalized_records = search_results.normalize()
-    non_normalized_records = search_results.join()
 
-    # Merge both, with normalized fields taking precedence
+    non_normalized_records = search_results.join(strip_annotations=True)  # removes _extraction_index, _record_id
+
+    # Merge both, with normalized fields taking precedence, removing internal record metadata fields
     combined_records = [
         non_normalized | normalized for normalized, non_normalized in zip(normalized_records, non_normalized_records)
     ]
 
     combined_df = pd.DataFrame(combined_records)
+
+    # Stringify and encode lists and dictionaries when required: 
+    for key in combined_df.columns:
+        if any(isinstance(x, (list, dict)) for x in combined_df[key].values):
+            combined_df[key] = combined_df[key].apply(JsonDataEncoder.dumps)
+
     pipeline_logger.debug(f"Created DataFrame with {len(combined_df)} rows, {len(combined_df.columns)} columns")
 
     return combined_df
@@ -404,8 +408,10 @@ def accumulate_results(
     Note:
         This function uses Parquet format for efficient columnar storage.
         Parquet requires flat data structures, which is why the pipeline
-        uses ``RecursiveDataProcessor(value_delimiter=';')`` to flatten
-        nested fields.
+        uses ``JsonDataEncoder.dumps()`` to encode nested fields as strings.
+        The exact structure can easily be reloaded by via using
+        ``combined_df.apply(JsonDataEncoder.loads)``, which will target
+        only encoded values that contain the string prefix HASHBYTES.
 
     """
     storage_path = Path(storage_directory) / storage_filename if storage_directory else Path(storage_filename)

@@ -1,13 +1,13 @@
 from unittest.mock import patch
 
 from scholar_flux.api import SearchAPI, SearchCoordinator
+import requests_mock
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse, SearchResult, SearchResultList
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
 def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exceeded_response, caplog):
-    """Test for whether the defaults are specified correctly and whether the mocked response is processed as intended
-    throughout the coordinator."""
+    """Tests whether `SearchCoordinator.search_pages()` correctly handles both successful and unsuccessful responses."""
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
     success_response = ProcessedResponse(response=mock_successful_response, extracted_records=extracted_records)
     rate_limit_response = ErrorResponse(response=mock_rate_limit_exceeded_response, message="Rate limit exceeded")
@@ -36,6 +36,41 @@ def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exce
             and page.response_result.status_code == expected_response.status_code
         )
     caplog.text
+
+
+def test_plos_multisearch_integration(
+    plos_coordinator, plos_page_1_url, plos_page_2_url, plos_page_1_data, plos_page_2_data, plos_headers
+):
+    """Verifies that `search_pages` correctly processes multiple PLOS response pages, enabling record extraction.
+
+    Note:
+        This test mocks responses from the PLOS API to verify the behavior of the pre-normalization processing pipeline,
+        including the consolidation of records into a single list.
+
+    """
+    with (
+        plos_coordinator.with_components(annotate_records=True) as coordinator,
+        requests_mock.Mocker(real_http=False) as m,
+    ):
+        m.get(
+            plos_page_1_url,
+            json=plos_page_1_data,
+            headers=plos_headers,
+            status_code=200,
+        )
+        m.get(
+            plos_page_2_url,
+            json=plos_page_2_data,
+            headers=plos_headers,
+            status_code=200,
+        )
+
+        search_result_list = coordinator.search_pages(pages=[1, 2], request_delay=0.01)
+        assert len(search_result_list) == 2
+        assert search_result_list.record_count == 200
+
+        record_list = search_result_list.join(strip_annotations=True, include={})
+        assert record_list == plos_page_1_data["response"]["docs"] + plos_page_2_data["response"]["docs"]
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
@@ -68,7 +103,7 @@ def test_last_response_page(mock_search, mock_successful_response, mock_unauthor
     assert len(pages) == 2
     search_result = pages[1]  # get the result for page 1
     assert (
-        f"The response for page, 1 contains less than the expected "
+        f"The response from {coordinator.display_name} for page, 1 contains less than the expected "
         f"{expected_page_count} records. Received {repr(search_result.response_result)}. "
         f"Halting multi-page retrieval..."
     ) in caplog.text
@@ -108,7 +143,7 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
     response_list = search_coordinator.search_pages(pages=[1, 2, 3])
     assert len(response_list) == 1 and isinstance(response_list[0].response_result, ErrorResponse)
     assert (
-        f"Received an invalid response for page 1. "
+        f"Received an invalid response from {search_coordinator.display_name} for page 1. "
         f"(Status Code: {mock_unauthorized_response.status_code}={mock_unauthorized_response.status}). Halting multi-page retrieval..."
     ) in caplog.text
 
@@ -120,4 +155,4 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
 
     response_list = search_coordinator.search_pages(pages=[1, 2, 3])
     assert isinstance(response_list, SearchResultList) and response_list == []
-    assert "Received an invalid response for page 1. " in caplog.text
+    assert f"Received an invalid response from {search_coordinator.display_name} for page 1. " in caplog.text

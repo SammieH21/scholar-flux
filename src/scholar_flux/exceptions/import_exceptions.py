@@ -61,6 +61,16 @@ class SQLAlchemyImportError(OptionalDependencyImportError):
         super().__init__(message=err)
 
 
+class DuckDBImportError(OptionalDependencyImportError):
+    """Exception for missing DuckDB engine for SQL Alchemy."""
+
+    def __init__(self):
+        """Initializes the `duckdb-engine` import exception for improved logging before the exception is raised."""
+        err = """Optional Dependency: SQLAlchemy DuckDB engine is not installed.
+        Please install the 'sqlalchemy' package to use this feature."""
+        super().__init__(message=err)
+
+
 class MongoDBImportError(OptionalDependencyImportError):
     """Exception for Mongo Dependency Issues."""
 

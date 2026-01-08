@@ -44,6 +44,7 @@ class APIParameterMap(BaseAPIParameterMap):
     """
 
     @model_validator(mode="before")
+    @classmethod
     def set_default_api_key_parameter(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Sets the default for the api key parameter when `api_key_required`=True and `api_key_parameter` is None.
 
@@ -61,6 +62,7 @@ class APIParameterMap(BaseAPIParameterMap):
         return values
 
     @model_validator(mode="before")
+    @classmethod
     def validate_api_specific_parameter_mappings(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Validates the additional mappings provided to the APIParameterMap.
 
@@ -87,10 +89,9 @@ class APIParameterMap(BaseAPIParameterMap):
         for parameter_name, parameter_metadata in api_specific_parameters.items():
             if not isinstance(parameter_name, str) or not isinstance(parameter_metadata, (dict, APISpecificParameter)):
                 raise APIParameterException(
-                    "Keys and values in api_specific_parameters must "
-                    "be strings and APISpecificParameter classes or "
-                    "dictionaries of api specific parameters respectively. "
-                    f"Received types {type(parameter_name)}:{type(parameter_metadata)}"
+                    "The `api_specific_parameters` input must be a dictionary that maps a parameter (string) to either "
+                    "a dictionary containing `APISpecificParameter` fields or a direct `APISpecificParameter` class. "
+                    f"Instead, a key-value pair with the following types was received: {type(parameter_name)}: {type(parameter_metadata)}"
                 )
         return values
 
@@ -412,7 +413,9 @@ class APIParameterConfig:
             return {}
 
         api_specific_parameters = {
-            parameter: parameters.pop(parameter, None) for parameter in self.parameter_map.api_specific_parameters
+            parameter: parameters.pop(parameter)
+            for parameter in self.parameter_map.api_specific_parameters
+            if parameter in parameters
         }
 
         api_specific_parameters |= parameters.get("parameters", {})

@@ -94,14 +94,14 @@ def test_api_key_format(api_key_dictionary, request):
         "core",
     ),
 )
-def test_uneeded_parameter_removal(provider_name):
+def test_unneeded_parameter_removal(provider_name):
     """Verifies the removal of API-specific parameters that aren't specific to the current provider."""
     provider_parameters = SearchAPIConfig.from_defaults(provider_name)
     provider_api_specific_parameters = provider_parameters.api_specific_parameters or {}
     universal_parameters = provider_parameters.model_dump(exclude={"api_specific_parameters"})
     provider_parameter_dict = universal_parameters | provider_api_specific_parameters
 
-    # This should be preciesly equal to the original config and removing no parameters
+    # This should be precisely equal to the original config and removing no parameters
     assert provider_parameter_dict == SearchAPIConfig._remove_nonprovider_config_parameters(
         provider_parameter_dict, provider_name
     )

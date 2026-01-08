@@ -93,11 +93,27 @@ As the IT, analytical, and scientific landscape changes, our aim is to ensure th
 
 6. **Make your changes and submit a PR!**
 
+### Development Shortcuts
+
+A `Makefile` provides quick commands for common tasks during active development:
+
+```bash
+make help      # Show all available commands
+make install   # Install ScholarFlux with all dependencies for development
+make test      # Run the test suite with coverage (current Python version only)
+make lint      # Check code quality (ruff, docstr-coverage, mypy)
+make docs      # Build documentation locally
+make shell     # Enter the Poetry virtual environment
+```
+
+**Note**: The Makefile was mainly designed for use on Unix/Linux operating systems but should be compatible across platforms (including Windows). If you encounter any issues using Makefile shortcuts on Windows, try using [Git Bash](https://gitforwindows.org/), or use the poetry commands directly.
+
 ## Understanding Extras
 
 ScholarFlux uses optional dependency groups for different features:
 
 - **`database`**: SQLAlchemy, Redis, and MongoDB support for advanced caching
+- **`duckdb`**: SQLAlchemy and a compatible duckdb-engine for embedded analytical database support
 - **`cryptography`**: Enhanced cache encryption capabilities
 - **`parsing`**: XML and YAML parsing for various API responses
 
@@ -130,7 +146,7 @@ ScholarFlux integrates with multiple academic APIs. For full testing, you may ne
 
 1. Create a `.env` file in the project root or in `$HOME/.scholar_flux` (never commit this!)
 2. Add your API keys (optional - tests use mocked responses by default)
-3. Before sending a pull request, verify that, after each commit, you haven't inadvertently committed an api key: `git grep $PUBMED_API_KEY $(git rev-list --all)`
+3. Before sending a pull request, verify that, after each commit, you haven't inadvertently committed an API key: `git grep $PUBMED_API_KEY $(git rev-list --all)`
 4. See our [Security Policy](SECURITY.md) for best practices on handling credentials
 
 **Note:** All tests use mocked responses, so API keys are optional for basic development. They're only required if you're testing actual API integrations on live data from PubMed, Core, and SpringerNature.
@@ -181,7 +197,7 @@ setup_logging(
     log_directory="./logs", # leave blank to create and use default $HOME/.scholar_flux directory for logging
     log_file="debug.log",
     log_level=logging.DEBUG,
-    logging_filter=MaskingFilter(masker), # keeps known api keys from displaying in the console
+    logging_filter=MaskingFilter(masker), # keeps known API keys from displaying in the console
     max_bytes=10485760,  # 10MB
     backup_count=3
 )
@@ -222,6 +238,8 @@ poetry run tox -e coverage
 ```
 
 Coverage reports are generated as both terminal output and XML format in `coverage.xml`.
+
+Before submitting PRs, use `poetry run tox` to verify that the patch works across all supported Python versions (3.10-3.13)
 
 **GitHub Workflow Testing Locally**
 
@@ -604,6 +622,7 @@ Visit the [Sphinx documentation](https://SammieH21.github.io/scholar-flux/) for 
 - **Tutorials**: [8 comprehensive tutorials](https://SammieH21.github.io/scholar-flux/) covering basics through production deployment
 - **Issues**: [GitHub Issues](https://github.com/SammieH21/scholar-flux/issues)
 - **Security**: See [SECURITY.md](SECURITY.md) for security-related questions
+- **AI-Assisted Code Review**: [.github/AI_REVIEW_PROMPTS.md](.github/AI_REVIEW_PROMPTS.md) - Prompts for code/documentation review and test gap analysis
 
 ### Questions?
 
@@ -630,7 +649,7 @@ Find the code of conduct [**here**](https://github.com/SammieH21/scholar-flux/bl
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.3.1). This means:
+ScholarFlux is currently in **beta** (v0.4.0). This means:
 
 - APIs may change between versions
 - We're actively seeking feedback

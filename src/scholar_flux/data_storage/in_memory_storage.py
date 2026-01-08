@@ -14,6 +14,7 @@ import threading
 logger = logging.getLogger(__name__)
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils.repr_utils import generate_repr_from_string
+from scholar_flux import masker
 
 
 class InMemoryStorage(ABCStorage):
@@ -26,7 +27,7 @@ class InMemoryStorage(ABCStorage):
     Args:
         namespace (Optional[str]): Prefix for cache keys. Defaults to None.
         ttl (Optional[int]): Ignored. Included for interface compatibility; not implemented.
-        **kwargs (Dict): Ignored. Included for interface compatibility; not implemented.
+        **kwargs: Ignored. Included for interface compatibility; not implemented.
 
     Examples:
         >>> from scholar_flux.data_storage import InMemoryStorage
@@ -57,6 +58,7 @@ class InMemoryStorage(ABCStorage):
     # for compatibility with other storage backends
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_RAISE_ON_ERROR: bool = False
+    STORAGE_TYPE: str = "InMemory"
 
     def __init__(
         self,
@@ -79,6 +81,7 @@ class InMemoryStorage(ABCStorage):
             logger.warning("The parameter, `raise_on_error` is not enforced in InMemoryStorage. Skipping.")
         self.ttl = None
         self.raise_on_error = False
+        self.config = {}
         self.lock = threading.Lock()
 
         self._validate_prefix(namespace, required=False)
@@ -148,7 +151,7 @@ class InMemoryStorage(ABCStorage):
         with self.lock:
             self.memory_cache[namespace_key] = data
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str) -> Optional[bool]:
         """Attempts to delete the selected cache key if found within the current namespace.
 
         Args:
@@ -158,12 +161,12 @@ class InMemoryStorage(ABCStorage):
         namespace_key = self._prefix(key)
 
         with self.lock:
-            key = self.memory_cache.pop(namespace_key, None)
-
-        if key is not None:
-            logger.debug(f"Key: {key} deleted successfully")
-        else:
-            logger.info(f"Key: {key}  (namespace = '{self.namespace}') does not exist in cache.")
+            if namespace_key in self.memory_cache:
+                del self.memory_cache[namespace_key]
+                logger.debug(f"Key: {key}  (namespace = '{self.namespace}') successfully deleted")
+                return True
+            logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
+            return False
 
     def delete_all(self) -> None:
         """Attempts to delete all cache keys found within the current namespace."""
@@ -199,6 +202,10 @@ class InMemoryStorage(ABCStorage):
         with self.lock:
             return namespace_key in self.memory_cache
 
+    def verify_connection(self) -> None:
+        """No-Op that otherwise raises an error when connections can't be established successfully."""
+        pass
+
     @classmethod
     def is_available(cls, *args, **kwargs) -> bool:
         """Helper method that returns True, indicating that dictionary-based storage will always be available.
@@ -209,18 +216,39 @@ class InMemoryStorage(ABCStorage):
         """
         return True
 
-    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """Helper method for creating an in-memory cache without overloading the representation with the specifics of
-        what is being cached."""
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True, mask_values: bool = False) -> str:
+        """Creates a concise string representation of the current `InMemoryStorage` device.
+
+        The representation displays the total number of records that have been registered to avoid overloading the
+        representation with the specifics of what is being cached.
+
+        Args:
+            flatten (bool):
+                Flag indicating whether to flatten the string representation of the object into a single line when True
+                or preserve the multiline representation of the storage cache when False (default).
+            show_value_attributes (bool):
+                Flag for hiding the internal attributes of nested objects when True (arguments replaced with `...`) and
+                showing their default representation when False (default).
+            mask_values (bool):
+                Masks any potentially sensitive data shown in the representation when True. This is false by default, as
+                the representation of the `InMemoryStorage` displays non-sensitive information, including only the
+                namespace of the cache and the total cached record count.
+
+        Returns:
+            A basic string representation of the current object.
+
+        """
         class_name = self.__class__.__name__
         str_memory_cache = f"dict(n={len(self.memory_cache)})"
         class_attribute_dict = dict(namespace=self.namespace, memory_cache=str_memory_cache)
-        return generate_repr_from_string(
+        representation = generate_repr_from_string(
             class_name,
             attribute_dict=class_attribute_dict,
             flatten=flatten,
             show_value_attributes=show_value_attributes,
         )
+
+        return masker.mask_text(representation) if mask_values else representation
 
 
 __all__ = ["InMemoryStorage"]

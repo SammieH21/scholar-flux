@@ -40,7 +40,7 @@ def test_recursive_processor(sample_json, mock_api_parsed_json_records):
     assert discovered_keys2 and discovered_keys != discovered_keys2
 
 
-def test_process_page_with_json_traverssal(mock_api_parsed_json_records):
+def test_process_page_with_json_traversal(mock_api_parsed_json_records):
     """Verifies that the RecursiveJsonProcessor can use a nested list of record keys to extract nested JSON records.
 
     The final processed record list should consist of two dictionaries containing fields mapping each full, period

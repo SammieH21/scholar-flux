@@ -27,6 +27,14 @@ def test_lazy_import_caching():
     assert ProviderUtils is ProviderUtils2
 
 
+def test_lazy_import_config_settings():
+    """Tests the `config_settings` module can be lazy loaded via the main `scholar_flux` API entrypoint."""
+    from scholar_flux import config_settings
+    from scholar_flux.utils import config_settings as config_settings2
+
+    assert config_settings is config_settings2
+
+
 def test_nonexistent_import():
     """Tests the behavior of the dynamically retrieved lazy imports when attempting to load a non-existent module.
 

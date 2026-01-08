@@ -47,7 +47,7 @@ def search_coordinator_mocking_context(
     endpoint: Optional[str] = None,
     status_code: int = 200,
     headers: Optional[Mapping] = None,
-    json_data: Optional[dict] = None,
+    json: Optional[dict] = None,
     kwargs: Optional[dict] = None,
 ) -> Generator[requests_mock.Mocker, None, None]:
     """Context manager that uses the coordinator as well as the response json to mock a response."""
@@ -55,7 +55,7 @@ def search_coordinator_mocking_context(
     prepared_search = search_coordinator.api.prepare_search(page=page, endpoint=endpoint)
 
     with requests_mock.Mocker() as m:
-        m.get(prepared_search.url, headers=headers, status_code=status_code, json=json_data, **(kwargs or {}))
+        m.get(prepared_search.url, headers=headers, status_code=status_code, json=json, **(kwargs or {}))
         yield m
 
 

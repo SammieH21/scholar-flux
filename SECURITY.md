@@ -2,7 +2,7 @@
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.3.1). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
+ScholarFlux is currently in **beta** (v0.4.0). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
 
 - This is pre-release software under active development
 - APIs and interfaces may change between versions
@@ -53,6 +53,46 @@ from dotenv import load_dotenv
 
 load_dotenv()
 api_key = os.getenv('ACADEMIC_API_KEY')
+```
+
+### Internal Secret Management
+
+ScholarFlux masks sensitive data at multiple levels:
+
+- **ConfigLoader** wraps API keys in `SecretStr` objects—they won't leak via `repr()` or `str()`
+- **SensitiveDataMasker** pattern-matches API keys, database URIs, and private keys before they hit logs
+- **MaskingFilter** scrubs any remaining sensitive strings from log output
+
+Even if you accidentally log a config object, credentials stay masked:
+
+```python
+import logging
+from scholar_flux.utils import ConfigLoader
+
+logger = logging.getLogger('scholar_flux') 
+logger.setLevel(logging.DEBUG)
+
+config_settings = ConfigLoader()
+config_settings.load_config(reload_env=True)
+
+# Even if you log the entire config, secrets are masked
+logger.debug(f"Config: {config_settings.config}")
+# OUTPUT: Config: {'PUBMED_API_KEY': '**********', 'SCHOLAR_FLUX_DEFAULT_MAILTO': '**********', ...}
+```
+
+You can also register custom patterns:
+
+```python
+from scholar_flux import masker
+
+# Add a custom pattern to mask
+masker.add_sensitive_string_patterns(
+    name="internal_ids",
+    patterns=r"INTERNAL-[A-Z0-9]{8}",
+    use_regex=True
+)
+print(masker.mask_text("INTERNAL-12345678"))
+# OUTPUT: '***'
 ```
 
 ### Caching Security

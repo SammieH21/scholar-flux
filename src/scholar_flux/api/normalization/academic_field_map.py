@@ -1,17 +1,55 @@
 # scholar_flux.api.normalization.academic_field_map.py
-"""The scholar_flux.api.normalization.academic_field_map implements the `AcademicFieldMap` for scholarly record
-normalization.
+"""The scholar_flux.api.normalization.academic_field_map implements the `AcademicFieldMap` for record normalization.
 
 This implementation subclasses the `NormalizingFieldMap` class for use in academic record normalization by defining
 additional combinations of fields that apply solely to academic APIs and databases.
 
+Architecture Context:
+    This layer is the third step in a 3 part configuration system tailored to each individual provider.
+
+    1. Parameter Map (BaseAPIParameterMap) - Translates search parameters to provider-specific API parameters
+    2. Metadata Map (ResponseMetadataMap) - Extracts pagination metadata (total hits, records per page)
+    3. Field Map (AcademicFieldMap) - Normalizes provider-specific fields into a universal schema
+
+    All three layers compose via ProviderConfig for complete provider integration:
+
+    >>> from scholar_flux.api.providers import provider_registry
+    >>> config = provider_registry.get("plos")
+    >>> config.parameter_map  # Request building
+    >>> config.metadata_map   # Pagination intelligence
+    >>> config.field_map      # Response normalization
+
+Design Philosophy:
+    - **Minimal defaults**: Works out-of-box for common use cases
+    - **Provider-specific when needed**: Subclasses override `_post_process()` for domain logic
+    - **User-extensible**: Users can customize or replace field maps entirely
+
+    This is NOT a rigid framework—each provider handles genuinely different data structures.
+    The base class provides common helpers, not enforced patterns.
+
 """
-from typing import Optional
+from typing import Optional, Sequence
+import datetime
+import re
 from scholar_flux.api.normalization.normalizing_field_map import NormalizingFieldMap
+from scholar_flux.api.validators import validate_url
+from scholar_flux.utils.record_types import NormalizedRecordType
+from scholar_flux.utils.helpers import (
+    unlist_1d,
+    get_nested_data,
+    try_none,
+    coerce_str,
+    extract_year,
+    parse_iso_timestamp,
+    build_iso_date,
+    coerce_flattened_str,
+    strip_html_tags,
+    as_tuple,
+)
 
 
 class AcademicFieldMap(NormalizingFieldMap):
-    """A field map implementation that builds on the `NormalizingFieldMap` to customize academic record normalization.
+    """Extends the `NormalizingFieldMap` to customize field extraction and processing for academic record normalization.
 
     This class is used to normalize the names of academic data fields consistently across provider. By default, the
     AcademicFieldMap includes fields for several attributes of academic records including:
@@ -43,10 +81,24 @@ class AcademicFieldMap(NormalizingFieldMap):
         >>> assert cached_fields is field_map._cached_fields
         >>> assert result is not result2
 
+    Note:
+        To account for special cases, the `AcademicFieldMap` can be subclassed to perform two-step normalization to
+        further process extracted elements.
+
+        1. **Phase 1**:
+            The `AcademicFieldMap` extracts nested fields for each record. This class traverses paths like
+            'MedlineCitation.Article.AuthorList.Author' (PubMed) or `authorships.institutions.display_name` (OpenAlex)
+            to map API-specific fields to universal parameter names
+        2. **Phase 2 (Subclasses)**:
+            Subclasses can reformat extracted data into finalized fields. For example, `PubMed` prepares the `authors`
+            field by combining each author's' 'ForeName' and 'LastName' into 'FirstName LastName'. PLOS creates the
+            record URL for each article by combining the URL prefix for the website with the  `DOI` of the current
+            record. The `AcademicFieldMap` defines common (yet optional) class methods to aid in the extraction and
+            processing of normalized fields.
+
     """
 
     # Core identifiers
-    provider_name: str = ""
     doi: Optional[str | list[str]] = None
     url: Optional[str | list[str]] = None
     record_id: Optional[str | list[str]] = None
@@ -78,6 +130,319 @@ class AcademicFieldMap(NormalizingFieldMap):
     # Document metadata
     record_type: Optional[str | list[str]] = None
     language: Optional[str | list[str]] = None
+    is_retracted: Optional[str | list[str]] = None
+
+    @classmethod
+    def extract_url(
+        cls, record: NormalizedRecordType, *paths: list[str | int] | str, pattern_delimiter: Optional[str] = "; *"
+    ) -> Optional[str]:
+        """Helper function for extracting a single, primary URL from record based on the path taken to traverse the URL.
+
+        Args:
+            record (NormalizedRecordType): The record dictionary to extract the URL from.
+            *paths:
+                Arbitrary positional path arguments leading to a single URL or list of URLs. Each path can be a string
+                or list of keys representing the path needed to find an URL in a nested record. Defaults to the tuple
+                ('url', ) if not provided, defaulting to a basic `url` lookup.
+            pattern_delimiter (str):
+                Regex pattern to split URL strings. Defaults to "; *". A positive lookahead `(?=http)` is automatically
+                appended to the delimiter to prevent splitting URLs mid-domain. Set to None to disable splitting.
+
+        Returns:
+            The first value found at any of the specified paths. Commonly a string URL,
+            but could be any type depending on the data structure. Returns None if not found.
+
+        Examples:
+            >>> from scholar_flux.api.normalization import AcademicFieldMap
+            >>> record = {"url": "http://example.com; http://backup.com"}
+            >>> AcademicFieldMap.extract_url(record)
+            # OUTPUT: 'http://example.com'
+
+            >>> record = {"url": [{"value": "http://example.com"}]}
+            >>> AcademicFieldMap.extract_url(record, ["url", 0, "value"], ["url", 0])
+            # OUTPUT: 'http://example.com'
+
+            >>> # Semicolon-delimited URLs (common in CrossRef, Springer)
+            >>> record = {"url": "http://example.com; http://backup.com"}
+            >>> AcademicFieldMap.extract_url(record)
+            # OUTPUT: 'http://example.com'
+
+        """
+        paths = paths if paths else ("url",)
+        # If URLs are delimited by the provided pattern, the pattern delimiter will be used.
+        pattern_delimiter = f"{pattern_delimiter}(?=http)" if pattern_delimiter else None
+        for path in paths:
+            nested_element = unlist_1d(get_nested_data(record, path, verbose=False))
+            url_list: Sequence = (
+                re.split(pattern_delimiter, nested_element)
+                if isinstance(nested_element, str) and pattern_delimiter
+                else as_tuple(nested_element)  # nests strings, converts lists, replaces None with an empty tuple
+            )
+            # Retrieve the first valid URL from the sequence:
+            url = next(
+                (url for url in url_list if isinstance(url, str) and validate_url(url.strip(), verbose=False)), None
+            )
+            if url:
+                return url.strip()
+        return None
+
+    @classmethod
+    def extract_id(
+        cls, record: NormalizedRecordType, field: str = "record_id", strip_prefix: str = ""
+    ) -> Optional[str]:
+        """Extracts and coerces the ID from the current record into a string.
+
+        Args:
+            record: A normalized record dictionary before or after post-processing
+            field: The IdType to filter for (e.g., 'arxiv_id', 'pmid', 'mag_id')
+            strip_prefix: An optional prefix to remove from the identifier (e.g., 'PMC' for PMC IDs)
+
+        Returns:
+            The record ID as a string, or None if not available
+
+        Examples:
+            >>> from scholar_flux.api.normalization import AcademicFieldMap
+            >>> AcademicFieldMap.extract_id({"record_id": 12345678})
+            '12345678'
+            >>> AcademicFieldMap.extract_id({"record_id": "mock_id:123"})
+            mock_id:123'
+
+        """
+        record_id = record.get(field)
+        parsed_record_id = try_none(coerce_str(record_id) if isinstance(record_id, (str, int)) else None)
+
+        return (
+            re.sub(strip_prefix, "", parsed_record_id)
+            if isinstance(parsed_record_id, str) and strip_prefix
+            else parsed_record_id
+        )
+
+    @classmethod
+    def extract_url_id(
+        cls, record: NormalizedRecordType, field: str = "record_id", strip_prefix: str = ""
+    ) -> Optional[str]:
+        """Extracts the ID from the URL for the current record, removing an URL prefix if the current test."""
+        url = record.get(field)
+        if not (url and isinstance(url, str)):
+            return None
+
+        url = url.strip()
+        url = (
+            re.sub(strip_prefix, "", url) if isinstance(strip_prefix, str) and validate_url(url, verbose=False) else url
+        )
+        return url or None
+
+    @classmethod
+    def extract_year(cls, record: NormalizedRecordType, field: str = "year") -> Optional[int]:
+        """Extracts the year of publication or record creation from the manuscript/record.
+
+        Args:
+            record (NormalizedRecordType): Normalized record dictionary
+            field (str): The field to extract the year of publication or record creation from.
+
+        Returns:
+            Optional[int]: The year as an integer, or None if not extractable.
+
+        Examples:
+            >>> AcademicFieldMap.extract_year({"year": "2024-06-15"})
+            2024
+            >>> AcademicFieldMap.extract_year({"year": 2024})
+            2024
+            >>> AcademicFieldMap.extract_year({"year": None})
+            None
+
+        """
+        year = record.get(field)
+        # internally extracts a 4 digit year between 1900 and 2100
+        return extract_year(year) if year else None
+
+    @classmethod
+    def reconstruct_url(cls, id: Optional[str], url: str) -> Optional[str]:
+        """Reconstruct an article URL from the ID of the article.
+
+        Useful for PLOS and PubMed URL reconstruction.
+
+        Args:
+            id (Optional[str]): The ID/DOI identifier (e.g., "10.1371/journal.pone.0123456")
+            url (str): The URL prefix (e.g. f"https://journals.plos.org/plosone/article?id=")
+
+        Returns:
+            str: Reconstructed URL if ID is valid, None otherwise.
+
+        Examples:
+            >>> from scholar_flux.api.normalization import AcademicFieldMap
+            >>> AcademicFieldMap.reconstruct_url(
+            ...     id="10.1371/journal.pone.0123456",
+            ...     url=f"https://journals.plos.org/plosone/article?id="
+            ... )
+            # OUTPUT: 'https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0123456'
+            >>> AcademicFieldMap.reconstruct_url(None, '')
+            # OUTPUT: None
+            >>> AcademicFieldMap.reconstruct_url("", None)
+            # OUTPUT: None
+
+        """
+        # Extract primary URL if multiple exist
+        id = id.strip() if isinstance(id, str) else ""
+        url = url.strip() if isinstance(url, str) else ""
+        if id and url:
+            url = url.format(id) if "{}" in url else f"{url}{id}"
+            return url if url and validate_url(url, verbose=False) else None
+        return None
+
+    @classmethod
+    def normalize_doi(cls, record: NormalizedRecordType, field: str = "doi") -> Optional[str]:
+        """Normalizes DOI by stripping the https://doi.org/ prefix.
+
+        Args:
+            record (NormalizedRecordType): Normalized record containing the 'doi' field to extract.
+            field (str): The field to extract the record doi from.
+
+        Returns:
+            Optional[str]: Cleaned DOI string without URL prefix, or None if invalid
+
+        Examples:
+            >>> from scholar_flux.api.normalization import AcademicFieldMap
+            >>> record = {'doi': 'https://doi.org/10.1234/example'}
+            >>> AcademicFieldMap.normalize_doi(record)
+            # OUTPUT: '10.1234/example'
+
+        """
+        doi = record.get(field)
+        if isinstance(doi, str):
+            cleaned = doi.replace("https://doi.org/", "").strip()
+            return cleaned if cleaned else None
+        return None
+
+    @classmethod
+    def extract_iso_date(cls, record: NormalizedRecordType, field: str = "date_created") -> Optional[str]:
+        """Extracts and formats a date from a dictionary or strings in ISO format (%Y-%m-%d).
+
+        Args:
+            record (NormalizedRecordType):
+                A normalized record having a `date_created` or similar field to extract an ISO date from.
+                Note: Users can extract an ISO date from a nested dictionary field if its formatted with `year`,
+                `month`, or `day`. If the nested field is a string, this method will instead attempt to parse it as an
+                ISO timestamp otherwise. If the field is a datetime or date, the object will be parsed directly.
+            field (str):
+                The name of the field containing date information to extract.
+
+        Returns:
+            (Optional[str]): An ISO formatted date string (YYYY-MM-DD, YYYY-MM, or YYYY) or None.
+
+        Examples:
+            PubDate with Year='2025', Month='Dec', Day='19':
+            Returns '2025-12-19'
+
+            PubDate with Year='2025', Month='12':
+            Returns '2025-12'
+
+            PLOS with timestamp: '2016-12-08T00:00:00Z'
+            Returns '2016-12-08'
+
+        """
+
+        date_data = record.get(field)
+
+        # Accepts both string and datetime/date objects for maximum compatibility with provider and internal data.
+        if isinstance(date_data, (str, datetime.datetime, datetime.date)):
+            parsed_date = parse_iso_timestamp(date_data) if isinstance(date_data, str) else date_data
+            return parsed_date.strftime("%Y-%m-%d") if parsed_date else None
+
+        if isinstance(date_data, dict):
+            return build_iso_date(
+                year=date_data.get("Year") or date_data.get("year"),
+                month=date_data.get("Month") or date_data.get("month"),
+                day=date_data.get("Day") or date_data.get("day"),
+            )
+        return None
+
+    @classmethod
+    def extract_authors(cls, record: NormalizedRecordType, field: str = "authors") -> Optional[list[str]]:
+        """Filters and cleans the author names list.
+
+        Args:
+            record (NormalizedRecordType): Normalized record with an 'authors' field.
+            field (str): The field to extract the list of authors from.
+
+        Returns:
+            Optional[list[str]]: A List of non-empty author names, or None if empty
+
+        Examples:
+            >>> from scholar_flux.api.normalization import AcademicFieldMap
+            >>> record = {'authors': 'Evan Doodle; Jane Doe'}
+            >>> AcademicFieldMap.extract_authors(record)
+            # OUTPUT: ['Evan Doodle', 'Jane Doe']
+            >>> record = {'authors': ['Evan Doodle', 'Jane Noah']}
+            >>> AcademicFieldMap.extract_authors(record)
+            # OUTPUT: ['Evan Doodle', 'Jane Noah']
+            >>> record = {'authors': [102, 203]}
+            >>> AcademicFieldMap.extract_authors(record) # returns, elements aren't strings
+            # OUTPUT: None
+
+        """
+        authors = record.get(field) or ""
+        authors = authors.split(";") if isinstance(authors, str) else authors
+
+        authors = [author.strip() for author in as_tuple(authors) if try_none(author) and isinstance(author, str)]
+        return authors if authors else None
+
+    @classmethod
+    def extract_abstract(
+        cls, record: NormalizedRecordType, strip_html: bool = False, field: str = "abstract", **kwargs
+    ) -> Optional[str]:
+        """Extracts and prepares the abstract for the current record.
+
+        Args:
+            record (NormalizedRecordType): Normalized record with 'abstract' already available as a field.
+            strip_html (bool): Indicates whether html tags should be checked and removed if found in the abstract.
+            field (str): The field where an abstract or text field can be found.
+            **kwargs: Additional arguments to pass to `get_text` when stripping html elements.
+
+        Returns:
+            Optional[str]: An abstract string or None if not found or not a string/list of strings
+
+        Example:
+            >>> from scholar_flux.api.normalization import AcademicFieldMap
+            >>> record = {'abstract': 'Analysis of the Placebo effect on...'}
+            >>> AcademicFieldMap.extract_abstract(record)
+            # OUTPUT: 'Analysis of the Placebo effect on...'
+
+            >>> record = {'abstract': '<h1>Game theory in the technological industry.</h1><p>This study explores...</p>'}
+            >>> AcademicFieldMap.extract_abstract(record, strip_html=True, separator=' ')
+            # OUTPUT: 'Game theory in the technological industry. This study explores...'
+
+        """
+        abstract = record.get(field)
+        if isinstance(abstract, (tuple, list)) and all(isinstance(paragraph, str) for paragraph in abstract):
+            abstract = " ".join(abstract) or None
+
+        if isinstance(abstract, str):
+            return strip_html_tags(abstract, verbose=False, **kwargs) if strip_html else abstract
+        return None
+
+    @classmethod
+    def extract_journal(cls, record: NormalizedRecordType, field: str = "journal") -> Optional[str]:
+        """Extracts the publication journal title or a list of journal titles as a semicolon delimited string.
+
+        Args:
+            record (NormalizedRecordType): Normalized record dictionary
+            field (str): The field to extract the journal from.
+
+        Returns:
+            Optional[str]: The journal or journals of publication, joined by a semicolon, or None if not available.
+
+        Examples:
+            >>> AcademicFieldMap.extract_journal({"journal": "Nature"})
+            # OUTPUT: 'Nature'
+            >>> AcademicFieldMap.extract_journal({"journal": ["Nature", "Science"]})
+            # OUTPUT: 'Nature; Science'
+            >>> AcademicFieldMap.extract_journal({"journal": ["Nature", "", None, "Science"]})
+            # OUTPUT: 'Nature; Science'
+
+        """
+        journal = record.get(field)
+        return coerce_flattened_str(journal) or None
 
 
 __all__ = ["AcademicFieldMap"]

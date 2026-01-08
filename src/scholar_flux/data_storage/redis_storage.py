@@ -86,6 +86,7 @@ class RedisStorage(ABCStorage):
         "port": config_settings.get("SCHOLAR_FLUX_REDIS_PORT") or 6379,
     }
     DEFAULT_RAISE_ON_ERROR: bool = False
+    STORAGE_TYPE: str = "Redis"
 
     def __init__(
         self,
@@ -93,6 +94,7 @@ class RedisStorage(ABCStorage):
         namespace: Optional[str] = None,
         ttl: Optional[int] = None,
         raise_on_error: Optional[bool] = None,
+        verify_connection: bool = False,
         **redis_config,
     ):
         """Initialize the Redis storage backend and connect to the Redis server.
@@ -117,7 +119,10 @@ class RedisStorage(ABCStorage):
             raise_on_error (Optional[bool]):
                 Determines whether an error should be raised when encountering unexpected issues when interacting with
                 Redis. If `None`, the `raise_on_error` attribute defaults to `RedisStorage.DEFAULT_RAISE_ON_ERROR`.
-            **redis_config (Optional[Dict[Any, Any]]):
+            verify_connection (bool):
+                If True, verifies the Redis service is available immediately after initialization.
+                Raises StorageCacheException if connection fails. Defaults to False.
+            **redis_config:
                 Configuration parameters required to connect to the Redis server. Typically includes parameters
                 such as host, port, db, etc.
 
@@ -131,7 +136,7 @@ class RedisStorage(ABCStorage):
         if redis is None:
             raise RedisImportError
 
-        self.config: dict = self.DEFAULT_CONFIG | redis_config
+        self.config: dict = self._get_default_config() | redis_config
 
         if host:
             self.config["host"] = host
@@ -147,7 +152,33 @@ class RedisStorage(ABCStorage):
 
         self.ttl = ttl
         self.lock = threading.Lock()
+        if verify_connection:
+            self.verify_connection()
         logger.info("RedisClient initialized and connected.")
+
+    @classmethod
+    def _get_default_config(cls) -> dict[str, Any]:
+        """Get default configuration with current config_settings values.
+
+        Reads from environment variables in order of priority:
+        - SCHOLAR_FLUX_REDIS_HOST > cls.DEFAULT_CONFIG['host'] > REDIS_HOST > 'localhost'
+        - SCHOLAR_FLUX_REDIS_PORT > DEFAULT_CONFIG['port'] > REDIS_PORT  > 6379
+
+        Returns:
+            dict: Configuration dictionary with host and port.
+
+        """
+
+        return {
+            "host": config_settings.get("SCHOLAR_FLUX_REDIS_HOST")
+            or cls.DEFAULT_CONFIG.get("host")
+            or config_settings.get("REDIS_HOST")
+            or "localhost",
+            "port": config_settings.get("SCHOLAR_FLUX_REDIS_PORT")
+            or cls.DEFAULT_CONFIG.get("port")
+            or config_settings.get("REDIS_PORT")
+            or 6379,
+        }
 
     def clone(self) -> RedisStorage:
         """Helper method for creating a new RedisStorage with the same parameters.
@@ -261,13 +292,16 @@ class RedisStorage(ABCStorage):
                 logger.debug(f"Cache updated for key: '{namespace_key}'")
 
         except (RedisError, ConnectionError) as e:
-            msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}"
+            msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}'): {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
             )
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str) -> Optional[bool]:
         """Delete the value associated with the provided key from cache.
+
+        This method indicates whether deletion was successful by returning True if the record was deleted and False
+        if the record did not exist to be deleted.
 
         Args:
             key (str): The key used associated with the stored data from cache.
@@ -283,14 +317,17 @@ class RedisStorage(ABCStorage):
             if cached:
                 with self.lock:
                     self.client.delete(namespace_key)
-            else:
-                logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
+                logger.debug(f"Key: {key}  (namespace = '{self.namespace}') successfully deleted")
+                return True
+            logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
+            return False
 
         except (RedisError, ConnectionError, StorageCacheException) as e:
             msg = f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
             )
+        return None
 
     def delete_all(self) -> None:
         """Delete all records from cache that match the current namespace prefix.
@@ -354,8 +391,27 @@ class RedisStorage(ABCStorage):
 
         return False
 
+    def verify_connection(self) -> None:
+        """Verifies that the RedisStorage is available for connection with initialized storage configuration settings."""
+        try:
+            self.ping(self.client)
+        except Exception as e:
+            msg = f"Could not initialize a connection for the following storage device: {self.structure()}"
+            self._handle_storage_exception(
+                exception=e,
+                operation_exception_type=StorageCacheException,
+                msg=msg,
+            )
+
     @classmethod
-    def is_available(cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True) -> bool:
+    def ping(cls, client: redis.Redis) -> None:
+        """Attempts to ping the remote service."""
+        client.ping()
+
+    @classmethod
+    def is_available(
+        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs
+    ) -> bool:
         """Helper class method for testing whether the Redis service is available and can be accessed.
 
         If Redis can be successfully reached, this function returns True, otherwise False.
@@ -368,6 +424,7 @@ class RedisStorage(ABCStorage):
                                   Defaults to port 6379 or the "port" entry from the DEFAULT_CONFIG class
                                   variable.
             verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
+            **kwargs: No-op keyword arguments for compatibility with config connection availability checks
 
         Raises:
             TimeoutError: If a timeout error occurs when attempting to ping Redis
@@ -378,13 +435,14 @@ class RedisStorage(ABCStorage):
             logger.warning("The redis module is not available")
             return False
 
-        redis_host = host or cls.DEFAULT_CONFIG["host"]
-        redis_port = port or cls.DEFAULT_CONFIG["port"]
+        default_config = cls._get_default_config()
+        redis_host = host or default_config["host"]
+        redis_port = port or default_config["port"]
 
         try:
 
             with redis.Redis(host=redis_host, port=redis_port, socket_connect_timeout=1) as client:
-                client.ping()
+                cls.ping(client)
 
             if verbose:
                 logger.info(f"The Redis service is available at {redis_host}:{redis_port}")

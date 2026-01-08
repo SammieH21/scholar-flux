@@ -121,6 +121,8 @@ The processing cache supports four backends. Choose based on your needs:
 +------------------+---------------+---------+-------------+------------------+
 | **sql**          | ✅ Yes        | ❌ No   | ✅ Yes      | Local projects   |
 +------------------+---------------+---------+-------------+------------------+
+| **duckdb**       | ✅ Yes        | ❌ No   | ✅ Yes      | Local analyses   |
++------------------+---------------+---------+-------------+------------------+
 | **redis**        | ✅ Yes        | ✅ Yes  | ✅ Yes      | Production       |
 +------------------+---------------+---------+-------------+------------------+
 | **mongodb**      | ✅ Yes        | ✅ Yes  | ✅ Yes      | Document storage |
@@ -144,10 +146,10 @@ Fast but data is lost when your program ends:
        cache_manager=cache
    )
 
-SQLite (Persistent)
+SQLAlchemy (Persistent)
 ~~~~~~~~~~~~~~~~~~~
 
-Best for local projects where you want cache to persist:
+Best for local projects where you want cache to persist. This implementation uses SQLite under the hood by default but is usable with a wide array of SQL backends.
 
 .. code-block:: python
 
@@ -169,6 +171,35 @@ Best for local projects where you want cache to persist:
    
    coordinator = SearchCoordinator(
        query="renewable energy",
+       provider_name="springernature",
+       cache_manager=cache
+   )
+
+DuckDB (Persistent)
+~~~~~~~~~~~~~~~~~~~
+
+Best for workflows requiring analytical databases where you want cache to persist. This implementation builds off of the SQLAlchemyStorage backend to tailor workflows with the DuckDB backend. 
+
+.. code-block:: python
+
+   from scholar_flux.data_storage import DataCacheManager
+   from scholar_flux import SearchCoordinator
+   
+   # Uses ~/.scholar-flux/package_cache/data_store.duckdb by default
+   cache = DataCacheManager.with_storage(
+       "duckdb",
+       namespace="literature_review"
+   )
+   
+   # Or specify custom location:
+   cache = DataCacheManager.with_storage(
+       "duckdb",
+       namespace="literature_review",
+       url="duckdb:///./my_cache/data.db"
+   )
+   
+   coordinator = SearchCoordinator(
+       query="Herbecology",
        provider_name="springernature",
        cache_manager=cache
    )
@@ -661,6 +692,9 @@ Best Practices
 - Sessions: Create per thread with ``session_manager()``
 - Processing cache: Safe to share across threads
 - For parallel work: Use ``MultiSearchCoordinator``
+
+**Note**: As different providers may have different data use agreements regarding data caching and storage, always review their terms of service prior to using ScholarFlux caching features!
+
 
 Further Reading
 ---------------

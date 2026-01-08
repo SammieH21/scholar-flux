@@ -6,9 +6,8 @@ parameter names and request formation are abstracted.
 
 """
 from __future__ import annotations
-from typing import Dict, Optional, Any, Annotated, Union, cast, Iterator
+from typing import Dict, Optional, Any, Annotated, Iterator
 from contextlib import contextmanager
-from requests_cache.backends.base import BaseCache
 from requests_cache import CachedSession
 from pydantic import SecretStr
 import logging
@@ -65,7 +64,6 @@ class SearchAPI(BaseAPI):
     """
 
     DEFAULT_URL: str = "https://api.plos.org/search"
-    DEFAULT_CACHED_SESSION: bool = False
 
     def __init__(
         self,
@@ -247,8 +245,12 @@ class SearchAPI(BaseAPI):
             else search_api.config
         )
 
+        # Reuse the existing RateLimiter for the same host if neither a new RateLimiter nor request_delay are provided.
+        # This prevents both unnecessary delays between requests and `Too Many Requests` errors.
         update_rate_limiter: Optional[RateLimiter] = rate_limiter or (
-            search_api._rate_limiter if "request_delay" not in api_specific_parameters else None
+            search_api.rate_limiter
+            if config.url_basename == search_api.config.url_basename and "request_delay" not in api_specific_parameters
+            else None
         )
 
         if not parameter_config:
@@ -330,6 +332,11 @@ class SearchAPI(BaseAPI):
 
         """
         return self.config.provider_name
+
+    @property
+    def display_name(self) -> str:
+        """Human-readable provider name for logging and display purposes."""
+        return provider_registry.get_display_name(self.provider_name) or self.provider_name
 
     @property
     def query(self) -> str:
@@ -585,42 +592,6 @@ class SearchAPI(BaseAPI):
             rate_limiter=rate_limiter,
         )
 
-    @staticmethod
-    def is_cached_session(session: Union[CachedSession, requests.Session]) -> bool:
-        """Checks whether the current session is a cached session.
-
-        To do so, this method first determines whether the current object has a 'cache' attribute and whether the cache
-        element, if existing, is a BaseCache.
-
-        Args:
-            session (requests.Session): The session to check.
-
-        Returns:
-            bool: True if the session is a cached session, False otherwise.
-
-        """
-        cached_session = cast("CachedSession", session)
-        return hasattr(cached_session, "cache") and isinstance(cached_session.cache, BaseCache)
-
-    @property
-    def cache(self) -> Optional[BaseCache]:
-        """Retrieves the requests-session cache object if the session object is a `CachedSession` object.
-
-        If a session cache does not exist, this function will return None.
-
-        Returns:
-            Optional[BaseCache]: The cache object if available, otherwise None.
-
-        """
-        if not self.session:
-            return None
-
-        cached_session = cast("CachedSession", self.session)
-        cache = getattr(cached_session, "cache", None)
-        if isinstance(cache, BaseCache):
-            return cache
-        return None
-
     def build_parameters(
         self,
         page: int,
@@ -702,8 +673,8 @@ class SearchAPI(BaseAPI):
         # log when api specific parameter overrides are applied
         if api_specific_parameters:
             logger.debug(
-                "The following additional parameters will be used to override the current parameter list:"
-                f" {api_specific_parameters}"
+                "The following additional parameters will be used to override the current parameter list for "
+                f"{self.display_name}: {api_specific_parameters}"
             )
 
         # Builds the final set of parameters-value mappings from the API specific parameter list
@@ -759,7 +730,13 @@ class SearchAPI(BaseAPI):
 
         if page is None and (parameters is not None or endpoint is not None):
 
-            with self.rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
+            delay = request_delay if request_delay is not None else self.request_delay
+            request_metadata = dict(
+                url=self.base_url, query=self.query, page=page, request_delay=delay, caller="search"
+            )
+            with self.rate_limiter.rate(
+                self.config.request_delay if request_delay is None else request_delay, metadata=request_metadata
+            ):
                 return self.send_request(self.base_url, endpoint=endpoint, parameters=parameters)
 
         elif page is not None:
@@ -833,7 +810,13 @@ class SearchAPI(BaseAPI):
 
         parameters = self.build_parameters(current_page, additional_parameters=additional_parameters)
 
-        with self.rate_limiter.rate(self.config.request_delay if request_delay is None else request_delay):
+        delay = request_delay if request_delay is not None else self.request_delay
+        request_metadata = dict(
+            url=self.base_url, query=self.query, page=current_page, request_delay=delay, caller="send_request"
+        )
+        with self.rate_limiter.rate(
+            self.config.request_delay if request_delay is None else request_delay, metadata=request_metadata
+        ):
             response = self.send_request(self.base_url, endpoint=endpoint, parameters=parameters)
 
         return response

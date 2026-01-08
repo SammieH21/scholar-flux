@@ -145,7 +145,7 @@ class BaseAPIParameterMap(BaseModel):
         """Helper method to show the complete list of all parameters that can be found in the current ParameterMap.
 
         Returns:
-            List: The complete list of all universal and api specific parameters corresponding to the current API
+            List: The complete list of all universal and API-specific parameters corresponding to the current API
 
         """
         parameters = [

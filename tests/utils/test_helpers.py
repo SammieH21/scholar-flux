@@ -2,7 +2,10 @@
 import logging
 from requests import Response
 from scholar_flux.utils.module_utils import set_public_api_module
+from datetime import datetime, date
 from typing import Callable
+from unittest.mock import patch
+import re
 
 import pytest
 
@@ -14,6 +17,8 @@ from scholar_flux.utils.helpers import (
     pattern_search,
     nested_key_exists,
     get_nested_dictionary_data,
+    filter_record_key_prefixes,
+    infer_text_pattern_search,
     get_nested_data,
     is_nested_json,
     generate_response_hash,
@@ -29,7 +34,17 @@ from scholar_flux.utils.helpers import (
     as_list_1d,
     path_search,
     try_call,
+    as_tuple,
+    get_values,
+    parse_iso_timestamp,
+    convert_month_as_integer,
+    build_iso_date,
+    extract_year,
+    strip_html_tags,
+    BeautifulSoup,
 )
+import importlib
+from scholar_flux.api.validators import validate_bool_str
 
 
 ############################### Helper objects ################################
@@ -132,6 +147,43 @@ def test_path_search_alias():
     assert path_search(obj, "foo|bar") == ["foo", "bar"]
     assert path_search(obj, "f.*") == ["foo"]
     assert path_search(obj, "z") == []
+
+
+############################## Tests for nested_key_exists ##############################
+
+
+def test_filter_record_key_prefixes():
+    """Verifies whether record keys are filtered as intended."""
+    record: dict = {"a": 1, "b": 2, "bee": 3, "c": 4, 3: 5}
+    assert filter_record_key_prefixes(record, prefix="a") == {"b": 2, "bee": 3, "c": 4, 3: 5}
+    assert filter_record_key_prefixes(record, prefix="b") == {"a": 1, "c": 4, 3: 5}
+
+    # Keep only elements beginning with a particular prefix
+    assert filter_record_key_prefixes(record, prefix="a", invert=True) == {"a": 1}
+    assert filter_record_key_prefixes(record, prefix="b", invert=True) == {"b": 2, "bee": 3}
+
+    # Should remove all strings, keeping only non-strings
+    assert filter_record_key_prefixes(record, prefix="") == {3: 5}
+
+    # Should keep only strings
+    assert filter_record_key_prefixes(record, prefix="", invert=True) == {"a": 1, "b": 2, "bee": 3, "c": 4}
+
+
+def test_filter_record_key_prefix_edge_cases():
+    """Verifies that `filter_record_key_prefixes` coerces prefixes into strings when not already a string."""
+    record: dict = {"101": 1, "None": 0}
+    assert filter_record_key_prefixes(record, prefix=1, invert=True) == {"101": 1}  # type: ignore
+    assert filter_record_key_prefixes(record, prefix=None, invert=True) == {"None": 0}  # type: ignore
+
+
+def test_filter_record_key_prefix_invalid_record_type():
+    """Verifies that `filter_record_key_prefixes` raises a TypeError when the `record` type is incorrect."""
+    invalid_record = "not a record"
+    with pytest.raises(
+        TypeError,
+        match=f"Expected a dictionary record to filter key prefixes from, but received type {type(invalid_record)}",
+    ):
+        _ = filter_record_key_prefixes(invalid_record, prefix="a valid prefix")  # type: ignore
 
 
 ############################## Tests for nested_key_exists ##############################
@@ -480,3 +532,384 @@ def test_set_public_api_module(new_int, new_set, new_tuple, new_fn, new_class):
         fn.__module__ == __name__ if hasattr(fn, "__module__") else not callable(fn)
         for fn in [try_quote_numeric, quote_numeric, flatten, new_int, new_tuple, new_set, new_fn, new_class]
     )
+
+
+############################## Tests for as_tuple ################################
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ((1, 2, 3), (1, 2, 3)),  # tuple returns unchanged
+        ([1, 2, 3], (1, 2, 3)),  # list converted to tuple
+        ({1, 2, 3}, (1, 2, 3)),  # set converted to tuple (order may vary)
+        (None, ()),  # None returns empty tuple
+        (42, (42,)),  # scalar wrapped in tuple
+        ("string", ("string",)),  # string wrapped in tuple
+        ({"a": 1}, ({"a": 1},)),  # dict wrapped in tuple
+    ],
+)
+def test_as_tuple(value, expected):
+    """Validates that as_tuple correctly converts or wraps values into tuples."""
+    result = as_tuple(value)
+    if isinstance(value, set):
+        # Sets don't have guaranteed order, so compare as sets
+        assert set(result) == set(expected)
+    else:
+        assert result == expected
+
+
+def test_as_tuple_preserves_tuple():
+    """Verifies that an existing tuple is returned unchanged."""
+    original = (1, 2, 3)
+    assert as_tuple(original) is original
+
+
+############################## Tests for nested_key_exists in lists ################################
+
+
+def test_nested_key_exists_in_list():
+    """Validates that nested_key_exists finds keys within dictionaries nested in lists."""
+    data = [{"a": 1}, {"b": {"c": 2}}]
+    assert nested_key_exists(data, "c") is True
+    assert nested_key_exists(data, "a") is True
+    assert nested_key_exists(data, "x") is False
+
+
+def test_nested_key_exists_deeply_nested_list():
+    """Validates that nested_key_exists works with deeply nested list structures."""
+    data = {"items": [{"nested": [{"deep_key": "value"}]}]}
+    assert nested_key_exists(data, "deep_key") is True
+
+
+############################## Tests for coerce_str exception handling ################################
+
+
+def test_coerce_str_unicode_decode_error():
+    """Validates that coerce_str returns None when bytes cannot be decoded with the specified encoding."""
+    # Invalid UTF-8 byte sequence
+    invalid_bytes = b"\xff\xfe"
+    assert coerce_str(invalid_bytes, encoding="ascii") is None
+
+
+def test_coerce_str_invalid_encoding():
+    """Validates that coerce_str handles invalid encoding gracefully."""
+    # Bytes that are valid UTF-8 but not valid ASCII
+    utf8_bytes = b"\xc3\xa9"  # é in UTF-8
+    assert coerce_str(utf8_bytes, encoding="ascii") is None
+
+
+############################## Tests for get_values ################################
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("string", []),  # strings are not nested
+        (42, []),  # integers are not nested
+        (3.14, []),  # floats are not nested
+        (None, []),  # None is not nested
+    ],
+)
+def test_get_values_non_nested(value, expected):
+    """Validates that get_values returns an empty list for non-nested types."""
+    assert list(get_values(value)) == expected
+
+
+def test_get_values_dict():
+    """Validates that get_values returns dictionary values."""
+    data = {"a": 1, "b": 2}
+    assert list(get_values(data)) == [1, 2]
+
+
+def test_get_values_list():
+    """Validates that get_values returns the list itself for iteration."""
+    data = [1, 2, 3]
+    assert list(get_values(data)) == [1, 2, 3]
+
+
+############################## Tests for parse_iso_timestamp ################################
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        123,  # integer
+        12.34,  # float
+        None,  # NoneType
+        ["2024-01-01"],  # list
+        {"date": "2024-01-01"},  # dict
+    ],
+)
+def test_parse_iso_timestamp_non_string(value):
+    """Validates that parse_iso_timestamp returns None for non-string inputs."""
+    assert parse_iso_timestamp(value) is None
+
+
+def test_parse_iso_timestamp_valid():
+    """Validates that parse_iso_timestamp correctly parses valid ISO timestamps."""
+    result = parse_iso_timestamp("2024-12-18T10:30:00Z")
+    assert result is not None
+    assert result.year == 2024
+    assert result.month == 12
+    assert result.day == 18
+
+
+def test_parse_iso_timestamp_invalid_format():
+    """Validates that parse_iso_timestamp returns None for invalid date formats."""
+    assert parse_iso_timestamp("not-a-date") is None
+    assert parse_iso_timestamp("") is None
+
+
+############################## Tests for convert_month_as_integer ################################
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),  # None input
+        ("", None),  # empty string
+        ("1", "01"),  # single digit
+        ("12", "12"),  # double digit
+        ("Jan", "01"),  # abbreviated month name
+        ("January", "01"),  # full month name
+        ("dec", "12"),  # lowercase
+        ("DEC", "12"),  # uppercase
+        ("invalid", None),  # invalid month name
+        ("13", None),  # out of range number
+        ("0", None),  # zero
+    ],
+)
+def test_convert_month_as_integer(value, expected):
+    """Validates that convert_month_as_integer correctly converts month names and numbers."""
+    assert convert_month_as_integer(value) == expected
+
+
+############################## Tests for build_iso_date ################################
+
+
+@pytest.mark.parametrize(
+    ("year", "month", "day", "expected"),
+    [
+        ("2025", "12", "19", "2025-12-19"),  # full date
+        ("2025", "Dec", "19", "2025-12-19"),  # month name
+        ("2025", "12", "", "2025-12"),  # year-month only
+        ("2025", "Dec", "", "2025-12"),  # year-month with name
+        ("2025", "", "", "2025"),  # year only
+        ("2025", None, None, "2025"),  # year only with None
+        ("", "12", "19", None),  # empty year
+        (None, "12", "19", None),  # None year
+        ("invalid", "12", "19", None),  # non-numeric year
+        ("2025", "1", "5", "2025-01-05"),  # single digit month and day
+    ],
+)
+def test_build_iso_date(year, month, day, expected):
+    """Validates that build_iso_date correctly builds ISO date strings with graduated precision."""
+    assert build_iso_date(year, month, day) == expected
+
+
+def test_build_iso_date_invalid_day():
+    """Validates that build_iso_date handles invalid day values."""
+    # Day out of valid range should be ignored
+    assert build_iso_date("2025", "12", "32") == "2025-12"
+    assert build_iso_date("2025", "12", "0") == "2025-12"
+
+
+# #################### Tests for extract_year ####################
+
+
+def test_extract_year_custom_format():
+    """Test year extraction with custom date format."""
+    assert extract_year("03/15/2024", format="%m/%d/%Y") == 2024
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("2026-03-01", 2026),
+        ("2024-12-18T10:30:00Z", 2024),
+        (date(2026, 3, 1), 2026),
+        (datetime(2024, 12, 1, 12, 0, 0), 2024),
+        ("2023", 2023),
+        ("03/15/2024", 2024),
+        ("Published in 2022 edition", 2022),
+        ("not a date", None),
+        ("", None),
+        (None, None),
+        ("no year here", None),
+    ],
+)
+def test_extract_year_parametrized(value, expected):
+    """Parametrized test for extract_year."""
+    assert extract_year(value) == expected
+
+
+# #################### Tests for validate_bool_str ####################
+
+
+def test_validate_bool_str_invalid_type():
+    """Test validation with non-string input raises ValueError."""
+    with pytest.raises(ValueError, match="Expected str"):
+        validate_bool_str(123)  # type: ignore
+
+
+def test_validate_bool_str_custom_true_values():
+    """Test validation with custom true values."""
+    assert validate_bool_str("on", true_values=("on", "enabled")) is True
+    assert validate_bool_str("off", true_values=("on", "enabled")) is False
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("true", True),
+        ("TRUE", True),
+        ("True", True),
+        ("false", False),
+        ("FALSE", False),
+        ("1", True),
+        ("0", False),
+        ("yes", True),
+        ("no", False),
+        ("random", False),
+        ("", False),
+        (None, None),
+    ],
+)
+def test_validate_bool_str_parametrized(value, expected):
+    """Verifies that `validate_bool_str` operates as intended for all possible intended validation cases."""
+    assert validate_bool_str(value) == expected
+
+
+##################### Tests for get_nested_data edge cases ####################
+
+
+@pytest.fixture
+def nested_records():
+    """Fixture of sample nested record structures for verifying nested JSON traversal edge_cases."""
+    return {
+        "simple_nested": {"a": {"b": {"c": "value"}}},
+        "list_nested": {"data": [{"id": 1}, {"id": 2}]},
+        "mixed_nested": {"items": [{"name": "item1", "meta": {"count": 5}}]},
+        "single_element_list": {"data": [{"value": "single"}]},
+        "empty": {},
+    }
+
+
+def test_get_nested_data_simple_path(nested_records):
+    """Tests nested data extraction with simple path."""
+    result = get_nested_data(nested_records["simple_nested"], ["a", "b", "c"])
+    assert result == "value"
+
+
+def test_get_nested_data_list_index(nested_records):
+    """Tests nested data extraction when using a numeric index."""
+    result = get_nested_data(nested_records["list_nested"], ["data", 0, "id"])
+    assert result == 1
+
+
+def test_get_nested_data_missing_path(nested_records):
+    """Tests nested data extraction with a missing path."""
+    result = get_nested_data(nested_records["simple_nested"], ["x", "y", "z"])
+    assert result is None
+
+
+def test_get_nested_data_flatten_single_dict(nested_records):
+    """Tests that intermediate, single element lists are traversed when using `flatten_nested_dictionaries=False`."""
+    result = get_nested_data(nested_records["single_element_list"], ["data", "value"], flatten_nested_dictionaries=True)
+    assert result == "single"
+
+
+def test_get_nested_data_no_flatten(nested_records):
+    """Tests that keys are traversed without additional flattening when using `flatten_nested_dictionaries=False`."""
+    result = get_nested_data(nested_records["single_element_list"], ["data"], flatten_nested_dictionaries=False)
+    assert result == [{"value": "single"}]
+
+
+########################### Tests for Pattern Matching Inference ########################
+
+
+def test_basic_text_pattern_matching():
+    """Verifies order-based pattern matching logic against a dictionary of regex pattern-match mappings.
+
+    The patterns should be checked in order of definition/insertion for python versions 3.7+:
+
+    """
+    patterns = {"^a.*": "a", ".*b.*": "b", ".*c.*": "c"}
+
+    # basic pattern matching with regex
+    assert infer_text_pattern_search("abe", patterns, default=None) == "a"
+    assert infer_text_pattern_search("ebc", patterns, default=None) == "b"
+    assert infer_text_pattern_search("eec", patterns, default=None) == "c"
+    assert infer_text_pattern_search("ddd", patterns) is None
+    assert infer_text_pattern_search("ddd", patterns, default="") == ""
+    # Case sensitive by default
+    assert infer_text_pattern_search("Abc", patterns, default=None) == "b"
+
+    # if the value is not a dict or is an empty string, the default value should be returned
+    assert infer_text_pattern_search({"a"}, patterns, default="") == ""  # type: ignore
+    assert infer_text_pattern_search("", patterns, default="") == ""  # type: ignore
+
+
+def test_nonregex_text_pattern_matching():
+    """Verifies order-based non-regex pattern matching logic against a dictionary of fixed pattern-match mappings."""
+    patterns = {"Yes": True, "No": False, "[N/A]": None}
+
+    for pattern, expected in patterns.items():
+        assert infer_text_pattern_search(f"Answer: {pattern}", patterns, default="", regex=False) is expected
+
+    assert infer_text_pattern_search("Answer: Who knows?", patterns, default="", regex=False) == ""
+    assert infer_text_pattern_search("Answer: YES", patterns, default=None, regex=False, flags=re.IGNORECASE) is True
+    assert infer_text_pattern_search("Answer: YES", patterns, default=None, regex=False) is None
+
+    # Unexpected patterns should be directly converted into strings. The following is valid, although not recommended:
+    assert infer_text_pattern_search("Answer: None", patterns | {None: False}, regex=False) is False  # type: ignore
+
+
+############################ Tests for BeautifulSoup text parsing #######################
+
+
+def test_strip_html_tags_basic_div():
+    """Verifies the behavior of the `strip_html_tags` when installed and available against a basic html string."""
+    if BeautifulSoup is None:
+        pytest.skip("BeautifulSoup is not installed, skipping check for tag extraction...")
+    paragraph_one = "This is a paragraph."
+    paragraph_two = "This is another paragraph"
+    text_with_html = f"<div><p>{paragraph_one}</p><br><p>{paragraph_two}</p></div>"
+    stripped_text = f"{paragraph_one}{paragraph_two}"
+    assert strip_html_tags(text_with_html) == stripped_text
+    assert stripped_text == strip_html_tags(stripped_text)  # should return the exact string
+
+
+def test_strip_html_tags_nonstring():
+    """Verifies that `strip_html_tags` returns the exact input when a non-string is received (e.g., list, None, int)."""
+    if BeautifulSoup is None:
+        pytest.skip("BeautifulSoup is not installed, skipping check for non-string behavior...")
+
+    assert strip_html_tags(1) == 1  # type: ignore
+    assert strip_html_tags(None) is None  # type: ignore
+    assert strip_html_tags([1, 2, 3, 4]) == [1, 2, 3, 4]  # type: ignore
+
+
+def test_strip_html_bs4_missing(caplog):
+    """Verifies the behavior of the `strip_html_tags` function when `beautifulsoup4` is missing.
+
+    Note:
+        The direct import of the helpers module is necessary for patching, testing tag removal behavior without `bs4`,
+        and reloading the module after testing for cleanup.
+
+    """
+    import scholar_flux.utils.helpers
+
+    try:
+        with patch.dict("sys.modules", {"bs4": None}):
+            importlib.reload(scholar_flux.utils.helpers)
+            import scholar_flux.utils.helpers
+
+            assert scholar_flux.utils.helpers.BeautifulSoup is None
+            text_with_html = "<p>This is a paragraph with html tags</p>"
+            # Shouldn't strip since bs4 isn't available
+            assert scholar_flux.utils.helpers.strip_html_tags(text_with_html) == text_with_html
+            assert "`beautifulsoup4` is not installed. Skipping html tag removal..." in caplog.text
+    finally:
+        importlib.reload(scholar_flux.utils.helpers)

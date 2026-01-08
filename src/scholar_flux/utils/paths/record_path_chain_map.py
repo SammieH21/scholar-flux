@@ -384,7 +384,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
             else:
                 raise RecordPathChainMapError(
                     "Expected either a RecordPathNodeMap or a list of nodes to resolve into "
-                    f"a record map, Received element of type {type(value)}"
+                    f"a record map, but received an element of type {type(value)}"
                 )
         return mapped_groups
 

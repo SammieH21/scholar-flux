@@ -190,7 +190,7 @@ def test_no_hash_prefix(default_hash_prefix, turn_off_hash_prefix, mock_academic
     if not default_hash_prefix:
         pytest.skip(
             "A comparison of non hashed prefix behavior in the CacheDataEncoder must be performed only "
-            "if DEFAULT_HASH_PREFIX is non missing"
+            "if DEFAULT_HASH_PREFIX is non-missing"
         )
 
     encoded_json = CacheDataEncoder.encode(mock_academic_json)
@@ -204,16 +204,24 @@ def test_no_hash_prefix(default_hash_prefix, turn_off_hash_prefix, mock_academic
 
 
 def test_no_hash_prefix_roundtrip(turn_off_hash_prefix, mock_academic_json):
-    """Validates whether the CacheDataEncoder successfully encodes and decodes the json as is without modificaation when
-    the CacheDataEncoder prefix is set to None."""
+    """Validates data integrity when encoding and decoding a basic academic JSON roundtrip with hash prefix `None`.
+
+    When encoding and decoding the JSON data roundtrip, the CacheDataEncoder should successfully encode and decode the
+    JSON data roundtrip without data modification to return the original JSON.
+
+    """
     assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
     result = round_trip_json_encoder(mock_academic_json)
     assert mock_academic_json == result
 
 
 def test_plos_page_roundtrip(turn_off_hash_prefix, plos_page_1_data, plos_page_2_data):
-    """Verifies that without the use of a hash prefix, the round trip data encoder successfully encodes and decodes text
-    to and from JSON serialized strings without data modification."""
+    """Validates data integrity when encoding and decoding a PLOS JSON roundtrip with hash prefix `None`.
+
+    Without the use of a hash prefix, the round trip data encoder should still successfully encode and decode fields to
+    and from JSON serialized strings without data modification.
+
+    """
     assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
     result = round_trip_json_encoder(plos_page_1_data)
     assert plos_page_1_data == result

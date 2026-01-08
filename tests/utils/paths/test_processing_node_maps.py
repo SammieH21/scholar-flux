@@ -123,7 +123,7 @@ def test_cache_weakset_default_clear(ref_test_nodes):
     assert all(node_set for node_set in mapping._cache.path_cache.values())
 
     assert mapping._cache.path_cache
-    # mapping.data.clear()
+
     for node in mapping.nodes:
         mapping._cache.lazy_remove(node.path)
 

@@ -33,11 +33,13 @@ class MaskingPattern(ABC):
 
     name: str
     pattern: str | SecretStr
+    apply_to_text: bool = Field(default=True, kw_only=True)  # Whether to use this pattern in mask_text()
+    apply_to_dict: bool = Field(default=False, kw_only=True)  # Whether this pattern should be applied to dictionaries
 
     @abstractmethod
     def apply_masking(self, text: str) -> str:
         """Base method that will be overridden by subclasses to later remove sensitive values and fields from text."""
-        pass
+        ...
 
     def __hash__(self) -> int:
         """A helper method for resolving a pattern into an identifying hash using the self._identity_key() private
@@ -59,7 +61,7 @@ class MaskingPattern(ABC):
     def _identity_key(self) -> str:
         """This private method, when overridden, allows the current class to resolve into a hash for easier comparisons
         to other patterns of the same type."""
-        pass
+        ...
 
     @classmethod
     def _split_pattern(cls, pattern: str) -> list[str]:
@@ -98,6 +100,12 @@ class KeyMaskingPattern(MaskingPattern):
         mask_pattern (bool):
             Indicates whether we should, by default, mask pattern strings that are registered in the MaskingPattern.
             This is True by default.
+        apply_to_text (bool):
+            Whether this pattern should be applied during mask_text() operations. Defaults to True.
+            Set to False for dict-only patterns that would cause false positives in text.
+        apply_to_dict (bool):
+            Whether this pattern should be applied during mask_dict() operations. Defaults to True.
+            Set to False for text-only patterns (like URL patterns) that don't apply to dictionary keys.
 
     """
 
@@ -108,6 +116,7 @@ class KeyMaskingPattern(MaskingPattern):
     use_regex: bool = True
     ignore_case: bool = True
     mask_pattern: bool = True
+    apply_to_dict: bool = True
 
     def __post_init__(self):
         """Post initialization step that prepares  `mask_pattern` and other attributes for use with `.apply_masking()`.
@@ -119,9 +128,41 @@ class KeyMaskingPattern(MaskingPattern):
         if self.mask_pattern and not isinstance(self.pattern, SecretStr):
             object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))
 
+    def matches_key(self, key: str) -> bool:
+        """Checks if a dictionary key matches this pattern's field.
+
+        This method returns True, when the field of the current KeyMaskingPattern matches the key. If the field doesn't
+        match, False is returned. A case insensitive match is only performed if `KeyMaskingPattern.ignore_case=True`.
+
+        Args:
+            key (str): The dictionary key to check
+
+        Returns:
+            bool: True if the key matches, False otherwise
+
+        Example:
+            >>> pattern = KeyMaskingPattern(name="test", field="password")
+            >>> pattern.matches_key("password")
+            # OUTPUT: True
+            >>> pattern.matches_key("PASSWORD") # (ignore_case=True by default)
+            # OUTPUT: True
+            >>> pattern.matches_key("pass") # (exact match required)
+            # OUTPUT: False
+
+        """
+        if not isinstance(key, str):
+            return False
+
+        if self.ignore_case:
+            return key.lower() == self.field.lower()
+        return key == self.field
+
     def apply_masking(self, text: str) -> str:
-        """Uses the defined settings in order to remove sensitive fields from text based on the attributes specified for
-        field, pattern, replacement, and ignore case.
+        """Removes sensitive fields from text based on the current KeyMaskingPattern's defined settings.
+
+        For the current pattern to trigger, the current field must match the string field of a dictionary or the name
+        of the field found in the current text string. Masking behavior can be customized based on the defined settings
+        of the current masking pattern (`field`, `pattern`, `replacement`, and `ignore_case`)
 
         Args:
             text (str): The text to clean of sensitive fields
@@ -164,15 +205,49 @@ class FuzzyKeyMaskingPattern(KeyMaskingPattern):
         mask_pattern (bool):
             Indicates whether we should, by default, mask pattern strings that are registered in the MaskingPattern.
             This is True by default.
+        apply_to_text (bool):
+            Whether this pattern should be applied during mask_text() operations. Defaults to True.
+        apply_to_dict (bool):
+            Whether this pattern should be applied during mask_dict() operations. Defaults to True.
 
     """
+
+    def matches_key(self, key: str) -> bool:
+        """Checks if a dictionary key matches this pattern's field using regex.
+
+        This method returns True if the field of the current `FuzzyKeyMaskingPattern`, when used as a regular
+        expression, matches the provided key and false otherwise.
+
+        Args:
+            key (str): The dictionary key to check
+
+        Returns:
+            bool: True if the key matches the regex pattern, False otherwise
+
+        Example:
+            >>> pattern = FuzzyKeyMaskingPattern(name="test", field="pass(word)?")
+            >>> pattern.matches_key("password")
+            # OUTPUT: True
+            >>> pattern.matches_key("pass")
+            # OUTPUT: True
+            >>> pattern.matches_key("Pass") # (ignore_case=True is the default)
+            # OUTPUT: True
+            >>> pattern.matches_key("passphrase") # (regex matching)
+            # OUTPUT: True
+
+        """
+        if not isinstance(key, str):
+            return False
+
+        flags = re.IGNORECASE if self.ignore_case else 0
+        return bool(re.search(self.field, key, flags=flags))
 
     def apply_masking(self, text: str) -> str:
         """Uses fuzzy field matching to identify fields containing sensitive data in text.
 
         This method is revised to account for circumstances where several fields might be present in the same
         text string using the `|` delimiter. The masker can be customized using the following fields:
-        `field`, `pattern`, `replacement`, and `ignore_case`.
+        `field`, `pattern`, `replacement`, `use_regex`, and `ignore_case`.
 
         Args:
             text (str): The text to clean of sensitive fields
@@ -212,6 +287,14 @@ class StringMaskingPattern(MaskingPattern):
         mask_pattern (bool):
             Indicates whether we should, by default, mask pattern strings that are registered in the MaskingPattern.
             This is True by default.
+        apply_to_text (bool):
+            Whether this pattern should be applied during mask_text() operations. Defaults to True.
+        apply_to_dict (bool):
+            Whether this pattern should be applied to dictionary values during mask_dict() operations. Defaults to False.
+            String patterns typically match text content (like URLs) rather than dict keys or values.
+
+
+        Note: By default, this class does not operate on dictionaries unless explicitly configured to do so.
 
     """
 
@@ -228,8 +311,14 @@ class StringMaskingPattern(MaskingPattern):
             object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))
 
     def apply_masking(self, text: str) -> str:
-        """Uses the defined settings in order to remove sensitive fields from text based on the attributes specified for
-        `pattern`, `replacement`, `use_regex`, and `ignore_case`.
+        """Removes sensitive strings or patterns from text based on the defined settings of the `StringMaskingPattern`.
+
+        For the current pattern to trigger, the registered pattern must match the text exactly if `use_regex=False`.
+        Otherwise the pattern is treated as a regular expression. Cases sensitivity is determined by the `ignore_case`
+        attribute.
+
+        Masking behavior can be further customized based on the defined settings of the current masking pattern based on
+        the attributes specified for `pattern`, `replacement`, `use_regex`, and `ignore_case`.
 
         Args:
             text (str): The text to clean of sensitive fields
@@ -277,7 +366,7 @@ class MaskingPatternSet(set[MaskingPattern]):
             else:
                 for element in patterns:
                     if not isinstance(element, MaskingPattern):
-                        raise TypeError(f"Expected a masking pattern, received type {type(others)}")
+                        raise TypeError(f"Expected a masking pattern, received type {type(element)}")
                 super().update(patterns)
 
 

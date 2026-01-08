@@ -128,10 +128,12 @@ def validate_and_process_email(
     attempt to load the email from the config and environment if possible (SCHOLAR_FLUX_DEFAULT_MAILTO).
 
     Args:
-        email (Optional[str]): an email to validate if non-missing
+        email (Optional[SecretStr | str]): an email to validate if non-missing
+        from_env (bool): If True, will attempt to load from environment if email is None.
+        verbose (bool): If True, will log warnings for invalid emails.
 
     Returns:
-        True if the email is valid or is not provided, and False otherwise
+        Optional[SecretStr]: Masked valid email, or None if not provided.
 
     Raises:
         ValueError: If the current value is not an email
@@ -159,6 +161,14 @@ def validate_and_process_email(
 def validate_url(url: str, verbose: bool = True) -> bool:
     """Uses urlparse to determine whether the provided value is a URL.
 
+    Basic Checks:
+
+    1. Only `http://` and `https://` schemes are accepted
+    2. A URL domain exists after the URL scheme
+    3. No whitespace exists in the domain name
+
+    Note: Further validation is delegated to request libraries.
+
     Args:
         url (str): The url string to validate
         verbose (bool): Determines whether to log upon encountering invalid URLs
@@ -176,6 +186,12 @@ def validate_url(url: str, verbose: bool = True) -> bool:
             raise ValueError(
                 f"Expected a domain in the URL after the http/https protocol. Only the scheme was received: {url}"
             )
+
+        if any(char in result.netloc for char in (" ", "\t", "\n", "\r")):
+            raise ValueError(
+                f"Expected a valid domain format. The domain contains whitespace characters: '{result.netloc}'"
+            )
+
         return True
 
     except (ValueError, AttributeError) as e:
@@ -228,10 +244,13 @@ def validate_and_process_url(url: Optional[str], **kwargs) -> Optional[str]:
     This function first uses the validate_url function for the validation of the url.
 
     Args:
-        url (Optional[str]): an URL to validate if non-missing
+        url (Optional[str]): a URL to validate if non-missing
 
     Returns:
-        True if the URL is valid or is not provided, and False otherwise
+        Optional[str]: Normalized URL if valid, or None if not provided.
+
+    Raises:
+        ValueError: If the provided URL is invalid.
 
     """
     if url is None:
@@ -251,12 +270,12 @@ def validate_int(value: Optional[int], min: Optional[int] = None, max: Optional[
     """Validate that a value is an integer and optionally within bounds.
 
     Args:
-        value: The value to validate as an integer.
-        min: Optional minimum value (inclusive).
-        max: Optional maximum value (inclusive).
+        value (Optional[int]): The value to validate as an integer.
+        min (Optional[int]): Optional minimum value (inclusive).
+        max (Optional[int]): Optional maximum value (inclusive).
 
     Returns:
-        The validated integer value, or None if value is None.
+        Optional[int]: The validated integer value, or None if value is None.
 
     Raises:
         ValueError: If value is not an integer or is outside the specified bounds.
@@ -278,11 +297,11 @@ def validate_str(value: Optional[str], allowed: Optional[list | set | tuple] = N
     """Validate that a value is a string and optionally in a set of allowed values.
 
     Args:
-        value: The value to validate as a string.
-        allowed: Optional collection of allowed string values.
+        value (Optional[str]): The value to validate as a string.
+        allowed (Optional[list | set | tuple]): Optional collection of allowed string values.
 
     Returns:
-        The validated string value, or None if value is None.
+        Optional[str]: The validated string value, or None if value is None.
 
     Raises:
         ValueError: If value is not a string or is not in the allowed values.
@@ -304,21 +323,21 @@ def validate_date(
     """Validate that a value is a date string in the specified format.
 
     Args:
-        value: The date string to validate.
-        format: The expected date format (strptime format string).
-        format_description: Human-readable format description for error messages.
+        value (Optional[str]): The date string to validate.
+        format (str): The expected date format (strptime format string).
+        format_description (str): Human-readable format description for error messages.
 
     Returns:
-        The validated date string, or None if value is None.
+        Optional[str]: The validated date string, or None if value is None.
 
     Raises:
         ValueError: If value is not a valid date in the specified format.
 
     Examples:
         >>> validate_date("2023-01-15")
-        '2023-01-15'
+        # OUTPUT: '2023-01-15'
         >>> validate_date("2023/01/15", format="%Y/%m/%d", format_description="YYYY/MM/DD")
-        '2023/01/15'
+        # OUTPUT: '2023/01/15'
 
     """
     if value is None:
@@ -334,6 +353,36 @@ def validate_date(
         raise ValueError(f"Date must be in {format_description} format, got '{value}'")
 
 
+def validate_bool_str(value: Optional[str], true_values: tuple[str, ...] = ("true", "1", "yes")) -> Optional[bool]:
+    """Validate and convert a boolean string to a Python bool.
+
+    Args:
+        value (Optional[str]): The string value to convert.
+        true_values (tuple[str, ...]): Tuple of lowercase strings that represent True.
+
+    Returns:
+        Optional[bool]: True if value matches a true_value, False if non-empty string, None if value is None.
+
+    Examples:
+        >>> validate_bool_str("true")
+        # OUTPUT: True
+        >>> validate_bool_str("false")
+        # OUTPUT: False
+        >>> validate_bool_str("TRUE")
+        # OUTPUT: True
+        >>> validate_bool_str(None)
+        # OUTPUT: None
+
+    """
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        raise ValueError(f"Expected str, got {type(value).__name__}")
+
+    return value.lower() in true_values
+
+
 __all__ = [
     "validate_api_specific_field",
     "api_validator",
@@ -346,4 +395,5 @@ __all__ = [
     "validate_int",
     "validate_str",
     "validate_date",
+    "validate_bool_str",
 ]

@@ -154,14 +154,14 @@ class WorkflowStep(BaseWorkflowStep):
             **keyword_parameters (bool): keyword mappings that are passed directly to `search_coordinator.search()`.
 
         """
-        i = ctx.step_number if ctx is not None else step_number
         step_search_parameters = self.search_parameters | keyword_parameters | self.additional_kwargs
         if verbose:
-            logger.debug(f"step {i}: Config Parameters =  {search_coordinator.api.config}")
-            logger.debug(f"step {i}: Search Parameters = {step_search_parameters}")
+            logger.debug(f"Executing step {step_number}: {type(self).__name__}")
+            logger.debug(f"Step {step_number}a: Config Parameters =  {search_coordinator.api.config}")
+            logger.debug(f"Step {step_number}: Search Parameters = {step_search_parameters}")
 
         search_result = search_coordinator._search(**step_search_parameters)
-        step_ctx = StepContext(step_number=i, step=self.model_copy(), result=search_result)
+        step_ctx = StepContext(step_number=step_number, step=self.model_copy(), result=search_result)
         return step_ctx
 
     @contextmanager
@@ -169,7 +169,7 @@ class WorkflowStep(BaseWorkflowStep):
         """Helper method that briefly changes the configuration of the search_coordinator with the step configuration.
 
         This method uses a context manager in addition to the `with_config_parameters` method of the SearchAPI to
-        modify the search location, default api-specific parameters used, and other possible options that have an
+        modify the search location, default API-specific parameters used, and other possible options that have an
         effect on SearchAPIConfig. This step is associated with the configuration for greater flexibility in overriding
         behavior.
 
@@ -281,7 +281,7 @@ class SearchWorkflow(BaseWorkflow):
             self._history.clear()
             ctx = None
             for i, workflow_step in enumerate(self.steps):
-                # Apply pre-transform if it exists
+                # Applies pre_transform with the provider and current set of search+config parameters
                 workflow_step = workflow_step.pre_transform(
                     ctx,
                     provider_name=workflow_step.provider_name,
@@ -289,7 +289,7 @@ class SearchWorkflow(BaseWorkflow):
                     config_parameters=workflow_step.config_parameters,
                 )
 
-                # apply the execution workflow_step while temporarily changing config parameters
+                # applies the execution workflow_step while temporarily changing config parameters
                 with workflow_step.with_context(search_coordinator):
 
                     # performs the search using the configuration
@@ -301,7 +301,7 @@ class SearchWorkflow(BaseWorkflow):
                         **keyword_parameters,
                     )
 
-                    # apply post processing workflow_steps
+                    # applies workflow post-processing steps
                     ctx = workflow_step.post_transform(preprocessed_ctx)
 
                 self._history.append(ctx)
@@ -309,7 +309,10 @@ class SearchWorkflow(BaseWorkflow):
                 result = ctx.result
 
                 if not ctx.result and self.stop_on_error:
-                    logger.warning(f"Halting the current workflow and returning the result from step {i}...")
+                    step_name = type(workflow_step).__name__
+                    logger.warning(
+                        f"Halting the current workflow and returning the result from step {i}: {step_name}..."
+                    )
                     break
 
         except NoRecordsAvailableException:

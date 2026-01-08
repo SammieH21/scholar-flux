@@ -260,6 +260,10 @@ def test_validate_url(caplog):
     assert (
         "Expected a domain in the URL after the http/https protocol. " "Only the scheme was received: https://"
     ) in caplog.text
+    assert validate_url("https:// not a valid url") is False
+    assert (
+        "Expected a valid domain format. The domain contains whitespace characters: ' not a valid url'"
+    ) in caplog.text
     assert validate_and_process_url(crossref_url) == crossref_url
 
 
@@ -321,7 +325,7 @@ def test_basic_parameter_overrides(caplog):
     params = api.build_parameters(page=1, mailto=updated_mailto)
     # Verifies that the mailto attribute can be successfully overridden
     pattern = (
-        r"The following additional parameters will be used to override the current parameter list: "
+        r"The following additional parameters will be used to override the current parameter list for Crossref: "
         r"{.*'mailto': '\*\*\*'.*}"
     )
     assert re.search(pattern, caplog.text)
@@ -373,7 +377,7 @@ def test_search_api_initialization(default_api_parameter_config):
         parameter_config=default_api_parameter_config,
     )
 
-    assert not api.is_cached_session(api.session)
+    assert not api.cached
     assert api.query == "test"
     assert api.records_per_page == 10
 
@@ -567,16 +571,18 @@ def test_core_api_filtering(monkeypatch, caplog, scholar_flux_logger):
     """
     core_api_key = "this_is_a_mock_api_key"
     api = SearchAPI.from_defaults(query="a search string", provider_name="core", api_key=core_api_key)
-    api.masker.clear()
-    assert not api.masker.patterns
+    patterns = api.masker.patterns.copy()
+    try:
+        api.masker.clear()
+        assert not api.masker.patterns
 
-    req = api.prepare_request(parameters=api.build_parameters(page=1))
-    monkeypatch.setattr(
-        api.session,
-        "send",
-        lambda *args, **kwargs: (_ for _ in ()).throw(requests.RequestException(f"Full url={req.url}")),
-    )
-    with caplog.at_level(logging.ERROR):
+        req = api.prepare_request(parameters=api.build_parameters(page=1))
+        monkeypatch.setattr(
+            api.session,
+            "send",
+            lambda *args, **kwargs: (_ for _ in ()).throw(requests.RequestException(f"Full url={req.url}")),
+        )
+
         with contextlib.suppress(Exception):
             api.search(page=1)
 
@@ -588,9 +594,12 @@ def test_core_api_filtering(monkeypatch, caplog, scholar_flux_logger):
         assert f"{unmasked_key}" not in caplog.text
         assert re.search(r"api_key.*\*\*\*", caplog.text) is not None
 
-    scholar_flux_logger.info(f"Test: The received value is: {unmasked_key}")
-    assert f"{unmasked_key}" not in caplog.text
-    assert "Test: The received value is: ***" in caplog.text
+        scholar_flux_logger.info(f"Test: The received value is: {unmasked_key}")
+        assert f"{unmasked_key}" not in caplog.text
+        assert "Test: The received value is: ***" in caplog.text
+
+    finally:
+        api.masker.patterns = patterns
 
 
 def test_api_key_exists_true_and_false():

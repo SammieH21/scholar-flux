@@ -99,4 +99,6 @@ provider_registry = ProviderRegistry.from_defaults()
 # create a separate immutable mapping of the same providers
 PROVIDER_DEFAULTS = MappingProxyType(provider_registry.copy())
 
-__all__ = ["provider_registry", "PROVIDER_DEFAULTS"]
+get_display_name = provider_registry.get_display_name
+
+__all__ = ["provider_registry", "PROVIDER_DEFAULTS", "get_display_name"]

@@ -102,7 +102,7 @@ def test_is_jsonable_logs_on_failure(caplog):
 
 
 def test_load_data_invalid_json(tmp_path, cleanup, caplog):
-    """Verifies tht, upon attempting to load a bad JSON file, it is loaded as a string if unparsable."""
+    """Verifies that, upon attempting to load a bad JSON file, it is loaded as a string if unparsable."""
     file_path = tmp_path / "bad.json"
 
     with open(file_path, "w") as f:

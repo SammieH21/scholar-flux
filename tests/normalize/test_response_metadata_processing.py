@@ -151,7 +151,7 @@ def setup_mocking(default_search_coordinator: SearchCoordinator, response_json: 
     partial_mocking_context = partial(
         search_coordinator_mocking_context,
         search_coordinator=default_search_coordinator,
-        json_data=response_json,
+        json=response_json,
         headers={"content-type": "application/json"},
     )
 

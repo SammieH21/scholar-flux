@@ -301,6 +301,11 @@ def test_multisearch_initialization(coordinator_dict, pause_rate_limiting):
     for provider_name, coordinator in multisearch_coordinator_one.items():
         multisearch_coordinator_two[provider_name] = coordinator
 
+    multisearch_coordinator_three = MultiSearchCoordinator.from_coordinators(multisearch_coordinator_two.coordinators)
+
+    assert multisearch_coordinator_one.coordinators == multisearch_coordinator_two.coordinators
+    assert multisearch_coordinator_two.coordinators == multisearch_coordinator_three.coordinators
+
     noncoordinator = "not a coordinator"
     with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
         multisearch_coordinator_two["a provider"] = noncoordinator  # type: ignore
@@ -373,7 +378,6 @@ def test_page_iteration(coordinator_dict, initialize_mocker, path_component_dict
             result_list.append(page)
 
         assert isinstance(result_list, SearchResultList) and len(result_list) == total_pages
-        # assert len(result_list.filter()) == total_pages
 
         result_list_two = SearchResultList()
         iter_pages = multisearch_coordinator.iter_pages(pages=page_range, iterate_by_group=True)
@@ -384,8 +388,6 @@ def test_page_iteration(coordinator_dict, initialize_mocker, path_component_dict
 
         assert len(result_list) == len(result_list_two) == total_pages
         assert sorted(result_list_two.join(), key=str) == sorted(result_list.join(), key=str)
-
-        # initial_api_responses = [other.response_result for other in result_list]
 
         iter_pages = multisearch_coordinator.iter_pages_threaded(pages=page_range)
         result_list_three = SearchResultList(iter_pages)  # a list should successfully consume the generator.
@@ -724,7 +726,7 @@ def test_invalid_parameters(initialize_mocker, pause_rate_limiting, caplog):
         with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
             _ = SearchResultList(multisearch_coordinator.search_pages(pages=[1, 2], max_workers=invalid_workers))  # type: ignore
         assert (
-            f"Expected max_workers to be a positive integer, Received a value of type {type(invalid_workers)}"
+            f"Expected max_workers to be a positive integer, but received a value of type {type(invalid_workers)}"
             in str(excinfo.value)
         )
 

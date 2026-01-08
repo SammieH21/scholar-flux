@@ -55,16 +55,20 @@ For full functionality, install optional dependencies:
 .. code-block:: bash
 
    # All features (recommended for development)
-   pip install scholar-flux[parsing,database,cryptography]
+   pip install scholar-flux[parsing,database,cryptography,duckdb]
 
    # XML parsing only (for PubMed, arXiv)
    pip install scholar-flux[parsing]
 
-   # Database caching backends (Redis, MongoDB, SQLAlchemy)
+   # Database response caching backends (Redis, MongoDB, SQLAlchemy)
    pip install scholar-flux[database]
+
+   # For DuckDB response caching via sqlalchemy:
+   pip install scholar-flux[duckdb]
 
    # Encrypted caching support
    pip install scholar-flux[cryptography]
+
 
 **When to use which extras:**
 
@@ -557,7 +561,7 @@ Common Pitfalls
    
    .. code-block:: bash
    
-      pip install scholar-flux[parsing]  # Installs xmltodict for XML parsing
+      pip install scholar-flux[parsing]  # Installs xmltodict for XML parsing and beautifulsoup4 for html text parsing
 
 4. **Hardcoding API keys**
    

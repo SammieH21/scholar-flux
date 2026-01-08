@@ -5,9 +5,9 @@ These two steps integrate into a single workflow to consolidate the two-step art
 single step that involves the automatic execution of a workflow.
 
 Classes:
-    PubmedSearchStep:
+    PubMedSearchStep:
         The first of two steps in the article/metadata response retrieval process involving ID retrieval
-    PubmedFetchStep:
+    PubMedFetchStep:
         The second of two steps in the article/metadata response retrieval process that resolves IDs into
         their corresponding article data and metadata.
 
@@ -39,6 +39,15 @@ class PubMedSearchStep(WorkflowStep):
     as context to the following `PubMedFetchStep` which will then resolve each ID into its associated actual article
     and/or abstract.
 
+    Attributes:
+        provider_name (Optional[str]):
+            Defines the `pubmed` eSearch API as the location where the initial request will be sent.
+        step_number:
+            Metadata indicating the intended position in the workflow sequence. This is for documentation purposes
+            only; the actual execution order is determined by the step's position in the workflow's `steps` list.
+        description:
+            Metadata indicating the purpose of the current workflow step. This is for documentation purposes only.
+
     """
 
     provider_name: Optional[str] = "pubmed"
@@ -55,12 +64,17 @@ class PubMedFetchStep(WorkflowStep):
     Args:
         provider_name (Optional[str]):
             Defines the `pubmed` eFetch API as the location where the next/final request will be sent.
+        step_number:
+            Metadata indicating the intended position in the workflow sequence. This is for documentation purposes
+            only; the actual execution order is determined by the step's position in the workflow's `steps` list.
+        description:
+            Metadata indicating the purpose of the current workflow step. This is for documentation purposes only.
 
     """
 
     provider_name: Optional[str] = "pubmedefetch"
     step_number: Optional[int] = 1
-    description: Optional[str] = "Fetches each record/article corresponding to a PubMed ID from the PubmedSearchStep."
+    description: Optional[str] = "Fetches each record/article corresponding to a PubMed ID from the PubMedSearchStep."
 
     def pre_transform(
         self,
@@ -73,14 +87,14 @@ class PubMedFetchStep(WorkflowStep):
         input parameters for the PubMed eFetch API request.
 
         Args:
-            ctx (Optional[StepContext]): Defines the inputs that are used by the current PubmedWorkflowStep to modify
+            ctx (Optional[StepContext]): Defines the inputs that are used by the current PubMedWorkflowStep to modify
                                          its function before execution.
             provider_name: Optional[str]: Provided for API compatibility. Is uses `pubmedefetch` by default.
             search_parameters: defines optional keyword arguments to pass to SearchCoordinator._search()
             config_parameters: defines optional keyword arguments that modify the step's SearchAPIConfig
 
         Returns:
-            PubmedFetchWorkflowStep: A modified or copied version of the current pubmed workflow step
+            PubMedFetchWorkflowStep: A modified or copied version of the current pubmed workflow step
 
         """
 

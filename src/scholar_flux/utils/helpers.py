@@ -5,15 +5,13 @@ data structures."""
 import re
 import hashlib
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.utils.json_processing_utils import PathUtils
+from scholar_flux.utils.record_types import RecordType
 
 from typing import (
     Any,
-    Dict,
-    List,
-    Tuple,
     Set,
     Optional,
     Union,
@@ -22,9 +20,20 @@ from typing import (
     Mapping,
     Sequence,
     Callable,
+    TYPE_CHECKING,
+    Literal,
+    overload,
 )
 from collections.abc import Iterable
 import logging
+
+if TYPE_CHECKING:
+    from bs4 import BeautifulSoup
+else:
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        BeautifulSoup = None
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +49,10 @@ JSON_VALUE_TYPE = TypeVar("JSON_VALUE_TYPE", bound=JSON_VALUE)
 JSON_TYPE = TypeVar("JSON_TYPE", JSON_MAPPING, JSON_SEQUENCE)
 JSON_DATA_TYPE = TypeVar("JSON_DATA_TYPE", bound=JSON_ELEMENT | JSON_MAPPING | JSON_SEQUENCE)
 
+
 T = TypeVar("T", bound=Hashable)
+V = TypeVar("V", bound=Any)
+D = TypeVar("D", bound=Any)
 
 
 def quote_if_string(value: Any) -> Any:
@@ -74,14 +86,14 @@ def try_quote_numeric(value: Any) -> Optional[str]:
 
 
 def quote_numeric(value: Any) -> str:
-    """Attempts to quote as a numeric value and returns the original value if successful Otherwise returns the original
-    element.
+    """Attempts to quote as a numeric value and returns the quoted value if successful. Otherwise raises an error.
 
     Args:
         value (Any): a value that is quoted only if it is a numeric string or an integer
 
     Returns:
-        Returns a quoted string if successful.
+        str: Returns a quoted string if successful.
+
     Raises:
         ValueError: If the value cannot be quoted
 
@@ -92,14 +104,14 @@ def quote_numeric(value: Any) -> str:
     return quoted_value
 
 
-def flatten(current_data: Optional[Mapping | List]) -> Optional[Mapping | List]:
+def flatten(current_data: Optional[Mapping | list]) -> Optional[Mapping | list]:
     """Flattens a dictionary or list if it contains a single element that is a dictionary.
 
     Args:
-        current_data: A dictionary or list to be flattened if it contains a single dictionary element.
+        current_data (Optional[Mapping | list]): A dictionary or list to be flattened if it contains a single dictionary element.
 
     Returns:
-        Optional[Mapping|List]: The flattened dictionary if the input meets the flattening condition, otherwise returns the input unchanged.
+        Optional[Mapping | list]: The flattened dictionary if the input meets the flattening condition, otherwise returns the input unchanged.
 
     """
     if isinstance(current_data, list) and len(current_data) == 1 and isinstance(current_data[0], dict):
@@ -108,11 +120,13 @@ def flatten(current_data: Optional[Mapping | List]) -> Optional[Mapping | List]:
 
 
 def as_tuple(obj: Any) -> tuple:
-    """Convert or nest an object into a tuple if possible to make available for later function calls that require tuples
-    instead of lists, NoneTypes, and other data types.
+    """Converts objects into tuples when possible and nests objects within a tuple otherwise.
+
+    This function is useful as a preprocessing step for function calls that require tuples instead of lists, NoneTypes,
+    and other data types.
 
     Args:
-        obj (Any) The object to nest as a tuple
+        obj (Any): The object to nest as a tuple
 
     Returns:
         tuple: The original object converted into a tuple
@@ -131,16 +145,16 @@ def as_tuple(obj: Any) -> tuple:
             return (obj,)
 
 
-def pattern_search(json_dict: Dict, key_to_find: str, regex: bool = True) -> List:
+def pattern_search(json_dict: dict, key_to_find: str, regex: bool = True) -> list:
     """Searches for keys matching the regex pattern in the given dictionary.
 
     Args:
-        obj: The dictionary to search.
-        key_to_find: The regex pattern to search for.
-        regex: Whether or not to search with regular expressions.
+        json_dict (dict): The dictionary to search.
+        key_to_find (str): The regex pattern to search for.
+        regex (bool): Whether or not to search with regular expressions.
 
     Returns:
-        A list of keys matching the pattern.
+        list: A list of keys matching the pattern.
 
     """
     if regex:
@@ -151,20 +165,91 @@ def pattern_search(json_dict: Dict, key_to_find: str, regex: bool = True) -> Lis
     return filtered_values
 
 
+@overload
+def infer_text_pattern_search(
+    text: str,
+    pattern_dict: Mapping[str | re.Pattern, V] | Mapping[str, V] | Mapping[re.Pattern, V],
+    default: D,
+    *,
+    regex: bool = True,
+    flags: int | re.RegexFlag = 0,
+) -> V | D:
+    """Returns a non-None value when no None exists in dictionary values or default."""
+    ...
+
+
+@overload
+def infer_text_pattern_search(
+    text: str,
+    pattern_dict: Mapping[str | re.Pattern, Optional[V]] | Mapping[str, Optional[V]] | Mapping[re.Pattern, V],
+    default: None = None,
+    *,
+    regex: bool = True,
+    flags: int | re.RegexFlag = 0,
+) -> Optional[V]:
+    """When the `default` is None, either an available pattern will be returned, or None is returned instead."""
+    ...
+
+
+def infer_text_pattern_search(
+    text: str,
+    pattern_dict: Mapping[str | re.Pattern, Optional[V]] | Mapping[str, Optional[V]] | Mapping[re.Pattern, V],
+    default: Optional[D] = None,
+    *,
+    regex: bool = True,
+    flags: int | re.RegexFlag = 0,
+) -> Optional[V | D]:
+    """Infers a category based on a text pattern search. If a value match can't be inferred, a default is returned.
+
+    Args:
+        text (str):
+            The text to match. If None or missing, the default is returned instead.
+        pattern_dict (Mapping[str | re.Pattern, Optional[V]] | Mapping[str, Optional[V]] | Mapping[re.Pattern, V]):
+            A dictionary that maps patterns to potential output values provided that the pattern matches.
+        default (Optional[D]):
+            The value to return if a match cannot be inferred from text pattern matching.
+        regex (bool):
+            Whether to interpret patterns as regex (default True).
+        flags (int | re.RegexFlag):
+            Optional flags to pass to `re.search` when available. (default `flags=0` for no flags)
+
+    Returns:
+        Optional[V | D]:
+            The inferred category when a match is found based on a dictionary mapping, and the default otherwise.
+
+
+    Note:
+        If the provided value is not a mapping or if the provided value cannot be coerced into a string, the default is
+        returned instead.
+
+    """
+    # Replace empty strings, "Unknown", "None" (string form or NoneType)
+    if isinstance(pattern_dict, Mapping) and (cleaned_text := try_none(coerce_str(text))):
+        for pattern, inferred_type in pattern_dict.items():
+            pattern = (
+                re.escape(str(pattern))
+                if not regex
+                else (pattern if isinstance(pattern, (str, re.Pattern)) else str(pattern))
+            )
+            if re.search(pattern, cleaned_text, flags=flags):
+                return inferred_type
+    return default
+
+
 def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
     """Recursively checks if a specified key is present anywhere in a given JSON-like dictionary or list structure.
 
     Args:
-        obj: The dictionary or list to search.
-        key_to_find: The key to search for.
-        regex: Whether or not to search with regular expressions.
+        obj (Any): The dictionary or list to search.
+        key_to_find (str): The key to search for.
+        regex (bool): Whether or not to search with regular expressions.
 
     Returns:
-        True if the key is present, False otherwise.
+        bool: True if the key is present, False otherwise.
 
     """
     if isinstance(obj, dict):
-        match: Optional[List] = []
+        match: Optional[list] = []
 
         if regex:
             match = pattern_search(obj, key_to_find) or None
@@ -186,8 +271,17 @@ def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
     return False
 
 
-def get_nested_dictionary_data(data: Mapping[Any, Any], path: List[str]) -> Any:
-    """Retrieve data from a nested dictionary using a list of keys as the path."""
+def get_nested_dictionary_data(data: Mapping[Any, Any], path: list[str]) -> Any:
+    """Retrieve data from a nested dictionary using a list of keys as the path.
+
+    Args:
+        data (Mapping[Any, Any]): The nested dictionary to retrieve data from.
+        path (list[str]): A list of keys representing the path to the desired data.
+
+    Returns:
+        Any: The value retrieved from the nested dictionary following the path.
+
+    """
     for key in path:
         data = data.get(key, {})
         if not isinstance(data, Mapping):
@@ -201,14 +295,14 @@ def get_nested_data(
     """Recursively retrieves data from a nested dictionary using a sequence of keys.
 
     Args:
-        json (List[Mapping[Any, Any]] | Mapping[Any, Any]): The parsed json structure from which to extract data.
-        path (List[Any]): A list of keys representing the path to the desired data within `json`.
+        json (list | Mapping | None): The parsed json structure from which to extract data.
+        path (str | list): A list of keys representing the path to the desired data within `json`.
         flatten_nested_dictionaries (bool): Determines whether single-element lists containing dictionary data should be extracted.
         verbose (bool): Determines whether logging should occur when an error is encountered.
 
     Returns:
-        Optional[Any]: The value retrieved from the nested dictionary following the path, or None if any
-                       key in the path is not found or leads to a None value prematurely.
+        Any: The value retrieved from the nested dictionary following the path, or None if any
+             key in the path is not found or leads to a None value prematurely.
 
     """
     current_data = json
@@ -230,6 +324,37 @@ def get_nested_data(
                 logger.debug(f"key not found: {str(e)}")
             return None
     return current_data
+
+
+def filter_record_key_prefixes(
+    record: Mapping[str, Any] | Mapping[str | int, Any], prefix: str, invert: bool = False
+) -> RecordType:
+    """Removes or retains keys from dictionaries and mappings beginning with a specific string prefix.
+
+    Args:
+        record (Mapping[str, Any] | Mapping[str | int, Any]):
+            A dictionary record to filter keys containing specific prefixes
+        prefix (str):
+            The prefix to filter from the dictionary. Prefixes that are not strings will be coerced into
+            strings internally, but only string-typed fields will be matched.
+        invert (bool):
+            If False, dictionary keys beginning with the prefix are removed (default behavior). If true,
+            fields beginning with the prefix are retained instead.
+    Returns:
+        JSON_MAPPING: The filtered record after retaining (invert=True) or removing (invert=False) string prefixes.
+
+    """
+    if not isinstance(record, Mapping):
+        raise TypeError(f"Expected a dictionary record to filter key prefixes from, but received type {type(record)}")
+
+    if not isinstance(prefix, str):
+        prefix = str(prefix)
+
+    return {
+        field: value
+        for field, value in record.items()
+        if (not isinstance(field, str) or not field.startswith(prefix)) ^ bool(invert)
+    }
 
 
 def get_first_available_key(
@@ -258,10 +383,10 @@ def generate_response_hash(response: requests.Response | ResponseProtocol) -> st
     """Generates a response hash from a response or response-like object that implements the ResponseProtocol.
 
     Args:
-        response (requests.Response | ResponseProtocol):
-            An http response or response-like object.
+        response (requests.Response | ResponseProtocol): An http response or response-like object.
+
     Returns:
-        A unique identifier for the response.
+        str: A unique identifier for the response.
 
     """
     # Extract URL directly from the response object
@@ -283,10 +408,16 @@ def generate_response_hash(response: requests.Response | ResponseProtocol) -> st
 def compare_response_hashes(
     response1: requests.Response | ResponseProtocol, response2: requests.Response | ResponseProtocol
 ) -> bool:
-    """Determines whether two responses differ.
+    """Determines whether two responses have identical content.
 
-    This function uses hashing to generate an identifier unique key_to_find the content of the response for comparison
-    purpose later dealing with cache
+    This function uses hashing to generate an identifier unique to the content of the response for comparison purposes.
+
+    Args:
+        response1 (requests.Response | ResponseProtocol): The first response object.
+        response2 (requests.Response | ResponseProtocol): The second response object.
+
+    Returns:
+        bool: True if the responses have identical content, False otherwise.
 
     """
     hash1 = generate_response_hash(response1)
@@ -328,34 +459,92 @@ def coerce_str(value: Any, encoding: Optional[str] = "utf-8") -> Optional[str]:
     if isinstance(value, str) or value is None:
         return value
 
+    if isinstance(value, re.Pattern):
+        return value.pattern
+
     try:
         return value.decode(encoding or "utf-8") if isinstance(value, bytes) else str(value)
     except (ValueError, TypeError, UnicodeDecodeError):
         return None
 
 
-def try_int(value: JSON_ELEMENT_TYPE | None) -> JSON_ELEMENT_TYPE | int | None:
+def coerce_flattened_str(
+    value: Any,
+    delimiter: str = "; ",
+) -> Optional[str]:
+    """Coerces strings or sequences of strings into a single, flattened string.
+
+    This function handles the common pattern of normalizing journal names, keywords, or
+    other metadata that may arrive as either a string or list of strings.
+    Sequences of strings are handled by joining them, and if a sequence cannot be converted
+    to a sequence of strings, None is returned instead.
+
+    Args:
+        value (Any): A string, bytes, list/tuple of strings, or None
+        delimiter (str): The string used to join list elements with (default: "; ")
+
+    Returns:
+        Optional[str]: A single string (coerced or joined), or None if conversion fails
+
+    """
+    # Return strings early
+    if isinstance(value, str):
+        return value or None
+
+    # Filter out sequences
+    if not isinstance(value, Sequence):
+        return None
+
+    # Filter out any None values and empty strings
+    nested_entries = [nested_entry for nested_entry in value if nested_entry]
+
+    # Return a string only if each entry in the sequence/tuple is a string.
+    return (
+        delimiter.join(nested_entries)
+        if all(isinstance(nested_entry, str) for nested_entry in nested_entries)
+        else None
+    )
+
+
+def try_none(value: Any, none_indicators: tuple[Any, ...] = ("none", "unspecified", "unknown")) -> Any:
+    """Converts empty strings, 'none', and empty data containers into None. Otherwise, the original value is returned.
+
+    Args:
+        value (Any): The value to convert into None when possible
+        none_indicators (tuple[Any, ...]): Tuple of values that should be treated as None indicators.
+
+    Returns:
+        Any: The original value if not converted, and None otherwise
+
+    """
+
+    formatted_value = value.strip().lower() if isinstance(value, str) else value
+    none_indicators = as_tuple(none_indicators)
+    return value if (formatted_value or isinstance(value, int)) and formatted_value not in none_indicators else None
+
+
+def try_int(value: JSON_ELEMENT_TYPE | Any) -> JSON_ELEMENT_TYPE | int | Any:
     """Attempts to convert a value to an integer, returning the original value if the conversion fails.
 
     Args:
-        value (JSON_ELEMENT_TYPE): the value to attempt to coerce into an integer
+        value (JSON_ELEMENT_TYPE | None): the value to attempt to coerce into an integer
 
     Returns:
-        Optional[JSON_ELEMENT_TYPE| int | None]:
+        JSON_ELEMENT_TYPE | int | Any: The converted integer if successful, otherwise the original value.
 
     """
     converted_value = coerce_int(value)
     return converted_value if isinstance(converted_value, int) else value
 
 
-def try_str(value: Any) -> str | None:
+def try_str(value: Any) -> str | Any:
     """Attempts to convert a value to a string, returning the original value if the conversion fails.
 
     Args:
         value (Any): the value to attempt to coerce into an string
 
     Returns:
-        Optional[str]:
+        str | Any: The converted string if successful, otherwise the original value.
 
     """
     converted_value = coerce_str(value)
@@ -366,11 +555,12 @@ def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
     """Attempt to remove an item from a set and return the item if it exists.
 
     Args:
-        item (Hashable): The item to try to remove from the set
-        default (Optional[Hashable]): The object to return as a default if `item` is not found
+        s (Set[T]): The set to remove the item from.
+        item (T): The item to try to remove from the set
+        default (Optional[T]): The object to return as a default if `item` is not found
 
     Returns:
-        Optional[Hashable] `item` if the value is in the set, otherwise returns the specified default
+        T | None: `item` if the value is in the set, otherwise returns the specified default
 
     """
     try:
@@ -380,14 +570,15 @@ def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
         return default
 
 
-def try_dict(value: List | Tuple | Dict) -> Optional[Dict]:
+def try_dict(value: list | tuple | dict) -> Optional[dict]:
     """Attempts to convert a value into a dictionary, if possible. If it is not possible to convert the value into a
     dictionary, the function will return None.
 
     Args:
-        value (List[Dict | Tuple | Dict): The value to attempt to convert into a dict
+        value (list | tuple | dict): The value to attempt to convert into a dict
+
     Returns:
-        Optional[Dict]: The value converted into a dictionary if possible, otherwise None
+        Optional[dict]: The value converted into a dictionary if possible, otherwise None
 
     """
     if isinstance(value, dict):
@@ -414,14 +605,14 @@ def is_nested(obj: Any) -> bool:
 
 
 def get_values(obj: Iterable) -> Iterable:
-    """Automatically retrieves values from dictionaries when available and returns the original value if nested.
+    """Automatically retrieves `.values()` from dictionaries when available and returns the original input otherwise.
 
     Args:
         obj (Iterable): An object to get the values from.
 
     Returns:
-        An iterable created from `obj.values()` if the object is a dictionary and the original object otherwise.
-        If the object is empty or is not a nested object, an empty list is returned.
+        Iterable: An iterable created from `obj.values()` if the object is a dictionary and the original object otherwise.
+                  If the object is empty or is not a nested object, an empty list is returned.
 
     """
     if not is_nested(obj):
@@ -433,7 +624,7 @@ def is_nested_json(obj: Any) -> bool:
     """Check if a value is a nested, parsed JSON structure.
 
     Args:
-        record: The record to check.
+        obj (Any): The object to check.
 
     Returns:
         bool: False if the value is not a Json-like structure and, True if it is a nested JSON structure.
@@ -455,17 +646,16 @@ def is_nested_json(obj: Any) -> bool:
     return False
 
 
-def unlist_1d(current_data: Tuple | List | Any) -> Any:
+def unlist_1d(current_data: tuple | list | Any) -> Any:
     """Retrieves an element from a list/tuple if it contains only a single element. Otherwise, it will return the
     element as is. Useful for extracting text from a single element list/tuple.
 
     Args:
-        current_data (Tuple | List | Any): An object potentially unlist if it contains a single element.
+        current_data (tuple | list | Any): An object potentially unlist if it contains a single element.
 
     Returns:
-        Optional[Any]:
-            The unlisted object if it comes from a single element list/tuple,
-            otherwise returns the input unchanged.
+        Any: The unlisted object if it comes from a single element list/tuple,
+             otherwise returns the input unchanged.
 
     """
     if isinstance(current_data, (tuple, list)) and len(current_data) == 1:
@@ -473,14 +663,14 @@ def unlist_1d(current_data: Tuple | List | Any) -> Any:
     return current_data
 
 
-def as_list_1d(value: Any) -> List:
+def as_list_1d(value: Any) -> list:
     """Nests a value into a single element list if the value is not already a list.
 
     Args:
         value (Any): The value to add to a list if it is not already a list
 
     Returns:
-        List:
+        list:
             If already a list, the value is returned as is. Otherwise, the value is nested in a list.
             Caveat: if the value is None, an empty list is returned
 
@@ -490,16 +680,16 @@ def as_list_1d(value: Any) -> List:
     return []
 
 
-def path_search(obj: Union[Dict, List], key_to_find: str) -> list[str]:
+def path_search(obj: Union[dict, list], key_to_find: str) -> list[str]:
     """Searches for keys matching the regex pattern in the given dictionary. This function only verifies top-level keys
     rather than nested values.
 
     Args:
-        obj: The dictionary to search.
-        key_to_find: The regex pattern to search for.
+        obj (Union[dict, list]): The dictionary to search.
+        key_to_find (str): The regex pattern to search for.
 
     Returns:
-        A list of keys matching the pattern.
+        list[str]: A list of keys matching the pattern.
 
     """
     pattern = re.compile(f"{key_to_find}")
@@ -520,12 +710,13 @@ def try_call(
     contained within the list of errors to suppress.
 
     Args:
-        func: The function to call
-        args: A tuple of positional arguments to add to the function call
-        kwargs: A dictionary of keyword arguments to add to the function call
-        suppress: A tuple of exceptions to handle and suppress if they occur
-        logger: The logger to use for warning generation
-        default: The value to return in the event that an error occurs and is suppressed
+        func (Callable): The function to call
+        args (Optional[tuple]): A tuple of positional arguments to add to the function call
+        kwargs (Optional[dict]): A dictionary of keyword arguments to add to the function call
+        suppress (tuple): A tuple of exceptions to handle and suppress if they occur
+        logger (Optional[logging.Logger]): The logger to use for warning generation
+        log_level (int): The logging level to use when logging suppressed exceptions.
+        default (Optional[Any]): The value to return in the event that an error occurs and is suppressed
 
     Returns:
         Optional[Any]:
@@ -575,6 +766,9 @@ def generate_iso_timestamp() -> str:
 def format_iso_timestamp(timestamp: datetime) -> str:
     """Formats an iso timestamp string in UTC with millisecond precision.
 
+    Args:
+        timestamp (datetime): The datetime object to format.
+
     Returns:
         str: ISO 8601 formatted timestamp (e.g., "2024-03-15T14:30:00.123Z")
 
@@ -586,10 +780,10 @@ def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
     """Attempts to convert an ISO 8601 timestamp string back to a datetime object.
 
     Args:
-        timestamp_str: ISO 8601 formatted timestamp string
+        timestamp_str (str): ISO 8601 formatted timestamp string
 
     Returns:
-        datetime: datetime object if parsing succeeds, None otherwise
+        Optional[datetime]: datetime object if parsing succeeds, None otherwise
 
     """
     if not isinstance(timestamp_str, str):
@@ -603,19 +797,204 @@ def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
         return None
 
 
+def extract_year(value: Any, format: str = "%Y-%m-%d") -> Optional[int]:
+    """Extract a 4-digit year from a date string.
+
+    Attempts to parse the value using the specified format, then falls back to regex extraction.
+
+    Args:
+        value (Any): A value (generally a string or integer) potentially containing a year.
+        format: The expected date format (strptime format string). Defaults to "%Y-%m-%d".
+
+    Returns:
+        The extracted year as an integer, or None if extraction fails.
+
+    Examples:
+        >>> from datetime import date
+        >>> from scholar_flux.utils.helpers import extract_year
+        >>> extract_year(date(2027,5, 5))
+        # OUTPUT: 2027
+        >>> extract_year("2026-03-01")
+        # OUTPUT: 2026
+        >>> extract_year("03/15/2024", format="%m/%d/%Y")
+        # OUTPUT: 2024
+        >>> extract_year("2023")
+        # OUTPUT: 2023
+        >>> extract_year(None)
+        # OUTPUT: None
+
+    """
+    if (year_number := coerce_int(value)) and 1900 < year_number < 2100:
+        return year_number
+
+    if not isinstance(value, (str, date, datetime)):
+        return None
+
+    # Directly extracts year from datetime and dates
+    if isinstance(value, (date, datetime)):
+        return value.year
+
+    # Try parsing with specified format
+    try:
+        return datetime.strptime(value, format).year
+    except ValueError:
+        pass
+
+    # Fall back to regex for embedded years or year-only strings
+    match = re.search(r"\b\d{4}\b", value)
+    if match:
+        year_number = coerce_int(match.group())
+        return year_number if year_number and 1900 < year_number < 2100 else None
+
+    return None
+
+
+def convert_month_as_integer(month_str: Optional[str]) -> Optional[str]:
+    """Convert month name or number to zero-padded number.
+
+    Args:
+        month_str: Month as name ('Dec', 'January') or number ('12', '1')
+
+    Returns:
+        Zero-padded month number ('01'-'12') or None if invalid
+
+    Examples:
+        >>> convert_month_as_integer('Dec')
+        # OUTPUT: '12'
+        >>> convert_month_as_integer('1')
+        # OUTPUT: '01'
+        >>> convert_month_as_integer('January')
+        # OUTPUT: '01'
+        >>> convert_month_as_integer('')
+        # OUTPUT: None
+
+    """
+    month_map = {
+        "jan": "01",
+        "feb": "02",
+        "mar": "03",
+        "apr": "04",
+        "may": "05",
+        "jun": "06",
+        "jul": "07",
+        "aug": "08",
+        "sep": "09",
+        "oct": "10",
+        "nov": "11",
+        "dec": "12",
+    }
+    if not month_str:
+        return None
+    # If already numeric, zero-pad
+    if month_str.isdigit() and 1 <= int(month_str) <= 12:
+        return month_str.zfill(2)
+    # Convert name to number
+    return month_map.get(month_str.lower()[:3])
+
+
+def build_iso_date(
+    year: Optional[str],
+    month: Optional[str] = "",
+    day: Optional[str] = "",
+) -> Optional[str]:
+    """Build ISO-formatted date string with graduated precision.
+
+    Constructs date strings in ISO format with appropriate precision based on
+    available components. Returns full date (YYYY-MM-DD) if all components present,
+    year-month (YYYY-MM) if only year and month available, or year only (YYYY).
+
+    Args:
+        year (Optional[str]): Year as string (required for output)
+        month (Optional[str]): Month as string (name or number), optional
+        day (Optional[str]): Day as string, optional
+
+    Returns:
+        Optional[str]: ISO date string with graduated precision (YYYY-MM-DD, YYYY-MM, or YYYY),
+                       or None if year is empty/None
+
+    Examples:
+        >>> build_iso_date('2025', '12', '19')
+        # OUTPUT: '2025-12-19'
+        >>> build_iso_date('2025', 'Dec')
+        # OUTPUT: '2025-12'
+        >>> build_iso_date('2025', 'Dec', '19')
+        # OUTPUT: '2025-12-19'
+        >>> build_iso_date('2025')
+        # OUTPUT: '2025'
+        >>> build_iso_date('')
+        # OUTPUT: None
+
+    """
+    if not coerce_int(year):
+        return None
+
+    # Convert month format if converter provided
+    month_normalized = convert_month_as_integer(str(month))
+
+    # Extremely basic checks for validated days of the month
+    day = (str(day) if 1 <= day_number <= 31 else None) if (day_number := coerce_int(day)) else None
+
+    # Build date string with appropriate precision
+    if month_normalized and day:
+        return f"{year}-{month_normalized}-{day.zfill(2)}"
+    elif month_normalized:
+        return f"{year}-{month_normalized}"
+    else:
+        return str(year)
+
+
+def strip_html_tags(
+    text: str, parser: Literal["html.parser", "lxml"] = "html.parser", verbose: bool = True, **kwargs
+) -> str:
+    """Extracts the raw text from HTML while removing html elements such as paragraph tags and breaks.
+
+    Args:
+        text (str): The text to extract and remove html tags and elements from
+        parser (Literal['html.parser', 'lxml']): The parser to use for the removal of html elements
+        verbose (bool): Indicates whether issues regarding missing dependencies and incorrect types should be logged.
+        **kwargs:
+            Additional keyword arguments to be passed directly to `BeautifulSoup.get_text()`. Possible keywords include:
+            - separator (str): String inserted between elements (default: '')
+            - strip (bool): Whether to strip whitespace from element text (default: False)
+
+    Returns:
+        str: The string with text elements removed if the input is a string and the original input otherwise.
+
+    Examples:
+        >>> strip_html_tags("<p>Hello</p><p>World</p>")
+        'HelloWorld'
+        >>> strip_html_tags("<p>Hello</p><p>World</p>", separator=" ")
+        'Hello World'
+        >>> strip_html_tags("<p>  Whitespace  </p>", strip=True)
+        'Whitespace'
+
+    """
+    if BeautifulSoup is None:
+        if verbose:
+            logger.warning("`beautifulsoup4` is not installed. Skipping html tag removal...")
+        return text
+
+    return BeautifulSoup(text, parser).get_text(**kwargs) if text and isinstance(text, str) and "<" in text else text
+
+
 __all__ = [
     "get_nested_data",
+    "filter_record_key_prefixes",
+    "infer_text_pattern_search",
     "nested_key_exists",
     "get_first_available_key",
     "generate_response_hash",
     "coerce_int",
     "coerce_str",
+    "coerce_flattened_str",
+    "try_none",
     "try_str",
     "try_int",
     "try_dict",
     "try_pop",
     "try_call",
     "as_list_1d",
+    "as_tuple",
     "unlist_1d",
     "is_nested",
     "get_values",
@@ -623,7 +1002,10 @@ __all__ = [
     "try_quote_numeric",
     "quote_numeric",
     "quote_if_string",
+    "extract_year",
+    "build_iso_date",
     "generate_iso_timestamp",
     "format_iso_timestamp",
     "parse_iso_timestamp",
+    "strip_html_tags",
 ]

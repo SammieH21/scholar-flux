@@ -142,19 +142,19 @@ def test_session_manager_raise(caplog):
 
 
 def test_session_manager_backend_resolution(monkeypatch, caplog):
-    """Evaluates whether the CachedSessionManager catches and raises the intended error on env resolution failure."""
+    """Evaluates whether the `CachedSessionManager` catches and raises the intended error on env resolution failure."""
 
     env_variable = "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND"
 
     with monkeypatch.context() as m:
         m.setenv(env_variable, "REDIS")
-        # Redis (case-insensitive) is a valid backend - so no error should be raised
+        # Redis (case-insensitive) is a valid backend. No error should be raised:
         assert sm.CachedSessionManager(raise_on_error=True).backend == "redis"
 
         invalid_backend = "REDISSS"
         m.setenv(env_variable, invalid_backend)
 
-        # the fallback should be validated before use and raise a warning if the env variable is invalid
+        # The fallback should be validated before use and raise a warning if the env variable is invalid
         sqlite_session_fallback = sm.CachedSessionManager(raise_on_error=False)
         assert sqlite_session_fallback.backend == "sqlite"
         assert (
@@ -162,14 +162,14 @@ def test_session_manager_backend_resolution(monkeypatch, caplog):
             "Defaulting to the `sqlite` backend instead..."
         ) in caplog.text
 
-        # when errors are enabled, validation should occur normally
+        # When errors are enabled, validation should occur normally
         with pytest.raises(SessionConfigurationError) as excinfo:
             _ = sm.CachedSessionManager(raise_on_error=True)
         assert f"Requests-Cache does not support a backend by the name of {invalid_backend.lower()}" in str(
             excinfo.value
         )
 
-    # after the context the default backnd should be SQLite otherwise
+    # After the context, the default backend should be SQLite otherwise
     assert sm.CachedSessionManager(raise_on_error=True).backend == "sqlite"
 
 
@@ -187,15 +187,6 @@ def test_session_manager_cache_directory_creation_error(monkeypatch):
         _ = sm.CachedSessionManager._default_cache_directory()
 
     assert f"Could not create cache directory due to an exception: {err}" in str(excinfo.value)
-
-
-#
-#   mgr = sm.CachedSessionManager(
-#       user_agent="ua", cache_name="c", backend="sqlite", raise_on_error=False
-#   )
-
-#   session = mgr()
-#   assert isinstance(session, requests.Session)
 
 
 def test_path_edge_case():
@@ -246,13 +237,15 @@ def test_get_cache_directory_package_and_home(monkeypatch, tmp_path):
     In such cases, the directory used must fallback to home if it is writeable.
 
     """
-    monkeypatch.setattr(sm.session_models, "__file__", str(tmp_path / "fake.py"))
-    monkeypatch.setattr(Path, "mkdir", lambda self, **kwargs: None)
-    # Remove parent.exists() check by patching Path.exists
-    monkeypatch.setattr(Path, "exists", lambda self: False)
-    home = Path.home()
-    result = sm.CachedSessionManager.get_cache_directory()
-    assert str(home) in str(result)
+    with monkeypatch.context() as m:
+        m.setenv("SCHOLAR_FLUX_HOME", "")
+        m.setattr(Path, "mkdir", lambda self, **kwargs: None)
+        # Remove parent.exists() check by patching Path.exists
+        m.setattr(Path, "exists", lambda self: False)
+        # Patch `home` to a temporary directory to later verify that it is used as the fallback directory:
+        m.setattr(Path, "home", lambda: tmp_path)
+        result = sm.CachedSessionManager.get_cache_directory()
+        assert str(tmp_path) in str(result)
 
 
 def test_redis_session_manager_default_kwargs(caplog):

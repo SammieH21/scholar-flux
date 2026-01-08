@@ -2,10 +2,22 @@ import pytest
 from scholar_flux.data_storage import DataCacheManager
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage.null_storage import NullStorage
-from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
+from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage, DuckDBStorage
+from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
+from scholar_flux.data_storage.redis_storage import RedisStorage
+from scholar_flux.utils import config_settings
 from datetime import datetime, timezone
 from time import sleep
 import re
+
+
+def test_default_storage_types():
+    """Verifies that the names of storage types match their functionality or database implementation."""
+    assert RedisStorage.STORAGE_TYPE.upper() == "REDIS"
+    assert MongoDBStorage.STORAGE_TYPE.upper() == "MONGODB"
+    assert SQLAlchemyStorage.STORAGE_TYPE.upper() == "SQL"
+    assert InMemoryStorage.STORAGE_TYPE.upper() == "INMEMORY"
+    assert DuckDBStorage.STORAGE_TYPE.upper() == "DUCKDB"
 
 
 @pytest.mark.parametrize(
@@ -16,6 +28,8 @@ import re
         "mongo_nm_test_storage",
         "sqlite_test_storage",
         "sqlite_nm_test_storage",
+        "duckdb_test_storage",
+        "duckdb_nm_test_storage",
         "in_memory_test_storage",
         "in_memory_nm_test_storage",
     ],
@@ -32,20 +46,23 @@ def test_basic_cache_manager_operations(
     storage = request.getfixturevalue(storage_type)
     storage.delete_all()
     # Test cache key generation
+    storage.verify_connection()  # should not throw an error if a connection can be successfully established
     cache_key = DataCacheManager.generate_fallback_cache_key(mock_response)
     assert re.search(f"Generated fallback cache key: {cache_key}", caplog.text) is not None
     assert isinstance(cache_key, str)
     assert len(cache_key) > 0
 
+    data_dict = dict(
+        response=mock_response.content,
+        parsed_response=mock_cache_storage_data["parsed_response"],
+        processed_records=mock_cache_storage_data["processed_records"],
+        metadata=mock_cache_storage_data["metadata"],
+    )
+
     # Test update cache
     storage.update(
         key=cache_key,
-        data=dict(
-            response=mock_response.content,
-            parsed_response=mock_cache_storage_data["parsed_response"],
-            processed_records=mock_cache_storage_data["processed_records"],
-            metadata=mock_cache_storage_data["metadata"],
-        ),
+        data=data_dict,
     )
 
     # Test verify cache
@@ -57,6 +74,10 @@ def test_basic_cache_manager_operations(
     assert retrieved is not None
     assert retrieved["parsed_response"] == mock_cache_storage_data["parsed_response"]
     assert retrieved["processed_records"] == mock_cache_storage_data["processed_records"]
+
+    # Test overwrite
+    storage.update(key=cache_key, data=data_dict)
+    assert retrieved == storage.retrieve(cache_key)
 
     # Test delete
     storage.delete(cache_key)
@@ -85,6 +106,57 @@ def test_basic_cache_manager_operations(
     storage.delete_all()
 
 
+@pytest.mark.parametrize(
+    "storage_type",
+    [
+        "redis_test_storage",
+        "mongo_test_storage",
+    ],
+)
+def test_default_config_equivalence_at_runtime(storage_type, request, db_dependency_unavailable):
+    """Verifies that upon loading core scholar-flux, default static and dynamic host and port variables are equal."""
+    dependency_name = storage_type.split("_")[0]
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+    storage = request.getfixturevalue(storage_type)
+
+    default_config_dynamic = {
+        key: value for key, value in storage._get_default_config().items() if key in ("host", "port")
+    }
+    default_config_class_variable = {
+        key: value for key, value in storage.DEFAULT_CONFIG.items() if key in ("host", "port")
+    }
+
+    assert default_config_class_variable == default_config_dynamic
+
+
+@pytest.mark.parametrize(
+    "storage_type,host,port",
+    [
+        ("redis_test_storage", "SCHOLAR_FLUX_REDIS_HOST", "SCHOLAR_FLUX_REDIS_PORT"),
+        ("mongo_test_storage", "SCHOLAR_FLUX_MONGODB_HOST", "SCHOLAR_FLUX_MONGODB_PORT"),
+    ],
+)
+def test_default_config_settings_override(
+    storage_type, host, port, request, db_dependency_unavailable, restore_config_settings
+):
+    """Verifies that updating the host and port manually overrides the `DEFAULT_CONFIG` settings."""
+    dependency_name = storage_type.split("_")[0]
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+    storage = request.getfixturevalue(storage_type)
+
+    host_value = "temphostname"
+    port_value = 9999
+
+    config_settings.set(host, host_value)
+    config_settings.set(port, port_value)
+
+    default_config = storage._get_default_config()
+    assert default_config["host"] == host_value
+    assert default_config["port"] == port_value
+
+
 def test_null_storage_behavior(mock_response, null_test_storage):
     """Test DataCacheManager with NullStorage."""
 
@@ -94,6 +166,7 @@ def test_null_storage_behavior(mock_response, null_test_storage):
     # All operations should return False/None without error
     assert null_test_storage.verify_cache(cache_key) is False
     assert null_test_storage.retrieve(cache_key) is None
+    assert null_test_storage.verify_connection() is None
 
     # Update should not raise errors
     null_test_storage.update(key=cache_key, data=dict(response=mock_response.content, parsed_response={"test": "data"}))
@@ -124,7 +197,14 @@ def test_bool_operator(request, storage_type, db_dependency_unavailable):
 
 @pytest.mark.parametrize(
     "storage_type",
-    ["redis_test_storage", "mongo_test_storage", "sqlite_test_storage", "in_memory_test_storage", "null_test_storage"],
+    [
+        "redis_test_storage",
+        "mongo_test_storage",
+        "sqlite_test_storage",
+        "duckdb_test_storage",
+        "in_memory_test_storage",
+        "null_test_storage",
+    ],
 )
 def test_basic_instance_structure(storage_type, request, db_dependency_unavailable):
     """Verifies that all methods have the same set of fundamental variable names in their namespace.
@@ -156,6 +236,7 @@ def test_ttl_warn(sqlite_test_storage, caplog):
         "redis_test_storage",
         "mongo_test_storage",
         "sqlite_test_storage",
+        "duckdb_test_storage",
         "in_memory_test_storage",
     ],
 )
@@ -320,6 +401,7 @@ def test_no_operation_null_storage(caplog):
         "redis_test_storage",
         "mongo_test_storage",
         "sqlite_test_storage",
+        "duckdb_test_storage",
         "in_memory_test_storage",
     ],
 )
@@ -339,3 +421,41 @@ def test_delete_nonexistent_key(request, mock_response, storage_type, db_depende
         storage.delete(cache_key)
     except Exception as e:
         pytest.fail(f"Delete should not raise exception for non-existent key: {e}")
+
+
+@pytest.mark.parametrize(
+    "storage_class",
+    [
+        RedisStorage,
+        MongoDBStorage,
+    ],
+)
+def test_default_config_class_variable_override(storage_class, db_dependency_unavailable, monkeypatch):
+    """Verifies that modifying DEFAULT_CONFIG at class level affects _get_default_config()."""
+    dependency_name = storage_class.__name__.replace("Storage", "").lower()
+    if db_dependency_unavailable(dependency_name):
+        pytest.skip()
+
+    monkeypatch.setattr("scholar_flux.data_storage.mongodb_storage.config_settings.get", lambda *args, **kwargs: None)
+    monkeypatch.setattr("scholar_flux.data_storage.redis_storage.config_settings.get", lambda *args, **kwargs: None)
+
+    # Save original values
+    original_host = storage_class.DEFAULT_CONFIG.get("host")
+    original_port = storage_class.DEFAULT_CONFIG.get("port")
+
+    try:
+        # Modify class-level DEFAULT_CONFIG
+        storage_class.DEFAULT_CONFIG["host"] = "custom-host.example.com"
+        storage_class.DEFAULT_CONFIG["port"] = 9999
+
+        # Verify _get_default_config respects the modification
+        default_config = storage_class._get_default_config()
+        assert default_config["host"] == "custom-host.example.com"
+        assert default_config["port"] == 9999
+
+    finally:
+        # Restore original values
+        if original_host is not None:
+            storage_class.DEFAULT_CONFIG["host"] = original_host
+        if original_port is not None:
+            storage_class.DEFAULT_CONFIG["port"] = original_port

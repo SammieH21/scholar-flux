@@ -6,6 +6,7 @@ import pytest
 import re
 from typing import Any
 from textwrap import dedent
+from copy import deepcopy
 
 
 @pytest.fixture
@@ -38,6 +39,17 @@ def mock_complex_record_dictionary(mock_simple_record_dictionary: dict[str, Any]
         "mock_abstract": [paraphrased_abstract_text, attribution],
     }
     return mock_complex_record_dictionary
+
+
+@pytest.fixture
+def mock_testing_field_map() -> AcademicFieldMap:
+    """Fixture for testing and verifying field map normalization functionality."""
+    return AcademicFieldMap(
+        provider_name="scholar_flux_mocks",
+        title=["mock_title.name", "mock_title"],
+        doi=["mock_metadata.doi", "mock_doi"],
+        abstract="mock_abstract",
+    )
 
 
 def test_provider_name_overrides():
@@ -76,7 +88,7 @@ def test_base_field_map_representation():
 def test_missing_record_base_field_map_edge_cases():
     """Tests whether attempts at normalization with missing records/values show the absence of records on return."""
     base_mapping = BaseFieldMap(provider_name=None)  # type: ignore
-    assert base_mapping([]) == base_mapping(None) == []
+    assert base_mapping([]) == base_mapping(None) == []  # type: ignore
     assert base_mapping.apply([]) == []
     assert base_mapping.apply({}) == {"provider_name": None}
 
@@ -84,7 +96,7 @@ def test_missing_record_base_field_map_edge_cases():
 def test_field_map_apply_equivalence(mock_simple_record_dictionary):
     """Tests whether attempts at normalization with missing records/values show the absence of records on return."""
     base_mapping = BaseFieldMap(provider_name=None)  # type: ignore
-    assert base_mapping([]) == base_mapping(None) == []
+    assert base_mapping([]) == base_mapping(None) == []  # type: ignore
     assert base_mapping.apply(mock_simple_record_dictionary) == base_mapping.normalize_record(
         mock_simple_record_dictionary
     )
@@ -146,7 +158,7 @@ def test_base_field_map_type_exception(caplog):
 
     err = f"Expected a dictionary-typed record, but received a value of type '{type(None)}'."
     with pytest.raises(TypeError) as excinfo:
-        _ = mapping([None])
+        _ = mapping([None])  # type: ignore
 
     assert err in str(excinfo.value)
 
@@ -182,6 +194,23 @@ def test_complex_record_dict_simplification(mock_simple_record_dictionary, mock_
     complex_mapping.processor = processor
 
     complex_normalized_record = complex_mapping.normalize_record(mock_complex_record_dictionary)
+    assert complex_normalized_record == normalized_record
+
+
+def test_field_map_fallback_paths_produce_equivalent_normalized_record_dicts(
+    mock_testing_field_map, mock_simple_record_dictionary, mock_complex_record_dictionary
+):
+    """Verifies that normalization with fallbacks can produce equivalent outputs for both simple and nested records."""
+
+    normalized_record = mock_testing_field_map.normalize_record(mock_simple_record_dictionary)
+
+    processor = mock_testing_field_map.processor
+    processor.value_delimiter = ""  # join on an empty string (basic string concatenation)
+    mock_testing_field_map.processor = processor
+
+    complex_normalized_record = mock_testing_field_map.normalize_record(
+        mock_complex_record_dictionary, include_api_specific_fields=False
+    )
     assert complex_normalized_record == normalized_record
 
 
@@ -252,3 +281,11 @@ def test_incorrect_value_types(caplog):
     message = f"Expected record to be of type `dict`, but received a variable of {type(invalid_record_type)}"
     assert message in caplog.text
     assert message in str(excinfo.value)
+
+
+def test_normalize_record_does_not_mutate_input_record(mock_testing_field_map, mock_complex_record_dictionary):
+    """Verifies that normalization returns a new dict without modifying the original dictionary."""
+    original_record_dictionary = mock_complex_record_dictionary.copy()
+    deep_copied_record_dictionary = deepcopy(mock_complex_record_dictionary)
+    _ = mock_testing_field_map.normalize_record(original_record_dictionary)
+    assert original_record_dictionary == deep_copied_record_dictionary == mock_complex_record_dictionary

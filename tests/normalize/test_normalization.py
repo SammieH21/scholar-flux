@@ -10,11 +10,11 @@ from scholar_flux.api import (
     ReconstructedResponse,
 )
 from scholar_flux.api.models import SearchResult, SearchResultList
-from scholar_flux.data import RecursiveDataProcessor
+from scholar_flux.data import RecursiveDataProcessor, DataExtractor
 from scholar_flux.exceptions import RecordNormalizationException
-from contextlib import contextmanager
+from tests.testing_utilities import search_coordinator_mocking_context
 import pytest
-import requests_mock
+from functools import partial
 from typing import Callable, Generator, Any
 
 
@@ -49,6 +49,12 @@ def mock_field_map_kwargs():
         # Document metadata
         record_type="document_info.type",
         language="document_info.language",
+        api_specific_fields={"page_range": "page_range", "volume": "volume", "references": "references"},
+        default_field_values={
+            "page_range": "1-100",
+            "volume": "1",
+            "references": ["reference 1", "reference 2", "reference 3"],
+        },
     )
     return mock_field_map_kwargs
 
@@ -299,35 +305,17 @@ def default_search_coordinator(
     provider_name = "mock_academic_provider"
     record_count = len(mock_complex_json_records)
 
-    coordinator = SearchCoordinator(query="test-query", provider_name=provider_name, records_per_page=record_count)
+    coordinator = SearchCoordinator(
+        query="test-query", provider_name=provider_name, records_per_page=record_count, annotate_records=True
+    )
     coordinator.responses.processor.value_delimiter = None  # type: ignore
     yield coordinator
 
 
 @pytest.fixture
 def setup_mocking(default_search_coordinator: SearchCoordinator, response_json: dict) -> Callable:
-    """Creates a nested function used to mock search results using a coordinator, response JSON, and requests_mock."""
-
-    @contextmanager
-    def mocking_context(page: int = 1, json_data: dict | None = None) -> Generator[requests_mock.Mocker, None, None]:
-        """Context manager that uses the coordinator as well as the response json to mock a response."""
-        current_json_data = json_data or response_json
-        prepared_search = default_search_coordinator.api.prepare_search(page=page)
-        default_search_coordinator.responses.processor.value_delimiter = None  # type: ignore
-
-        provider_config = provider_registry[default_search_coordinator.api.provider_name]
-        assert provider_config and provider_config.field_map
-
-        with requests_mock.Mocker() as m:
-            m.get(
-                prepared_search.url,
-                json=current_json_data,
-                headers={"content-type": "application/json"},
-                status_code=200,
-            )
-            yield m
-
-    return mocking_context
+    """Creates a simple context for mocking searches to a URL given with the default search coordinator."""
+    return partial(search_coordinator_mocking_context, default_search_coordinator, json=response_json)
 
 
 def test_search_normalization(default_search_coordinator, setup_mocking):
@@ -339,9 +327,9 @@ def test_search_normalization(default_search_coordinator, setup_mocking):
     search_result = search_result_list[0]
 
     # will use the URL to resolve the response to the provider's field map
-    normalized_records = response.normalize()
-    normalized_records_two = search_result.normalize(update_records=False)
-    normalized_records_three = search_result_list.normalize(update_records=False)
+    normalized_records = response.normalize(strip_annotations=False)
+    normalized_records_two = search_result.normalize(update_records=False, strip_annotations=False)
+    normalized_records_three = search_result_list.normalize(update_records=False, strip_annotations=False)
 
     assert (
         normalized_records
@@ -352,6 +340,26 @@ def test_search_normalization(default_search_coordinator, setup_mocking):
     # the normalization with an ProcessedResponse/SearchResult/SearchResultList shouldn't affect the final result
     assert normalized_records == normalized_records_two
     assert normalized_records == normalized_records_three
+
+    # Record annotations should be preserved when `strip_annotations=False` is passed to `normalize()`
+    assert all(
+        DataExtractor.EXTRACTION_INDEX_KEY in record and DataExtractor.RECORD_ID_KEY in record
+        for record in normalized_records
+    )
+
+
+def test_search_normalization_annotation_removal(default_search_coordinator, setup_mocking):
+    """Verifies that `strip_annotations=True` removes all metadata annotations when used with `.normalize()`."""
+    with setup_mocking(page=1) as _:
+        search_result_list = default_search_coordinator.search_pages(pages=[1])
+    normalized_records = search_result_list.normalize(strip_annotations=True)
+    assert normalized_records
+
+    # Annotated fields should not remain in any normalized record
+    assert all(
+        record and DataExtractor.EXTRACTION_INDEX_KEY not in record and DataExtractor.RECORD_ID_KEY not in record
+        for record in normalized_records
+    )
 
 
 def test_search_normalization_structure(default_search_coordinator, setup_mocking):
@@ -374,6 +382,92 @@ def test_search_normalization_structure(default_search_coordinator, setup_mockin
     assert all(field in record for field in fields for record in normalized_records)
 
 
+def test_search_normalization_contents(default_search_coordinator, setup_mocking):
+    """Verifies that the contents of each normalized record contain common fields with the assigned fallback defaults."""
+    provider_config = provider_registry[default_search_coordinator.api.provider_name]
+    assert provider_config and provider_config.field_map
+    field_map = provider_config.field_map
+
+    with setup_mocking(page=1) as _:
+        response = default_search_coordinator.search(page=1, normalize_records=True)
+
+    normalized_records = response.normalized_records
+
+    # The record should have all fields (including API specific)
+    assert all(field in record for field in field_map.fields for record in normalized_records)
+
+    default_fields = field_map.default_field_values
+
+    # All default fields should appear in the record contain default values if not otherwise found in the current record
+    assert all(record[field] == value for field, value in default_fields.items() for record in normalized_records)
+
+
+def test_search_normalization_contents_without_api_specific_fields(default_search_coordinator, setup_mocking):
+    """Verifies that `search_page` can receive and pass the `include_api_specific_fields` parameter to filter fields."""
+    provider_config = provider_registry[default_search_coordinator.api.provider_name]
+    assert provider_config and provider_config.field_map
+    field_map = provider_config.field_map
+
+    with setup_mocking(page=1) as _:
+        response = default_search_coordinator.search_page(page=1)
+
+    # Shouldn't retain API-specific parameters after post-processing steps.
+    # Note: SearchResult.normalize() passes `include_api_specific_fields` to `ProcessedResponse.normalize()`
+    # And `ProcessedResponse.normalize()` passes `include_api_specific_fields` to `AcademicFieldMap.normalize()`
+    normalized_records = response.normalize(include_api_specific_fields=False)
+
+    # All core fields should appear in each record. All API-specific fields should have been removed.
+    assert all(
+        (field in record) ^ (field not in field_map.core_fields)  # Only one of these conditions should be true
+        for field in field_map.fields
+        for record in normalized_records
+    )
+
+
+@pytest.mark.parametrize(
+    "api_specific_fields_to_keep", ("references", ["volume"], {}, {"page_range", "volume"}, None, False, True)
+)
+def test_search_pages_normalization_filtering_behavior_with_different_inputs(
+    api_specific_fields_to_keep, default_search_coordinator, setup_mocking
+):
+    """Verifies that `search_pages` delegates filtering via `include_api_specific_fields` to the current FieldMap.
+
+    Core fields are always retained, but whether API-specific fields are retained depends on
+    `include_api_specific_fields`.
+
+    The filtering behavior is determined by `BaseFieldMap.filter_fields` alone. Other steps ideally gracefully
+    pass the `include_api_specific_fields` to the inherited method, regardless of the input.
+
+    Input Behavior:
+        - True | None: Keep all API-specific fields
+        - False: Keep no API-specific fields
+        - String/Sequence/Set: API-specific fields are retained when they appear in prepared set of fields to keep
+
+    """
+    provider_config = provider_registry[default_search_coordinator.api.provider_name]
+    assert provider_config and provider_config.field_map
+    field_map = provider_config.field_map
+
+    with setup_mocking(page=1) as _:
+        search_results = default_search_coordinator.search_pages(pages=[1])
+
+    # For True and None, we expect all API fields to show in the final record
+    expected_api_fields = (
+        (api_specific_fields_to_keep or [])
+        if api_specific_fields_to_keep not in (True, None)
+        else field_map.api_specific_fields.keys()
+    )
+
+    # Only API-specific parameters that are within the list of sequences should appear in each record
+    normalized_records = search_results.normalize(include_api_specific_fields=api_specific_fields_to_keep)
+
+    assert all(
+        (field in record) ^ (field not in (expected_api_fields))
+        for record in normalized_records
+        for field in field_map.api_specific_fields
+    )
+
+
 def test_recursive_normalization_equality(default_search_coordinator, setup_mocking):
     """Tests whether the normalization of flattened and unflattened JSON records should return equal results."""
 
@@ -387,9 +481,28 @@ def test_recursive_normalization_equality(default_search_coordinator, setup_mock
     assert isinstance(response, ProcessedResponse)
 
     # will use the URL to resolve the response to the provider's field map
-    normalized_records = response.normalize()
+    normalized_records = response.normalize(strip_annotations=False)
     recursively_processed_records = test_processor(response.extracted_records)
     normalized_records_two = provider_config.field_map(recursively_processed_records)
     assert normalized_records == normalized_records_two
 
     assert normalized_records[0]["url"] and normalized_records[0]["url"] == normalized_records[0]["record_id"]
+
+
+def test_noop_normalization_with_api_response():
+    """Verifies that NoOp normalization methods raise NotImplementedErrors when not overridden."""
+    api_response = APIResponse()
+    with pytest.raises(NotImplementedError):
+        api_response.normalize()
+    with pytest.raises(NotImplementedError):
+        api_response.build_record_id_index()
+    with pytest.raises(NotImplementedError):
+        api_response.resolve_extracted_record({})
+
+
+def test_noop_normalization_with_error_response():
+    """Verifies that NoOp normalization with `ErrorResponse` subclasses returns None or empty responses."""
+    error_response = ErrorResponse()
+    assert error_response.normalize(raise_on_error=False) == []
+    assert error_response.build_record_id_index() == {}
+    assert error_response.resolve_extracted_record({}) is None  # type: ignore

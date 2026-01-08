@@ -8,8 +8,10 @@ structure of the response is not provided.
 
 """
 from typing import Any, Optional, Union
+from typing_extensions import Self
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import get_nested_data, try_int, try_dict, as_list_1d, unlist_1d, PathUtils
+from scholar_flux.utils.record_types import RecordList, MetadataType
 from scholar_flux.utils.repr_utils import generate_repr
 
 import logging
@@ -166,7 +168,7 @@ class BaseDataExtractor:
             ) from e
         return None
 
-    def extract_metadata(self, parsed_page_dict: dict[str, Any]) -> dict[str, Any]:
+    def extract_metadata(self, parsed_page_dict: dict[str, Any]) -> MetadataType:
         """Extract metadata from the parsed page dictionary.
 
         Args:
@@ -207,14 +209,14 @@ class BaseDataExtractor:
 
         return metadata
 
-    def extract_records(self, parsed_page_dict: dict) -> Optional[list[dict[str, Any]]]:
+    def extract_records(self, parsed_page_dict: dict) -> Optional[RecordList]:
         """Extract records from parsed data as a list of dicts.
 
         Args:
             parsed_page_dict (Dict): The dictionary containing the page data to be parsed.
 
         Returns:
-            Optional[List[Dict]]: A list of records as dictionaries, or None if extraction fails.
+            Optional[RecordList]: A list of records as dictionaries, or None if extraction fails.
 
         """
         try:
@@ -240,8 +242,8 @@ class BaseDataExtractor:
         dictionary.
 
         Args:
-            parsed_page (List[Dict] | Dict): The list or dictionary containing the page data and metadata to be
-                                             extracted.
+            parsed_page (List[Dict] | Dict):
+                The list or dictionary containing the page data and metadata to be extracted.
 
         Returns:
             Dict]: A dictionary containing the metadata and records to extract
@@ -262,14 +264,15 @@ class BaseDataExtractor:
             parsed_page = parsed_page_dict
         return parsed_page
 
-    def extract(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
+    def extract(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[RecordList], Optional[MetadataType]]:
         """Extract both records and metadata from the parsed page dictionary.
 
         Args:
             parsed_page (Union[list[dict], dict]): The dictionary containing the page data and metadata to be extracted.
 
         Returns:
-            Tuple[Optional[list[dict]], Optional[dict]]: A tuple containing the list of records and the metadata dictionary.
+            tuple[Optional[RecordList], Optional[MetadataType]]:
+                A tuple containing the list of records and the metadata dictionary.
 
         """
 
@@ -280,14 +283,14 @@ class BaseDataExtractor:
 
         return records, metadata
 
-    def __call__(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[list[dict]], Optional[dict[str, Any]]]:
+    def __call__(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[RecordList], Optional[MetadataType]]:
         """Helper method enabling users to call the extractor as a function to extract both records and metadata.
 
         Args:
             parsed_page (List[Dict] | Dict): The dictionary containing the page data and metadata to be extracted.
 
         Returns:
-            Tuple[Optional[List[Dict]], Optional[Dict]]: A tuple containing the list of records and the metadata dictionary.
+            tuple[Optional[RecordList], Optional[MetadataType]]: A tuple containing the list of records and the metadata dictionary.
 
         """
         return self.extract(parsed_page)
@@ -313,6 +316,28 @@ class BaseDataExtractor:
 
         """
         return self.structure()
+
+    @classmethod
+    def update(cls, data_extractor: Self, **data_extractor_kwargs) -> Self:
+        """Helper method for creating a new BaseDataExtractor instance, replacing only the specified components.
+
+        Args:
+            data_extractor (Self): A previously created BaseDataExtractor instance
+            **data_extractor_kwargs:
+                Keyword arguments used to replace components of the BaseDataExtractor. Unspecified fields are assigned
+                their the value from the previous BaseDataExtractor.
+        Returns:
+            BaseDataExtractor: A new data extractor instance with the specified parameter updates
+        """
+        if not isinstance(data_extractor, BaseDataExtractor):
+            raise TypeError(
+                "Expected a BaseDataExtractor or subclass to perform parameter updates. Received type "
+                f"{type(data_extractor)}"
+            )
+        return cls(
+            record_path=data_extractor_kwargs.get("record_path", data_extractor.record_path),
+            metadata_path=data_extractor_kwargs.get("metadata_path", data_extractor.metadata_path),
+        )
 
 
 __all__ = ["BaseDataExtractor"]

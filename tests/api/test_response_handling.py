@@ -131,7 +131,7 @@ def test_empty_data_parsing_exception(plos_page_1_response, monkeypatch, caplog)
     assert "The parsed response contained no parsable content" in str(excinfo.value)
 
 
-def test_inccorrect_data_parsing_exception(plos_page_1_response, monkeypatch, caplog):
+def test_incorrect_data_parsing_exception(plos_page_1_response, monkeypatch, caplog):
     """Ensures that upon receiving a None value from the `parse` method of the response_coordinator.parser, the
     `handle_response` method will raise a DataParsingException."""
 

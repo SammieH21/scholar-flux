@@ -82,6 +82,24 @@ def test_provider_registry_mappings(provider_name):
     assert isinstance(config.field_map, BaseFieldMap) and isinstance(config.parameter_map, BaseAPIParameterMap)
 
 
+@pytest.mark.parametrize(
+    "key,regex,expected",
+    [
+        ("pubmed", False, {"pubmed", "pubmedefetch"}),
+        ("core", False, {"core"}),
+        ("springer", False, {"springernature"}),
+        (re.compile("spring|core|pubmed"), True, {"springernature", "core", "pubmed", "pubmedefetch"}),
+        (re.compile("arxiv"), False, {"arxiv"}),  # patterns should be converted to strings if regex=False
+        (re.compile("arxiv|open"), None, {"arxiv", "openalex"}),  # assume regex by default with a pattern
+        ("arxiv|open", None, set()),  # unless explicitly provided with a re.Pattern
+        ([23], None, set()),  # unless explicitly provided with a re.Pattern
+    ],
+)
+def test_provider_registry_find_provider_names(key, regex, expected):
+    """Verifies that the `find` method retrieves the expected set of (normalized)providers."""
+    assert set(provider_registry.find(key, regex)) == expected
+
+
 @pytest.mark.parametrize("provider_name", EXPECTED_PROVIDERS)
 def test_rate_limiter_registry_get_from_url_resolution(provider_name):
     """Verifies that all providers have URLs that can be resolved from both `get()` and `get_from_url()`."""
@@ -92,7 +110,7 @@ def test_rate_limiter_registry_get_from_url_resolution(provider_name):
 
 @pytest.mark.parametrize("bad_url", ("https://example-url-with-no-limiter.com", "", None))
 def test_rate_limiter_registry_get_from_url_unresolvable(bad_url):
-    """Verifies that unkown or missing URLs ('', None) return a `None` result on URL resolution."""
+    """Verifies that unknown or missing URLs ('', None) return a `None` result on URL resolution."""
     limiter_from_none = rate_limiter_registry.get_from_url(bad_url)
     assert limiter_from_none is None
 

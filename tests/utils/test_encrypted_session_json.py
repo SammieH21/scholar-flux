@@ -114,7 +114,7 @@ def test_encrypted_cached_session_initialization(
     """Verifies that, when available, the EncryptionPipelineFactory works as intended to encrypt session cache when
     using the initial fernet key for session encryption and decryption.
 
-    Also validates that, when a new fernet key is used to attempt to access the same encrypted cache sql file with a a
+    Also validates that, when a new fernet key is used to attempt to access the same encrypted cache sql file with a
     session encryption pipeline, the SearchAPI will instead raise an InvalidToken error indicating that the previously
     accessible resource can't be accessed with the current, incorrect Fernet key.
 

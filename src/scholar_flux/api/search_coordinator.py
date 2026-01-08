@@ -2,6 +2,7 @@
 """Implements the SearchCoordinator for orchestrating single/multi-page API response retrieval and record processing."""
 from __future__ import annotations
 from typing import List, Dict, Optional, Any, Sequence, cast, Generator
+from typing_extensions import Self
 from requests import PreparedRequest, Response
 from pydantic import ValidationError
 import logging
@@ -39,6 +40,8 @@ from scholar_flux.exceptions import (
 from scholar_flux.api import BaseCoordinator
 from scholar_flux.api.workflows import WORKFLOW_DEFAULTS, SearchWorkflow
 
+from functools import partial
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +64,7 @@ class SearchCoordinator(BaseCoordinator):
         self,
         search_api: Optional[SearchAPI] = None,
         response_coordinator: Optional[ResponseCoordinator] = None,
+        *,
         parser: Optional[BaseDataParser] = None,
         extractor: Optional[BaseDataExtractor] = None,
         processor: Optional[ABCDataProcessor] = None,
@@ -69,6 +73,7 @@ class SearchCoordinator(BaseCoordinator):
         provider_name: Optional[str] = None,
         cache_requests: Optional[bool] = None,
         cache_results: Optional[bool] = None,
+        annotate_records: Optional[bool] = None,
         retry_handler: Optional[RetryHandler] = None,
         validator: Optional[ResponseValidator] = None,
         workflow: Optional[SearchWorkflow] = None,
@@ -109,7 +114,7 @@ class SearchCoordinator(BaseCoordinator):
             search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs.
             response_coordinator (Optional[ResponseCoordinator]):
                 Core class used to coordinate the handling and processing of all responses received from APIs.
-            parser (Optional(BaseDataParser)):
+            parser (Optional[BaseDataParser]):
                 First step of the response processing pipeline - parses response records into a dictionary.
             extractor (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately.
             processor (Optional[ABCDataProcessor]):
@@ -122,10 +127,13 @@ class SearchCoordinator(BaseCoordinator):
             provider_name (Optional[str]):
                 The name of the API provider where requests will be sent. If a provider_name and base_url are both
                 given, the SearchAPIConfig will prioritize base_urls over the provider_name.
-            cache_requestOptional[bool]):
+            cache_requests (Optional[bool]):
                 Determines whether or not to cache requests - api is the ground truth if not directly specified
             cache_results (Optional[bool]):
                 Determines whether or not to cache processed responses - on by default unless specified otherwise
+            annotate_records (Optional[bool]):
+                Indicates whether the DataExtractor should add unique, record-identifying fields to each extracted
+                record. These fields aid in record-linkage and the hashed identification of duplicates in later steps.
             retry_handler (Optional[RetryHandler]): Class used to retry failed requests-cache.
             validator (Optional[ResponseValidator]): Class used to verify and validate responses returned from APIs.
             workflow (Optional[SearchWorkflow]):
@@ -161,7 +169,7 @@ class SearchCoordinator(BaseCoordinator):
         )
 
         response_coordinator = self._create_response_coordinator(
-            response_coordinator, parser, extractor, processor, cache_manager, cache_results
+            response_coordinator, parser, extractor, processor, cache_manager, cache_results, annotate_records
         )
 
         self._initialize(api, response_coordinator, retry_handler, validator, workflow)
@@ -258,6 +266,7 @@ class SearchCoordinator(BaseCoordinator):
         processor: Optional[ABCDataProcessor] = None,
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
+        annotate_records: Optional[bool] = None,
     ) -> ResponseCoordinator:
         """Helper method for creating a new response coordinator either from an existing response coordinator with
         overrides or created anew entirely from its core dependencies.
@@ -275,6 +284,9 @@ class SearchCoordinator(BaseCoordinator):
             cache_manager (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
             cache_results (Optional[bool]):
                 Determines whether or not to cache processed responses. On by default unless specified otherwise.
+            annotate_records (Optional[bool]):
+                Indicates whether the DataExtractor should add unique, record-identifying fields to each extracted
+                record. These fields aid in record-linkage and the hashed identification of duplicates in later steps.
 
         Returns:
             ResponseCoordinator:
@@ -284,10 +296,10 @@ class SearchCoordinator(BaseCoordinator):
         """
         try:
             coordinator = (
-                ResponseCoordinator.build(parser, extractor, processor, cache_manager, cache_results)
+                ResponseCoordinator.build(parser, extractor, processor, cache_manager, cache_results, annotate_records)
                 if not response_coordinator
                 else ResponseCoordinator.update(
-                    response_coordinator, parser, extractor, processor, cache_manager, cache_results
+                    response_coordinator, parser, extractor, processor, cache_manager, cache_results, annotate_records
                 )
             )
         except (APIParameterException, InvalidCoordinatorParameterException) as e:
@@ -322,45 +334,103 @@ class SearchCoordinator(BaseCoordinator):
     @classmethod
     def update(
         cls,
-        search_coordinator: SearchCoordinator,
+        search_coordinator: Self,
         search_api: Optional[SearchAPI] = None,
         response_coordinator: Optional[ResponseCoordinator] = None,
+        *,
         retry_handler: Optional[RetryHandler] = None,
         validator: Optional[ResponseValidator] = None,
         workflow: Optional[SearchWorkflow] = None,
+        parser: Optional[BaseDataParser] = None,
+        extractor: Optional[BaseDataExtractor] = None,
+        processor: Optional[ABCDataProcessor] = None,
+        cache_manager: Optional[DataCacheManager] = None,
+        cache_results: Optional[bool] = None,
+        annotate_records: Optional[bool] = None,
+        **search_api_kwargs,
     ) -> SearchCoordinator:
-        """Helper factory method allowing the creation of a new components based on an existing configuration while
-        allowing the replacement of previous components. Note that this implementation does not directly copy the
+        """Helper factory method allowing the creation of a new SearchCoordinator from both current and new components.
+
+        A new coordinator can be created using the components from an existing configuration as a base while directly
+        replacing other components with new configurations. Note that this implementation does not directly copy the
         underlying components if a new component is not selected.
 
         Args:
-            SearchCoordinator: A previously created coordinator containing the components to use if a default
-                               is not provided
-            search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
-            response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
-                                                                 core handling of all responses from APIs
-            retry_handler (Optional[RetryHandler]): class used to retry failed requests-cache
-            validator (Optional[ResponseValidator]): class used to verify and validate responses returned from APIs
-            workflow (Optional[SearchWorkflow]): An optional workflow used to customize how records are retrieved
-                                                 from APIs. Uses the default workflow for the current provider when
-                                                 a workflow is not directly specified and does not directly carry
-                                                 over in cases where a new provider is chosen.
+            SearchCoordinator:
+                A previously created coordinator containing the components to use if a default is not provided
+            search_api (Optional[SearchAPI]):
+                The search API to use for the retrieval of response records from APIs
+            response_coordinator (Optional[ResponseCoordinator]):
+                Core class used to handle the processing and core handling of all responses from APIs
+            retry_handler (Optional[RetryHandler]):
+                Class used to retry failed requests-cache
+            validator (Optional[ResponseValidator]):
+                Class used to verify and validate responses returned from APIs
+            workflow (Optional[SearchWorkflow]):
+                An optional workflow used to customize how records are retrieved from APIs. Uses the default workflow
+                for the current provider when a workflow is not directly specified and does not directly carry over in
+                cases where a new provider is chosen.
+            parser: (Optional[BaseDataParser]):
+                First step of the response processing pipeline - parses response records into a dictionary
+            extractor: (Optional[BaseDataExtractor]):
+                Extracts both records and metadata from responses separately
+            processor: (Optional[ABCDataProcessor]):
+                Processes API responses into list of dictionaries
+            cache_manager: (Optional[DataCacheManager]):
+                Manages the caching of processed records for faster retrieval
+            cache_requests: (Optional[bool]):
+                Determines whether or not to cache requests - api is the ground truth if not directly specified
+            cache_results: (Optional[bool]):
+                Determines whether or not to cache processed responses - on by default unless specified or if a cache
+                manager is already provided.
+            annotate_records (Optional[bool]):
+                When True, adds record-identifying linkage fields to each extracted record for resolution back to
+                original data after processing or flattening. Adds `_extraction_index` (position) and `_record_id`
+                (content hash + index). Default is None (no annotation).
+
         Returns:
             SearchCoordinator: A newly created coordinator that orchestrates record retrieval and processing
 
         """
+        if not isinstance(search_coordinator, SearchCoordinator):
+            raise InvalidCoordinatorParameterException(
+                f"Expected a SearchCoordinator to perform parameter updates. Received type {type(search_coordinator)}"
+            )
+
+        # Keeping or replacing existing SearchAPI components
         search_api = search_api or search_coordinator.search_api
+
+        updated_search_api = (
+            cls._create_search_api(
+                search_api or search_coordinator.search_api,
+                **search_api_kwargs,
+            )
+            if search_api_kwargs
+            else search_api
+        )
+
+        # Keeping or replacing existing ResponseCoordinator components
+        response_coordinator_components = (parser, extractor, processor, cache_manager, cache_results, annotate_records)
+        response_coordinator = response_coordinator or search_coordinator.response_coordinator
+
+        updated_response_coordinator = (
+            cls._create_response_coordinator(response_coordinator, *response_coordinator_components)
+            if any(arg is not None for arg in response_coordinator_components)
+            else response_coordinator
+        )
+
         if workflow is None:
             # use the previous workflow only if the providers are the same
             workflow = (
                 search_coordinator.workflow
-                if search_coordinator.search_api.provider_name == search_api.provider_name
+                if search_coordinator.search_api.provider_name == updated_search_api.provider_name
                 else None
             )
 
+        # Validates SearchAPI and ResponseCoordinator components on creation
         return cls.as_coordinator(
-            search_api=search_api,
-            response_coordinator=response_coordinator or search_coordinator.response_coordinator,
+            search_api=updated_search_api,
+            response_coordinator=updated_response_coordinator,
             retry_handler=retry_handler or search_coordinator.retry_handler,
             validator=validator or search_coordinator.validator,
             workflow=workflow,
@@ -707,7 +777,7 @@ class SearchCoordinator(BaseCoordinator):
                 len(response_result.extracted_records or []) < expected_page_count and pages_remaining is None
             ):
                 logger.warning(
-                    f"The response for page, {page} contains less than the expected "
+                    f"The response from {self.display_name} for page, {page} contains less than the expected "
                     f"{expected_page_count} records. Received {repr(response_result)}. "
                     f"Halting multi-page retrieval..."
                 )
@@ -724,7 +794,7 @@ class SearchCoordinator(BaseCoordinator):
             )
 
             logger.warning(
-                f"Received an invalid response for page {page}. "
+                f"Received an invalid response from {self.display_name} for page {page}. "
                 f"{status_description}. Halting multi-page retrieval..."
             )
         else:
@@ -878,7 +948,13 @@ class SearchCoordinator(BaseCoordinator):
             # Refer to the delay calculated from a valid `retry_after_date` as the source of truth when possible.
             # If not available, attempt to extract a creation date from the APIResponse container.
             reference_time = None if retry_after_date else parse_iso_timestamp(last_response.created_at or "")
-            self.api.rate_limiter.wait_since(delay, reference_time)
+            self.api.rate_limiter.wait_since(
+                delay,
+                reference_time,
+                metadata=dict(
+                    url=self.api.base_url, caller="_respect_retry_after", request_delay=delay, query=self.api.query
+                ),
+            )
 
     def robust_request(self, page: Optional[int], **api_specific_parameters) -> Optional[Response | ResponseProtocol]:
         """Constructs and sends a request to the current API. Fetches a response from the current API.
@@ -893,7 +969,11 @@ class SearchCoordinator(BaseCoordinator):
 
         """
         try:
-            request_delay = api_specific_parameters.get("request_delay") or self.api.request_delay
+            request_delay = api_specific_parameters.get("request_delay") or (
+                self.api.request_delay
+                if self.api.request_delay > self.retry_handler.min_retry_delay
+                else self.retry_handler.min_retry_delay
+            )
 
             if api_specific_parameter_fields := self.api.parameter_config.extract_parameters(api_specific_parameters):
                 api_specific_parameters["parameters"] = api_specific_parameter_fields
@@ -901,10 +981,13 @@ class SearchCoordinator(BaseCoordinator):
             response = self.retry_handler.execute_with_retry(
                 request_func=self.search_api.search,
                 validator_func=self.validator.validate_response,
-                sleep_func=self.api.rate_limiter.sleep,
+                sleep_func=partial(
+                    self.api.rate_limiter.sleep,
+                    metadata=dict(url=self.api.base_url, caller="execute_with_retry", page=page, query=self.api.query),
+                ),
                 page=page,
                 min_retry_delay=request_delay,
-                backoff_factor=min(request_delay * 0.25, 0.5),
+                backoff_factor=max(min(request_delay * 0.25, 0.5), self.retry_handler.backoff_factor),
                 **api_specific_parameters,
             )
 

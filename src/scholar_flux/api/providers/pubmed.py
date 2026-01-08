@@ -61,6 +61,7 @@ provider = ProviderConfig(
     records_per_page=20,
     request_delay=2,
     docs_url="https://www.ncbi.nlm.nih.gov/books/NBK25499/",
+    display_name="PubMed",
 )
 
 __all__ = ["provider"]
