@@ -1,5 +1,6 @@
 poetry.lock
 requirements.txt
+.python-version
 
 
 # Byte-compiled / optimized / DLL files

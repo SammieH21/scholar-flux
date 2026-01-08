@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.4.0b2] - 01/16/2026
+## [0.4.0] - 01/17/2026
 **Note**: While this version bump introduces substantial improvements, no major changes are necessary to migrate from version 0.3.1 to 0.4.0 (fully backward compatible).
 
 ### Added
@@ -63,6 +63,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Improved
 - Added test coverage for new features (record annotation, record normalization, storage verification, observability, DuckDB storage, etc.) and existing features (security/masking, configuration management, and logging, API ergonomics, etc.) increasing test coverage from 96% to 97%.
 - Improved documentation, grammar, and type hints throughout.
+- Verified explicit support for Python 3.14 via `pytest`, `mypy`/`ruff`, and integration testing
 
 ### Fixed
 - The `APIParameterConfig.extract_parameters` method now extracts and returns only parameters that can be found in the `parameters` dictionary instead of including known, but missing, parameters with a default value `None`. This prevents overwriting API-specific parameters that are specified only in the configuration in subsequent stages of workflows. This also has the effect of ensuring that the `eFetch` of the `PubMed` workflow correctly sends record IDs that we wish to retrieve data for.
@@ -70,7 +71,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Developer Notes:
 - Added a Makefile for easier discovery and automation of package development tasks and workflows (install, test, lint, format, help, shell, spell_checker, docs).
 - Added `CLAUDE.md` and `.github/AI_ASSISTED_PROMPTS.md` to support automated code review, analysis of potential security risks/breaking changes, and scans for test coverage. The CLAUDE.md essentially gives large language models a tailored intro into the package and directs resources where beneficial, and the `.github/AI_ASSISTED_PROMPTS.md` provides a curated set of prompt templates to support development. While primarily intended for code review, any edits should always follow core philosophy mentioned in the `CONTRIBUTING.md`: Understand what you commit.
-- Added a `CITATION.cff` and a `README.md` citation section for researchers for those who use or may use `ScholarFlux` in their work.
+- Added a `CITATION.cff` and a `README.md` citation section for researchers who use or may use `ScholarFlux` in their work.
+- Updated the `tox.ini` and `.github/workflows/ci.yml` to explicitly run the full test suite on Python 3.14 (in addition to Python versions 3.10+). These two files are used to define the continuous integration github workflow tests ('ci.yml') and the steps required for testing, linting, and determining test coverage (`tox.ini`)
 - Restructured the flow of the README.md into (more) logical subsections and added a direct `Table of Contents` section while renaming the previous `Table of Contents` section to `Quick Links`. Also added a caveat to the `README.md` and the `caching_strategies.rst` to advise that users check the TOS of each provider before implementing cache for downstream use. The `NOTICE` file now states explicitly that contributors and authors claim no liability for misuse and violations of the terms of service of an API provider.
 
 ## [0.3.1] - 12/13/2025

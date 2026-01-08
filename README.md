@@ -534,15 +534,15 @@ else:
 
 ScholarFlux includes pre-configured support for these academic databases:
 
-| Provider | Search | Normalization | Special Features |
-|----------|--------|---------------|------------------|
-| **arXiv** | ✅ | ✅ | Preprints, categories |
-| **Crossref** | ✅ | ✅ | DOI metadata, funding |
-| **CORE** | ✅ | ✅ | Open access aggregator |
-| **OpenAlex** | ✅ | ✅ | Comprehensive metadata |
-| **PLOS** | ✅ | ✅ | Open access biology |
-| **PubMed** | ✅ | ✅ | Two-step workflow (search → fetch) |
-| **Springer Nature** | ✅ | ✅ | Requires API key |
+| Provider            | Search | Normalization | Special Features                   |
+| ------------------- | ------ | ------------- | ---------------------------------- |
+| **arXiv**           | ✅     | ✅            | Preprints, categories              |
+| **Crossref**        | ✅     | ✅            | DOI metadata, funding              |
+| **CORE**            | ✅     | ✅            | Open access aggregator             |
+| **OpenAlex**        | ✅     | ✅            | Comprehensive metadata             |
+| **PLOS**            | ✅     | ✅            | Open access biology                |
+| **PubMed**          | ✅     | ✅            | Two-step workflow (search → fetch) |
+| **Springer Nature** | ✅     | ✅            | Requires API key                   |
 
 All providers support:
 - Automatic rate limiting with proactive `Retry-After` handling
@@ -680,14 +680,14 @@ For detailed comparison, see the [documentation](https://SammieH21.github.io/sch
 
 ## What's New in v0.4.0
 
-v0.4.0 delivers **API-Aware Normalization Post-Processing Pipelines**, **Request Observability Infrastructure**, and **Production Hardening** for data engineering, research, and ML/AI usecases.
+v0.4.0 delivers **API-Aware Normalization Post-Processing Pipelines**, **Request Observability Infrastructure**, and **Production Hardening** for data engineering, research, and ML/AI use cases.
 
 ### API-Aware Post-Processing Pipelines
 
 ScholarFlux now includes intelligent post-processing pipelines for each provider, transforming raw API responses into consistent, ML-ready records.
 
 Previously, normalization was tasked with mapping API-specific fields to universal field names, retrieving and extracting elements from configured fallback paths when possible.
-Now each provider implements a `_post_process()` method that transforms  processed, API-specific records into consistent, validated output.
+Now each provider implements a `_post_process()` method that transforms processed, API-specific records into consistent, validated output.
 
 | Transformation | Raw Value | Normalized Output |
 |----------------|-----------|-------------------|
@@ -890,7 +890,7 @@ poetry install
 
 3. **Or to download development tools, testing packages, and all extras:**
 ```bash
-poetry install --with dev --with tests --all-extras
+poetry install --with dev,tests,docs --all-extras
 ```
 
 **Areas where contributions are especially valuable:**

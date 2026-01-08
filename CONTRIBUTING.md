@@ -158,8 +158,8 @@ ScholarFlux integrates with multiple academic APIs. For full testing, you may ne
 3. Before sending a pull request, verify that, after each commit, you haven't inadvertently committed an API key: `git grep $PUBMED_API_KEY $(git rev-list --all)`
 4. See our [Security Policy](SECURITY.md) for best practices on handling credentials
 
-**Note:** All tests use mocked responses, so API keys are optional for basic development. They're only required if you're testing actual API integrations on live data from PubMed, Core, and SpringerNature.
-OpenAlex, PLOS API, Crossref, and arXiv are four resources that don't, however, require API Keys and work out-of-the-box.
+**Note:** All tests use mocked responses, so API keys are optional for basic development. They're only required if you're testing actual API integrations on live data from APIs such as SpringerNature.
+Other resources such as OpenAlex, PLOS API, Crossref, Core, PubMed, and arXiv may not require API Keys. While these work out-of-the-box, PubMed and Core increase request rate limits for those who register for an API key. In addition, APIs such as Crossref and OpenAlex also allow for increased rate limits when requests contain a valid `mailto` parameter.
 
 ### Enabling Debug Logging
 

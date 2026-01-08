@@ -372,7 +372,7 @@ class SearchResult(BaseModel):
 
         if not isinstance(metadata_map, ResponseMetadataMap):
             provider_config = provider_registry.get(self.provider_name)
-            # if the lookup by provider name fails, the APIResponse.processed_metadata method tries by URL
+            # If the lookup by provider name fails, the APIResponse.processed_metadata method tries by URL
             metadata_map = getattr(provider_config, "metadata_map", None)
         return self.response_result.process_metadata(metadata_map, update_metadata=update_metadata)
 
@@ -442,11 +442,11 @@ class SearchResult(BaseModel):
         The field map is resolved in the following order of priority:
 
         1. User-specified field maps
-        2. resolving a provider name to a BaseFieldMap or subclass from the registry.
+        2. Resolving a provider name to a BaseFieldMap or subclass from the registry.
         3. Resolving the URL to a BaseFieldMap or subclass
 
-        If a field map is not available, an empty list will be returned if `raise_on_error=False`. Otherwise, a
-        `RecordNormalizationException` is raised.
+        If a field map is not available at any step in the process, an empty list will be returned if
+        `raise_on_error=False`. Otherwise, a `RecordNormalizationException` is raised.
 
         Args:
             field_map (Optional[BaseFieldMap]):
@@ -480,18 +480,51 @@ class SearchResult(BaseModel):
         Raises:
             RecordNormalizationException: If raise_on_error=True and no field map found.
 
+        Note:
+            The `ProcessedResponse.normalize()` method will handle most of the internal logic. This method delegates
+            normalization to the `ProcessedResponse` when the user does not explicitly pass a field map and the
+            provider-name-resolved map matches the URL-resolved map. If the automatically resolved field maps do not
+            differ, the `ProcessedResponse.normalize()` method handles the resolution details for caching purposes.
+
+        Example:
+            >>> from scholar_flux import SearchCoordinator
+            >>> from scholar_flux.utils import truncate, coerce_flattened_str
+            >>> coordinator = SearchCoordinator(query = 'AI Safety', provider_name = 'arXiv')
+            >>> response = coordinator.search_page(page = 1)
+            >>> normalized_records = response.normalize(include = {'display_name', 'query', 'page'})
+            >>> for record in normalized_records[:5]:
+            ...     print(f"Title: {record['title']}")
+            ...     print(f"URL: {record['url']}")
+            ...     print(f"Source: From {record['display_name']}: '{record['query']}' Page={record['page']}")
+            ...     print(f"Abstract: {truncate(record['abstract'] or 'Not available')}")
+            ...     print(f"Authors: {coerce_flattened_str(record['authors'])}")
+            ...     print("-"*100)
+
+            # OUTPUT:
+            Title: AI Safety...
+            URL: http://arxiv.org/abs/...
+            Source: From arXiv: 'AI Safety' Page=1
+            Abstract: This report ...
+            Authors: ...
+            --------------------------------------
+
         """
         try:
             if self.response_result is None:
                 raise RecordNormalizationException("Cannot normalize a response result of type `None`.")
 
+            url_field_map = None
             if field_map is None:
                 provider_config = provider_registry.get(self.provider_name)
-                # if the lookup by provider name fails, the APIResponse.normalize method tries by URL
+                # if the lookup by provider name fails, the APIResponse.normalize method tries by URL.
+                # Only pass the field map if the provider name-resolved map differs from the URL-resolved map.
                 field_map = getattr(provider_config, "field_map", None)
+                # Returns None when the URL or field map is missing.
+                url_field_map = getattr(provider_registry.get_from_url(self.url), "field_map", None)
+
             normalized_record = (
                 self.response_result.normalize(
-                    field_map=field_map,
+                    field_map=field_map if field_map is not url_field_map else None,
                     raise_on_error=True,
                     update_records=update_records,
                     resolve_records=resolve_records,
@@ -612,11 +645,14 @@ class SearchResult(BaseModel):
             # Lists of records are primarily expected by default. Iterators aren't recommended but still supported
             if isinstance(records, (list, tuple, Iterator)):
                 # Will raise a TypeError if an element type is not a `record_dict`
-                record_list = [(record_dict or {}) | self.model_dump(include=fields) for record_dict in records]
+                record_list = [
+                    (record_dict or {}) | self.model_dump(include=fields, exclude={"response_result"})
+                    for record_dict in records
+                ]
                 return DataExtractor.strip_annotations(record_list) if strip_annotations else record_list
 
             if isinstance(records, dict) or records is None:
-                annotated_record = (records or {}) | self.model_dump(include=fields)
+                annotated_record = (records or {}) | self.model_dump(include=fields, exclude={"response_result"})
                 return DataExtractor.strip_annotations(annotated_record) if strip_annotations else annotated_record
 
             raise TypeError(

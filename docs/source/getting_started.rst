@@ -156,7 +156,7 @@ The default behavior for API requests across all providers can also be configure
    SCHOLAR_FLUX_DEFAULT_MAILTO=your.email@institution.edu
 
 .. tip::
-   **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` automatically enables higher rate limits:
+   **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` automatically enables higher rate limits for OpenAlex and Crossref:
    
    - **OpenAlex**: 10 requests/second (vs 1 req/sec without)
    - **Crossref**: Priority access and faster responses
