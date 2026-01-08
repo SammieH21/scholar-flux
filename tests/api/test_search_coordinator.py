@@ -11,10 +11,18 @@ from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWor
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse
+from scholar_flux.utils import format_iso_timestamp, parse_iso_timestamp
 from tests.testing_utilities import raise_error
 
-from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
+from scholar_flux.exceptions import (
+    InvalidCoordinatorParameterException,
+    RequestFailedException,
+    RetryAfterDelayExceededException,
+)
 from scholar_flux.api import ReconstructedResponse
+from scholar_flux import logger
+from tests.testing_utilities import search_coordinator_mocking_context
+from requests.exceptions import Timeout
 
 from scholar_flux.exceptions import (
     RequestCacheException,
@@ -324,7 +332,8 @@ def test_initialization_updates():
     # the API should override the previous request_delay and use the new query only
     assert (
         api.query != search_coordinator.api.query
-        and api.provider_name == search_coordinator.api.provider_name
+        and api.provider_name == search_coordinator.provider_name
+        and api.display_name == search_coordinator.display_name
         and search_coordinator.api.request_delay == api.request_delay + 5
     )
     # Queries usually need to be specified. The query already exists in the SearchAPI, so `query=""` is ignored.
@@ -387,7 +396,7 @@ def test_none_type_fetch(monkeypatch, caplog):
 
     with pytest.raises(RequestFailedException) as excinfo:
         _ = search_coordinator.robust_request(page=1)
-        assert ("Expected to receive a valid response or response-like object, " f"Received type: {type(None)}") in str(
+        assert ("Expected to receive a valid response or response-like object, but received type: {type(None)}") in str(
             excinfo.value
         )
 
@@ -454,7 +463,6 @@ def test_no_result_caching(caplog):
 def test_cache_deletions(monkeypatch, caplog):
     """Verifies that cached request/response deletions for non-existent keys catch exceptions and log missing keys."""
     search_coordinator = SearchCoordinator(query="Computer Science Testing", cache_requests=True, request_delay=0)
-    # search_coordinator = SearchCoordinator(query = 'hi', cache_requests = True)
     search_coordinator._delete_cached_request(page=4)  # type: ignore
     assert re.search(
         "A cached response for the current request does not exist: 'Key [a-zA-Z0-9]+ not found", caplog.text
@@ -618,7 +626,7 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
         coordinator.retry_handler.raise_on_error = True
         with pytest.raises(RequestFailedException):
             _ = coordinator.robust_request(page=1)
-        assert f"Failed to get a valid response from the {coordinator.search_api.provider_name} API"
+        assert f"Failed to get a valid response from {coordinator.display_name}"
 
     with requests_mock.Mocker() as m:
         non_response = coordinator.search(page=1)
@@ -687,10 +695,6 @@ def test_nonpaginated_search_success():
         processed_response = coordinator.parameter_search(parameters={})
         # indicates successful processing and confirms that the URL was successfully mocked
         assert isinstance(processed_response, ProcessedResponse) and processed_response.url == prepared_search.url
-
-
-#       assert response.url and prepared_base_url_request.url and normalize_url(response.url, remove_parameters=False) == normalize_url(prepared_base_url_request.url)
-#       assert normalize_url(prepared_base_url_request.url) == normalize_url(coordinator.api.base_url)
 
 
 def test_nonpaginated_search_with_endpoint_success():
@@ -790,7 +794,21 @@ def test_respect_retry_after_date_sleep_called():
     assert isinstance(delay, (int, float))
 
 
-def test_respect_retry_after_wait_called():
+def test_cached_response_identification():
+    """Verifies that ProcessedResponses can successfully indicate whether a response originated from session cache."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos", query="test", base_url="https://example-base-url.com", request_delay=0.01
+    )
+    coordinator = SearchCoordinator(api, use_cache=True)
+    with search_coordinator_mocking_context(coordinator, page=1, json={"success": True}):
+        uncached_result = coordinator.search_page(page=1)
+        cached_result = coordinator.search_page(page=1)
+
+    assert uncached_result.cached is False
+    assert cached_result.cached is True
+
+
+def test_respect_retry_after_wait_called(caplog):
     """Tests that `_respect_retry_after` calls `_wait` with correct delay and timestamp when retry-after is present."""
     api = SearchAPI.from_defaults(
         provider_name="plos",
@@ -801,10 +819,12 @@ def test_respect_retry_after_wait_called():
     coordinator.api.rate_limiter._wait = MagicMock()  # type: ignore
     coordinator.retry_handler.max_retries = 0
 
-    prepared_search = coordinator.api.prepare_search(page=1)
-
-    with requests_mock.Mocker() as m:
-        m.get(prepared_search.url, status_code=429, headers={"Content-Type": "application/json", "Retry-After": "2"})
+    with search_coordinator_mocking_context(
+        coordinator,
+        page=1,
+        status_code=429,
+        headers={"Content-Type": "application/json", "Retry-After": "2"},
+    ):
         result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
         coordinator._respect_retry_after()
         assert isinstance(result, ErrorResponse)
@@ -816,6 +836,155 @@ def test_respect_retry_after_wait_called():
     delay, timestamp = args
     assert delay > 0
     assert isinstance(timestamp, float)
+    timestamp = parse_iso_timestamp(result.created_at or "")
+    formatted_timestamp = timestamp.strftime("%Y-%m-%d at %H:%M:%S") if timestamp else "<error>"
+    provider_name = coordinator.display_name
+    logged_msg = (
+        rf"{provider_name} sent a `Retry-After` field of {delay}s on {formatted_timestamp}. Respecting the delay of "
+        rf"~\d+.\d?..."
+    )
+    assert re.search(logged_msg, caplog.text)
+
+
+def test_retry_after_does_not_raise_when_disabled(caplog, monkeypatch):
+    """Tests that the RetryHandler waits for long `Retry-After` headers when `RAISE_ON_RETRY_DELAY_EXCEEDED=False`.
+
+    In addition, the behavior upon re-requesting a previously excessively rate limited request is verified to ensure
+    that future searches still respect the rate limit. `wait_since` should see the original sleep time and compare
+    it against the moment that the request was made.
+
+    """
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        records_per_page=10,
+    )
+    coordinator = SearchCoordinator(api, request_delay=0.01)
+    coordinator.retry_handler.max_retries = 1
+    coordinator.retry_handler.max_backoff = 0.5
+
+    retry_after = "100"
+    with (
+        monkeypatch.context() as m,
+        search_coordinator_mocking_context(
+            coordinator,
+            page=1,
+            status_code=429,
+            headers={"Content-Type": "application/json", "Retry-After": retry_after},
+        ),
+    ):
+        m.setattr(coordinator.retry_handler, "RAISE_ON_DELAY_EXCEEDED", False)
+        # skip
+        m.setattr(coordinator.api.rate_limiter, "_sleep", lambda *args, **kwargs: None)
+        result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
+        assert (
+            isinstance(result, ErrorResponse)
+            and result.error
+            and result.message
+            and result.error != "RetryAfterDelayExceededException"
+            and f"Server requested a {retry_after}s wait before retrying" not in result.message
+        )
+        assert (
+            "RAISE_ON_DELAY_EXCEEDED is disabled. The retry handler will wait for the full duration "
+            f"of {retry_after}s as requested by the server, even if it exceeds your configured maximum. This "
+            "may result in long waits."
+        ) in caplog.text
+
+        # The rate limiter should respect the previously registered rate limit for future classes:
+        coordinator.api.rate_limiter.wait_since = MagicMock()  # type: ignore
+
+        # Called automatically during `.search()`
+        coordinator._respect_retry_after()
+        assert re.search(
+            (
+                r"RetryHandler.RAISE_ON_DELAY_EXCEEDED is disabled. The SearchCoordinator will wait for the "
+                rf"remaining duration of \d+\.\d+?s to send the next request as requested by "
+                rf"{coordinator.display_name}, even if it exceeds your configured maximum wait duration. This may result "
+                r"in long waits."
+            ),
+            caplog.text,
+        )
+        assert coordinator.api.rate_limiter.wait_since.called
+        # Retry-After Delay should be the same
+        assert coordinator.api.rate_limiter.wait_since.call_args[0][0] == int(retry_after)
+        # Response retrieval time
+        assert format_iso_timestamp(coordinator.api.rate_limiter.wait_since.call_args[0][1]) == result.created_at
+
+
+def test_robust_request_reraises_retry_after_delay_exceeded():
+    """Verifies that `robust_request` re-raises  and propagates the `RetryAfterDelayExceededException` context."""
+    api = SearchAPI.from_defaults(provider_name="crossref", query="test")
+    coordinator = SearchCoordinator(api)
+
+    retry_after = "300"
+    err = (
+        "Server requested a 300s wait before retrying, which exceeds the configured limit of 120s. This typically "
+        "means you've hit a rate limit"
+    )
+    with (
+        search_coordinator_mocking_context(
+            coordinator,
+            page=1,
+            status_code=429,
+            headers={"Retry-After": retry_after},
+        ),
+        pytest.raises(RetryAfterDelayExceededException) as excinfo,
+    ):
+        _ = coordinator.robust_request(page=1)
+
+    assert err in str(excinfo.value)
+    assert err in excinfo.value.message
+    assert excinfo.value.response is not None
+
+
+def test_retry_after_raise_rate_limit_exceeded_exception(caplog):
+    """Tests that a `RetryAfterDelayExceededException` is raised when a Retry-After field exceeds the limit."""
+    api = SearchAPI.from_defaults(provider_name="plos", query="test", records_per_page=10, request_delay=0.1)
+    coordinator = SearchCoordinator(api)
+    retry_after = "200"
+    with search_coordinator_mocking_context(
+        coordinator,
+        page=1,
+        status_code=429,
+        headers={"Content-Type": "application/json", "Retry-After": retry_after},
+    ):
+        result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
+        assert (
+            isinstance(result, ErrorResponse)
+            and result.message
+            and result.error == "RetryAfterDelayExceededException"
+            and f"Server requested a {retry_after}s wait before retrying" in result.message
+        )
+        assert "Failed to fetch page 1" in caplog.text
+        error_response = coordinator.search_page(page=1)
+        assert isinstance(error_response.response_result, ErrorResponse) and error_response.message
+        message_pattern = (
+            rf"A rate limit of \d+.\d+?s still remains in effect before "
+            f"the next request can be sent to {coordinator.display_name}"
+        )
+        assert re.search(message_pattern, error_response.message or "")
+        # The NonResponse shouldn't be recorded to ensure that the 429 response can still be referenced when needed.
+        assert coordinator.last_response is not error_response.response_result
+
+
+def test_retry_after_raise_rate_limit_exceed_fetch_returns_response(caplog):
+    """Tests that the `fetch` method handles and returns a response if `raise_on_error=False` on large Retry-After."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        records_per_page=10,
+    )
+    coordinator = SearchCoordinator(api)
+    retry_after = "200"
+    with search_coordinator_mocking_context(
+        coordinator,
+        page=1,
+        status_code=429,
+        headers={"Content-Type": "application/json", "Retry-After": retry_after},
+    ):
+        result = coordinator.fetch(page=1, raise_on_error=False)
+        assert isinstance(result, Response) and result.status_code == 429
+        assert "Failed to fetch page 1" in caplog.text
 
 
 @pytest.mark.parametrize("retry_after_value", (None, "", "non-numeric", "3-23-1923"))
@@ -830,14 +999,13 @@ def test_respect_retry_after_malformed(retry_after_value):
     coordinator.api.rate_limiter.sleep = MagicMock()  # type: ignore
     coordinator.retry_handler.max_retries = 0
 
-    prepared_search = coordinator.api.prepare_search(page=1)
-    with requests_mock.Mocker() as m:
-        m.get(
-            prepared_search.url,
-            status_code=429,
-            headers={"Content-Type": "application/json", "Retry-After": retry_after_value},
-            json={"status": "not ok"},
-        )
+    with search_coordinator_mocking_context(
+        coordinator,
+        page=1,
+        status_code=429,
+        json={"status": "not ok"},
+        headers={"Content-Type": "application/json", "Retry-After": retry_after_value},
+    ):
         result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
         assert isinstance(result, ErrorResponse) and result is not None
         coordinator._respect_retry_after()  # retry-after then defaults to 0 and skips
@@ -859,14 +1027,11 @@ def test_respect_retry_after_implicit_wait():
     coordinator.retry_handler.max_retries = 4
     coordinator.retry_handler.backoff_factor = 0
 
-    prepared_search = coordinator.api.prepare_search(page=1)
-    with requests_mock.Mocker() as m:
-        m.get(
-            prepared_search.url,
-            status_code=429,
-            headers={"Content-Type": "application/json"},
-        )
-
+    with search_coordinator_mocking_context(
+        coordinator,
+        status_code=429,
+        headers={"Content-Type": "application/json"},
+    ):
         result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
         assert coordinator.api.rate_limiter._wait.called
         assert isinstance(result, ErrorResponse) and result is not None
@@ -931,3 +1096,69 @@ def test_api_specific_parameter_field_overrides(monkeypatch):
     assert called_kwargs["parameters"]["mailto"] == email
     assert called_kwargs["parameters"]["sort"] == sort_parameter
     assert called_kwargs["parameters"]["order"] == sort_order
+
+
+@pytest.mark.parametrize("timeout_exception", [Timeout, TimeoutError])
+def test_timeouterror_exception(timeout_exception, monkeypatch):
+    """Verifies that timeouts are caught and handled correctly within the retry handler during search execution."""
+
+    api = SearchAPI.from_defaults(
+        provider_name="crossref",
+        query="test",
+        base_url="https://api.example.com",
+        request_delay=2.0,
+    )
+    coordinator = SearchCoordinator(api)
+    error_message = f"HTTPSConnectionPool(host='{coordinator.api.base_url}', port=443): Read timed out."
+    monkeypatch.setattr(coordinator.api, "send_request", raise_error(timeout_exception, error_message))
+
+    with requests_mock.Mocker(real_http=False) as _:
+        result = coordinator.search_page(page=1)
+
+    assert isinstance(result.response_result, NonResponse)
+    assert result.error == timeout_exception.__name__
+
+    recorded_retry_attempt = coordinator.retry_handler.history[-1]
+
+    # Verifying core field values
+    assert (
+        recorded_retry_attempt.success is False
+        and recorded_retry_attempt.duration is not None
+        and recorded_retry_attempt.duration > 0
+        and recorded_retry_attempt.timeout is True
+    )
+
+    # Verifying the error message
+    assert recorded_retry_attempt.error == timeout_exception.__name__
+    assert recorded_retry_attempt.url == coordinator.api.base_url
+    assert recorded_retry_attempt.message == error_message
+
+
+def test_search_coordinator_retry_handling_masks_sensitive_URL_api_keys(caplog):
+    """Validates that historical records of throttled searches filter api keys from recorded URLs if logged."""
+    api_key_to_mask = "mock_api_key_that_should_be_masked"
+    api = SearchAPI.from_defaults(
+        provider_name="core", query="test", records_per_page=10, api_key=api_key_to_mask, use_cache=False
+    )
+    coordinator = SearchCoordinator(api, request_delay=0.01)
+    coordinator.retry_handler.history.clear_history()
+
+    with requests_mock.Mocker() as m:
+        # queries the first 3 pages
+        pages = range(1, 4)
+        for i in pages:
+            prepared_search = coordinator.api.prepare_search(page=i)
+            m.get(
+                prepared_search.url,
+                status_code=200,
+                json={"status": "success", "data": []},
+                headers={"Content-Type": "application/json"},
+            )
+            _ = coordinator.search_page(i)
+
+    assert len(coordinator.retry_handler.history) == 3
+    logger.info(coordinator.retry_handler.history)  # Records a custom bounded deque containing queried URLs
+    assert api_key_to_mask not in caplog.text
+    for i in pages:
+        masked_url = str(coordinator._prepare_request(page=1).url).replace(api_key_to_mask, "***")
+        assert masked_url and masked_url in caplog.text

@@ -7,7 +7,7 @@ accepted by each API provider given their respective configurations.
 """
 from typing import Optional, Dict, Any
 import requests
-from requests_cache import CachedSession
+from requests_cache import CachedSession, BaseCache
 from urllib.parse import urljoin
 import logging
 from scholar_flux.exceptions import (
@@ -54,6 +54,12 @@ class BaseAPI:
         >>> ml_page_2 = response_page_2.json()
         >>> ml_page_2
         # OUTPUT: {'response': {'numFound': '...', 'start': 21, 'docs': ['...']}} # redacted
+
+    Note:
+        The class variable, `BaseAPI.DEFAULT_USE_CACHE` is set at import to True if the environment variable,
+        `SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND`, is configured. Otherwise, `DEFAULT_USE_CACHE` is set to False.
+        Changes made via `config_settings` after import/runtime will **not** enable or disable caching unless you
+        manually update `BaseAPI.DEFAULT_USE_CACHE` or `SearchAPI.DEFAULT_USE_CACHE` (for the SearchAPI subclass).
 
     """
 
@@ -178,6 +184,44 @@ class BaseAPI:
         except Exception as e:
             logger.error("An unexpected error occurred during session initialization.")
             raise SessionCreationError(f"A new session could not be created successfully: {e}")
+
+    @staticmethod
+    def is_cached_session(session: CachedSession | requests.Session) -> bool:
+        """Checks whether a provided session object is a cached session.
+
+        To do so, this method first determines whether the current object has a 'cache' attribute and whether the cache
+        element, if existing, is a BaseCache.
+
+        Args:
+            session (requests.Session): The session to check.
+
+        Returns:
+            bool: True if the session is a cached session, False otherwise.
+
+        """
+        return isinstance(session, CachedSession)
+
+    @property
+    def cache(self) -> Optional[BaseCache]:
+        """Retrieves the requests-session cache object if the session object is a `CachedSession` object.
+
+        If a session cache does not exist, this function will return None.
+
+        Returns:
+            Optional[BaseCache]: The cache object if available, otherwise None.
+
+        """
+        return self.session.cache if isinstance(self.session, CachedSession) else None
+
+    @property
+    def cached(self) -> bool:
+        """Checks whether the current session object used by the current API is a cached session.
+
+        Returns:
+            bool: True if the current object is a cached session object, and False otherwise
+
+        """
+        return self.is_cached_session(self.session)
 
     def prepare_request(
         self,

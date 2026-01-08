@@ -158,7 +158,7 @@ if not search_api.api_key:
     raise MissingAPIKeyException(
         dedent(
             """
-        The SpringerNature API provider requires an API key!
+        The Springer Nature API provider requires an API key!
 
         Visit the following link and sign up on the developer portal to request an API key:
 

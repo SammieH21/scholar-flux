@@ -1,7 +1,8 @@
 # /api/base_coordinator.py
 """Defines the BaseCoordinator that implements the most basic orchestration components used to request, process, and
 optionally cache processed record data from APIs."""
-from typing import Optional
+from typing import Optional, Generator
+from contextlib import contextmanager
 from typing_extensions import Self
 import logging
 
@@ -65,18 +66,99 @@ class BaseCoordinator:
         coordinators can follow a similar pattern of using an _initialize for initial parameter assignment.
 
         Args:
-            search_api (Optional[SearchAPI]):
+            search_api (SearchAPI):
                 The search API to use for the retrieval of response records from APIs
-            response_coordinator (Optional[ResponseCoordinator]):
+            response_coordinator (ResponseCoordinator):
                 Core class used to handle the processing and core handling of all responses from APIs
 
         """
         self._initialize(search_api, response_coordinator)
 
-    def _initialize(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator):
-        """Initializes the BaseCoordinator with a SearchApi and the constructed ResponseCoordinator."""
+    def _initialize(self, search_api: SearchAPI, response_coordinator: ResponseCoordinator, *args, **kwargs):
+        """Initializes the BaseCoordinator with a SearchApi and the constructed ResponseCoordinator.
+
+        Args:
+            search_api (SearchAPI):
+                The SearchAPI to use for the retrieval of response records from APIs
+            response_coordinator (ResponseCoordinator):
+                Core class used to handle the processing and core handling of all responses from APIs
+            *args: No-Op positional arguments
+            **kwargs: No-Op keyword arguments
+
+        Note:
+            The behavior of `*args` and `**kwargs` is to be defined by subclasses of the `BaseCoordinator`. If
+            additional parameters are passed, they will be ignored.
+
+        """
         self.search_api = search_api
         self.response_coordinator = response_coordinator
+
+    @classmethod
+    def update(
+        cls,
+        search_coordinator: Self,
+        search_api: Optional[SearchAPI] = None,
+        response_coordinator: Optional[ResponseCoordinator] = None,
+        **kwargs,
+    ) -> Self:
+        """Creates a new coordinator with optionally replaced core components.
+
+        Args:
+            search_coordinator: The coordinator to base the new instance on.
+            search_api (Optional[SearchAPI]): Replacement SearchAPI, or None to keep existing.
+            response_coordinator (Optional[ResponseCoordinator]): Replacement ResponseCoordinator, or None to keep existing.
+            **kwargs: Additional keyword arguments to be passed to `BaseCoordinator.as_coordinator()`
+
+
+        Returns:
+            Self: A new coordinator instance with the specified components.
+
+        """
+        if not isinstance(search_coordinator, cls):
+            raise InvalidCoordinatorParameterException(
+                f"Expected a {cls.__name__} to perform parameter updates. Received type {type(search_coordinator)}"
+            )
+
+        return cls.as_coordinator(
+            search_api=search_api or search_coordinator.search_api,
+            response_coordinator=response_coordinator or search_coordinator.response_coordinator,
+            **kwargs,
+        )
+
+    @contextmanager
+    def with_components(
+        self,
+        search_api: Optional[SearchAPI] = None,
+        response_coordinator: Optional[ResponseCoordinator] = None,
+        **update_kwargs,
+    ) -> Generator[Self, None, None]:
+        """Temporarily creates and yields a new coordinator with modified core components.
+
+        Args:
+            search_api (Optional[SearchAPI]): Replacement SearchAPI.
+            response_coordinator (Optional[ResponseCoordinator]): Replacement ResponseCoordinator.
+            **update_kwargs: Optional keyword arguments to be passed to `update`
+
+        Yields:
+            Self: A new coordinator instance with the specified modifications.
+
+        """
+        yield self.update(self, search_api, response_coordinator, **update_kwargs)
+
+    @property
+    def provider_name(self) -> str:
+        """Property method for accessing the provider name in the current SearchAPI instance.
+
+        Returns:
+            The name corresponding to the API Provider.
+
+        """
+        return self.search_api.provider_name
+
+    @property
+    def display_name(self) -> str:
+        """Human-readable provider name for logging and display purposes."""
+        return self.search_api.display_name
 
     @property
     def last_response(self) -> Optional[ProcessedResponse | ErrorResponse]:
@@ -221,7 +303,7 @@ class BaseCoordinator:
                     response, cache_key=cache_key, normalize_records=normalize_records
                 )
         except RequestFailedException as e:
-            logger.error(f"Failed to get a valid response from the {self.search_api.provider_name} API: {e}")
+            logger.error(f"Failed to get a valid response from {self.display_name}: {e}")
         return None
 
     @classmethod
@@ -236,9 +318,7 @@ class BaseCoordinator:
                 Core class used to handle the processing and core handling of all responses from APIs
 
         Returns:
-            BaseCoordinator:
-                A newly created coordinator subclassed from a BaseCoordinator that also orchestrates record retrieval
-                and processing
+            Self: A newly created coordinator class or subclass that orchestrates record retrieval and processing.
 
         """
         search_coordinator = cls.__new__(cls)

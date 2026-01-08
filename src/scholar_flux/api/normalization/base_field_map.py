@@ -9,8 +9,10 @@ that unifies API-specific record specifications into a common structure.
 """
 from pydantic import Field, BaseModel, field_validator
 
-from typing import Any, Optional, Mapping
+from typing import Any, Mapping, Optional, Sequence, overload
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.helpers import as_tuple
+from scholar_flux.utils.record_types import RecordType, RecordList, NormalizedRecordType, NormalizedRecordList
 
 
 class BaseFieldMap(BaseModel):
@@ -55,19 +57,29 @@ class BaseFieldMap(BaseModel):
         return v
 
     @property
+    def core_fields(self) -> dict[str, Any]:
+        """Returns a dictionary of all core fields in the current FieldMap (excluding all API-specific fields)."""
+        return {key: value for key, value in self.fields.items() if key not in self.api_specific_fields}
+
+    @property
     def fields(self) -> dict[str, Any]:
-        """Prints a representation of the current FieldMap as a dictionary."""
+        """Returns a representation of the current FieldMap as a dictionary."""
         field_map = self.model_dump(exclude={"api_specific_fields", "default_field_values"})
         return {key: value for key, value in field_map.items() if not key.startswith("_")} | self.api_specific_fields
 
-    def normalize_record(self, record: dict) -> dict[str, Any]:
+    def normalize_record(
+        self, record: dict, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+    ) -> NormalizedRecordType:
         """Maps API-specific fields in a single dictionary record to a normalized set of field names.
 
         Args:
-            record: The single, dictionary-typed record to normalize.
+            record (dict): The single, dictionary-typed record to normalize.
+            keep_api_specific_fields (Optional[bool | Sequence[str]]):
+                A boolean indicating whether to keep or remove all API-specific fields or a sequence indicating which
+                API-specific fields to keep.
 
         Returns:
-            A new dictionary with normalized field names.
+            NormalizedRecordType: A new dictionary with normalized field names.
 
         Raises:
             TypeError: If the input to record is not a mapping or dictionary object.
@@ -86,20 +98,25 @@ class BaseFieldMap(BaseModel):
             normalized_record_fields["provider_name"] = record.get("provider_name")
 
         normalized_record = self._add_defaults(normalized_record_fields)
-        return normalized_record
+        return self.filter_api_specific_fields(normalized_record, keep_api_specific_fields)
 
-    def normalize_records(self, records: dict | list[dict]) -> list[dict[str, Any]]:
+    def normalize_records(
+        self, records: RecordType | RecordList, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+    ) -> NormalizedRecordList:
         """Maps API-specific fields in one or more records to a normalized set of field names.
 
         Args:
-            records: A single dictionary record or a list of dictionary records.
+            records (dict | RecordType | RecordList): A single dictionary record or a list of dictionary records.
+            keep_api_specific_fields (Optional[bool | Sequence[str]]):
+                A boolean indicating whether to keep or remove all API-specific fields or a sequence indicating which
+                API-specific fields to keep.
 
         Returns:
-            A list of dictionaries with normalized field names.
+            NormalizedRecordList: A list of dictionaries with normalized field names.
 
         """
         record_list = [records] if isinstance(records, Mapping) else records
-        return [self.normalize_record(record) for record in record_list]
+        return [self.normalize_record(record, keep_api_specific_fields) for record in record_list]
 
     def _add_defaults(
         self, record: dict[str, Any], default_field_values: Optional[dict[str, Any]] = None
@@ -131,15 +148,47 @@ class BaseFieldMap(BaseModel):
 
         return {field: None for field in self.fields} | record | filtered_defaults
 
-    def apply(self, records: dict | list[dict]) -> dict[str, Any] | list[dict[str, Any]]:
+    def filter_api_specific_fields(
+        self, record: NormalizedRecordType, keep_api_specific_fields: Optional[bool | Sequence[str] | set[str]] = None
+    ) -> dict[str, Any]:
+        """Filters API Specific parameters from the processed record.
+
+        Args:
+            record (NormalizedRecordType): The current record to filter API-specific fields from.
+            keep_api_specific_fields (Optional[bool | Sequence[str] | set[str]]):
+                Either a boolean indicating whether to keep all API-specific fields (True/None) or to remove them after
+                the completion of normalization (False). This parameter can also be a sequence/set of specific field names to keep.
+        """
+        if keep_api_specific_fields is True or keep_api_specific_fields is None or not record:
+            return record
+
+        include = set(self.core_fields.keys())
+
+        # if Falsy, the core fields are ignored
+        if isinstance(keep_api_specific_fields, (Sequence, set)):
+            api_specific_field_set = set(as_tuple(keep_api_specific_fields))
+            include = include | (self.api_specific_fields.keys() & api_specific_field_set)
+        return {field: value for field, value in record.items() if field in include}
+
+    @overload
+    def apply(self, records: RecordType) -> NormalizedRecordType:
+        """When calling `apply` to normalize a single record dictionary, a normalized record dictionary is returned."""
+        ...
+
+    @overload
+    def apply(self, records: RecordList) -> NormalizedRecordList:
+        """When calling `apply` to normalize a list of records, a list of normalized record dictionaries is returned."""
+        ...
+
+    def apply(self, records: RecordType | RecordList) -> NormalizedRecordType | NormalizedRecordList:
         """Normalizes a record or list of records by mapping API-specific field names to common fields.
 
         Args:
-            records: A single dictionary record or a list of dictionary records.
+            records (RecordType | RecordList): A single dictionary record or a list of dictionary records to normalize.
 
         Returns:
-            A single, normalized dictionary is returned if a single record is provided otherwise,
-            if a list of records is provided, a list of normalized dictionaries is returned.
+            NormalizedRecordType: A single normalized dictionary is returned if a single record is provided.
+            NormalizedRecordList: A list of normalized dictionaries is returned if a list of records is provided.
 
         """
         records = [] if records is None else records
@@ -147,21 +196,56 @@ class BaseFieldMap(BaseModel):
         return result
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
-        """Helper method that shows the current structure of the BaseFieldMap."""
+        """Helper method that shows the current structure of the BaseFieldMap.
+        Args:
+            flatten (bool):
+                Whether to flatten the current field map's structural representation into a single line (Default=False)
+            show_value_attributes (bool):
+                Whether to show nested attributes of the base field map or subclass (Default = True)
+
+        Returns:
+            str: A structural representation of the current field map as a string. Use a `print` statement to view it.
+
+        """
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
 
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner."""
         return self.structure()
 
-    def __call__(self, *args, **kwargs) -> dict[str, Any] | list[dict[str, Any]]:
+    @overload
+    def __call__(self, records: RecordType, *args, **kwargs) -> NormalizedRecordType:
+        """When __call__ operates on a record dictionary, a normalized record dictionary is returned."""
+        ...
+
+    @overload
+    def __call__(self, records: RecordList, *args, **kwargs) -> NormalizedRecordList:
+        """When __call__ operates on a list of records, a list of normalized record dictionaries is returned."""
+        ...
+
+    def __call__(
+        self, records: RecordType | RecordList, *args, **kwargs
+    ) -> NormalizedRecordType | NormalizedRecordList:
         """Helper method that enables the current map to be used as a callable to normalize API-specific fields.
 
         The call delegates normalization to the `apply` method which will return a list if it receives a list and
         returns a dictionary if a single record is received, otherwise.
 
+        Args:
+            records (RecordType | RecordList): A single dictionary record or a list of dictionary records to normalize.
+            *args:
+                Optional positional parameters passed to `apply`. This is a `No-Op field for the `BaseFieldMap` but is
+                provided for subclasses that override `apply`.
+            *kwargs:
+                Optional keyword parameters passed to `apply`. This is a `No-Op field for the `BaseFieldMap` but is
+                provided for subclasses that override `apply`.
+
+        Returns:
+            NormalizedRecordType: A single normalized dictionary is returned if a single record is provided.
+            NormalizedRecordList: A list of normalized dictionaries is returned if a list of records is provided.
+
         """
-        return self.apply(*args, **kwargs)
+        return self.apply(records, *args, **kwargs)
 
 
 __all__ = ["BaseFieldMap"]

@@ -13,6 +13,9 @@ from typing_extensions import Self, Type
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.helpers import coerce_numeric
+from scholar_flux.exceptions.storage_exceptions import CacheParameterValidationException
+from scholar_flux import masker
 
 import logging
 
@@ -32,10 +35,17 @@ class ABCStorage(ABC):
         """Initializes the current storage implementation."""
         self.namespace: Optional[str] = None
         self.raise_on_error: bool = False
+        self.config: dict = {}
+        self.ttl: Any = None
 
     def _initialize(self, *args, **kwargs) -> None:
         """Optional base method to implement for initializing/reinitializing connections."""
         pass
+
+    @classmethod
+    def _get_default_config(cls) -> dict:
+        """Get default configuration with current config_settings values."""
+        return {}
 
     def __deepcopy__(self, memo) -> Self:
         """Future implementations of ABCStorage devices are unlikely to be deep-copied.
@@ -70,8 +80,8 @@ class ABCStorage(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, *args, **kwargs) -> None:
-        """Core method for deleting a page from the cache."""
+    def delete(self, *args, **kwargs) -> Optional[bool]:
+        """Core method for record deletion. Should return True when successful, False otherwise, and `None` on error."""
         raise NotImplementedError
 
     @abstractmethod
@@ -94,6 +104,29 @@ class ABCStorage(ABC):
     def clone(self) -> Self:
         """Helper method for cloning the structure and configuration of future implementations."""
         raise NotImplementedError
+
+    @abstractmethod
+    def verify_connection(self) -> None:
+        """Verifies that the storage is available for connection with initialized storage configuration settings."""
+        raise NotImplementedError()
+
+    @classmethod
+    def ping(cls, *args, **kwargs) -> None:
+        """Verifies that a connection to the storage implementation can be established successfully.
+
+        This is a no-op by default for storage backends that don't require external connections
+        (e.g., InMemoryStorage, NullStorage). Storage backends connecting to external services
+        (Redis, MongoDB, SQL) should override this method to perform actual connection checks.
+
+        Note:
+            The signature and arguments vary by storage implementation:
+            - Redis: ping(client: redis.Redis)
+            - MongoDB: ping(client: MongoClient)
+            - SQL: ping(engine: Engine)
+            - InMemory/Null: ping() (no-op, uses default)
+
+        """
+        pass
 
     def _prefix(self, key: str) -> str:
         """prefixes a namespace to the given `key`:
@@ -129,6 +162,39 @@ class ABCStorage(ABC):
         logger.error(msg)
 
         raise KeyError(msg)
+
+    @classmethod
+    def _validate_ttl(cls, ttl: Optional[int | float | str] = None) -> Optional[int | float]:
+        """Validates TTL values, converting them into floats when possible and not already a non-negative numeric value.
+
+        Args:
+            ttl (Optional[int | float | str]):
+                The value to return as a non-negative integer or float when possible. None values are returned as is.
+
+        Returns:
+            Optional[int | float]:
+                int: The original non-negative integer value if received
+                float: A non-negative float, either received as such or converted from a string value
+                None: TTLs are returned as None if None is received or the ttl is equal to -1 or -1.0
+
+        Raises:
+            CacheParameterValidationException: for values that are not None and cannot be converted into a non-negative
+            float. While negative numbers are invalid, `-1` is the exception, signifying that TTL-based cache expiration
+            should not be used.
+
+        """
+        if ttl is None or isinstance(ttl, (float, int)) and ttl >= 0:
+            return ttl
+
+        ttl_numeric = coerce_numeric(ttl)
+        no_ttl = ttl == -1 or ttl_numeric == -1
+        if ttl_numeric is None or ttl_numeric < 0 and not no_ttl:
+            class_name = cls.__name__
+            raise CacheParameterValidationException(
+                f"The {class_name} expected the TTL to be a non-negative number, `None`, or -1 (no expiration), but "
+                f"received an invalid value ({ttl})"
+            )
+        return None if no_ttl else ttl_numeric
 
     @classmethod
     def _handle_storage_exception(
@@ -178,17 +244,40 @@ class ABCStorage(ABC):
         finally:
             self.raise_on_error = original_value
 
-    def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
+    @contextmanager
+    def with_namespace(self, value: str):
+        """Uses a context manager to temporarily modify the `namespace` attribute for the context duration."""
+        original_value = self.namespace
+        self.namespace = value
+
+        try:
+            yield
+        finally:
+            self.namespace = original_value
+
+    def structure(self, flatten: bool = False, show_value_attributes: bool = True, mask_values: bool = True) -> str:
         """Helper method for quickly showing a representation of the overall structure of the current storage subclass.
         The instance uses the generate_repr helper function to produce human-readable representations of the core
         structure of the storage subclass with its defaults.
+
+        Args:
+            flatten (bool):
+                Flag indicating to flatten the string representation of the object into a single line when True and to
+                preserve a multiline representation of the storage when False (default).
+            show_value_attributes (bool):
+                Flag for hiding the internal attributes of nested attributes when True (arguments replaced with `...`)
+                and showing their default representation when True (default)
+            mask_values (bool):
+                Masks any potentially sensitive data shown in the representation when True (default) and shows the
+                representation without sensitive data masking when False.
 
         Returns:
             str: The structure of the current storage subclass as a string.
 
         """
 
-        return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
+        representation = generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
+        return masker.mask_text(representation) if mask_values else representation
 
     def __repr__(self) -> str:
         """Method for identifying the current implementation and subclasses of the BaseStorage.

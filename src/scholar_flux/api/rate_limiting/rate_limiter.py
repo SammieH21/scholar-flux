@@ -12,11 +12,18 @@ import time
 from functools import wraps
 from scholar_flux.exceptions import APIParameterException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
+from scholar_flux.api.rate_limiting.history import (
+    HistoryDeque,
+    RateLimitEvent,
+)
 from datetime import datetime
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Dict, Any, Callable, TypeVar, ParamSpec
 import logging
 
 logger = logging.getLogger(__name__)
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class RateLimiter:
@@ -51,9 +58,16 @@ class RateLimiter:
         >>> rate_limiter.wait()
         >>> response = requests.get("http://httpbin.org/get")
 
+    Note:
+        The class-level history deque is a design choice, This attribute allows class-level monitoring and
+        introspection into how request delays are computed. The `HistoryDeque` is thread-safe (uses cpython on the
+        backend) and allows global observability which is helpful for debugging, especially in cases where you need
+        to adjust the total amount of requests sent within a given interval to avoid 429 errors.
+
     """
 
     DEFAULT_MIN_INTERVAL: float | int = 6.1
+    history: HistoryDeque[RateLimitEvent] = HistoryDeque.create()
 
     def __init__(self, min_interval: Optional[float | int] = None):
         """Initializes the rate limiter with the `min_interval` argument.
@@ -108,7 +122,7 @@ class RateLimiter:
             )
         return timestamp
 
-    def wait(self, min_interval: Optional[float | int] = None) -> None:
+    def wait(self, min_interval: Optional[float | int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Block (`time.sleep`) until at least `min_interval` has passed since last call.
 
         This method can be used with the min_interval attribute to determine when
@@ -117,9 +131,11 @@ class RateLimiter:
         wait before sending the next request.
 
         Args:
-            min_interval (Optional[float | int] = None):
+            min_interval (Optional[float | int]):
                 The minimum time to wait until another call is sent. Note that the min_interval attribute or argument
                 must be non-null, otherwise, the default min_interval value is used.
+            metadata (Optional[Dict[str, Any]]):
+                Optional metadata for observability (e.g., url, caller, reason).
 
         Exceptions:
             APIParameterException: Occurs if the value provided is either not an integer/float or is less than 0
@@ -128,12 +144,12 @@ class RateLimiter:
         min_interval = self._validate(min_interval if min_interval is not None else self.default_min_interval())
 
         if self._last_call is not None and min_interval:
-            self._wait(min_interval, self._last_call)
+            self._wait(min_interval, self._last_call, metadata=metadata)
         # record the time we actually proceed
         self._last_call = time.time()
 
     @classmethod
-    def _wait(cls, min_interval: float | int, last_call: float | int):
+    def _wait(cls, min_interval: float | int, last_call: float | int, metadata: Optional[Dict[str, Any]] = None):
         """Helper Method that calls `time.sleep()` in the background to wait for a specific number of seconds.
 
         This method determines how long to wait by referencing when `._wait()` was last called along with the
@@ -143,6 +159,8 @@ class RateLimiter:
             min_interval (float | int): The minimum time to wait until another call is sent.
             last_call (float | int): The start time. In context, the previously recorded time when
                                     the function was called
+            metadata (Optional[Dict[str, Any]]):
+                Optional metadata for observability (e.g., url, caller, reason).
 
         The time to wait is essentially calculated as follows:
 
@@ -159,19 +177,21 @@ class RateLimiter:
         remaining = min_interval - elapsed
 
         if remaining > 0:
-            cls._sleep(remaining)
+            cls._sleep(remaining, metadata=metadata)
 
     def default_min_interval(self) -> float | int:
         """Returns the default minimum interval for the current rate limiter."""
         return self.min_interval if self.min_interval is not None else self.DEFAULT_MIN_INTERVAL
 
-    def sleep(self, interval: Optional[float | int] = None) -> None:
+    def sleep(self, interval: Optional[float | int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Simple Instance level implementation of `sleep` that can be overridden when needed.
 
         Args:
-            interval (Optional[float | int] = None):
+            interval (Optional[float | int]):
                 The time interval to sleep. If None, the default minimum interval for the current rate limiter is used.
                 must be non-null, otherwise, the default min_interval value is used.
+            metadata (Optional[Dict[str, Any]]):
+                Optional metadata for observability (e.g., url, caller, reason).
 
         Exceptions:
             APIParameterException: Occurs if the value provided is either not an integer/float or is less than 0
@@ -179,16 +199,23 @@ class RateLimiter:
         """
         interval = self._validate(interval if interval is not None else self.default_min_interval())
         if interval > 0:
-            self._sleep(interval)
+            self._sleep(interval, metadata=metadata)
 
     def wait_since(
-        self, min_interval: Optional[float | int] = None, timestamp: Optional[float | int | datetime] = None
+        self,
+        min_interval: Optional[float | int] = None,
+        timestamp: Optional[float | int | datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Wait based on a reference timestamp or datetime.
 
         Args:
-            min_interval: Minimum interval to wait. Uses default if None.
-            timestamp: Reference time as Unix timestamp or datetime. If None, sleeps for min_interval.
+            min_interval (Optional[float | int]):
+                Minimum interval to wait. Uses default if None.
+            timestamp (Optional[float | int | datetime]):
+                Reference time such as a Unix timestamp or datetime. If None, sleeps for min_interval.
+            metadata (Optional[Dict[str, Any]]):
+                Optional metadata for observability (e.g., url, caller, reason).
 
         """
         if timestamp is not None:
@@ -198,18 +225,32 @@ class RateLimiter:
 
         min_interval = self._validate(min_interval if min_interval is not None else self.default_min_interval())
 
+        # Append the caller to metadata without overwriting if it exists
+        metadata = {"caller": "wait_since"} | (metadata or {})
+
         if timestamp is None:
-            self._sleep(min_interval)
+            self._sleep(min_interval, metadata=metadata)
         else:
-            self._wait(min_interval, timestamp)
+            self._wait(min_interval, timestamp, metadata=metadata)
 
     @classmethod
-    def _sleep(cls, interval: int | float) -> None:
-        """Logs the sleeping duration and blocks (`time.sleep`) until at `interval` has passed."""
+    def _sleep(cls, interval: int | float, metadata: Optional[Dict[str, Any]] = None) -> None:
+        """Logs the sleeping duration and blocks (`time.sleep`) until at `interval` has passed.
+
+        Args:
+            interval (int | float): The number of seconds to sleep.
+            metadata (Optional[Dict[str, Any]]): Optional metadata for observability (e.g., url, caller, reason).
+
+        """
         logger.info(f"RateLimiter: sleeping {interval:.2f}s to respect rate limit")
+        record = RateLimitEvent.from_metadata(
+            interval=interval,
+            **(metadata or {}),
+        )
+        cls.history.append(record)
         time.sleep(interval)
 
-    def __call__(self, fn):
+    def __call__(self, fn: Callable[P, R]):
         """Implements a rate limit for the defined function when the `RateLimiter` is used as a decorator.
 
         This decorator can be used to ensure a function can be called once every `min_interval` seconds and helps to
@@ -226,7 +267,7 @@ class RateLimiter:
         """
 
         @wraps(fn)
-        def wrapped(*args, **kwargs):
+        def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
             """Wraps and decorates a function using the rate limiter to limit how frequently it can be called."""
             self.wait()
             return fn(*args, **kwargs)
@@ -249,14 +290,17 @@ class RateLimiter:
         return False
 
     @contextmanager
-    def rate(self, min_interval: float | int) -> Iterator[Self]:
+    def rate(self, min_interval: float | int, metadata: Optional[Dict[str, Any]] = None) -> Iterator[Self]:
         """Temporarily adjusts the minimum interval between function calls or requests when used with a context manager.
 
         After the context manager exits, the original minimum interval value is then reassigned its previous value,
         and the time of the last call is recorded.
 
         Args:
-            min_interval: Indicates the minimum interval to be temporarily used during the call
+            min_interval (float | int):
+                Indicates the minimum interval to be temporarily used during the call
+            metadata (Optional[Dict[str, Any]]):
+                Optional metadata for observability (e.g., url, caller, reason).
 
         Yields:
             RateLimiter: The original rate limiter with a temporarily changed minimum interval
@@ -265,11 +309,16 @@ class RateLimiter:
         current_min_interval = self.min_interval
         try:
             self.min_interval = self._validate(min_interval)
-            self.wait()
+            self.wait(metadata=metadata)
             yield self
 
         finally:
             self.min_interval = current_min_interval
+
+    @classmethod
+    def resize_history(cls, maxlen: int) -> None:
+        """Resize the global history deque, preserving existing records up to the new limit."""
+        cls.history = cls.history.modify_history_size(maxlen)
 
     def __repr__(self) -> str:
         """Defines the string representation of the RateLimiter/subclasses to show the class name and `min_interval`."""

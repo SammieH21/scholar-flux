@@ -1,8 +1,8 @@
 # /data_storage/mongo_storage.py
 """The scholar_flux.data_storage.mongodb_storage module implements the MongoDBStorage backend for the DataCacheManager.
 
-This class implements the abstract methods required for compatibility with the scholar_flux.DataCacheManager to
-ensure that each method can be injected as a dependency.
+This class implements the abstract methods required for compatibility with the scholar_flux.DataCacheManager to ensure
+that each method can be injected as a dependency.
 
 This class implements caching by using the prebuilt features available in MongoDB to store ProcessedResponse fields
 within the database for later CRUD operations.
@@ -22,6 +22,7 @@ from scholar_flux.exceptions import (
 
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
+from scholar_flux.utils.helpers import try_none
 
 import threading
 import logging
@@ -86,6 +87,8 @@ class MongoDBStorage(ABCStorage):
     DEFAULT_CONFIG: Dict[str, Any] = {
         "host": config_settings.get("SCHOLAR_FLUX_MONGODB_HOST") or "mongodb://127.0.0.1",
         "port": config_settings.get("SCHOLAR_FLUX_MONGODB_PORT") or 27017,
+        "ttl": config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
+        "serverSelectionTimeoutMS": 5000,
         "db": "storage_manager_db",
         "collection": "result_page",
     }
@@ -93,6 +96,7 @@ class MongoDBStorage(ABCStorage):
     # for mongodb, the default
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_RAISE_ON_ERROR: bool = False
+    STORAGE_TYPE: str = "MongoDB"
 
     def __init__(
         self,
@@ -100,6 +104,7 @@ class MongoDBStorage(ABCStorage):
         namespace: Optional[str] = None,
         ttl: Optional[float | int] = None,
         raise_on_error: Optional[bool] = None,
+        verify_connection: bool = False,
         **mongo_config,
     ):
         """Initialize the Mongo DB storage backend and connect to the Mongo DB server.
@@ -125,12 +130,21 @@ class MongoDBStorage(ABCStorage):
             namespace (Optional[str]):
                 The prefix associated with each cache key. By default, this is None.
             ttl (Optional[float | int]):
-                The total number of seconds that must elapse for a cache record
+                The total number of seconds that must elapse for a cached record to expire. The value `-1` turns off TTL
+                expiration when directly passed or resolved from config defaults. TTL is determined in the following
+                order of priority:
+
+                    - SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL (resolved from `config_settings.get()`)
+                    - `MongoDBStorage.DEFAULT_CONFIG.get('ttl')` (if available)
+                    - And `None` if neither of the above is set or defined.
+
             raise_on_error (Optional[bool]):
                 Determines whether an error should be raised when encountering unexpected issues when interacting with
                 MongoDB. If `None`, the `raise_on_error` attribute defaults to `MongoDBStorage.DEFAULT_RAISE_ON_ERROR`.
-
-            **mongo_config (Dict[Any, Any]):
+            verify_connection (bool):
+                If True, verifies the MongoDB service is available immediately after initialization.
+                Raises StorageCacheException if connection fails. Defaults to False.
+            **mongo_config:
                 Configuration parameters required to connect to the Mongo DB server.
                 Typically includes parameters such as host, port, db, etc.
 
@@ -142,26 +156,76 @@ class MongoDBStorage(ABCStorage):
         if pymongo is None:
             raise MongoDBImportError
 
-        self.config = self.DEFAULT_CONFIG | mongo_config
+        if ttl is not None:
+            mongo_config["ttl"] = ttl  # -1 for infinite caching
+
+        config: dict = self._get_default_config() | mongo_config  # Overriding MongoDB defaults where available
+
+        self.ttl = self._validate_ttl(config.pop("ttl"))  # Extracting TTL and MongoDB-specific settings
+        self.config = config
 
         if host:
             self.config["host"] = host
 
-        self.client: MongoClient = MongoClient(host=self.config["host"], port=self.config["port"])
+        self.client: MongoClient = MongoClient(
+            host=self.config["host"],
+            port=self.config["port"],
+            serverSelectionTimeoutMS=self.config.get("serverSelectionTimeoutMS", 5000),
+        )
         self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
         self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
+
+        if verify_connection:
+            self.verify_connection()
+
         self.db = self.client[self.config["db"]]
         self.collection = self.db[self.config["collection"]]
 
-        self.collection.create_index(
-            [("expireAt", 1)],
-            expireAfterSeconds=0,  # Use value in each document to determine whether or not to remove record
-        )
+        # Track whether TTL index has been created (lazy initialization)
+        self._index_created = False
 
         self._validate_prefix(namespace, required=False)
 
-        self.ttl = ttl
         self.lock = threading.Lock()
+
+    def _ensure_index(self) -> None:
+        """Lazily creates the TTL index on first use for automatic document expiration."""
+        if not self._index_created:
+            with self.lock:
+                # Double-check pattern for thread safety
+                if not self._index_created:
+                    self.collection.create_index(
+                        [("expireAt", 1)],
+                        expireAfterSeconds=0,  # Use value in each document to determine whether or not to remove record
+                    )
+                    self._index_created = True
+
+    @classmethod
+    def _get_default_config(cls) -> dict[str, Any]:
+        """Get default configuration with current config_settings values.
+
+        Reads from environment variables in order of priority:
+        - SCHOLAR_FLUX_MONGODB_HOST > cls.DEFAULT_CONFIG['host'] > MONGODB_HOST > "mongodb://127.0.0.1" (localhost)
+        - SCHOLAR_FLUX_MONGODB_PORT > DEFAULT_CONFIG['port'] > MONGODB_PORT  > 27017
+
+        Returns:
+            dict: Configuration dictionary with host and port.
+
+        """
+        config_ttl = try_none(config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"))
+        return cls.DEFAULT_CONFIG | {
+            "host": config_settings.get("SCHOLAR_FLUX_MONGODB_HOST")
+            or cls.DEFAULT_CONFIG.get("host")
+            or config_settings.get("MONGODB_HOST")
+            or "mongodb://127.0.0.1",
+            "port": config_settings.get("SCHOLAR_FLUX_MONGODB_PORT")
+            or cls.DEFAULT_CONFIG.get("port")
+            or config_settings.get("MONGODB_PORT")
+            or 27017,
+            "db": cls.DEFAULT_CONFIG.get("db") or "storage_manager_db",
+            "collection": cls.DEFAULT_CONFIG.get("collection") or "result_page",
+            "ttl": config_ttl if config_ttl is not None else try_none(cls.DEFAULT_CONFIG.get("ttl")),
+        }
 
     def clone(self) -> MongoDBStorage:
         """Helper method for creating a new MongoDBStorage with the same parameters.
@@ -188,6 +252,7 @@ class MongoDBStorage(ABCStorage):
             PyMongoError: If there is an error retrieving the record
 
         """
+        self._ensure_index()
         try:
             namespace_key = self._prefix(key)
             with self.lock:
@@ -215,13 +280,12 @@ class MongoDBStorage(ABCStorage):
             PyMongoError: If there is an error during the retrieval of records under the namespace.
 
         """
+        self._ensure_index()
         cache = {}
         try:
             with self.lock:
                 cache_data = self.collection.find({}, {"key": 1, "data": 1, "_id": 0})
-            if not cache_data:
-                logger.info("Records not found...")
-            else:
+            if cache_data:
                 cache = {
                     data["key"]: {k: v for k, v in data.items() if k not in ("_id", "key")}
                     for data in cache_data
@@ -245,6 +309,7 @@ class MongoDBStorage(ABCStorage):
             PyMongoError: If there is an error retrieving the record key.
 
         """
+        self._ensure_index()
         keys = []
         try:
             with self.lock:
@@ -273,6 +338,7 @@ class MongoDBStorage(ABCStorage):
             PyMongoError: If an error occur when attempting to insert or update a record
 
         """
+        self._ensure_index()
         try:
             namespace_key = self._prefix(key)
             data_dict = {"key": namespace_key, "data": data}
@@ -290,42 +356,47 @@ class MongoDBStorage(ABCStorage):
         except DuplicateKeyError as e:
             logger.warning(f"Duplicate key error updating cache: {e}")
         except (PyMongoError, StorageCacheException) as e:
-            msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}"
+            msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}'): {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
             )
 
-    def delete(self, key: str):
+    def delete(self, key: str) -> Optional[bool]:
         """Delete the value associated with the provided key from cache.
 
         Args:
-            key (str): The key used associated with the stored data from the cache.
+            key (str): The key associated with the stored data from the cache.
 
         Raises:
             PyMongoError: If there is an error deleting the record
 
         """
+        self._ensure_index()
         try:
             namespace_key = self._prefix(key)
             with self.lock:
                 result = self.collection.delete_one({"key": namespace_key})
-            if result.deleted_count > 0:
+            is_deleted = result.deleted_count > 0
+            if is_deleted:
                 logger.debug(f"Key: {key}  (namespace = '{self.namespace}') successfully deleted")
             else:
                 logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
+            return is_deleted
         except PyMongoError as e:
             msg = f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}"
             self._handle_storage_exception(
                 exception=e, operation_exception_type=CacheDeletionException if self.raise_on_error else None, msg=msg
             )
+        return None
 
     def delete_all(self):
         """Delete all records from cache that match the current namespace prefix.
 
         Raises:
-            PyMongoError: If there an error occurred when deleting records from the collection
+            PyMongoError: If an error occurs when deleting records from the collection
 
         """
+        self._ensure_index()
         try:
             with self.lock:
                 result = self.collection.delete_many({})
@@ -356,6 +427,7 @@ class MongoDBStorage(ABCStorage):
         if not key:
             raise ValueError(f"Key invalid. Received {key} (namespace = '{self.namespace}')")
 
+        self._ensure_index()
         try:
             with self.with_raise_on_error():
                 found_data = self.retrieve(key)
@@ -369,8 +441,28 @@ class MongoDBStorage(ABCStorage):
             )
         return False
 
+    def verify_connection(self) -> None:
+        """Verifies that the MongoDBStorage is available for connection with initialized storage configuration
+        settings."""
+        try:
+            self.ping(self.client)
+        except Exception as e:
+            msg = f"Could not initialize a connection for the following storage device: {self.structure()}"
+            self._handle_storage_exception(
+                exception=e,
+                operation_exception_type=StorageCacheException,
+                msg=msg,
+            )
+
     @classmethod
-    def is_available(cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True) -> bool:
+    def ping(cls, client: MongoClient) -> None:
+        """Attempts to ping the remote service."""
+        client.server_info()
+
+    @classmethod
+    def is_available(
+        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs
+    ) -> bool:
         """Helper method that indicates whether the MongoDB service is available or not.
 
         It attempts to establish a connection on the provided host and port and returns a boolean indicating if the
@@ -386,6 +478,7 @@ class MongoDBStorage(ABCStorage):
             port (Optional[int]): The port where the service is hosted. If None or 0, defaults to port, 27017  or the
                                   "port" entry from the DEFAULT_CONFIG class variable.
             verbose (bool): Indicates whether to log status messages. Defaults to True
+            **kwargs: No-Op keyword arguments for compatibility with config connection availability checks
 
         Returns:
             bool:
@@ -401,13 +494,15 @@ class MongoDBStorage(ABCStorage):
             logger.warning("The pymongo module is not available")
             return False
 
-        mongodb_host = host or cls.DEFAULT_CONFIG["host"]
-        mongodb_port = port or cls.DEFAULT_CONFIG["port"]
+        default_config = cls._get_default_config()
+
+        mongodb_host = host or default_config["host"]
+        mongodb_port = port or default_config["port"]
 
         try:
             client: MongoClient
             with MongoClient(host=mongodb_host, port=mongodb_port, serverSelectionTimeoutMS=1000) as client:
-                client.server_info()
+                cls.ping(client)
 
             if verbose:
                 logger.info(f"The MongoDB service is available at {mongodb_host}:{mongodb_port}")

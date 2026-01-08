@@ -51,13 +51,13 @@ ScholarFlux normalizes provider-specific field names into universal academic fie
    import pandas as pd
    
    # Query 4 providers
-   multi = MultiSearchCoordinator()
-   multi.add_coordinators([
+   multi_coordinator = MultiSearchCoordinator()
+   multi_coordinator.add_coordinators([
        SearchCoordinator(query="machine learning", provider_name=provider)
        for provider in ['plos', 'arxiv', 'openalex', 'crossref']
    ])
    
-   results = multi.search_pages(pages=range(1, 3))
+   results = multi_coordinator.search_pages(pages=range(1, 3))
    
    # Filter successful responses and normalize
    normalized_records = results.filter().normalize()
@@ -152,8 +152,8 @@ The real power emerges with multiple providers:
    import pandas as pd
    
    # Query 4 providers simultaneously
-   multi = MultiSearchCoordinator()
-   multi.add_coordinators([
+   multi_coordinator = MultiSearchCoordinator()
+   multi_coordinator.add_coordinators([
        SearchCoordinator(query="machine learning", provider_name='plos'),
        SearchCoordinator(query="machine learning", provider_name='arxiv'),
        SearchCoordinator(query="machine learning", provider_name='openalex'),
@@ -161,7 +161,7 @@ The real power emerges with multiple providers:
    ])
    
    # Retrieve 10 pages per provider (40 total requests)
-   results = multi.search_pages(pages=range(1, 11))
+   results = multi_coordinator.search_pages(pages=range(1, 11))
    
    # Normalize all 1,250+ records in one call
    normalized_records = results.filter().normalize()
@@ -578,14 +578,14 @@ Convert normalized records directly to pandas DataFrames:
    import pandas as pd
    
    # Multi-provider search
-   multi = MultiSearchCoordinator()
-   multi.add_coordinators([
+   multi_coordinator = MultiSearchCoordinator()
+   multi_coordinator.add_coordinators([
        SearchCoordinator(query="machine learning", provider_name='plos'),
        SearchCoordinator(query="machine learning", provider_name='crossref'),
        SearchCoordinator(query="machine learning", provider_name='openalex')
    ])
    
-   results = multi.search_pages(pages=range(1, 11))
+   results = multi_coordinator.search_pages(pages=range(1, 11))
    
    # Normalize with metadata
    normalized = results.filter().normalize(include={'provider_name', 'page'})
@@ -911,30 +911,53 @@ Build evidence tables for systematic reviews:
 .. code-block:: python
 
    from scholar_flux import MultiSearchCoordinator, SearchCoordinator
+   from scholar_flux.utils import JsonFileUtils, JsonDataEncoder
+   from pathlib import Path
    import pandas as pd
    
    # Search all major databases for a medical topic
-   multi = MultiSearchCoordinator()
-   multi.add_coordinators([
-       SearchCoordinator(query="COVID-19 vaccine efficacy", provider_name=p)
+   multi_coordinator = MultiSearchCoordinator.from_coordinators([
+       SearchCoordinator(query="COVID-19 vaccine efficacy", provider_name=p, use_cache=True)
        for p in ['pubmed', 'plos', 'crossref']
    ])
    
-   results = multi.search_pages(pages=range(1, 51))  # 150 pages
-   df = pd.DataFrame(results.filter().normalize(include={'provider_name'}))
+   results = multi_coordinator.search_pages(pages=range(1, 51))  # 150 pages
+   search_fields = {'query', 'display_name', 'page'} # metadata fields to include in the result set
+   df = pd.DataFrame(results.filter().normalize(include=search_fields))
+
+   # Save location
+   documents_folder = Path.home() / "Documents" 
+
+   # Create an audit trail, saving the raw records before normalization
+   raw_evidence_records_path = documents_folder / "covid_vaccine_evidence_raw_records.json"
+   raw_evidence_records = results.join(include=search_fields)
+
+   if not JsonFileUtils.is_jsonable(raw_evidence_records):
+        print( """Can't save the JSON data directly! The data elements that can't be stored will be encoded for storage.
+        Use `scholar_flux.utils.JsonDataEncoder.decode()` after loading to restore the raw data.
+
+        Note: "Only elements in nested lists and dictionaries that can't be directly stored will be encoded, and
+        everything else in the JSON will stay as is file will be stored as is.""")
+        raw_evidence_records = JsonDataEncoder.encode(raw_evidence_records)
+   
+   JsonFileUtils.save_as(raw_evidence_records, raw_evidence_records_path)
    
    # Create evidence table
-   evidence = df[[
-       'title', 'authors', 'journal', 'year', 'doi', 'abstract'
+   evidence_records = df[[
+       'title', 'authors', 'journal', 'year', 'doi', 'abstract', 'full_text'
    ]].copy()
    
    # Add PRISMA screening columns
-   evidence['include_abstract'] = None
-   evidence['include_fulltext'] = None
-   evidence['exclusion_reason'] = None
+   evidence_records['include_abstract'] = evidence_records['abstract'].notna()
+   evidence_records['include_fulltext'] = evidence_records['full_text'].notna()
+   evidence_records['is_restricted'] = evidence_records['open_access'].fillna(False) == False
+   evidence_records['exclusion_reason'] = None
    
    # Export for manual review
-   evidence.to_excel('covid_vaccine_evidence.xlsx', index=False)
+   evidence_records_path = documents_folder / 'covid_vaccine_evidence.xlsx'
+   evidence_records.to_excel(evidence_records_path, index=False)
+
+   print(f"The data was successfully saved: \n1. '{raw_evidence_records_path}' \n2. '{evidence_records_path}'")
 
 Citation Network Analysis
 -------------------------

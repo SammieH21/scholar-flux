@@ -8,11 +8,12 @@ scenarios where fields may be differently named in different records from the sa
 
 """
 from pydantic import PrivateAttr
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional, Sequence
 from functools import cached_property
 from scholar_flux.api.normalization.base_field_map import BaseFieldMap
 from scholar_flux.data.normalizing_data_processor import DataProcessor, NormalizingDataProcessor
 from scholar_flux.exceptions import RecordNormalizationException, DataProcessingException
+from scholar_flux.utils.record_types import RecordType, RecordList, NormalizedRecordType, NormalizedRecordList
 import logging
 
 logger = logging.getLogger(__name__)
@@ -113,7 +114,9 @@ class NormalizingFieldMap(BaseFieldMap):
         self._processor.update_record_keys(processing_fields)
         self._refresh_cached_fields()
 
-    def normalize_record(self, record: dict) -> dict[str, Any]:
+    def normalize_record(
+        self, record: RecordType, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+    ) -> NormalizedRecordType:
         """Maps API-specific fields in dictionaries of processed records to a normalized set of field names."""
 
         if record is None:
@@ -125,11 +128,12 @@ class NormalizingFieldMap(BaseFieldMap):
             raise RecordNormalizationException(err)
 
         normalized_record = self.processor.process_record(record)
-        normalized_record = self._add_defaults(self._resolve_fallbacks(normalized_record))
+        post_processed_record = self._post_process(normalized_record)
+        return self.filter_api_specific_fields(post_processed_record, keep_api_specific_fields)
 
-        return normalized_record
-
-    def normalize_records(self, records: dict | list[dict]) -> list[dict[str, Any]]:
+    def normalize_records(
+        self, records: RecordType | RecordList, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+    ) -> NormalizedRecordList:
         """Maps API-specific fields within a processed record list to create a new, normalized record list."""
 
         if records is None:
@@ -150,9 +154,15 @@ class NormalizingFieldMap(BaseFieldMap):
             raise RecordNormalizationException(err)
 
         return [
-            self._add_defaults(self._resolve_fallbacks(normalized_record))
+            self.filter_api_specific_fields(
+                self._post_process(normalized_record), keep_api_specific_fields=keep_api_specific_fields
+            )
             for normalized_record in normalized_record_list
         ]
+
+    def _post_process(self, record: NormalizedRecordType) -> NormalizedRecordType:
+        """Override in subclasses for provider-specific transformations."""
+        return self._add_defaults(self._resolve_fallbacks(record))
 
     @classmethod
     def _index_key(cls, field: str, index: int, suffix: str = "_fallback_") -> str:
@@ -161,19 +171,20 @@ class NormalizingFieldMap(BaseFieldMap):
             return field
         return f"{field}{suffix}{index}"
 
-    def _resolve_fallbacks(self, record: dict[str, Any]) -> dict[str, Any]:
+    def _resolve_fallbacks(self, record: NormalizedRecordType) -> NormalizedRecordType:
         """Resolve universal fields with lists of record keys that may vary depending on the record type."""
         record_keys = self.fields
+        result = record.copy()
         for field, record_key_list in record_keys.items():
             if not isinstance(record_key_list, list):
                 continue
             for i, _ in enumerate(record_key_list):
                 current_field_key = self._index_key(field, i) if i > 0 else field
-                value = record.pop(current_field_key, None) if i > 0 else record.get(field)
+                value = result.pop(current_field_key, None) if i > 0 else result.get(field)
 
-                if record.get(field) is None and i > 0 and value is not None:
-                    record[field] = value
-        return record
+                if result.get(field) is None and i > 0 and value is not None:
+                    result[field] = value
+        return result
 
 
 __all__ = ["NormalizingFieldMap"]

@@ -60,7 +60,13 @@ class RateLimitExceededException(APIException):
 class RequestFailedException(APIException):
     """Exception raised for failed API requests."""
 
-    pass
+    @classmethod
+    def extract_error_details(cls, response: requests.Response | ResponseProtocol) -> str:
+        """Extracts detailed error message from response body."""
+        try:
+            return response.json().get("error", {}).get("message", "")  # type: ignore
+        except (ValueError, KeyError, AttributeError, JSONDecodeError):
+            return ""
 
 
 class RequestCreationException(APIException):
@@ -90,7 +96,7 @@ class SearchRequestException(APIException):
 
 
 class SearchAPIException(APIException):
-    """Exception raised when the search api fails in retrying data from APIs ."""
+    """Exception raised when the search api fails in retrying data from APIs."""
 
     pass
 
@@ -119,35 +125,39 @@ class InvalidResponseReconstructionException(InvalidResponseStructureException):
     pass
 
 
+class RetryAfterDelayExceededException(RequestFailedException):
+    """Exception raised when a Retry-After field from a rate limited (429) response exceeds the user-specified limit."""
+
+    def __init__(self, response: Optional[requests.Response | ResponseProtocol], *args, message: str = "", **kwargs):
+        """Initializes the `RetryAfterDelayExceededException` class with a response or response-like parameter."""
+        self.response: Optional[requests.Response | ResponseProtocol] = response
+        self.error_details: str = self.extract_error_details(response) if response is not None else ""
+        self.message = f"{message}: {self.error_details}" if self.error_details else message
+        super().__init__(self.message, *args, **kwargs)
+
+
 class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""
 
     def __init__(self, response: Optional[requests.Response | ResponseProtocol] = None, *args, **kwargs):
-        """Initializes the `InvalidResponseException` class with a response or response-like parameter for logging."""
+        """Initializes the `InvalidResponseException` class with a response or response-like parameter."""
 
         self.response: Optional[requests.Response | ResponseProtocol] = (
             response if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)) else None
         )
-        self.error_details: str = self.extract_error_details(self.response) if self.response is not None else ""
+        self.error_details: str = self.extract_error_details(response) if response is not None else ""
 
-        if self.response is not None:
-            error_message = f"HTTP error occurred: {response} - Status code: {self.response.status_code}."
+        if response is not None:
+            error_message = f"HTTP error occurred: {response} - Status code: {getattr(response,'status_code')}."
 
             if self.error_details:
                 error_message += f" Details: {self.error_details}"
         else:
             error_message = f"An error occurred when making the request - Received a nonresponse: {type(response)}"
 
-        logger.error(error_message)
-        super().__init__(error_message, *args, **kwargs)
+        self.message = error_message
 
-    @staticmethod
-    def extract_error_details(response: requests.Response | ResponseProtocol) -> str:
-        """Extracts detailed error message from response body."""
-        try:
-            return response.json().get("error", {}).get("message", "")  # type: ignore
-        except (ValueError, KeyError, AttributeError, JSONDecodeError):
-            return ""
+        super().__init__(self.message, *args, **kwargs)
 
 
 class RetryLimitExceededException(APIException):
@@ -171,6 +181,7 @@ __all__ = [
     "NoRecordsAvailableException",
     "PermissionException",
     "InvalidResponseException",
+    "RetryAfterDelayExceededException",
     "NotFoundException",
     "SearchAPIException",
     "SearchRequestException",

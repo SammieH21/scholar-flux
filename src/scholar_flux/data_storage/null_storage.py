@@ -33,6 +33,7 @@ class NullStorage(ABCStorage):
     # for compatibility with other storage backends
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_RAISE_ON_ERROR: bool = False
+    STORAGE_TYPE: str = "Null"
 
     def __init__(
         self,
@@ -96,6 +97,10 @@ class NullStorage(ABCStorage):
     def verify_cache(self, *args, **kwargs) -> bool:
         """Method added for abstract class consistency - returns None, indicating that no cache is ever stored"""
         return False
+
+    def verify_connection(self) -> None:
+        """No-Op that otherwise raises an error when connections can't be established successfully."""
+        pass
 
     @classmethod
     def is_available(cls, *args, **kwargs) -> bool:

@@ -55,10 +55,10 @@ Encrypted Cached Sessions
 
 
 Raises:
-    - SessionCreationError
-    - SessionConfigurationError
-    - SessionInitializationError
-    - SessionCacheDirectoryError
+    - SessionCreationError: The base exception class for errors involving the creation/use of a `CachedSessionManager`
+    - SessionConfigurationError: When an error occurs during the creation of a `CachedSessionManager`
+    - SessionInitializationError: When an exception prevents the initialization of a new session from a session manager
+    - SessionCacheDirectoryError: When cache directory setup fails for file-based backends (`sqlite`, `filesystem`)
 
 
 Cached Session Support:

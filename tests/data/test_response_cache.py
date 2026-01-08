@@ -93,7 +93,10 @@ def create_search_coordinator(
 
     # sets up a new SearchCoordinator that uses the API and a response coordinator to retrieve and process responses
     search_coordinator = SearchCoordinator(
-        search_api, cache_manager=storage_cache, cache_requests=cache_requests, processor=RecursiveDataProcessor()
+        search_api,
+        cache_manager=storage_cache,
+        cache_requests=cache_requests,
+        processor=RecursiveDataProcessor(value_delimiter="; "),
     )
 
     return search_coordinator

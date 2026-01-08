@@ -153,10 +153,6 @@ class ProcessingPath:
         if not isinstance(path, list) or not all(isinstance(p, (str, int)) for p in path):
             raise InvalidProcessingPathError("Path must be a list or tuple of strings.")
 
-        ## Add a root path indicator
-        # if not path[0] == '':
-        #    path = [''] + path[1:]
-
         # Check for empty components in the path after stripping whitespace
         if any(not p.strip() for p in path[1:] if isinstance(p, str)):
             raise InvalidProcessingPathError("Non-root path components must be non-empty strings.")
@@ -289,7 +285,6 @@ class ProcessingPath:
         if delimiter is None:
 
             if not infer_delimiter:
-                # logger.debug(f"Infer delimiter is set to False. Default delimiter {cls.DEFAULT_DELIMITER} will be used")
                 delimiter = cls.DEFAULT_DELIMITER
             else:
                 if isinstance(path, (list, int)):
@@ -546,7 +541,6 @@ class ProcessingPath:
             int: The hash value of the ProcessingPath.
 
         """
-        # return hash((self.components, self.delimiter))
         return hash(str(self))
 
     def __contains__(self, value: object) -> bool:

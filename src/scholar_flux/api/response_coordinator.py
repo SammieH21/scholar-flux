@@ -31,22 +31,24 @@ from scholar_flux.exceptions.data_exceptions import (
 )
 
 
-from scholar_flux.utils.repr_utils import generate_repr_from_string, generate_repr
+from scholar_flux.utils.repr_utils import generate_repr_from_string
 from scholar_flux.utils.helpers import generate_iso_timestamp, coerce_str
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.exceptions.coordinator_exceptions import (
     InvalidCoordinatorParameterException,
 )
+from scholar_flux.utils.record_types import RecordList
 from scholar_flux.exceptions import StorageCacheException, MissingResponseException
+
+from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse, APIResponse
+
 from requests.exceptions import RequestException
-from typing import Optional, Dict, List, Any, cast
+from typing import Optional, Dict, Any, cast
 from requests import Response
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse, APIResponse
 
 
 class ResponseCoordinator:
@@ -125,17 +127,27 @@ class ResponseCoordinator:
         processor: Optional[ABCDataProcessor] = None,
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
+        annotate_records: Optional[bool] = None,
     ) -> "ResponseCoordinator":
         """Factory method to build a ResponseCoordinator with sensible defaults.
 
         Args:
-            parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
-            extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
-            processor: (Optional[ABCDataProcessor]): Processes API responses into list of dictionaries
-            cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
-            cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
-            cache_results: (Optional[bool]): Determines whether or not to cache processed responses - on by default unless specified or
-                                             if a cache manager is already provided
+            parser: (BaseDataParser):
+                First step of the response processing pipeline - parses response records into a dictionary
+            extractor: (Optional[BaseDataExtractor]):
+                Extracts both records and metadata from responses separately
+            processor: (Optional[ABCDataProcessor]):
+                Processes API responses into list of dictionaries
+            cache_manager: (Optional[DataCacheManager]):
+                Manages the caching of processed records for faster retrieval
+            cache_results: (Optional[bool]):
+                Determines whether or not to cache processed responses - on by default unless specified or if a cache
+                manager is already provided.
+            annotate_records (Optional[bool]):
+                When True, adds record-identifying linkage fields to each extracted record for resolution back to
+                original data after processing or flattening. Adds `_extraction_index` (position) and `_record_id`
+                (content hash + index). Default is None (no annotation).
+
 
 
         Returns:
@@ -144,9 +156,15 @@ class ResponseCoordinator:
         """
         cache_manager = cls.configure_cache(cache_manager, cache_results)
 
+        annotate_records = (
+            annotate_records
+            if annotate_records is not None
+            else all([extractor is None, processor is not None, not isinstance(processor, PassThroughDataProcessor)])
+        )
+
         return cls(
             parser=parser or DataParser(),
-            extractor=extractor or DataExtractor(),
+            extractor=extractor or DataExtractor(annotate_records=annotate_records),
             processor=processor or PassThroughDataProcessor(),
             cache_manager=cache_manager,
         )
@@ -160,19 +178,28 @@ class ResponseCoordinator:
         processor: Optional[ABCDataProcessor] = None,
         cache_manager: Optional[DataCacheManager] = None,
         cache_results: Optional[bool] = None,
+        annotate_records: Optional[bool] = None,
     ) -> ResponseCoordinator:
         """Factory method to create a new ResponseCoordinator from an existing configuration.
 
         Args:
-            response_coordinator: Optional([ResponseCoordinator]): ResponseCoordinator containing the defaults to swap
-            parser: Optional([BaseDataParser]): First step of the response processing pipeline - parses response records into a dictionary
-            extractor: (Optional[BaseDataExtractor]): Extracts both records and metadata from responses separately
-            processor: (Optional[ABCDataProcessor]): Processes API responses into list of dictionaries
-            cache_manager: (Optional[DataCacheManager]): Manages the caching of processed records for faster retrieval
-            cache_requests: (Optional[bool]): Determines whether or not to cache requests - api is the ground truth if not directly specified
-            cache_results: (Optional[bool]): Determines whether or not to cache processed responses - on by default unless specified or
-                                             if a cache manager is already provided
-
+            response_coordinator: (ResponseCoordinator):
+                ResponseCoordinator containing the defaults to swap
+            parser: (Optional[BaseDataParser]):
+                First step of the response processing pipeline - parses response records into a dictionary
+            extractor: (Optional[BaseDataExtractor]):
+                Extracts both records and metadata from responses separately
+            processor: (Optional[ABCDataProcessor]):
+                Processes API responses into list of dictionaries
+            cache_manager: (Optional[DataCacheManager]):
+                Manages the caching of processed records for faster retrieval
+            cache_results: (Optional[bool]):
+                Determines whether or not to cache processed responses - on by default unless specified or if a cache
+                manager is already provided
+            annotate_records (Optional[bool]):
+                When True, adds record-identifying linkage fields to each extracted record for resolution back to
+                original data after processing or flattening. Adds `_extraction_index` (position) and `_record_id`
+                (content hash + index). Default is None (no annotation).
 
         Returns:
             ResponseCoordinator: A fully constructed coordinator.
@@ -185,12 +212,25 @@ class ResponseCoordinator:
                 f"Received type {type(response_coordinator)}"
             )
 
+        extractor = extractor if extractor else response_coordinator.extractor
+        updated_data_extractor = (
+            DataExtractor.update(extractor, annotate_records=annotate_records)
+            if annotate_records is not None
+            else extractor
+        )
+
+        updated_cache_manager = cls.configure_cache(
+            cache_manager if cache_manager is not None else response_coordinator.cache_manager,
+            cache_results=cache_results,
+        )
+
         return response_coordinator.build(
             parser=parser or response_coordinator.parser,
-            extractor=extractor or response_coordinator.extractor,
+            extractor=updated_data_extractor,
             processor=processor or response_coordinator.processor,
-            cache_manager=cache_manager if cache_manager is not None else response_coordinator.cache_manager,
+            cache_manager=updated_cache_manager,
             cache_results=cache_results,
+            annotate_records=annotate_records,
         )
 
     @classmethod
@@ -210,7 +250,9 @@ class ResponseCoordinator:
         """
 
         if cache_manager is not None and not isinstance(cache_manager, DataCacheManager):
-            raise InvalidCoordinatorParameterException("Expected a Cache Manger, received type: {type(cache_manager)}")
+            raise InvalidCoordinatorParameterException(
+                f"Expected a Cache Manager for response processing, but received type: {type(cache_manager)}"
+            )
 
         if cache_results is False:
             # Returns a no-op cache manager when cache_results is set to False
@@ -301,22 +343,23 @@ class ResponseCoordinator:
         self._cache_manager = cache_manager
 
     def handle_response_data(
-        self, response: Response, cache_key: Optional[str] = None
-    ) -> Optional[List[Dict[Any, Any]] | List]:
+        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None, **kwargs
+    ) -> Optional[RecordList]:
         """Retrieves the data from the processed response from cache if previously cached. Otherwise the data is
         retrieved after processing the response.
 
         Args:
-            response (Response): Raw API response.
+            response (Response | ResponseProtocol): Raw API response.
             cache_key (Optional[str]): Cache key for storing/retrieving.
+            **kwargs: Additional keyword arguments to pass to `ResponseCoordinator.handle_response`.
 
         Returns:
-            Optional[List[Dict[Any, Any]]]: Processed response data or None.
+            Optional[RecordList]: Processed response data or None.
 
         """
 
         # if caching is not in use, or the cache is not available or valid anymore, process:
-        return self.handle_response(response, cache_key).data
+        return self.handle_response(response, cache_key, **kwargs).data
 
     def handle_response(
         self,
@@ -696,7 +739,7 @@ class ResponseCoordinator:
             parser=self.parser.__class__.__name__ + "(...)",
             extractor=self.extractor.__class__.__name__ + "(...)",
             processor=self.processor.__class__.__name__ + "(...)",
-            cache_manager=generate_repr(self.cache_manager, show_value_attributes=False, flatten=True),
+            cache_manager=self.cache_manager.structure(),
         )
 
         return generate_repr_from_string(class_name, components, flatten=True)

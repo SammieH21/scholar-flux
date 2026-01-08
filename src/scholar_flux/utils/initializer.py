@@ -61,13 +61,13 @@ def initialize_package(
     if config_params is not None and not isinstance(config_params, dict):
         raise PackageInitializationError(
             "An error occurred in the reinitialization of scholar_flux: "
-            f"`config_params` must be a dictionary, but received {type(config_params)}."
+            f"`config_params` must be a dictionary, but received type {type(config_params)}."
         )
 
     if logging_params is not None and not isinstance(logging_params, dict):
         raise PackageInitializationError(
             "An error occurred in the reinitialization of scholar_flux: "
-            f"`logging_params` must be a dictionary, but received {type(logging_params)}."
+            f"`logging_params` must be a dictionary, but received type {type(logging_params)}."
         )
 
     logger = (

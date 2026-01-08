@@ -77,7 +77,7 @@ def test_redis_update_error(redis_test_storage, monkeypatch, caplog):
     e = "Directly raised exception"
     key = "non-existent-key"
     value = {"data": 1}
-    msg = f"Error during attempted update of key {key} (namespace = '{redis_test_storage.namespace}': {e}"
+    msg = f"Error during attempted update of key {key} (namespace = '{redis_test_storage.namespace}'): {e}"
     monkeypatch.setattr(redis_test_storage.client, "set", raise_error(RedisError, e))
     redis_test_storage.update(key, value)
     assert msg in caplog.text

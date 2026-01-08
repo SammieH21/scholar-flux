@@ -109,7 +109,7 @@ def cache_without_keys(caplog):
 
     response_without_valid_cache_key = response_coordinator._from_cache(cache_key=1)  # type: ignore
     assert "A cache key was not specified. Attempting to create a cache key from the response..." in caplog.text
-    assert f"A response or response-like object was expected, Received ({type(1)})" in caplog.text
+    assert f"A response or response-like object was expected, but received a value of type ({type(1)})" in caplog.text
     assert response_without_valid_cache_key is None
 
 

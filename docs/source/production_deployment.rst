@@ -17,7 +17,7 @@ ScholarFlux is designed for production-grade data collection from academic APIs.
 - **Essential patterns**: Caching, concurrency, and security basics
 
 .. note::
-   ScholarFlux is currently **beta (v0.3.1)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
+   ScholarFlux is currently **beta (v0.4.0)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
 
 Prerequisites
 -------------
@@ -40,7 +40,7 @@ The recommended approach for production is to set ``SCHOLAR_FLUX_HOME`` to centr
 
    # Set SCHOLAR_FLUX_HOME
    export SCHOLAR_FLUX_HOME=/opt/scholar-flux
-   
+
    # ScholarFlux will automatically use:
    # - .env file:    $SCHOLAR_FLUX_HOME/.env
    # - Cache:        $SCHOLAR_FLUX_HOME/package_cache/
@@ -63,14 +63,14 @@ The recommended approach for production is to set ``SCHOLAR_FLUX_HOME`` to centr
 
    # Create directory structure
    mkdir -p /opt/scholar-flux/{package_cache,logs}
-   
+
    # Create .env file
    cat > /opt/scholar-flux/.env << 'EOF'
    SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
    SCHOLAR_FLUX_LOG_LEVEL=INFO
    PUBMED_API_KEY=<your_api_key>
    EOF
-   
+
    # Set environment variable (add to ~/.bashrc or /etc/environment)
    export SCHOLAR_FLUX_HOME=/opt/scholar-flux
 
@@ -83,13 +83,13 @@ ScholarFlux searches for writable directories in priority order:
 3. ``.scholar_flux`` (current working directory)
 4. Package installation directory
 
-For ``.env`` files specifically, ScholarFlux also checks the current working directory, making it easy to place ``.env`` in either ``$SCHOLAR_FLUX_HOME/.env`` or simply ``./env`` in your project directory.
+For ``.env`` files specifically, ScholarFlux also checks the current working directory, making it easy to place ``.env`` in either ``$SCHOLAR_FLUX_HOME/.env`` or simply ``.env`` in your project directory.
 
 See ``scholar_flux.package_metadata.directories.get_default_writable_directory`` for implementation details.
 
 .. tip::
    Using ``SCHOLAR_FLUX_HOME`` is especially useful for:
-   
+
    - Docker containers (mount a volume to a known location)
    - Shared servers (separate directories per user/project)
    - Production environments (centralized configuration)
@@ -123,7 +123,7 @@ Based on ``scholar_flux.config.config_loader``:
    SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
    SCHOLAR_FLUX_LOG_LEVEL=INFO              # DEBUG, INFO, WARNING, ERROR
    SCHOLAR_FLUX_PROPAGATE_LOGS=FALSE        # Set FALSE for production
-   
+
    # Optional: Override log directory (otherwise uses $SCHOLAR_FLUX_HOME/logs/)
    # SCHOLAR_FLUX_LOG_DIRECTORY=/var/log/scholar-flux
 
@@ -145,13 +145,13 @@ API Provider Keys
    PUBMED_API_KEY=<insert_your_key>
    SPRINGER_NATURE_API_KEY=<insert_your_key>
    CORE_API_KEY=<insert_your_key>
-   
+
    # Optional (some providers don't require keys)
    ARXIV_API_KEY=<insert_your_key>
    OPEN_ALEX_API_KEY=<insert_your_key>
    CROSSREF_API_KEY=<insert_your_key>
 
- Session and Request Defaults
+Session and Request Defaults
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Configure default behavior for API requests across all providers:
@@ -166,11 +166,11 @@ Configure default behavior for API requests across all providers:
 
 .. tip::
    **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` with a valid email automatically enables higher rate limits for Crossref and OpenAlex:
-   
+
    - **OpenAlex**: 10 requests/second with mailto (vs. 1 req/sec without) — a 10x improvement
    - **Crossref**: Priority access and faster responses for identified users
-   
-   As of v0.3.1, ScholarFlux reduced the default OpenAlex ``request_delay`` from 6s to 1s to align with their documented rate limits. Combined with ``mailto``, this significantly improves throughput for OpenAlex queries.
+
+   As of v0.3.1, ScholarFlux reduced the default OpenAlex ``request_delay`` from 6s to 1s to align with their documented rate limits. Combined with ``mailto``, this significantly improves the default throughput for OpenAlex queries.
 
 These variables are read automatically when creating sessions and search coordinators, eliminating the need to specify them in code:
 
@@ -245,6 +245,15 @@ With these environment variables set, cache backends are configured automaticall
 .. tip::
    ScholarFlux accepts both prefixed (``SCHOLAR_FLUX_*``) and unprefixed (``REDIS_HOST``) variables for cache backends, prioritizing the prefixed version.
 
+.. note::
+   ScholarFlux builds on ``requests-cache``, implementing strict validation for cache TTL (``expire_after``), storage cache availability, and other common
+   session cache configuration parameters. The package, ``requests-cache``, while powerful, implements minimal validation for inputs and may silently
+   accept invalid TTLs or malformed values. The ``CachedSessionManager`` expands the functionality of ``requests-cache`` in production environments by raising
+   clear errors for unsupported types, negative values (other than ``-1`` for "no expiration"), or malformed strings **before** using these inputs to create
+   CachedSessions, preventing unexpected errors when sending requests and ensuring that session caching in production environments operates predictably.
+   This strict validation applies to both session cache (`expire_after`) and response processing cache (`ttl` for Redis/MongoDB) with the aim of ensuring that
+   bad inputs `fail-fast` instead of propagating unexpected issues later during orchestrated searches.
+
 Runtime Configuration
 ---------------------
 
@@ -267,7 +276,7 @@ For scenarios where environment variables aren't suitable (e.g., dynamic configu
 
    # Now all SearchCoordinators will use these defaults to search for academic records via Crossref
    from scholar_flux import SearchCoordinator
-   coordinator = SearchCoordinator(query="test") 
+   coordinator = SearchCoordinator(query="test")
    # Automatically uses the configured user_agent and mailto
 
 **Priority order for configuration:**
@@ -289,7 +298,37 @@ Loading Configuration
 Automatic Loading (Recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-ScholarFlux automatically loads environment configuration on import, but **caching requires explicit setup**:
+ScholarFlux automatically loads environment configuration on import. This also includes the several settings designated for caching:
+
+- **SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND**: Controls the default backend for CachedSession instances created when initializing SearchAPI or SearchCoordinator. Supported `requests_cache` backends include `sqlite`, `redis`, `mongodb`, and `memory`.
+- **SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE**: Defines the default cache storage backend that the `DataCacheManager` creates for response caching during orchestration of the response processing steps. Supported options are `redis`, `sql/sqlalchemy`, `mongo/mongodb`, `memory/inmemory`, and `null`. Defaults to `memory` if not specified.
+- **SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL**: Controls the total number of seconds that requests-cache should retain cached responses until they expire. The TTL is set at 86400 (1 day) unless overridden. Set this to -1 or None to turn off TTL-based session cache expiration.
+- **SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL**: Controls the total number of seconds that the response processing cache should retain processed response data until they expire. The TTL is set to None unless overridden. Set this to -1 or leave it as `None` to turn off response processing cache expiration.
+- **SCHOLAR_FLUX_MONGODB_HOST**: MongoDB connection string (default: "mongodb://127.0.0.1")
+- **SCHOLAR_FLUX_MONGODB_PORT**: MongoDB port (default: 27017)
+- **SCHOLAR_FLUX_REDIS_HOST**: Redis host (default: "localhost")
+- **SCHOLAR_FLUX_REDIS_PORT**: Redis port (default: 6379)
+
+Each of the above settings can be used to load the intended configuration on import or modify them at runtime.
+
+.. code-block:: python
+
+   from scholar_flux import SearchCoordinator
+   from scholar_flux.utils import config_settings
+
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND", "redis") # Layer 1: Session Cache
+   config_settings.set("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE", "redis") # Layer 2: Response Processing Cache
+
+   # `cache_requests=True` (or `use_cache=True` — a SearchAPI parameter) is required when a default session cache is not pre-set on import
+   coordinator = SearchCoordinator(query = 'test query', cache_requests = True)
+
+   print(coordinator.api.session)
+   # <CachedSession(cache=<RedisCache(name=search_requests_cache)>, settings=CacheSettings(allowable_codes=[200], allowable_methods=('GET',), expire_after=86400))>
+
+   print(coordinator.responses.cache)
+   # DataCacheManager(cache_storage=RedisStorage(...))
+
+Otherwise, caching can be configured (or overridden) as usual by passing explicit components when creating a ``SearchCoordinator``:
 
 .. code-block:: python
 
@@ -297,15 +336,15 @@ ScholarFlux automatically loads environment configuration on import, but **cachi
    from scholar_flux import SearchCoordinator
    from scholar_flux.sessions import CachedSessionManager
    from scholar_flux.data_storage import DataCacheManager
-   
-   # Request cache (off by default) - CachedSessionManager automatically uses 
+
+   # Request cache (off by default) - CachedSessionManager automatically uses
    # $SCHOLAR_FLUX_HOME/package_cache/ for SQLite backend
    session_manager = CachedSessionManager(
        backend='sqlite',
        user_agent='Research/1.0 mailto:your@institution.edu',
        expire_after=86400  # 24 hours
    )
-   
+
    # Response processing cache (in-memory by default) - DataCacheManager automatically uses
    # $SCHOLAR_FLUX_HOME/package_cache/ for SQLite backend
    cache = DataCacheManager.with_storage(
@@ -313,18 +352,18 @@ ScholarFlux automatically loads environment configuration on import, but **cachi
        namespace='my_project',
        ttl=86400  # 24 hours
    )
-   
+
    coordinator = SearchCoordinator(
        query="machine learning",
        provider_name="pubmed",
        session=session_manager(),  # Enable request caching
        cache_manager=cache          # Configure response cache
    )
-   
+
    # Both caches automatically use SCHOLAR_FLUX_HOME/package_cache/
    print(session_manager.cache_path)
    # Example: /opt/scholar-flux/package_cache/search_requests_cache
-   
+
    print(cache.cache_storage.config.get('url'))
    # Example: sqlite:////opt/scholar-flux/package_cache/data_store.sqlite
 
@@ -333,7 +372,7 @@ ScholarFlux automatically loads environment configuration on import, but **cachi
 
 .. note::
    **Default caching behavior:**
-   
+
    - **Request cache** (HTTP responses): Off by default. Enable with ``session=CachedSessionManager()`` or ``use_cache=True``
    - **Response cache** (processed data): In-memory by default. Use ``DataCacheManager.with_storage()`` for persistence
 
@@ -345,7 +384,7 @@ For custom ``.env`` locations:
 .. code-block:: python
 
    from scholar_flux import initialize_package
-   
+
    initialize_package(
        env_path="/etc/scholar-flux/.env.production",
        config_params={'enable_logging': True, 'log_level': 'INFO'}
@@ -359,10 +398,10 @@ Validate required secrets on startup:
 .. code-block:: python
 
    import os
-   
+
    required_secrets = ['PUBMED_API_KEY', 'REDIS_HOST', 'SCHOLAR_FLUX_CACHE_SECRET_KEY']
    missing = [key for key in required_secrets if not os.getenv(key)]
-   
+
    if missing:
        raise EnvironmentError(f"Missing required configuration: {missing}")
 
@@ -378,7 +417,7 @@ The recommended approach is to mount a volume to ``SCHOLAR_FLUX_HOME``:
 
    # Create host directory
    mkdir -p /opt/scholar-flux
-   
+
    # Run container with volume mount
    docker run \
      -e SCHOLAR_FLUX_HOME=/app/scholar-flux \
@@ -395,25 +434,25 @@ Create reproducible research environments:
 .. code-block:: dockerfile
 
    FROM python:3.11-slim
-   
+
    WORKDIR /app
-   
+
    # Install dependencies
    COPY requirements.txt .
    RUN pip install --no-cache-dir -r requirements.txt
-   
+
    # Copy application
    COPY . .
-   
+
    # Create SCHOLAR_FLUX_HOME directory
    RUN mkdir -p /app/scholar-flux/{package_cache,logs}
    ENV SCHOLAR_FLUX_HOME=/app/scholar-flux
-   
+
    # Non-root user
    RUN useradd -m scholar && \
        chown -R scholar:scholar /app
    USER scholar
-   
+
    CMD ["python", "research_pipeline.py"]
 
 **requirements.txt:**
@@ -437,7 +476,7 @@ Environment Variables in Docker
    SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
    PUBMED_API_KEY=<insert_your_key>
    EOF
-   
+
    # Run with volume mount
    docker run \
      -e SCHOLAR_FLUX_HOME=/app/scholar-flux \
@@ -460,7 +499,7 @@ Environment Variables in Docker
 .. code-block:: yaml
 
    version: '3.8'
-   
+
    services:
      app:
        build: .
@@ -471,12 +510,12 @@ Environment Variables in Docker
          - ./scholar-flux:/app/scholar-flux  # Host directory to container
        depends_on:
          - redis
-     
+
      redis:
        image: redis:7-alpine
        volumes:
          - redis-data:/data
-   
+
    volumes:
      redis-data:
 
@@ -517,40 +556,40 @@ ScholarFlux uses two-layer caching (HTTP responses + processed results). For pro
    from scholar_flux import SearchCoordinator, CachedSessionManager
    from scholar_flux.data_storage import DataCacheManager
    import os
-   
+
    # 24 Hour request cache expiration by default
    session_manager = CachedSessionManager(
        backend='sqlite',
        user_agent='Research/1.0 mailto:user@your.affiliation.edu',
        expire_after=86400
    )
-   
+
    # Production response processing cache with Redis
    cache = DataCacheManager.with_storage(
        'redis',
        namespace='my_project',
        ttl=86400  # 24 hours
    )
-   
+
    coordinator = SearchCoordinator(
        query="deep learning",
        provider_name="pubmed",
        session=session_manager(),
        cache_manager=cache
    )
-   
+
    print(os.environ.get("SCHOLAR_FLUX_HOME"))
    # ~/.scholar_flux for package debugging in development
-   
+
    print(session_manager.cache_path)
    # OUTPUT: ~/.scholar_flux/package_cache/search_requests_cache
-   
+
    print(cache.cache_storage.config.get('url'))
    # Redis connection details
 
 .. note::
-   **For production with Redis**: Simply change ``backend='sqlite'`` to ``backend='redis'`` in the session manager.
-   Both session caching and data caching will automatically use the same Redis connection via 
+   **For production with Redis**: Simply change ``backend='sqlite'`` to ``backend='redis'`` when creating the session manager.
+   Both session caching and data caching will automatically use the same Redis connection via
    ``SCHOLAR_FLUX_REDIS_HOST`` and ``SCHOLAR_FLUX_REDIS_PORT`` environment variables.
 
 .. seealso::
@@ -564,18 +603,17 @@ For ML dataset collection across multiple providers, use ``MultiSearchCoordinato
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
-   
+
    # Create coordinators for different providers
    coordinators = [
        SearchCoordinator(query="CRISPR", provider_name="pubmed"),
        SearchCoordinator(query="CRISPR", provider_name="plos"),
        SearchCoordinator(query="CRISPR", provider_name="crossref")
    ]
-   
+
    # Execute concurrently (thread-safe)
-   multi = MultiSearchCoordinator()
-   multi.add_coordinators(coordinators)
-   results = multi.search_pages(pages=range(1, 11))
+   multi_search_coordinator = MultiSearchCoordinator.from_coordinators(coordinators)
+   results = multi_search_coordinator.search_pages(pages=range(1, 11))
 
 .. seealso::
    See :doc:`multi_provider_search` for threading, rate limiting coordination, and session management.
@@ -588,11 +626,11 @@ Build ML-ready datasets with consistent schemas across providers:
 .. code-block:: python
 
    # Normalize results from multiple providers
-   results = multi.search_pages(pages=range(1, 6))
+   results = multi_search_coordinator.search_pages(pages=range(1, 6))
    normalized = results.filter().normalize(
        include={'provider_name', 'query'}
    )
-   
+
    # Export to pandas
    import pandas as pd
    df = pd.DataFrame(normalized)
@@ -612,7 +650,7 @@ For APIs requiring multi-step retrieval (e.g., PubMed ID search → fetch record
        query="cancer treatment",
        provider_name="pubmed"  # Uses PubMedWorkflow automatically
    )
-   
+
    results = coordinator.search_pages(pages=range(1, 11))
 
 .. seealso::
@@ -630,26 +668,26 @@ Collect and cache papers for reproducible reviews:
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.data_storage import DataCacheManager
-   
+
    cache = DataCacheManager.with_storage(
        'mongodb',
        namespace='systematic_review_2024',
        ttl=2592000  # 30 days
    )
-   
+
    coordinator = SearchCoordinator(
        query="machine learning healthcare",
        provider_name="pubmed",
        cache_manager=cache
    )
-   
+
    # Collect all pages
    results = coordinator.search_pages(pages=range(1, 101))
    successful = results.filter()
-   
+
    # Export for analysis
    normalized = successful.normalize()
-   
+
    import pandas as pd
    df = pd.DataFrame(normalized)
    df.to_csv('systematic_review_data.csv', index=False)
@@ -663,35 +701,35 @@ Build labeled datasets from multiple sources:
 
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
    from scholar_flux.data_storage import DataCacheManager
-   
+
    cache = DataCacheManager.with_storage('redis', namespace='ml_training')
-   
+
    # Define queries with labels
    queries = {
        'machine learning classification': 'ml',
        'deep learning neural networks': 'dl',
        'reinforcement learning agents': 'rl'
    }
-   
+
    # Create multi-coordinator
-   multi = MultiSearchCoordinator()
+   multi_search_coordinator = MultiSearchCoordinator()
    for query, label in queries.items():
        coord = SearchCoordinator(
            query=query,
            provider_name="pubmed",
            cache_manager=cache
        )
-       multi.add_coordinator(coord)
-   
+       multi_search_coordinator.add_coordinator(coord)
+
    # Collect data
-   results = multi.search_pages(pages=range(1, 11))
-   
+   results = multi_search_coordinator.search_pages(pages=range(1, 11))
+
    # Add labels and export
    import pandas as pd
    normalized = results.filter().normalize(include={'query'})
    df = pd.DataFrame(normalized)
    df['label'] = df['query'].map(queries)
-   
+
    # Train/test split, etc.
 
 Longitudinal Monitoring
@@ -706,13 +744,13 @@ Track new publications over time with scheduled collection:
    from datetime import datetime
    from scholar_flux import SearchCoordinator
    from scholar_flux.data_storage import DataCacheManager
-   
+
    cache = DataCacheManager.with_storage(
        'mongodb',
        namespace='monitoring',
        ttl=604800  # 7 days
    )
-   
+
    def collect_new_papers():
        """Daily collection of new papers."""
        coordinator = SearchCoordinator(
@@ -720,22 +758,22 @@ Track new publications over time with scheduled collection:
            provider_name="arxiv",
            cache_manager=cache
        )
-       
+
        results = coordinator.search_pages(pages=range(1, 6))
-       
+
        # Process and store
        timestamp = datetime.now().isoformat()
        normalized = results.filter().normalize()
-       
+
        # Save to database/file with timestamp
        import pandas as pd
        df = pd.DataFrame(normalized)
        df['collected_at'] = timestamp
        df.to_csv(f'papers_{timestamp}.csv', index=False)
-   
+
    # Schedule daily collection
    schedule.every().day.at("09:00").do(collect_new_papers)
-   
+
    while True:
        schedule.run_pending()
        time.sleep(3600)
@@ -745,9 +783,9 @@ Data Ownership & Citation
 
 .. warning::
    **Important Legal and Ethical Notice**
-   
+
    ScholarFlux facilitates data retrieval but **does not grant ownership** of the data. Users must:
-   
+
    1. Comply with API Terms of Service
    2. Properly cite original data sources in publications
    3. Respect rate limits and provider guidelines
@@ -761,7 +799,7 @@ Always cite data sources in publications:
 
 **Example acknowledgment:**
 
-    "Data was retrieved from PubMed (NCBI), PLOS, and Crossref APIs using ScholarFlux. 
+    "Data was retrieved from PubMed (NCBI), PLOS, and Crossref APIs using ScholarFlux.
     We acknowledge these providers for making scholarly data accessible."
 
 **Provider requirements:**
@@ -809,11 +847,11 @@ For sensitive research data, use encrypted caching:
 
    from scholar_flux.sessions import EncryptionPipelineFactory, CachedSessionManager
    import os
-   
+
    # Load or generate encryption key
    key = os.getenv('SCHOLAR_FLUX_CACHE_SECRET_KEY')
    encryption_factory = EncryptionPipelineFactory(key)
-   
+
    # Create encrypted session
    serializer = encryption_factory()
    session_manager = CachedSessionManager(
@@ -841,10 +879,10 @@ Logs automatically rotate when they reach size limits. For custom logging:
 .. code-block:: python
 
    import logging
-   
+
    logger = logging.getLogger('scholar_flux')
    logger.setLevel(logging.INFO)
-   
+
    # Add custom handlers as needed
 
 Best Practices
@@ -868,7 +906,7 @@ Configuration
    # Set up SCHOLAR_FLUX_HOME
    export SCHOLAR_FLUX_HOME=/opt/scholar-flux
    mkdir -p $SCHOLAR_FLUX_HOME/{package_cache,logs}
-   
+
    # Create .env file
    cat > $SCHOLAR_FLUX_HOME/.env << 'EOF'
    SCHOLAR_FLUX_ENABLE_LOGGING=TRUE

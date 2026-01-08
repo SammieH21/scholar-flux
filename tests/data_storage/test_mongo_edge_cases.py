@@ -5,6 +5,7 @@ from scholar_flux.data_storage.mongodb_storage import (
     MongoDBStorage,
     MongoDBImportError,
     PyMongoError,
+    DuplicateKeyError,
     ConnectionFailure,
 )
 from scholar_flux.exceptions import (
@@ -75,7 +76,7 @@ def test_mongo_update_error(mongo_test_storage, caplog):
     e = "DB error"
     key = "some_key"
     value = {"data": 1}
-    msg = f"Error during attempted update of key {key} (namespace = '{mongo_test_storage.namespace}': {e}"
+    msg = f"Error during attempted update of key {key} (namespace = '{mongo_test_storage.namespace}'): {e}"
     with patch.object(mongo_test_storage, "collection") as mock_collection:
         mock_collection.update_one.side_effect = PyMongoError(e)
         # Patch verify_cache to False so update_one is called
@@ -139,6 +140,27 @@ def test_mongo_verify_cache_error(mongo_test_storage, monkeypatch, caplog):
     with mongo_test_storage.with_raise_on_error(), pytest.raises(CacheVerificationException) as excinfo:
         _ = mongo_test_storage.verify_cache(key)
     assert re.search(msg, str(excinfo.value)) is not None
+
+
+@pytest.mark.parametrize("invalid_cache_key", ([], None, ""))
+def test_mongo_falsy_invalid_cache_key(mongo_test_storage, invalid_cache_key):
+    """Verifies that a `ValueError is raised if falsy cache key is passed to `verify_cache`."""
+    err = f"Key invalid. Received {invalid_cache_key} (namespace = '{mongo_test_storage.namespace}')"
+    with pytest.raises(ValueError, match=re.escape(err)):
+        _ = mongo_test_storage.verify_cache(invalid_cache_key)
+
+
+def test_mongo_duplicate_key_error(mongo_test_storage, caplog):
+    """Verifies that the DuplicateKeyError is caught and logged in the improbable event of a duplicate key error."""
+    e = "DB error"
+    key = "some_key"
+    value = {"data": 1}
+
+    with patch.object(mongo_test_storage, "collection") as mock_collection:
+        mock_collection.replace_one.side_effect = DuplicateKeyError(e)
+        mongo_test_storage.update(key, value)
+        mongo_test_storage.update(key, value)
+        assert f"Duplicate key error updating cache: {e}" in caplog.text
 
 
 def test_mongo_unavailable(mongo_test_storage, caplog):

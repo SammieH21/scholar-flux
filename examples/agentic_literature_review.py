@@ -8,7 +8,7 @@ multiple academic databases.
 Workflow Overview
 -----------------
 1. **Multi-Provider Search**: Query 7 academic APIs simultaneously (Crossref, CORE, PLOS,
-   arXiv, OpenAlex, PubMed, SpringerNature) using ScholarFlux's `MultiSearchCoordinator`.
+   arXiv, OpenAlex, PubMed, Springer Nature) using ScholarFlux's `MultiSearchCoordinator`.
 
 2. **Record Normalization**: Transform heterogeneous API responses into a unified schema
    with consistent field names (title, abstract, doi, authors, etc.).
@@ -238,7 +238,7 @@ class RecordClassificationOutput(RecordIdentifiers):
 
     @property
     def error(self) -> None:
-        """No-op field for compatibility with the API."""
+        """No-Op field for compatibility with the API."""
         pass
 
 
@@ -258,12 +258,12 @@ class RecordClassificationError(RecordIdentifiers):
 
     @property
     def classification(self) -> None:
-        """No-op field for compatibility with the API."""
+        """No-Op field for compatibility with the API."""
         pass
 
     @property
     def rationale(self) -> None:
-        """No-op field for compatibility with the API."""
+        """No-Op field for compatibility with the API."""
         pass
 
     def __bool__(self) -> bool:

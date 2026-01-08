@@ -1,6 +1,8 @@
 # /data_storage
-"""The scholar_flux.data_storage module contains the core storage definitions used to cache the response content,
-records and metadata for each unique page/batch of records under a key used for cache identification.
+"""The scholar_flux.data_storage module defines several storage implementations for caching processed responses.
+
+These core storage definitions are used to cache the response content, records and metadata for each unique page/batch
+of records under a key used for cache identification.
 
 Core components:
     - DataCacheManager: Contains the higher level methods used to create and interact with the processing cache storage
@@ -10,7 +12,7 @@ Core components:
                          consistent location.
     - RedisStorage: Contains the core methods to the Redis Client. This storage defaults to localhost, port 6379
     - MongoStorage: Contains the core methods used to interact with the Mongo DB database. By default, this class
-                    attempts to Mongo DB on localhost on port 27017.
+                    attempts to connect to Mongo DB on localhost, port 27017.
     - InMemoryStorage: The default storage method - simply saves processed request content and responses to a
                        temporary dictionary that is deleted when the python session is stopped
     - NullStorage: A No-Op storage method that is used to effectively turn off the use of storage.
@@ -35,12 +37,14 @@ from scholar_flux.exceptions import (
     RedisImportError,
     MongoDBImportError,
     SQLAlchemyImportError,
+    DuckDBImportError,
 )
 
 
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.data_storage.data_cache_manager import DataCacheManager
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
+from scholar_flux.data_storage.sql_storage import DuckDBStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
@@ -51,9 +55,11 @@ __all__ = [
     "RedisImportError",
     "MongoDBImportError",
     "SQLAlchemyImportError",
+    "DuckDBImportError",
     "DataCacheManager",
     "ABCStorage",
     "SQLAlchemyStorage",
+    "DuckDBStorage",
     "InMemoryStorage",
     "RedisStorage",
     "MongoDBStorage",

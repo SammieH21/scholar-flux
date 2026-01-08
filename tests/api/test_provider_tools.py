@@ -37,8 +37,8 @@ def test_provider_config_validation(caplog):
         in str(excinfo.value)
     )
 
-    assert ProviderConfig.validate_base_url("https:// www.usersite.com")  # type: ignore
-    assert ProviderConfig.validate_docs_url("https:// www.usersite.com")  # type: ignore
+    assert ProviderConfig.validate_base_url("https://www.usersite.com")  # type: ignore
+    assert ProviderConfig.validate_docs_url("https://docs.usersite.com")  # type: ignore
 
 
 def test_unknown_provider_retrieval():
@@ -158,6 +158,7 @@ def test_provider_addition(caplog):
     assert provider_registry[provider_name] == provider_config
     assert provider_name in provider_registry
     assert re.search(r"^ProviderConfig\(.*'newprovider'.*\)$", repr(provider_registry[provider_name]), re.DOTALL)
+    assert provider_config.map is parameter_map and provider_config.api_key_required is False
 
     update_config = deepcopy(provider_config)
     update_config.docs_url = "https://the-docs-can-be-found-here.com"

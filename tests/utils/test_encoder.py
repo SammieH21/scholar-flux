@@ -21,15 +21,18 @@ def turn_off_hash_prefix():
 
 @pytest.fixture
 def default_hash_prefix():
+    """The default hash prefix used by the `CacheDataEncoder/JsonDataEncoder` to identify encoded vs decoded JSON."""
     return CacheDataEncoder.DEFAULT_HASH_PREFIX
 
 
 def round_trip_data_encoder(data: T) -> T:
-    """Helper function used to verify whether, after encoding, dumping, and recovering the initial data, The original
-    result is returned.
+    """Helper function that uses the `CacheDataEncoder` to verify whether data integrity after encoding and decoding.
+
+    After encoding and serializing data using the `CacheDataEncoder`, the original, exact JSON data set should be
+    recoverable by decoding the data set using the same `CacheDataEncoder` following deserialization.
 
     Args:
-        data (T): A value encode and dump into a JSON string and reload and decode afterward
+        data (T): A value to encode and dump into a JSON string. It is reload and decoded afterward
 
     Returns:
         T: The original type entered into the round_trip_data_encoder assuming the encoding and decoding is successful.
@@ -43,11 +46,12 @@ def round_trip_data_encoder(data: T) -> T:
 
 
 def round_trip_json_encoder(data: T) -> T:
-    """Helper function used to serialize and deserialize data into the original input: This should produce the same
-    result as the `round_trip_data_encoder` and is provided for testing purposes.
+    """Helper function that uses the `JsonDataEncoder` to serialize and deserialize data into the original input.
+
+    This encoder is used to verify data integrity and should produce the same result as the `round_trip_data_encoder`.
 
     Args:
-        data (T): A value encode and dump into a JSON string and reload and decode afterward
+        data (T): A value to encode and dump into a JSON string. It is reloaded and decoded afterward.
 
     Returns:
         T: The original type entered into the round_trip_data_encoder assuming the encoding and decoding is successful.
@@ -91,10 +95,9 @@ def test_encode_decode_roundtrip(data):
 
 
 def test_tuple_roundtrip():
-    """Verifies that tuples and sets can safely be encoded and decoded as needed when creating json dumpable data
-    encoding.
+    """Verifies that tuples and sets can safely be encoded and decoded in JSON format when using the `CacheDataEncoder`.
 
-    Note that, because types cannot be directly dumped via JSON, they must be coerced into lists instead.
+    Note that, because these types cannot be directly dumped via JSON, they must be coerced into lists instead.
 
     """
 
@@ -130,6 +133,7 @@ def test_sequence_roundtrip(SequenceType, caplog):
 
 
 def test_base64():
+    """Verifies that `CacheDataEncoder.is_base64` correctly identifies valid base64 data encodings from strings."""
     data = b"bytes string"
     encoded_data = b64encode(data)
 
@@ -146,7 +150,7 @@ def test_base64():
 
 
 def test_large_nested_structure():
-    """Ensure encoder handles deeply nested structures."""
+    """Verifies that the `CacheDataEncoder` correctly handles deeply nested structures."""
     data = {"level": 0}
     current: dict = data
     for i in range(100):  # 100 levels deep
@@ -158,11 +162,10 @@ def test_large_nested_structure():
 
 
 def test_nonreadable_character_identification():
-    """Tests the CacheDataEncoder.is_nonreadable class method to determine whether it correctly identifies non-readable
-    characters.
+    """Verifies that the `CacheDataEncoder.is_nonreadable` method correctly identifies non-readable characters.
 
     This test verifies that the classification of readable vs nonreadable characters also depends on `p` which is the
-    proportion of non-readable byte characters, defined as unicode characters not between the range of (32 <= c <= 126)
+    proportion of non-readable byte characters, defined as unicode characters not within the range of (32 <= c <= 126)
 
     """
     nonreadable_character = b"\xc2\x80"
@@ -190,7 +193,7 @@ def test_no_hash_prefix(default_hash_prefix, turn_off_hash_prefix, mock_academic
     if not default_hash_prefix:
         pytest.skip(
             "A comparison of non hashed prefix behavior in the CacheDataEncoder must be performed only "
-            "if DEFAULT_HASH_PREFIX is non missing"
+            "if DEFAULT_HASH_PREFIX is non-missing"
         )
 
     encoded_json = CacheDataEncoder.encode(mock_academic_json)
@@ -204,16 +207,24 @@ def test_no_hash_prefix(default_hash_prefix, turn_off_hash_prefix, mock_academic
 
 
 def test_no_hash_prefix_roundtrip(turn_off_hash_prefix, mock_academic_json):
-    """Validates whether the CacheDataEncoder successfully encodes and decodes the json as is without modificaation when
-    the CacheDataEncoder prefix is set to None."""
+    """Validates data integrity when encoding and decoding a basic academic JSON roundtrip with hash prefix `None`.
+
+    When encoding and decoding the JSON data roundtrip, the CacheDataEncoder should successfully encode and decode the
+    JSON data roundtrip without data modification to return the original JSON.
+
+    """
     assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
     result = round_trip_json_encoder(mock_academic_json)
     assert mock_academic_json == result
 
 
 def test_plos_page_roundtrip(turn_off_hash_prefix, plos_page_1_data, plos_page_2_data):
-    """Verifies that without the use of a hash prefix, the round trip data encoder successfully encodes and decodes text
-    to and from JSON serialized strings without data modification."""
+    """Validates data integrity when encoding and decoding a PLOS JSON roundtrip with hash prefix `None`.
+
+    Without the use of a hash prefix, the round trip data encoder should still successfully encode and decode fields to
+    and from JSON serialized strings without data modification.
+
+    """
     assert not JsonDataEncoder.DEFAULT_HASH_PREFIX
     result = round_trip_json_encoder(plos_page_1_data)
     assert plos_page_1_data == result

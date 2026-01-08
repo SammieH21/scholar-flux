@@ -3,12 +3,13 @@
 used for logging events and progress in the retrieval and processing of API responses."""
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Generator
 from logging.handlers import RotatingFileHandler
 
 # for creating a function that masks URLs containing API keys:
 from scholar_flux.package_metadata import get_default_writable_directory
 from scholar_flux.exceptions import LogDirectoryError
+from contextlib import contextmanager
 
 
 def setup_logging(
@@ -21,11 +22,13 @@ def setup_logging(
     backup_count: int = 5,
     logging_filter: Optional[logging.Filter] = None,
 ):
-    """Configure logging to write to both console and file with optional filtering.
+    """Configures a logger to write to the console and, optionally, file logs with an optional logging filter.
 
-    Sets up a logger that outputs to both the terminal (console) and a rotating log file.
-    Rotating files automatically create new files when size limits are reached, keeping
-    your logs manageable.
+    This function is a general purpose utility used by the `scholar_flux` package to set up a package level logger that
+    implements sensitive data masking with a custom filter.
+
+    The logger is configured to write to the terminal (console) and, if optionally a rotating log file. if specified.
+    Rotating files automatically create new files when size limits are reached, keeping your logs manageable.
 
     Args:
         logger (Optional[logging.Logger]): The logger instance to configure. If None, uses the root logger.
@@ -119,4 +122,48 @@ def setup_logging(
     logger.info("Logging setup complete %s", logging_type)
 
 
-__all__ = ["setup_logging"]
+@contextmanager
+def log_level_context(
+    log_level: int | str = logging.DEBUG, logger: Optional[logging.Logger] = None, allow_lower_level: bool = True
+) -> Generator[None, None, None]:
+    """Context manager for temporarily changing the log level for the package-level (or custom) logger.
+
+    Args:
+        log_level (int | str):
+            The log level to temporarily change to. Options include:
+            - logging.DEBUG (10) or "DEBUG"
+            - logging.INFO (20) or "INFO"
+            - logging.WARNING (30) or "WARNING"
+            - logging.ERROR (40) or "ERROR"
+            - logging.CRITICAL (50) or "CRITICAL"
+        logger (logging.Logger):
+            The logger to use when temporarily changing the log level. If not specified, the `ScholarFlux` package level
+            logger is used.
+        allow_lower_level (logging.Logger):
+            When False, The current log level is overridden only when the provided log level is higher than the current
+            log level.
+
+    Example:
+        >>> from scholar_flux import SearchAPI, log_level_context
+        >>> api = SearchAPI(provider_name = "CORE", query = "Technological Safety")
+        >>> with log_level_context("DEBUG"): # `logging.DEBUG`
+        ...     response = api.search(page = 1)
+        # OUTPUT: 2026-01-21 13:46:50,333 - scholar_flux.api.base_api - DEBUG - Sending request to https://api.core.ac.uk/v3/search/works
+
+    Note: when an invalid log_level is passed, a level of `51` is used in its place, effectively turning off logging.
+
+    """
+    # Turns of logging altogether if an invalid value is passed (e.g., passing `log_level='not a valid log level'`)
+    level = log_level if isinstance(log_level, int) else getattr(logging, log_level, 51)
+    target_logger = logger if logger else logging.getLogger("scholar_flux")
+    current_level = target_logger.level
+
+    try:
+        if isinstance(level, int) and (allow_lower_level or level > current_level):
+            target_logger.setLevel(level)
+        yield
+    finally:
+        target_logger.setLevel(current_level)
+
+
+__all__ = ["setup_logging", "log_level_context"]

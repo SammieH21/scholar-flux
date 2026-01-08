@@ -10,7 +10,7 @@ Many tools exist today that can facilitate the retrieval of scientific and schol
 
 ### Enter ScholarFlux
 
-Using modern software design principles and a focus on growth and testing, we're seeking to fill that gap. We sought to provide a single production-grade client that allows for the smooth retrieval and processing of scholarly data from sources such as PubMed, Crossref, SpringerNature, and others, with even more to come. In doing so, we aim to provide an extensible set of tools in the process that can be useful for data engineers, researchers, data scientists, and just about anyone else who loves working with research!
+Using modern software design principles and a focus on growth and testing, we're seeking to fill that gap. We sought to provide a single production-grade client that allows for the smooth retrieval and processing of scholarly data from sources such as PubMed, Crossref, Springer Nature, and others, with even more to come. In doing so, we aim to provide an extensible set of tools in the process that can be useful for data engineers, researchers, data scientists, and just about anyone else who loves working with research!
 
 To support this mission, ScholarFlux includes 8 comprehensive tutorials covering everything from basic usage through production deployment—ensuring contributors and users alike have clear, working examples to learn from.
 
@@ -73,7 +73,7 @@ As the IT, analytical, and scientific landscape changes, our aim is to ensure th
    # CORE_API_KEY=your_key_here
    # PUBMED_API_KEY=your_key_here
    # OPEN_ALEX_API_KEY=your_key_here
-   
+
    # See our Security Policy for best practices: SECURITY.md
    ```
 
@@ -81,7 +81,7 @@ As the IT, analytical, and scientific landscape changes, our aim is to ensure th
    ```bash
    # Run tests for your Python version
    poetry run pytest tests -rsx -vv
-   
+
    # Or use tox to test all Python versions (3.10, 3.11, 3.12, 3.13, optionally 3.14)
    poetry run tox
    ```
@@ -93,11 +93,36 @@ As the IT, analytical, and scientific landscape changes, our aim is to ensure th
 
 6. **Make your changes and submit a PR!**
 
+### Development Shortcuts
+
+A `Makefile` provides quick commands for common tasks during active development:
+
+```bash
+make help      # Show all available commands
+make install   # Install ScholarFlux with all dependencies for development
+make test      # Run the test suite with coverage (current Python version only)
+make lint      # Check code quality (ruff, docstr-coverage, mypy)
+make docs      # Build documentation locally
+make shell     # Enter the Poetry virtual environment
+```
+
+You can find the Makefile [here](Makefile)
+
+### `Makefile` Prerequisites
+
+The `Makefile` requires the `make` utility:
+
+- **Windows**: Install via [Chocolatey](https://chocolatey.org/install) with `choco install make`, or see [this guide](https://gnuwin32.sourceforge.net/packages/make.htm) for manual installation
+- **macOS/Linux**: `make` is usually pre-installed. If not, install via your package manager (`brew install make`, `apt-get install make`, etc.)
+
+**Note**: The Makefile was mainly designed for use on Unix/Linux operating systems but should be compatible across platforms (including Windows). If you encounter any issues using Makefile shortcuts on Windows (regardless of the installation method), try using [Git Bash](https://gitforwindows.org/), or use the equivalent poetry commands directly.
+
 ## Understanding Extras
 
 ScholarFlux uses optional dependency groups for different features:
 
 - **`database`**: SQLAlchemy, Redis, and MongoDB support for advanced caching
+- **`duckdb`**: SQLAlchemy and a compatible duckdb-engine for embedded analytical database support
 - **`cryptography`**: Enhanced cache encryption capabilities
 - **`parsing`**: XML and YAML parsing for various API responses
 
@@ -130,11 +155,11 @@ ScholarFlux integrates with multiple academic APIs. For full testing, you may ne
 
 1. Create a `.env` file in the project root or in `$HOME/.scholar_flux` (never commit this!)
 2. Add your API keys (optional - tests use mocked responses by default)
-3. Before sending a pull request, verify that, after each commit, you haven't inadvertently committed an api key: `git grep $PUBMED_API_KEY $(git rev-list --all)`
+3. Before sending a pull request, verify that, after each commit, you haven't inadvertently committed an API key: `git grep $PUBMED_API_KEY $(git rev-list --all)`
 4. See our [Security Policy](SECURITY.md) for best practices on handling credentials
 
-**Note:** All tests use mocked responses, so API keys are optional for basic development. They're only required if you're testing actual API integrations on live data from PubMed, Core, and SpringerNature.
-OpenAlex, PLOS API, Crossref, and arXiv are four resources that don't, however, require API Keys and work out-of-the-box.
+**Note:** All tests use mocked responses, so API keys are optional for basic development. They're only required if you're testing actual API integrations on live data from APIs such as Springer Nature.
+Other resources such as OpenAlex, PLOS API, Crossref, Core, PubMed, and arXiv may not require API Keys. While these work out-of-the-box, PubMed and Core increase request rate limits for those who register for an API key. In addition, APIs such as Crossref and OpenAlex also allow for increased rate limits when requests contain a valid `mailto` parameter.
 
 ### Enabling Debug Logging
 
@@ -181,7 +206,7 @@ setup_logging(
     log_directory="./logs", # leave blank to create and use default $HOME/.scholar_flux directory for logging
     log_file="debug.log",
     log_level=logging.DEBUG,
-    logging_filter=MaskingFilter(masker), # keeps known api keys from displaying in the console
+    logging_filter=MaskingFilter(masker), # keeps known API keys from displaying in the console
     max_bytes=10485760,  # 10MB
     backup_count=3
 )
@@ -193,7 +218,7 @@ setup_logging(
 
 **About `SCHOLAR_FLUX_PROPAGATE_LOGS`:**
 
-This environment variable controls whether ScholarFlux log messages are passed to ancestor loggers (such as the root logger).  
+This environment variable controls whether ScholarFlux log messages are passed to ancestor loggers (such as the root logger).
 - Set to `TRUE` (default) to allow integration with your application's logging configuration.
 - Set to `FALSE` to prevent duplicate log messages in environments like Jupyter or VS Code, or if you want ScholarFlux logs to be handled only by its own handlers.
 
@@ -223,9 +248,11 @@ poetry run tox -e coverage
 
 Coverage reports are generated as both terminal output and XML format in `coverage.xml`.
 
+Before submitting PRs, use `poetry run tox` to verify that the patch works across all supported Python versions (3.10-3.13)
+
 **GitHub Workflow Testing Locally**
 
-For testing GitHub Actions workflows locally, users can use [`act`](https://github.com/nektos/act) if workflow functionality needs to be vetted before implementation. 
+For testing GitHub Actions workflows locally, users can use [`act`](https://github.com/nektos/act) if workflow functionality needs to be vetted before implementation.
 
 **Installation:**
 ```bash
@@ -310,7 +337,7 @@ We're always looking to add more academic databases and APIs! Feel free to leave
 When adding a new API integration:
 1. Follow the existing provider patterns in `scholar_flux.api.providers`
 2. Include comprehensive tests with mocked responses (that preferably simulate responses received from the API)
-3. Document authentication requirements in a Pull Request 
+3. Document authentication requirements in a Pull Request
 4. Add rate limiting considerations
 
 ### 📚 Documentation
@@ -604,6 +631,7 @@ Visit the [Sphinx documentation](https://SammieH21.github.io/scholar-flux/) for 
 - **Tutorials**: [8 comprehensive tutorials](https://SammieH21.github.io/scholar-flux/) covering basics through production deployment
 - **Issues**: [GitHub Issues](https://github.com/SammieH21/scholar-flux/issues)
 - **Security**: See [SECURITY.md](SECURITY.md) for security-related questions
+- **AI-Assisted Code Review**: [.github/AI_REVIEW_PROMPTS.md](.github/AI_REVIEW_PROMPTS.md) - Prompts for code/documentation review and test gap analysis
 
 ### Questions?
 
@@ -620,7 +648,7 @@ Visit the [Sphinx documentation](https://SammieH21.github.io/scholar-flux/) for 
 
 ## Code of Conduct
 
-We are committed to providing a welcoming and inclusive environment. 
+We are committed to providing a welcoming and inclusive environment.
 
 - Be respectful and considerate
 - Welcome newcomers and help them learn
@@ -630,7 +658,7 @@ Find the code of conduct [**here**](https://github.com/SammieH21/scholar-flux/bl
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.3.1). This means:
+ScholarFlux is currently in **beta** (v0.4.0). This means:
 
 - APIs may change between versions
 - We're actively seeking feedback

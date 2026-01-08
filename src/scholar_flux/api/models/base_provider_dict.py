@@ -2,10 +2,11 @@
 """The scholar_flux.api.models.base_provider_dict.py module implements a BaseProviderDict to extend the dictionary and
 resolve provider names to a generic key, handling the normalization of provider names for consistent access."""
 from __future__ import annotations
-from typing import Any
+from typing import Any, Optional
+import re
+from collections import UserDict
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.utils.repr_utils import generate_repr_from_string
-from collections import UserDict
 
 
 class BaseProviderDict(UserDict[str, Any]):
@@ -121,6 +122,37 @@ class BaseProviderDict(UserDict[str, Any]):
 
         """
         return list(self.data)
+
+    def find(self, key: str | re.Pattern, regex: Optional[bool] = None) -> list[str]:
+        """Identifies providers with names matching the specified pattern using either prefix or regex pattern matching.
+
+        This implementation uses `fuzzy` finding, or "flexible matching that's more forgiving than exact". When
+        `regex=True` or a compiled Pattern is provided, regex matching is used. Otherwise, provider names are
+        filtered using prefix matching via `str.startswith` after normalizing the provided key and provider names.
+
+        Args:
+            key (str | re.Pattern): The key or pattern to match using regular expressions or prefix matching.
+            regex (Optional[bool]): Indicates whether regular expressions should be used to match provider names.
+
+        Returns:
+            list[str]: A list of strings containing provider names that match the key/pattern.
+
+        Note:
+            Unless either pattern is received or `regex=True`, providers are matched if the normalized key prefix is
+            present in the normalized provider name.
+
+        """
+        if not isinstance(key, (str, re.Pattern)):
+            return []
+
+        use_regex = regex or (regex is None and isinstance(key, re.Pattern))
+
+        if use_regex:
+            normalized_key = self._normalize_name(key) if isinstance(key, str) else key
+            return [provider_name for provider_name in self.providers if re.search(normalized_key, provider_name)]
+
+        normalized_key = self._normalize_name(key.pattern if isinstance(key, re.Pattern) else key)
+        return [provider_name for provider_name in self.providers if provider_name.startswith(normalized_key)]
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:
         """Helper method that shows the current structure of the BaseProviderDict or subclass."""

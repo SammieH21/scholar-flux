@@ -86,6 +86,9 @@ class ConfigLoader:
         - SCHOLAR_FLUX_MONGODB_PORT: MongoDB port (default: 27017)
         - SCHOLAR_FLUX_REDIS_HOST: Redis host (default: "localhost")
         - SCHOLAR_FLUX_REDIS_PORT: Redis port (default: 6379)
+        - SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL: Controls the time until expiration for cached responses (seconds)
+        - SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL: Controls the time until expiration for processing cache (seconds)
+
 
     Examples:
         >>> from scholar_flux.utils import ConfigLoader
@@ -127,7 +130,9 @@ class ConfigLoader:
         "SCHOLAR_FLUX_PROPAGATE_LOGS": os.getenv("SCHOLAR_FLUX_PROPAGATE_LOGS", "").upper(),
         "SCHOLAR_FLUX_DEFAULT_PROVIDER": os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
         "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND": os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND"),
+        "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL": os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL", 86400),
         "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE": os.getenv("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE"),
+        "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL": os.getenv("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
         "SCHOLAR_FLUX_DEFAULT_USER_AGENT": os.getenv("SCHOLAR_FLUX_DEFAULT_USER_AGENT"),
         "SCHOLAR_FLUX_DEFAULT_MAILTO": os.getenv("SCHOLAR_FLUX_DEFAULT_MAILTO"),
     }

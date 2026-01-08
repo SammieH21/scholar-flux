@@ -36,13 +36,15 @@ provider = ProviderConfig(
             ),
         ),
     ),
+    request_delay=10,  # Base rate limit for batch requests (1 request per 10 seconds)
     metadata_map=ResponseMetadataMap(total_query_hits="totalHits", records_per_page="limit"),
     field_map=field_map,
     provider_name=name,
     base_url="https://api.core.ac.uk/v3/search/works",
     api_key_env_var="CORE_API_KEY",
-    records_per_page=25,
+    records_per_page=40,
     docs_url="https://api.core.ac.uk/docs/v3#section/Welcome!",
+    display_name="CORE",
 )
 
 __all__ = ["provider"]

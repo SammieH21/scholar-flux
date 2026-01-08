@@ -1,11 +1,26 @@
 from scholar_flux.api.workflows import PubMedSearchStep, PubMedFetchStep, SearchWorkflow, WorkflowResult, StepContext
-from scholar_flux.api import SearchAPI, SearchCoordinator, ProcessedResponse, ErrorResponse, NonResponse
+from scholar_flux.api import (
+    SearchAPI,
+    SearchCoordinator,
+    ProcessedResponse,
+    ErrorResponse,
+    NonResponse,
+    ReconstructedResponse,
+)
 from scholar_flux.exceptions import XMLToDictImportError, NoRecordsAvailableException
-from scholar_flux.api import ReconstructedResponse
 from requests import Response
 from unittest.mock import MagicMock
 import requests_mock
 import pytest
+import uuid
+from scholar_flux.utils import config_settings
+
+
+@pytest.fixture(autouse=True)
+def mock_pubmed_api_key():
+    """Registers a mock API key for tests involving the creation of new SearchCoordinators for the PubMed API."""
+    config_settings.set("PUBMED_API_KEY", str(uuid.uuid4()))
+    yield
 
 
 def test_pubmed_workflow_context_without_records():
@@ -90,7 +105,6 @@ def test_direct_pubmed_workflow(
     if not xml_parsing_dependency:
         pytest.skip("Cannot test the direct pubmed workflow without the xmltodict library. Skipping...")
 
-    pubmed_api_key = "this_is_a_mocked_api_key"
     with requests_mock.Mocker() as m:
         m.get(
             mock_pubmed_search_endpoint,
@@ -109,9 +123,7 @@ def test_direct_pubmed_workflow(
         pubmed_workflow = SearchWorkflow(
             steps=[PubMedSearchStep(), PubMedFetchStep(search_parameters=dict(from_process_cache=False))]
         )
-        api = SearchAPI.from_defaults(
-            "anxiety", "pubmed", user_agent="scholar_flux", api_key=pubmed_api_key, use_cache=True
-        )
+        api = SearchAPI.from_defaults("anxiety", "pubmed", user_agent="scholar_flux", use_cache=True)
 
         pubmed_coordinator = SearchCoordinator(api)
         result = pubmed_workflow(pubmed_coordinator, page=3)
@@ -142,7 +154,6 @@ def test_workflow_default(
     if not xml_parsing_dependency:
         pytest.skip("Cannot test the direct pubmed workflow without the xmltodict library. Skipping...")
 
-    pubmed_api_key = "this_is_a_mocked_api_key"
     with requests_mock.Mocker() as m:
         m.get(
             mock_pubmed_search_endpoint,
@@ -159,7 +170,7 @@ def test_workflow_default(
         )
 
         api = SearchAPI.from_defaults(
-            "anxiety", "pubmed", user_agent="scholar_flux", api_key=pubmed_api_key, request_delay=0.01, use_cache=True
+            "anxiety", "pubmed", user_agent="scholar_flux", request_delay=0.01, use_cache=True
         )
         pubmed_coordinator = SearchCoordinator(api)
         search_result = pubmed_coordinator.search_page(page=3, use_workflow=False)
@@ -184,7 +195,6 @@ def test_dependency_error(mock_pubmed_search_endpoint, mock_pubmed_search_data, 
     """Verifies that the workflow halts with the expected message when encountering missing xml dependencies."""
 
     monkeypatch.setattr("scholar_flux.data.base_parser.xmltodict", None)
-    pubmed_api_key = "this_is_a_mocked_api_key"
     with requests_mock.Mocker() as m:
         m.get(
             mock_pubmed_search_endpoint,
@@ -194,7 +204,7 @@ def test_dependency_error(mock_pubmed_search_endpoint, mock_pubmed_search_data, 
         )
 
         api = SearchAPI.from_defaults(
-            "anxiety", "pubmed", user_agent="scholar_flux", api_key=pubmed_api_key, request_delay=0.01, use_cache=True
+            "anxiety", "pubmed", user_agent="scholar_flux", request_delay=0.01, use_cache=True
         )
         pubmed_coordinator = SearchCoordinator(api)
         assert pubmed_coordinator.workflow
@@ -203,7 +213,7 @@ def test_dependency_error(mock_pubmed_search_endpoint, mock_pubmed_search_data, 
         assert search_result.status_code == 200 and "DataParsingException" in (search_result.error or "")
 
         error_message = str(XMLToDictImportError())
-        assert "Halting the current workflow and returning the result from step 0..." in caplog.text
+        assert "Halting the current workflow and returning the result from step 0: PubMedSearchStep..." in caplog.text
         assert search_result.error and error_message in (search_result.message or "")
 
         pubmed_coordinator.workflow.stop_on_error = False

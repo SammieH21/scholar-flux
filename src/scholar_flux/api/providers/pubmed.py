@@ -16,7 +16,7 @@ provider = ProviderConfig(
         start="retstart",
         records_per_page="retmax",
         api_key_parameter="api_key",
-        api_key_required=True,
+        api_key_required=False,
         auto_calculate_page=True,
         api_specific_parameters=dict(
             db=APISpecificParameter(
@@ -61,6 +61,7 @@ provider = ProviderConfig(
     records_per_page=20,
     request_delay=2,
     docs_url="https://www.ncbi.nlm.nih.gov/books/NBK25499/",
+    display_name="PubMed",
 )
 
 __all__ = ["provider"]

@@ -96,7 +96,6 @@ def academic_json_response(mock_academic_json) -> Response:
 
     # Set desired attributes and method return values
     mock_response.status_code = 200
-    # mock_response.text = str(mock_academic_json)
     mock_response.raw = mock_response.text
     mock_response._content = json.dumps(mock_academic_json).encode("utf-8")
     mock_response.headers.update({"Content-Type": "application/json"})
@@ -131,7 +130,6 @@ def academic_yaml_response(mock_academic_yaml) -> Response:
 
     # Set desired attributes and method return values
     mock_response.status_code = 200
-    # mock_response.text = str(mock_academic_yaml)
     mock_response.raw = mock_response.text
     mock_response._content = mock_academic_yaml
     mock_response.headers.update({"Content-Type": "application/yaml"})

@@ -7,7 +7,7 @@ from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
 from scholar_flux.api.normalization.pubmed_efetch_field_map import field_map
 from scholar_flux.api.validators import validate_api_specific_field, validate_str
 
-name = "pubmed_efetch"
+name = "pubmedefetch"
 validate_pubmed_efetch_field = partial(validate_api_specific_field, provider_name=name)
 
 provider = ProviderConfig(
@@ -16,7 +16,7 @@ provider = ProviderConfig(
         start=None,
         records_per_page="retmax",
         api_key_parameter="api_key",
-        api_key_required=True,
+        api_key_required=False,
         auto_calculate_page=False,
         api_specific_parameters=dict(
             db=APISpecificParameter(
@@ -80,6 +80,7 @@ provider = ProviderConfig(
     records_per_page=20,
     request_delay=2,
     docs_url="https://www.ncbi.nlm.nih.gov/books/NBK25499/",
+    display_name="PubMed (eFetch)",
 )
 
 

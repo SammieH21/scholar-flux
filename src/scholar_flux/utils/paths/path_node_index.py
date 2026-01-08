@@ -285,7 +285,7 @@ class PathNodeIndex:
                 if count_node is None or count_node.path in skip_keys:
                     logger.debug(f"Skip keys include '{count_node.path}'. Continuing...")
                     continue
-                # try:
+
                 if not count_node.path.depth > 1:
                     logger.debug(
                         f"Skipping node '{count_node}' at depth={count_node.path.depth} " "as it cannot be combined."

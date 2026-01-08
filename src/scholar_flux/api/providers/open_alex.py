@@ -62,6 +62,7 @@ provider = ProviderConfig(
     request_delay=1,
     records_per_page=25,
     docs_url="https://docs.openalex.org/api-entities/works/get-lists-of-works",
+    display_name="OpenAlex",
 )
 
 __all__ = ["provider"]

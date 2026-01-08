@@ -19,7 +19,7 @@ class MaskingFilter(logging.Filter):
     Initialized MaskingFilters can also be updated without re-instantiation by adding or removing patterns
     from the set of all patterns within the received Masker.
 
-    This class can otherwise be added to other loggers with minimal effort:
+    This class can otherwise be added to other loggers with minimal effort::
         >>> import logging
         >>> from scholar_flux.security import MaskingFilter # contains the filter
         >>> formatting = "%(name)s - %(levelname)s - %(message)s" # custom format
@@ -47,13 +47,19 @@ class MaskingFilter(logging.Filter):
     def filter(self, record) -> bool:
         """Helper method used by the logging.Logger class when adding custom filters to the logging module.
 
+        Masks string, dictionary, and list data in log records.
+
         This class will always return True after an attempt to mask sensitive fields is completed.
 
         """
         if record.args:
-            record.args = tuple(self.masker.mask_text(arg) if isinstance(arg, str) else arg for arg in record.args)
-        if isinstance(record.msg, str):
-            record.msg = self.masker.mask_text(record.msg)
+            record.args = tuple(self.masker.mask_value(arg, convert_objects=True) for arg in record.args)
+
+        if record.msg:
+            record.msg = self.masker.mask_value(record.msg, convert_objects=True)
+
+        if record.exc_text:
+            record.exc_text = self.masker.mask_text(record.exc_text)
         return True
 
 

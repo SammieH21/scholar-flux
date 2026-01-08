@@ -7,21 +7,15 @@ from tests.testing_utilities import raise_error
 from pydantic import SecretStr
 import logging
 import pytest
+from scholar_flux import log_level_context
+from scholar_flux import logger
 
 
-@pytest.fixture()
-def restore_config():
-    """Restores the package configuration settings and environment after the conclusion of each test when used."""
-    config = config_settings.config.copy()
-    yield config
-    config_settings.config = config
-
-
-def test_initialization_env_path_fallback(restore_config, recwarn, caplog):
+def test_initialization_env_path_fallback(restore_config_settings, recwarn, caplog):
     """Verifies that initialization records a warning and uses defaults when an env_path is of an incorrect type."""
     env_path = 10021
     updated_config, _, _ = initialize_package(env_path=env_path)  # type: ignore
-    assert restore_config == updated_config
+    assert restore_config_settings == updated_config
     msg = (
         f"The variable, `env_path` must be a string or path, but received a variable of {type(env_path)}. "
         "Attempting to load environment settings from default .env locations instead..."
@@ -37,13 +31,13 @@ def test_initialization_invalid_dictionary_parameters():
     not_a_dictionary = ["1", "2", "3"]
     with pytest.raises(PackageInitializationError) as excinfo:
         _ = initialize_package(config_params=not_a_dictionary)  # type: ignore
-    assert f"{base_error}`config_params` must be a dictionary, but received {type(not_a_dictionary)}." in str(
+    assert f"{base_error}`config_params` must be a dictionary, but received type {type(not_a_dictionary)}." in str(
         excinfo.value
     )
 
     with pytest.raises(PackageInitializationError) as excinfo:
         _ = initialize_package(logging_params=not_a_dictionary)  # type: ignore
-    assert f"{base_error}`logging_params` must be a dictionary, but received {type(not_a_dictionary)}." in str(
+    assert f"{base_error}`logging_params` must be a dictionary, but received type {type(not_a_dictionary)}." in str(
         excinfo.value
     )
 
@@ -97,6 +91,38 @@ def test_initializer_logger_creation_without_modification(caplog):
     assert message in caplog.text
 
 
+def test_logging_context_with_new_logger(caplog):
+    """Tests whether the log level for package level loggers can be successfully overridden via `log_level_context`."""
+    test_logger = logging.getLogger("context-logger-testing")
+    initialize_package(log=False, logging_params=dict(logger=test_logger, log_level=logging.WARNING))
+
+    message = "this message should show in the log"
+    with log_level_context(logging.DEBUG, test_logger):
+        test_logger.debug(message)
+        assert message in caplog.text
+
+    # critical log levels only
+    message = "this message should NOT show in the log"
+    with log_level_context(log_level=logging.CRITICAL, logger=test_logger):
+        test_logger.error(message)
+        assert message not in caplog.text
+
+
+def test_package_level_logging_context(caplog):
+    """Verifies that the `log_level_context` modifies the log level for the package logger as intended when set."""
+    message = "Does this show in the logs?"
+    with log_level_context(logging.CRITICAL):
+        logger.warning(message)
+        assert message not in caplog.text
+        with log_level_context(logging.DEBUG):
+            logger.info(message)
+            assert message in caplog.text
+        caplog.clear()
+        with log_level_context(logging.DEBUG, allow_lower_level=False):
+            logger.info(message)
+            assert message not in caplog.text
+
+
 def test_initializer_without_logging(caplog):
     """Tests whether the initializer correctly ensures that logging does not occur with log = False on setup."""
     test_logger = logging.getLogger("null-logger-testing")
@@ -106,7 +132,7 @@ def test_initializer_without_logging(caplog):
     assert message not in caplog.text
 
 
-def test_initializer_with_env(restore_config, cleanup, tmp_path, monkeypatch, caplog):
+def test_initializer_with_env(restore_config_settings, cleanup, tmp_path, monkeypatch, caplog):
     """Tests whether the initializer can effectively use `.env` files to load config/logger environment variables."""
     test_logger = logging.getLogger("env-logger-testing")
     env_path = tmp_path / ".env"

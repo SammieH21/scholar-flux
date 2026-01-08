@@ -26,6 +26,24 @@ When using this package, you must:
 - ✅ Respect rate limits and usage restrictions
 - ✅ Ensure your use complies with copyright laws
 - ✅ Handle data according to applicable privacy regulations
+- ✅ Verify the license status of individual records before redistribution or reuse
+
+### Interpreting Open Access Status
+
+ScholarFlux normalizes license information from providers into an `open_access` field:
+
+| `open_access` Value | Meaning | Recommended Action |
+|---------------------|---------|-------------------|
+| `True` | Believed to be open access per provider license data | These records are generally safe for reuse per license terms |
+| `False` | Restricted by the publisher/API provider | Do not redistribute without permission! |
+| `None` | When a license missing or ambiguous | Verify the status of the work with the original publisher before reuse |
+
+**For records with `open_access: None`, you are responsible for verifying the legal status before redistribution, publication, or commercial use.**
+
+
+### Disclaimer
+
+**The authors and contributors assume no responsibility for any use of the software that violates third-party terms of service.**
 
 ## License
 
