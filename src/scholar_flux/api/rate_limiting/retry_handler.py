@@ -271,14 +271,6 @@ class RetryHandler:
                             else None
                         ),
                     )
-                    self._record_attempt(
-                        response=response,
-                        delay=delay,
-                        min_retry_delay=min_retry_delay,
-                        backoff_factor=backoff_factor,
-                        attempt_number=attempts - 1,
-                        duration=duration,
-                    )
                     sleep_func(delay)
             else:
                 msg = "Max retries exceeded without a valid response."

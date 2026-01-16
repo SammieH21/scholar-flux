@@ -78,15 +78,6 @@ def duckdb_available(url: Optional[str] = None) -> bool:
 
 
 @lru_cache(maxsize=1)
-def duckdb_available(url: Optional[str] = None) -> bool:
-    """Helper function for determining whether SQL Alchemy is available."""
-    available = DuckDBStorage.is_available(url=url)
-    if not available:
-        logger.warning("Skipping tests for the SQLAlchemy DuckDB engine")
-    return available
-
-
-@lru_cache(maxsize=1)
 def redis_available(host: Optional[str] = None, port: Optional[int] = None) -> bool:
     """Helper function for determining whether the Redis Service is available."""
     available = RedisStorage.is_available(host=host, port=port)
