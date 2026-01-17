@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.4.0] - 01/17/2026
+## [0.4.0b3] - 01/17/2026
 **Note**: While this version bump introduces substantial improvements, no major changes are necessary to migrate from version 0.3.1 to 0.4.0 (fully backward compatible).
 
 ### Added
