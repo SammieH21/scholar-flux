@@ -45,8 +45,6 @@ from datetime import datetime
 
 from functools import partial
 
-from functools import partial
-
 logger = logging.getLogger(__name__)
 
 
