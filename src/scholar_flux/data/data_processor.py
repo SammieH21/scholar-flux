@@ -13,6 +13,7 @@ from scholar_flux.utils import get_nested_data, as_list_1d, unlist_1d, nested_ke
 
 from scholar_flux.data import ABCDataProcessor
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
+from scholar_flux.utils.record_types import RecordType, RecordList
 
 import logging
 
@@ -141,7 +142,7 @@ class DataProcessor(ABCDataProcessor):
 
     @staticmethod
     def extract_key(
-        record: dict | list | None,
+        record: RecordType | RecordList | None,
         key: str | int,
         path: Optional[list[str | int]] = None,
     ) -> Optional[list]:
@@ -175,10 +176,10 @@ class DataProcessor(ABCDataProcessor):
             logger.debug(f"Cannot retrieve {key} from the following record: {record}")
             return None
 
-        record_field = as_list_1d(nested_record_data.get(key, [])) or None
+        record_field = as_list_1d(nested_record_data.get(key, [])) or None  # type: ignore
         return record_field
 
-    def process_record(self, record_dict: dict[str | int, Any]) -> dict[str, Any]:
+    def process_record(self, record_dict: RecordType) -> dict[str, Any]:
         """Processes a record dictionary to extract record data and article content, creating a processed record
         dictionary with an abstract field.
 
@@ -193,15 +194,25 @@ class DataProcessor(ABCDataProcessor):
         # retrieve a dict containing the fields for the current record
         if not record_dict:
             logger.debug("A record is empty: skipping,,,")
-            # Simplified record data processing using dictionary comprehension
 
+        # Record data processing using dictionary comprehension
         processed_record_dict = (
             {key: self.extract_key(record_dict, path[-1], path[:-1]) for key, path in self.record_keys.items()}
             if self.record_keys
             else {}
         )
 
-        return self.collapse_fields(processed_record_dict)
+        return self.collapse_fields(processed_record_dict) | self._preserve_metadata_fields(record_dict)
+
+    @classmethod
+    def _preserve_metadata_fields(cls, record_dict: dict[str, Any] | dict[str | int, Any]) -> dict[str, Any]:
+        """Extracts and preserves private metadata fields (keys with preceding underscores) from dictionaries."""
+        if not isinstance(record_dict, Mapping) or not record_dict:
+            return {}
+        preserve_fields = {
+            key: value for key, value in record_dict.items() if isinstance(key, str) and key.startswith("_")
+        }
+        return preserve_fields
 
     def collapse_fields(self, processed_record_dict: dict) -> dict[str, list[str | int] | str | int]:
         """Helper method for joining lists of data into a singular string for flattening."""
@@ -218,7 +229,7 @@ class DataProcessor(ABCDataProcessor):
 
     def process_page(
         self,
-        parsed_records: list[dict[str | int, Any]],
+        parsed_records: RecordList,
         ignore_keys: Optional[list[str]] = None,
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
@@ -262,7 +273,7 @@ class DataProcessor(ABCDataProcessor):
 
     def record_filter(
         self,
-        record_dict: Mapping[str | int, Any],
+        record_dict: RecordType,
         record_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
     ) -> Optional[bool]:

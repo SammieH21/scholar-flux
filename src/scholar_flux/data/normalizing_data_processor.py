@@ -3,6 +3,7 @@
 from scholar_flux.data.data_processor import DataProcessor
 from scholar_flux.utils.json_processing_utils import RecursiveJsonProcessor, PathUtils
 from scholar_flux.utils.helpers import is_nested_json
+from scholar_flux.utils.record_types import RecordType, NormalizedRecordType
 from typing import Optional, Any
 import logging
 
@@ -111,16 +112,16 @@ class NormalizingDataProcessor(DataProcessor):
         # Join into dot-notation string
         return PathUtils.path_str(key_path)
 
-    def process_record(self, record_dict: dict[str, Any] | dict[str | int, Any]) -> dict[str, Any]:
+    def process_record(self, record_dict: RecordType) -> NormalizedRecordType:
         """Process a single record by flattening it first, then extracting fields.
 
         Overrides parent method to add flattening step before field extraction.
 
         Args:
-            record_dict: The dictionary containing the record data.
+            record_dict (RecordType): The dictionary containing the record data.
 
         Returns:
-            dict: A processed record with specified keys extracted.
+            NormalizedRecordType: A processed record with specified keys extracted.
 
         """
         if not record_dict:
@@ -158,7 +159,7 @@ class NormalizingDataProcessor(DataProcessor):
 
             processed_record_dict[output_key] = value
 
-        return self.collapse_fields(processed_record_dict)
+        return self.collapse_fields(processed_record_dict) | self._preserve_metadata_fields(record_dict)
 
 
 __all__ = ["NormalizingDataProcessor"]

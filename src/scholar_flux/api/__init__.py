@@ -38,17 +38,16 @@ The functionality of the SearchCoordinators are further customized using the fol
 from scholar_flux.api.response_validator import ResponseValidator
 from scholar_flux.api.validators import validate_url, validate_email
 
-# Models and configuration
+# Models and configuration (re-exported for ease of use)
 from scholar_flux.api.models import (
     APIParameterMap,
+    APISpecificParameter,
     APIParameterConfig,
     ResponseMetadataMap,
     ProviderConfig,
     ProviderRegistry,
     SearchAPIConfig,
     ReconstructedResponse,
-)
-from scholar_flux.api.models.responses import (
     APIResponse,
     ErrorResponse,
     ProcessedResponse,
@@ -76,6 +75,7 @@ from scholar_flux.api.multisearch_coordinator import MultiSearchCoordinator
 __all__ = [
     "ResponseValidator",
     "APIParameterMap",
+    "APISpecificParameter",
     "ResponseMetadataMap",
     "APIParameterConfig",
     "ProviderConfig",

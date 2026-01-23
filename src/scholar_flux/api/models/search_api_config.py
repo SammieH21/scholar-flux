@@ -407,7 +407,7 @@ class SearchAPIConfig(BaseModel):
 
     @classmethod
     def _validate_api_specific_parameter(cls, parameter_value: Any, parameter_metadata: APISpecificParameter) -> Any:
-        """Helper method for validating parameters during api-specific parameter validation."""
+        """Helper method for validating parameters during API-specific parameter validation."""
         logger.debug(f"Validating the value for the additional parameter, {parameter_metadata.name}")
         if parameter_value is None and parameter_metadata.default is None and parameter_metadata.required:
             raise MissingAPISpecificParameterException(
@@ -421,12 +421,13 @@ class SearchAPIConfig(BaseModel):
         return parameter_value
 
     @classmethod
-    def _extract_url_basename(cls, url: str) -> str:
+    def _extract_url_basename(cls, url: str, verbose: bool = True) -> str:
         """Extracts the main site name from a URL by removing everything before 'www' and everything including and after
         the top-level domain.
 
         Args:
             url (str): The URL to process.
+            verbose (bool): Indicates whether to log scenarios where the site name can't be determined from the URL.
 
         Returns:
             str: The main site name.
@@ -447,7 +448,7 @@ class SearchAPIConfig(BaseModel):
         if match:
             return match.group(1)
 
-        if url:
+        if url and verbose:
             logger.warning(f"Couldn't extract the base URL for the URL, '{url}'. Falling back to using the host name")
 
         return hostname  # fall back to using the hostname - more preferable than omitting entirely
@@ -455,7 +456,7 @@ class SearchAPIConfig(BaseModel):
     @property
     def url_basename(self) -> str:
         """Uses the _extract_url_basename method from the provider URL associated with the current config instance."""
-        return self._extract_url_basename(self.base_url)
+        return self._extract_url_basename(self.base_url, verbose=False)
 
     @classmethod
     def _load_api_key(cls, provider_info: Optional[ProviderConfig] = None) -> Optional[SecretStr]:

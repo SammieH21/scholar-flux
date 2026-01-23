@@ -66,12 +66,12 @@ Default Providers:
         - access:  The PubMed database is available to those with an API Key. an API key is free and usage
                    is permitted within the terms of service.
 
-    **SpringerNature**:
+    **Springer Nature**:
         - website: https://dev.springernature.com
         - purpose: A publisher committed to open science that provides access to books, abstracts and
                    scientific manuscripts to aid the advancement of research. The API offers access to a
                    wide range of materials to support the advancement of research.
-        - access:  Allows access to the SpringerNature API with an API key without cost. Usage, similar to other
+        - access:  Allows access to the Springer Nature API with an API key without cost. Usage, similar to other
                    APIs is rate limited. For higher rate limits and advance queries, the provider also offers
                    a premium service.
 
@@ -99,4 +99,6 @@ provider_registry = ProviderRegistry.from_defaults()
 # create a separate immutable mapping of the same providers
 PROVIDER_DEFAULTS = MappingProxyType(provider_registry.copy())
 
-__all__ = ["provider_registry", "PROVIDER_DEFAULTS"]
+get_display_name = provider_registry.get_display_name
+
+__all__ = ["provider_registry", "PROVIDER_DEFAULTS", "get_display_name"]

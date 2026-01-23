@@ -27,11 +27,11 @@ Modules:
         3) StepContext - Basic wrapper holding the results of each step as well as its step number and WorkflowStep
         4) WorkflowResult - Will contain the history of each of the steps in the SearchWorkflow. Also stores the
                             result of each search in the `result` attribute
-    pubmed_workflow: Contains the necessary steps for interacting with the Pubmed API. Note that this API generally
+    pubmed_workflow: Contains the necessary steps for interacting with the PubMed API. Note that this API generally
                      requires a 2-step workflow. The first step retrieves the IDs of articles given a query (eSearch).
                      The second step uses these IDs to fetch actual abstracts/records and supporting information.
 
-                     To account for this, the PubMedSearchStep and PubmedFetchStep are each created two encompass
+                     To account for this, the PubMedSearchStep and PubMedFetchStep are each created to encompass
                      these two steps in a reusable format and is later defined in a pre-created workflow for later use
     WORKFLOW_DEFAULTS: Currently contains the pubmed workflow for retrieving data from articles from PubMed.
                        This implementation will also contain future workflows that allow searches via

@@ -1,4 +1,9 @@
-from scholar_flux.utils.repr_utils import adjust_repr_padding, generate_repr, generate_repr_from_string
+from scholar_flux.utils.repr_utils import (
+    adjust_repr_padding,
+    generate_repr,
+    generate_repr_from_string,
+    _resolve_attribute_name,
+)
 import pytest
 
 
@@ -99,3 +104,59 @@ def test_single_line_generated_representation(DummyClass):
 
     # doesn't use padding, ignores the repr config and just prints class names, attributes and values
     assert dummy_repr == dummy_repr_from_string == f"""{class_name}(attr1=1, attr2=2)"""
+
+
+class DummyWithProperty:
+    """Class with a property backed by a private attribute."""
+
+    def __init__(self):
+        """Initializes a basic dummy for testing property resolution."""
+        self._name = "test"
+        self._value = 42
+
+    @property
+    def name(self):
+        """Property referring to the resolving to the method."""
+        return self._name
+
+
+# Tests for the _resolve_attribute_name helper function.
+def test_no_resolution():
+    """When resolve_property is False, returns attribute unchanged."""
+    obj = DummyWithProperty()
+    assert _resolve_attribute_name(obj, "_name", resolve_property=False) == "_name"
+
+
+def test_resolves_property():
+    """Private attribute with matching property resolves to public name."""
+    obj = DummyWithProperty()
+    assert _resolve_attribute_name(obj, "_name", resolve_property=True) == "name"
+
+
+def test_no_matching_property():
+    """Private attribute without matching property returns original."""
+    obj = DummyWithProperty()
+    assert _resolve_attribute_name(obj, "_value", resolve_property=True) == "_value"
+
+
+def test_dunder_unchanged():
+    """Dunder attributes are never resolved."""
+    obj = DummyWithProperty()
+    assert _resolve_attribute_name(obj, "__dict__", resolve_property=True) == "__dict__"
+
+
+#  Tests for generate_repr with resolve_property_attributes.
+def test_resolve_property_attributes():
+    """Private attributes with properties are shown with public names."""
+    obj = DummyWithProperty()
+    result = generate_repr(obj, resolve_property_attributes=True, flatten=True)
+    assert "name='test'" in result
+    assert "_name" not in result
+
+
+def test_no_resolve_property_attributes():
+    """Without resolution, private attribute names are preserved."""
+    obj = DummyWithProperty()
+    result = generate_repr(obj, resolve_property_attributes=False, flatten=True)
+    assert "_name='test'" in result
+    assert "_value=42" in result

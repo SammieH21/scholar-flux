@@ -44,7 +44,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
     def __init__(
         self,
         json_data: Optional[list[dict]] = None,
-        value_delimiter: Optional[str] = "; ",
+        value_delimiter: Optional[str] = None,
         ignore_keys: Optional[list[str]] = None,
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = True,

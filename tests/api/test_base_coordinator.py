@@ -13,7 +13,7 @@ def test_base_coordinator_initialization(caplog):
     """Tests both valid and invalid inputs to ensure that upon creating a BaseCoordinator, inputs are validated to
     accept only a SearchAPI and a ResponseCoordinator.
 
-    For all other possible input types, a InvalidCoordinatorParameterException should be raised instead.
+    For all other possible input types, an InvalidCoordinatorParameterException should be raised instead.
 
     """
     api = SearchAPI(query="biology")
@@ -150,7 +150,7 @@ def test_base_coordinator_request_failed_exception(monkeypatch, caplog):
         coordinator.api, "search", lambda *a, **kw: (_ for _ in ()).throw(RequestFailedException("fail"))
     )
     res = coordinator.search(page=2)
-    assert f"Failed to get a valid response from the {api.provider_name} API: fail" in caplog.text
+    assert f"Failed to get a valid response from {coordinator.display_name}: fail" in caplog.text
     assert res is None
 
 

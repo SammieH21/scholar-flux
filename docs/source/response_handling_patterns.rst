@@ -308,6 +308,12 @@ Customize the built-in retry handler:
 | ``min_retry_interval``    |  0       | Minimum wait time before the next retry        |
 +---------------------+----------+------------------------------------------------------+
 
+.. note::
+   If a provider requests a ``Retry-After`` delay longer than ``max_backoff`` (default: 120s), 
+   ScholarFlux raises a ``RetryAfterDelayExceededException`` to prevent indefinite waiting. 
+   Adjust ``max_backoff`` or set ``RetryHandler.RAISE_ON_DELAY_EXCEEDED = False`` to wait 
+   the full interval and send the request instead. 
+
 Retry Delay Calculation
 ------------------------
 
@@ -315,7 +321,7 @@ Delays use exponential backoff:
 
 .. code-block:: text
 
-   delay = min_retry_interval + min(backoff_factor * (2 ** attempt_number), max_backoff)
+   delay = min(min_retry_interval + backoff_factor * (2 ** attempt_number), max_backoff)
    
    Default settings (backoff_factor=0.5, max_backoff=120):
    - Attempt 1: 0.5 * 2^1 = 1.0 seconds

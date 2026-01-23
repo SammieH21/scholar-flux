@@ -231,7 +231,7 @@ class ReconstructedResponse:
             **kwargs: A set of keyword arguments containing the `url` parameter
 
         Returns:
-            str: A String-formatted URL
+            str: A string-formatted URL
 
         """
         url = kwargs.get("url")

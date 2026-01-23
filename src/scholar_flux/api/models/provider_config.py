@@ -6,7 +6,7 @@ It provides the foundational information necessary for the SearchAPI to resolve 
 providers, as well as basic defaults necessary for interaction.
 
 """
-from pydantic import BaseModel, field_validator, ConfigDict, Field
+from pydantic import BaseModel, field_validator, model_validator, ConfigDict, Field
 from typing import Optional, ClassVar, Any
 from scholar_flux.api.validators import validate_url, normalize_url
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
@@ -84,6 +84,7 @@ class ProviderConfig(BaseModel):
         default=None, description="The API Key environment variable to read from the system environment, if specified"
     )
     docs_url: Optional[str] = Field(default=None, description="URL for the API's documentation")
+    display_name: str = Field(default="", min_length=1, description="A Human-readable provider name")
     model_config: ClassVar[ConfigDict] = ConfigDict(str_strip_whitespace=True)
 
     @field_validator("provider_name", mode="after")
@@ -120,6 +121,33 @@ class ProviderConfig(BaseModel):
             logger.error(msg)
             raise APIParameterException(msg)
         return cls._normalize_url(v, normalize_https=False) if v is not None else None
+
+    @model_validator(mode="before")
+    @classmethod
+    def prepare_fields(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Model validator used to prepare fields for the `ProviderConfig` prior to further field validation."""
+        if not values.get("display_name"):
+            values["display_name"] = values["provider_name"]
+        return values
+
+    @property
+    def map(self) -> BaseAPIParameterMap:
+        """Helper property that is an alias for the APIParameterMap attribute.
+
+        The APIParameterMap maps all universal parameters to the parameter names specific to the API provider.
+
+        Returns:
+            APIParameterMap:
+                The mapping that the current APIParameterConfig will use to build a dictionary of parameter requests
+                specific to the current API.
+
+        """
+        return self.parameter_map
+
+    @property
+    def api_key_required(self) -> bool:
+        """References the APIParameterMap to determine whether an API key is required."""
+        return self.parameter_map.api_key_required
 
     @staticmethod
     def _normalize_name(provider_name: str) -> str:

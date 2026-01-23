@@ -15,12 +15,13 @@ Core classes:
 Note that the global package level SensitiveDataMasker is instantiated on package loading and can be imported:
     >>> from scholar_flux import masker
     >>> print(masker) # view all currently masked strings and keys
-    # Output: "SensitiveDataMasker(patterns=MaskingPatternSet(...))"
-    # set up and remove all matching email-like strings
+    # OUTPUT: SensitiveDataMasker(patterns=MaskingPatternSet(...))
+
+    # Set up and remove all matching email-like strings
     >>> email_pattern = r"[a-zA-Z0-9._%+-]+(@|%40)[a-zA-Z0-9.-]+[.][a-zA-Z]+"
     >>> masker.add_sensitive_string_patterns( name="email_strings", patterns=email_pattern, use_regex = True)
     >>> masker.mask_text("here_is_my_fake123@email.com")
-    # Output: "***"
+    # OUTPUT: '***'
 
 """
 

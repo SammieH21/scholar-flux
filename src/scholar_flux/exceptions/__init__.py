@@ -21,6 +21,7 @@ from scholar_flux.exceptions.api_exceptions import (
     PermissionException,
     NoRecordsAvailableException,
     InvalidResponseException,
+    RetryAfterDelayExceededException,
     NotFoundException,
     SearchAPIException,
     SearchRequestException,
@@ -68,6 +69,7 @@ from scholar_flux.exceptions.import_exceptions import (
     MongoDBImportError,
     XMLToDictImportError,
     SQLAlchemyImportError,
+    DuckDBImportError,
     YAMLImportError,
     CryptographyImportError,
 )
@@ -78,6 +80,7 @@ from scholar_flux.exceptions.storage_exceptions import (
     CacheUpdateException,
     CacheDeletionException,
     CacheVerificationException,
+    CacheParameterValidationException,
 )
 
 from scholar_flux.exceptions.path_exceptions import (
@@ -106,6 +109,7 @@ __all__ = [
     "PermissionException",
     "NoRecordsAvailableException",
     "InvalidResponseException",
+    "RetryAfterDelayExceededException",
     "NotFoundException",
     "SearchAPIException",
     "SearchRequestException",
@@ -142,6 +146,7 @@ __all__ = [
     "MongoDBImportError",
     "XMLToDictImportError",
     "SQLAlchemyImportError",
+    "DuckDBImportError",
     "YAMLImportError",
     "CryptographyImportError",
     "StorageCacheException",
@@ -150,6 +155,7 @@ __all__ = [
     "CacheUpdateException",
     "CacheDeletionException",
     "CacheVerificationException",
+    "CacheParameterValidationException",
     "PathUtilsError",
     "InvalidProcessingPathError",
     "InvalidComponentTypeError",

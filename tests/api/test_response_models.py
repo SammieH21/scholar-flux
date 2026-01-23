@@ -1,8 +1,16 @@
-from scholar_flux.api.models import ErrorResponse, ProcessedResponse, APIResponse, ReconstructedResponse, SearchResult
+from scholar_flux.api.models.responses import (
+    ErrorResponse,
+    NonResponse,
+    ProcessedResponse,
+    APIResponse,
+    ReconstructedResponse,
+)
+from scholar_flux.api.models.search_results import SearchResult
 from scholar_flux.exceptions import InvalidResponseReconstructionException, InvalidResponseStructureException
 from collections import UserDict
 from scholar_flux.utils import quote_if_string, ResponseProtocol
 from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp
+from tests.testing_utilities import raise_error
 from requests import Response, RequestException
 from http.client import responses
 from unittest.mock import patch
@@ -26,7 +34,7 @@ class DummyResponse(Response):
 
 
 @patch("scholar_flux.utils.helpers.try_int")
-def test_response_status_code_property(mock_try_int, mock_successful_response):
+def test_status_code_code_property(mock_try_int, mock_successful_response):
     """Tests whether the `status_code` property accounts for ValueErrors and retrieves status codes when available."""
     api_response = APIResponse(cache_key="key", response=DummyResponse())
     code = api_response.status_code
@@ -139,9 +147,7 @@ def test_deserialize_response_dict(monkeypatch, caplog):
     response = APIResponse.from_response(status_code=200, content=b"success", url="https://examples.com")
 
     exc = "Directly raised exception"
-    monkeypatch.setattr(
-        APIResponse, "from_serialized_response", lambda *args, **kwargs: (_ for _ in ()).throw(TypeError(exc))
-    )
+    monkeypatch.setattr(APIResponse, "from_serialized_response", raise_error(TypeError, exc))
 
     response_dict = response.model_dump()
 
@@ -341,7 +347,7 @@ def test_api_response_timestamp_validation(caplog):
     another_invalid_dt_response = APIResponse.model_validate(keywords | dict(created_at=True))
 
     assert another_invalid_dt_response.created_at is None
-    assert f"Expected an iso8601-formatted datetime, Received type ({type(True)})" in caplog.text
+    assert f"Expected an iso8601-formatted datetime, but received type ({type(True)})" in caplog.text
 
 
 def test_raise_for_status():
@@ -422,6 +428,7 @@ def test_properties(caplog):
         headers={"Content-Type": "text/plain"},
     )
     assert api_response.response is not None
+    assert api_response.cached is None  # When a requests.Response is not available, `cached` is None
 
     assert api_response.reason is None  # a boolean reason is not a valid value
     assert api_response.content == b"not bytes"
@@ -447,6 +454,7 @@ def test_properties(caplog):
 
 
 def test_no_response():
+    """Verifies that an empty api response object automatically defaults missing response field properties with None."""
     api_response = APIResponse()
     assert api_response.url is None
     assert api_response.reason is None
@@ -457,6 +465,7 @@ def test_no_response():
 
 
 def test_reconstruction():
+    """Verifies that ReconstructedResponse objects can be created used in the place of request.Response objects."""
     api_response = APIResponse.from_response(
         status_code=200,
         url="https://www.another_example.com",
@@ -464,7 +473,8 @@ def test_reconstruction():
         headers={"Content-Type": "text/plain"},
     )
 
-    assert isinstance(api_response, ResponseProtocol)
+    # As long as a response-like object has the required fields as attributes/properties, this should be True:
+    assert isinstance(api_response.response, ResponseProtocol) and isinstance(api_response, ResponseProtocol)
     assert not ReconstructedResponse._identify_invalid_fields(api_response)
 
     reconstructed_response = ReconstructedResponse.build(
@@ -477,11 +487,12 @@ def test_reconstruction():
     api_response_two = APIResponse(response=reconstructed_response)
 
     assert api_response == api_response_two
-    api_response.response.status_code = 201  # type: ignore
+    api_response.response.status_code = 201
     assert api_response != api_response_two
 
 
 def test_success_args_build():
+    """Verifies that `ReconstructedResponse.build()` successfully creates response-like objects with dictionaries."""
     args = {
         "status_code": 200,
         "url": "https://example.com",
@@ -503,6 +514,7 @@ def test_success_args_build():
 
 
 def test_missing_args_build():
+    """Verifies that instantiating response-like objects with missing response fields correctly raises an exception."""
     with pytest.raises(InvalidResponseReconstructionException) as excinfo:
         _ = ReconstructedResponse.build()
 
@@ -514,6 +526,7 @@ def test_missing_args_build():
     ("override",), [({"status_code": 1},), ({"url": "not-an-url"},), ({"content": 12},), ({"headers": "not-a-dict"},)]
 )
 def test_error_validation(override, caplog):
+    """Verifies that `validate()` correctly validates fields and raise an exception when fields are invalid."""
     args = {
         "status_code": 200,
         "url": "https://example.com",
@@ -534,13 +547,13 @@ def test_error_validation(override, caplog):
     field = list(override.keys())[0]
     value = override[field]
     text = f"{quote_if_string(field)}: {quote_if_string(value) if field in direct_inputs else type(value)}"
-    # invalid_fields = {field:value if field in ('status_code', 'url') else type(value) for field, value in override.items()}
 
     assert "The following fields contain invalid values:" in caplog.text
     assert text in caplog.text
 
 
 def test_overrides():
+    """Verifies that `ReconstructedResponse.build()` correctly overrides fields based on received keyword arguments."""
     data = {"request_status": "success", "records": 100}
 
     status_code = 302
@@ -581,6 +594,7 @@ def test_overrides():
 
 
 def test_json(caplog):
+    """Verifies that non-jsonable fields default to `None` on instantiation when invalid."""
     response = ReconstructedResponse.build(text={1, 2, 3}, status_code=200, url="https://example-site.com")
     assert response.json() is None
     assert "The current response object does not contain jsonable content" in caplog.text
@@ -593,7 +607,7 @@ def test_json(caplog):
 
 
 def test_processed_response_properties():
-    """Verifies that the error property of ProcessedResponse returns None as expected."""
+    """Verifies that the error property of ProcessedResponse returns None as expected when missing an `error`."""
     api_response = ProcessedResponse(
         cache_key="1-2-3-4",
         response=ReconstructedResponse.build(url="https://www.processing-example.com", status_code=200),
@@ -640,6 +654,7 @@ def test_successful_search_result_core_properties(mock_successful_response):
     assert response_search_result.url == response_search_result.response_result.url
     assert response_search_result.status_code == response_search_result.response_result.status_code
     assert response_search_result.status == response_search_result.response_result.status
+    assert response_search_result.cached is False
 
 
 def test_error_search_result_core_properties(mock_unauthorized_response):
@@ -655,9 +670,10 @@ def test_error_search_result_core_properties(mock_unauthorized_response):
     assert err_response_search_result.url == err_response_search_result.response_result.url
     assert err_response_search_result.status_code == err_response_search_result.response_result.status_code
     assert err_response_search_result.status == err_response_search_result.response_result.status
+    assert err_response_search_result.cached is False
 
 
-def test_no_response_search_result_core_properties(mock_successful_response):
+def test_no_response_search_result_core_properties():
     """Verifies that core response elements can be extracted from SearchResult instances as `None` when unavailable."""
     no_response_search_result = SearchResult(
         query="test-query", page=1, provider_name="mock_provider", response_result=None
@@ -666,6 +682,79 @@ def test_no_response_search_result_core_properties(mock_successful_response):
     assert no_response_search_result.url is None
     assert no_response_search_result.status_code is None
     assert no_response_search_result.status is None
+    assert no_response_search_result.cached is None
+
+
+def test_no_op_api_response_annotation_removal_raises_exception():
+    """Verifies that attempts to strip annotations with an `APIResponse` class raises a NotImplementedError."""
+    err = "Record annotation removal is not implemented for responses of type, APIResponse"
+    api_response = APIResponse()
+
+    with pytest.raises(NotImplementedError, match=err):
+        _ = api_response.strip_annotations()
+
+
+def test_successful_search_result_annotation_removal(mock_successful_response):
+    """Verifies that SearchResults.strip_annotations() removes private metadata from processed records."""
+    record_list = [
+        {"title": "A title", "abstract": "An abstract", "_private_annotation": True, "_idx": 0},
+        {"title": "Another title", "abstract": "Another abstract", "_private_annotation": True, "_idx": 1},
+    ]
+
+    response = ProcessedResponse(
+        response=mock_successful_response, extracted_records=record_list, processed_records=record_list
+    )
+    search_result = SearchResult(response_result=response, query="query", page=1, provider_name="unknown")
+
+    stripped_records = search_result.strip_annotations()
+    assert all("_private_annotation" not in record and "_idx" not in record for record in stripped_records)
+
+    # User-provided record lists should be stripped when available
+    assert stripped_records == search_result.strip_annotations(record_list)
+
+    # For error/non-responses, A non-empty, stripped record list should only be returned if a record list is provided
+    unsuccessful_search_result = SearchResult(
+        response_result=NonResponse(), query="query", page=1, provider_name="unknown"
+    )
+    assert unsuccessful_search_result.strip_annotations(record_list) == stripped_records
+
+    # Records are coerced into lists of records when available
+    assert stripped_records[-1:] == search_result.strip_annotations(record_list[-1])
+
+
+def test_empty_search_result_result_strip_annotations(mock_successful_response):
+    """Verifies that `SearchResult.strip_annotations()` returns an empty list when `processed_records` is None."""
+    successful_search_result = SearchResult(
+        response_result=ProcessedResponse(response=mock_successful_response),
+        query="query",
+        page=1,
+        provider_name="unknown",
+    )
+    no_search_result = SearchResult(response_result=None, query="query", page=1, provider_name="unknown")
+    assert successful_search_result.strip_annotations() == no_search_result.strip_annotations() == []
+
+
+def test_unsuccessful_search_result_result_strip_annotations(mock_unauthorized_response, caplog):
+    """Verifies that `SearchResult.strip_annotations()` with ErrorResponse/NonResponse classes returns an empty list."""
+    nonresponse_search_result = SearchResult(
+        response_result=NonResponse(), query="query", page=1, provider_name="unknown"
+    )
+
+    unauthorized_search_result = SearchResult(
+        response_result=ErrorResponse(response=mock_unauthorized_response),
+        query="query",
+        page=1,
+        provider_name="unknown",
+    )
+    assert unauthorized_search_result.strip_annotations() == []
+    assert nonresponse_search_result.strip_annotations() == []
+
+    err_response_warning = (
+        "Record Annotation removal for `processed_records` is not implemented for responses of type, "
+        "{response}: There are no records to strip annotations from. Returning an empty list..."
+    )
+    assert err_response_warning.format(response=ErrorResponse.__name__) in caplog.text
+    assert err_response_warning.format(response=NonResponse.__name__) in caplog.text
 
 
 def test_search_result_equality():

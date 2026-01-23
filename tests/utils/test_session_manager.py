@@ -1,7 +1,10 @@
 import pytest
 import requests
-from requests_cache import CachedSession
+from requests_cache import CachedSession, CachedResponse
+import requests_mock
 from pathlib import Path
+from datetime import datetime, timedelta
+from time import sleep
 import os
 
 import logging
@@ -142,19 +145,19 @@ def test_session_manager_raise(caplog):
 
 
 def test_session_manager_backend_resolution(monkeypatch, caplog):
-    """Evaluates whether the CachedSessionManager catches and raises the intended error on env resolution failure."""
+    """Evaluates whether the `CachedSessionManager` catches and raises the intended error on env resolution failure."""
 
     env_variable = "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND"
 
     with monkeypatch.context() as m:
         m.setenv(env_variable, "REDIS")
-        # Redis (case-insensitive) is a valid backend - so no error should be raised
+        # Redis (case-insensitive) is a valid backend. No error should be raised:
         assert sm.CachedSessionManager(raise_on_error=True).backend == "redis"
 
         invalid_backend = "REDISSS"
         m.setenv(env_variable, invalid_backend)
 
-        # the fallback should be validated before use and raise a warning if the env variable is invalid
+        # The fallback should be validated before use and raise a warning if the env variable is invalid
         sqlite_session_fallback = sm.CachedSessionManager(raise_on_error=False)
         assert sqlite_session_fallback.backend == "sqlite"
         assert (
@@ -162,14 +165,14 @@ def test_session_manager_backend_resolution(monkeypatch, caplog):
             "Defaulting to the `sqlite` backend instead..."
         ) in caplog.text
 
-        # when errors are enabled, validation should occur normally
+        # When errors are enabled, validation should occur normally
         with pytest.raises(SessionConfigurationError) as excinfo:
             _ = sm.CachedSessionManager(raise_on_error=True)
         assert f"Requests-Cache does not support a backend by the name of {invalid_backend.lower()}" in str(
             excinfo.value
         )
 
-    # after the context the default backnd should be SQLite otherwise
+    # After the context, the default backend should be SQLite otherwise
     assert sm.CachedSessionManager(raise_on_error=True).backend == "sqlite"
 
 
@@ -187,15 +190,6 @@ def test_session_manager_cache_directory_creation_error(monkeypatch):
         _ = sm.CachedSessionManager._default_cache_directory()
 
     assert f"Could not create cache directory due to an exception: {err}" in str(excinfo.value)
-
-
-#
-#   mgr = sm.CachedSessionManager(
-#       user_agent="ua", cache_name="c", backend="sqlite", raise_on_error=False
-#   )
-
-#   session = mgr()
-#   assert isinstance(session, requests.Session)
 
 
 def test_path_edge_case():
@@ -246,19 +240,21 @@ def test_get_cache_directory_package_and_home(monkeypatch, tmp_path):
     In such cases, the directory used must fallback to home if it is writeable.
 
     """
-    monkeypatch.setattr(sm.session_models, "__file__", str(tmp_path / "fake.py"))
-    monkeypatch.setattr(Path, "mkdir", lambda self, **kwargs: None)
-    # Remove parent.exists() check by patching Path.exists
-    monkeypatch.setattr(Path, "exists", lambda self: False)
-    home = Path.home()
-    result = sm.CachedSessionManager.get_cache_directory()
-    assert str(home) in str(result)
+    with monkeypatch.context() as m:
+        m.setenv("SCHOLAR_FLUX_HOME", "")
+        m.setattr(Path, "mkdir", lambda self, **kwargs: None)
+        # Remove parent.exists() check by patching Path.exists
+        m.setattr(Path, "exists", lambda self: False)
+        # Patch `home` to a temporary directory to later verify that it is used as the fallback directory:
+        m.setattr(Path, "home", lambda: tmp_path)
+        result = sm.CachedSessionManager.get_cache_directory()
+        assert str(tmp_path) in str(result)
 
 
 def test_redis_session_manager_default_kwargs(caplog):
     """Verifies that default redis kwargs match `scholar_flux.data_storage.RedisStorage.DEFAULT_CONFIG`."""
     session_manager = sm.CachedSessionManager(backend="redis")
-    assert session_manager.kwargs == RedisStorage.DEFAULT_CONFIG
+    assert session_manager.kwargs == {key: value for key, value in RedisStorage.DEFAULT_CONFIG.items() if key != "ttl"}
     assert "Auto-configured Redis from RedisStorage.DEFAULT_CONFIG" in caplog.text
 
 
@@ -268,6 +264,94 @@ def test_mongodb_session_manager_default_kwargs(caplog):
 
     assert session_manager.kwargs == {k: v for k, v in MongoDBStorage.DEFAULT_CONFIG.items() if k in ("host", "port")}
     assert "Auto-configured MongoDB from MongoDBStorage.DEFAULT_CONFIG" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "expire_after,expected,delay,cached,",
+    (
+        (-1, None, 0, True),
+        (-1.0, None, 0, True),
+        ("-1", None, 0, True),
+        (0, 0, 0, False),
+        ("23.5", 23.5, 0, True),
+        (".05", 0.05, 0.1, False),
+        (timedelta(seconds=0.03), timedelta(seconds=0.03), 0.1, False),
+        (timedelta(seconds=0.3), timedelta(seconds=0.3), 0, True),
+        ("9999-12-12", datetime(9999, 12, 12), 0, True),
+    ),
+)
+def test_session_manager_expire_after_validation(expire_after, expected, delay, cached):
+    """Verifies that the CachedSessionConfig validates the ttl, accounting for wide range of `expire_after` inputs.
+
+    A request is then sent to verify that the `expire_after` value is either fresh when `cached=False` or cached when
+    `cached=True`. The `Mocker` prevents actual requests from being sent.
+
+    """
+    session_manager = sm.CachedSessionManager(backend="memory", expire_after=expire_after)
+    assert session_manager.expire_after == expected
+    session = session_manager()
+
+    # Mocks the request to verify that caching does or does not happen on the second request
+    with requests_mock.Mocker() as m:
+        url = "https://httpbin.org/status/200"
+        m.get(url, status_code=200, json={"status": "ok"})
+        assert session.get(url)
+        sleep(delay)
+        assert isinstance(session.get(url), CachedResponse) ^ (not cached)
+
+
+@pytest.mark.parametrize("v", ("not a valid date", "01-2020"))
+def test_session_manager_raises_on_invalid_expire_after_string(v):
+    """Verifies that TTL validation identifies strings that can't be converted into dates, integers, or floats."""
+
+    with pytest.raises(SessionConfigurationError) as invalid_string_excinfo:
+        _ = sm.CachedSessionManager(expire_after=v)
+
+    assert (
+        f"Received an invalid string for the expire_after parameter ({v}). The string could not be successfully "
+        "converted into a date nor a valid numeric TTL value."
+    ) in str(invalid_string_excinfo.value)
+
+
+@pytest.mark.parametrize("v", ("-3.5", "-4", -2, -1.1))
+def test_session_manager_raises_on_invalid_expire_after_numeric_values(v):
+    """Tests whether negative numbers are flagged as invalid after conversion from a string to a number"""
+    with pytest.raises(SessionConfigurationError) as negative_number_excinfo:
+        _ = sm.CachedSessionManager(expire_after=v)
+
+    assert (
+        f"The provided integer for the expire_after parameter ({v}) must be greater than 0 or equal to -1 to "
+        "signify that the cache should not expire."
+    ) in str(negative_number_excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "cls_ttl,env_ttl,instance_ttl,expected",
+    (
+        (86400, None, None, 86400),  # cls var is the default
+        (1, 2, None, 2),  # env overrides cls
+        (None, None, 1, 1),  # instance var overrides
+        (None, 1, None, 1),  # an available env var overrides None
+        (0, -1, 2, 2),  # an available instance var overrides cls + env
+        (None, 1, -1, None),  # env = -1 turns off cache when instance var is None
+        (1, 3, 5, 5),  #  Instance var should override
+    ),
+)
+def test_cached_session_expire_after_resolution_order(
+    cls_ttl,  # default
+    env_ttl,  # override
+    instance_ttl,  # overrides the env when not None
+    expected,
+    monkeypatch,
+    restore_config_settings,
+):
+    """Verifies that the CachedSessionManager correctly resolves `expire_after` from class and instance config."""
+    with monkeypatch.context() as m:
+        m.setenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL", env_ttl)
+        config_settings.set("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL", env_ttl)
+        m.setattr(sm.CachedSessionManager, "DEFAULT_EXPIRE_AFTER", cls_ttl)
+        cached_session_manager = sm.CachedSessionManager(expire_after=instance_ttl)
+        assert cached_session_manager.expire_after == expected
 
 
 def test_get_cache_directory_package_with_env(monkeypatch, tmp_path):

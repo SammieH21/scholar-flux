@@ -18,17 +18,25 @@ Classes:
         request or the sending/retrieval of a response.
 
 """
-from typing import Optional, Dict, List, Any, MutableMapping
+from typing import Optional, Dict, List, Any, MutableMapping, Sequence
 from scholar_flux.exceptions import InvalidResponseReconstructionException, RecordNormalizationException
 from typing_extensions import Self
 from pydantic import BaseModel, field_serializer, field_validator
 from scholar_flux.api.models.reconstructed_response import ReconstructedResponse
-from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp, format_iso_timestamp, coerce_int
+from scholar_flux.utils.record_types import RecordType, RecordList, NormalizedRecordList, MetadataType
+from scholar_flux.utils.helpers import (
+    generate_iso_timestamp,
+    parse_iso_timestamp,
+    format_iso_timestamp,
+    coerce_int,
+    is_nested_json,
+)
 from scholar_flux.utils import CacheDataEncoder, generate_repr, generate_repr_from_string, truncate
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.api.validators import validate_url
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.normalization.base_field_map import BaseFieldMap
+from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
 from datetime import datetime
 from http.client import responses
@@ -37,6 +45,7 @@ from json import JSONDecodeError
 import json
 import logging
 import requests
+from requests_cache import CachedResponse
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +109,7 @@ class APIResponse(BaseModel):
             v = format_iso_timestamp(v)
 
         else:
-            logger.warning(f"Expected an iso8601-formatted datetime, Received type ({type(v)})")
+            logger.warning(f"Expected an iso8601-formatted datetime, but received type ({type(v)})")
             return None
 
         return v
@@ -130,6 +139,23 @@ class APIResponse(BaseModel):
             logger.warning(f"Couldn't decode a valid response object: {e}")
         logger.warning("Couldn't decode a valid response object. Returning the object as is")
         return v
+
+    @property
+    def cached(self) -> Optional[bool]:
+        """Identifies whether the current response was retrieved from the session cache.
+
+        Returns:
+            bool: True if the response is a CachedResponse object and False if it is a fresh requests.Response object
+            None: Unknown (e.g., the response attribute is not a requests.Response object or subclass)
+
+        """
+        match self.response:
+            case CachedResponse():
+                return True
+            case requests.Response():
+                return False
+            case _:
+                return None
 
     @property
     def status_code(self) -> Optional[int]:
@@ -164,7 +190,7 @@ class APIResponse(BaseModel):
         """Helper property for retrieving a human-readable status description APIResponse.
 
         Returns:
-            Optional[int]: The status description associated with the response (if available).
+            Optional[str]: The status description associated with the response (if available).
 
         """
         return self.reason or getattr(self.response, "status", None) or responses.get(self.status_code or -1)
@@ -405,10 +431,10 @@ class APIResponse(BaseModel):
 
     @classmethod
     def from_serialized_response(cls, response: Optional[Any] = None, **kwargs) -> Optional[ReconstructedResponse]:
-        """Helper method for creating a new `APIresponse` from dumped json object.
+        """Helper method for creating a new `APIResponse` from dumped JSON object.
 
         This method accounts for lack of ease of serialization of responses by decoding the response dictionary that was
-        loaded from a string using json.loads from the json module in the standard library.
+        loaded from a string using `json.loads` from the JSON module in the standard library.
 
         If the response input is still a serialized string, this method will manually load the response dict with
         the `APIresponse._deserialize_response_dict` class method before further processing.
@@ -467,9 +493,9 @@ class APIResponse(BaseModel):
 
     @classmethod
     def _deserialize_response_dict(cls, serialized_response_dict: str) -> Optional[dict]:
-        """Helper method for deserializing the dumped model json.
+        """Helper method for deserializing the dumped model JSON.
 
-        Attempts to load json data from a string if possible. Otherwise returns None
+        Attempts to load JSON data from a string if possible. Otherwise returns None
 
         """
         try:
@@ -494,8 +520,8 @@ class APIResponse(BaseModel):
         else:
             self.as_reconstructed_response(self.response).raise_for_status()
 
-    def process_metadata(self, *args, **kwargs) -> Optional[dict[str, Any]]:
-        """Abstract processing method that successfully `APIResponse` subclasses can override to process_metadata.
+    def process_metadata(self, *args, **kwargs) -> Optional[MetadataType]:
+        """Abstract processing method that `APIResponse` subclasses can override to process metadata.
 
         Args:
             *args: No-Op - Added for compatibility with the `APIResponse` subclasses.
@@ -509,7 +535,25 @@ class APIResponse(BaseModel):
             f"Metadata processing is not implemented for responses of type, {self.__class__.__name__}"
         )
 
-    def normalize(self, *args, **kwargs) -> Optional[list[dict[str, Any]]]:
+    def resolve_extracted_record(self, *args, **kwargs) -> Optional[RecordType]:
+        """Defines a No-Op method to be overridden by ProcessedResponse subclasses."""
+        raise NotImplementedError(
+            f"Extracted record resolution is not implemented for responses of type, {self.__class__.__name__}"
+        )
+
+    def build_record_id_index(self, *args, **kwargs) -> Optional[dict[str, RecordType]]:
+        """Defines a No-Op method to be overridden by ProcessedResponse subclasses."""
+        raise NotImplementedError(
+            f"Extracted record resolution is not implemented for responses of type, {self.__class__.__name__}"
+        )
+
+    def strip_annotations(self, *args, **kwargs) -> RecordList:
+        """Defines a No-Op method to be overridden by ProcessedResponse subclasses."""
+        raise NotImplementedError(
+            f"Record annotation removal is not implemented for responses of type, {self.__class__.__name__}"
+        )
+
+    def normalize(self, *args, **kwargs) -> NormalizedRecordList:
         """Defines the `normalize` method that successfully processed API Responses can override to normalize records.
 
         Raises:
@@ -549,12 +593,15 @@ class ErrorResponse(APIResponse):
         """Creates and logs the processing error if one occurs during response processing.
 
         Args:
-            response (Response): Raw API response.
+            message (str): Error message describing the failure.
+            error (Exception): The exception instance that was raised.
             cache_key (Optional[str]): Cache key for storing results.
+            response (Optional[requests.Response | ResponseProtocol]): Raw API response.
 
         Returns:
-            ErrorResponse: A Dataclass Object that contains the error response data
-                            and background information on what precipitated the error.
+            ErrorResponse:
+                A Dataclass Object that contains the error response data and background information on what precipitated
+                the error.
 
         """
         creation_timestamp = generate_iso_timestamp()
@@ -636,7 +683,7 @@ class ErrorResponse(APIResponse):
         """
         return 0
 
-    def process_metadata(self, *args, **kwargs) -> Optional[dict[str, Any]]:
+    def process_metadata(self, *args, **kwargs) -> Optional[MetadataType]:
         """No-Op: This method is retained for compatibility. It returns None by default.
 
         Raises:
@@ -644,9 +691,76 @@ class ErrorResponse(APIResponse):
         """
         return None
 
+    def build_record_id_index(self, *args, **kwargs) -> dict[str, RecordType]:
+        """No-Op: Returns an empty dict when no extracted records are available.
+
+        This method is retained for compatibility with ProcessedResponse. Since ErrorResponse has no extracted records
+        to index, this method always returns an empty dictionary regardless of arguments provided.
+
+        Args:
+            *args:
+                Positional argument placeholder for compatibility with the `ProcessedResponse.build_record_id_index`
+                method. All arguments are ignored.
+            **kwargs:
+                Keyword argument placeholder for compatibility with the `ProcessedResponse.build_record_id_index`
+                method. All arguments are ignored.
+
+        Returns:
+            dict[str, RecordType]: An empty dictionary indicating no records are available for indexing.
+
+        """
+        return {}
+
+    def resolve_extracted_record(self, *args, **kwargs) -> None:
+        """No-Op: Returns None when no records are available.
+
+        This method is retained for compatibility with ProcessedResponse. Since ErrorResponse has no extracted or
+        processed records, resolution is not possible and this method always returns None.
+
+        Args:
+            *args:
+                Positional argument placeholder for compatibility with the `ProcessedResponse.resolve_extracted_record`
+                method. Currently includes `processed_index` (int).
+            **kwargs:
+                Keyword argument placeholder for compatibility with the `ProcessedResponse.resolve_extracted_record`
+                method. All arguments are ignored.
+
+        Returns:
+            None: Always returns None since no records exist to resolve.
+
+        """
+        return None
+
+    def strip_annotations(self, records: Optional[RecordType | RecordList] = None) -> RecordList:
+        """Convenience method for removing internal metadata annotations from a provided list of records.
+
+        This method removes all metadata annotations (dictionary keys that are prefixed with an underscore) that were
+        added during the record extraction step for pipeline traceability (e.g., `_extraction_index`, `_record_id`).
+
+        Args:
+            records: (RecordType | RecordList) Records to strip. Defaults to `processed_records` if None.
+
+        Returns:
+            RecordList:
+                A list of dictionary records with stripped metadata annotations when provided. If a record or record
+                list is not provided, a warning is logged, and an empty list is returned.
+
+        Note: This method is defined primarily for compatibility with the `ProcessedResponse` API.
+
+        """
+        if records is not None:
+            stripped_records = DataExtractor.strip_annotations(records)
+            return [stripped_records] if isinstance(stripped_records, dict) else stripped_records
+
+        logger.warning(
+            "Record Annotation removal for `processed_records` is not implemented for responses of type, "
+            f"{self.__class__.__name__}: There are no records to strip annotations from. Returning an empty list..."
+        )
+        return []
+
     def normalize(
         self, field_map: Optional[BaseFieldMap] = None, raise_on_error: bool = True, *args, **kwargs
-    ) -> list[dict[str, Any]]:
+    ) -> NormalizedRecordList:
         """No-Op: Raises a RecordNormalizationException when `raise_on_error=True` and returns an empty list otherwise.
 
         Args:
@@ -655,15 +769,14 @@ class ErrorResponse(APIResponse):
                 registry if not provided as input.
             raise_on_error (bool):
                 A flag indicating whether to raise an error. If a field_map cannot be identified for the current
-                response and `raise_on_error` is also True, a normalization error is raised.
+                response and `raise_on_error` is also True, a `RecordNormalizationException` is raised.
             *args:
                  Positional argument placeholder for compatibility with the `ProcessedResponse.normalize` method
             **kwargs:
                  Keyword argument placeholder for compatibility with the `ProcessedResponse.normalize` method
 
         Returns:
-            list[dict[str, Any]]:
-                An empty list if `raise_on_error=False`
+            NormalizedRecordList: An empty list if `raise_on_error=False`
 
         Raises:
             RecordNormalizationException:
@@ -709,23 +822,25 @@ class ProcessedResponse(APIResponse):
     API response that is received and processed after retrieval. In addition to returning processed records and
     metadata, this class also allows storage of intermediate steps including:
 
-    1. parsed responses,
-    2. extracted records and metadata,
-    3. processed records (aliased as data),
-    4. and any additional messages An error field is provided for compatibility with the ErrorResponse class.
+    1. Parsed responses
+    2. Extracted records and metadata
+    3. Processed records (aliased as data)
+    4. Normalized records
+    5. Processed metadata
+    6. Any additional messages. An error field is provided for compatibility with the ErrorResponse class.
 
     """
 
     parsed_response: Optional[Any] = None
-    extracted_records: Optional[List[dict[str, Any]] | List[dict[str | int, Any]]] = None
-    processed_records: Optional[List[dict[str, Any]] | List[dict[str | int, Any]]] = None
-    normalized_records: Optional[List[dict[str, Any]]] = None
-    metadata: Optional[dict[str, Any] | dict[str, Any]] = None
-    processed_metadata: Optional[dict[str, Any]] = None
+    extracted_records: Optional[RecordList] = None
+    processed_records: Optional[RecordList] = None
+    normalized_records: Optional[NormalizedRecordList] = None
+    metadata: Optional[MetadataType] = None
+    processed_metadata: Optional[MetadataType] = None
     message: Optional[str] = None
 
     @property
-    def data(self) -> Optional[List[dict[str, Any]] | List[dict[str | int, Any]]]:
+    def data(self) -> Optional[RecordList]:
         """Alias to the processed_records attribute that holds a list of dictionaries, when available."""
         return self.processed_records
 
@@ -766,7 +881,7 @@ class ProcessedResponse(APIResponse):
 
     def process_metadata(
         self, metadata_map: Optional[ResponseMetadataMap] = None, update_metadata: Optional[bool] = None
-    ) -> Optional[dict[str, Any]]:
+    ) -> Optional[MetadataType]:
         """Uses a `ResponseMetadataMap` to process metadata for tertiary information on the response.
 
         This method is a helper that is meant for primarily internal use for providing metadata information on the
@@ -778,14 +893,14 @@ class ProcessedResponse(APIResponse):
 
         Args:
             metadata_map (Optional[ResponseMetadataMap]):
-                A mapping that resolve api-specific metadata names to a universal parameter name.
+                A mapping that resolve API-specific metadata names to a universal parameter name.
             update_metadata (Optional[bool]):
                 Determines whether the underlying `processed_metadata` field should be updated. If True,
                 the processed_metadata field is updated inplace. If `None`, the field is only updated when
                 metadata fields have been successfully processed and the `processed_metadata ` field is None.
 
         Returns:
-            Optional[dict[str, Any]]: The processed metadata returned as a dictionary when available. None otherwise.
+            Optional[MetadataType]: The processed metadata returned as a dictionary when available. None otherwise.
 
         """
         if not self.metadata:
@@ -809,10 +924,13 @@ class ProcessedResponse(APIResponse):
         field_map: Optional[BaseFieldMap] = None,
         raise_on_error: bool = False,
         update_records: Optional[bool] = None,
-    ) -> list[dict[str, Any]]:
+        resolve_records: Optional[bool] = None,
+        keep_api_specific_fields: Optional[bool | Sequence] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> NormalizedRecordList:
         """Applies a field map to normalize the processed records of a ProcessedResponse into a common structure.
 
-        Note that if a field_map is not provided, this method will return the previously created  `normalized_records`
+        Note that if a field_map is not provided, this method will return the previously created `normalized_records`
         attribute if available. If `normalized_records` is None, this method will attempt to look up the `FieldMap`
         from the current provider_registry.
 
@@ -830,27 +948,65 @@ class ProcessedResponse(APIResponse):
                 response and `raise_on_error` is also True, a normalization error is raised.
             update_records (Optional[bool]):
                 A flag that determines whether updates should be made to the `normalized_records` attribute after
-                computation. If `None`, updates are made only if the `normalized_records` attribute is not None.
+                computation. If `None`, updates are made only if the `normalized_records` attribute is currently None.
+            resolve_records (Optional[bool]):
+                A flag that determines if resolution with annotated records should occur. If True or None, resolution
+                occurs. If False, normalization uses `processed_records` when not None and `extracted_records`
+                otherwise.
+            keep_api_specific_fields (Optional[bool | Sequence]):
+                Indicates what API-specific records should be retained from the complete list of API parameters that
+                are returned. If False, only the core parameters defined by the FieldMap are returned. If True or None,
+                all parameters are returned instead.
+            strip_annotations (Optional[bool]):
+                A flag for removing metadata annotations denoted by a leading underscore. When True or None (default),
+                annotations are removed from normalized records.
 
         Returns:
-            list[dict[str, Any]]:
+            NormalizedRecordList:
                 The list of normalized records in the same dimension as the original processed response. If a map for
                 the current provider does not exist and `raise_on_error=False`, an empty list is returned instead.
 
         Raises:
             RecordNormalizationException: If an error occurs during the normalization of record list.
 
-        """
-        data = (
-            self.extracted_records
-            if self.processed_records is None and self.extracted_records
-            else self.processed_records
-        )
+        Example:
+            >>> from scholar_flux import SearchCoordinator
+            >>> from scholar_flux.utils import truncate, coerce_flattened_str
+            >>> coordinator = SearchCoordinator(query = 'public health')
+            >>> response = coordinator.search_page(page = 1)
+            >>> normalized_records = response.normalize()
+            >>> for record in normalized_records[:5]:
+            ...     print(f"Title: {record['title']}")
+            ...     print(f"URL: {record['url']}")
+            ...     print(f"Source: {record['provider_name']}")
+            ...     print(f"Abstract: {truncate(record['abstract'] or 'Not available')}")
+            ...     print(f"Authors: {coerce_flattened_str(record['authors'])}")
+            ...     print("-"*100)
 
+            # OUTPUT:
+            Title: Are we prepared? The development of performance indicators for ...
+            URL: https://journals.plos.org/plosone/article?id=...
+            Source: plos
+            Abstract: Background: Disasters and emergencies...
+            Authors: ...
+            ----------------------------------------------------------------------------------------------------
+
+        Note:
+            Computation is performed in one of three cases:
+
+            1.`normalize_records` must not exist
+            2.`update_records` is not True
+            3. Either `resolve_records` or `keep_api_specific_fields` is not None
+
+        """
         if field_map is None:
 
-            # recomputation is performed only if `normalize_records` does not exist or `update_records is not True`
-            if self.normalized_records is not None and update_records is not True:
+            if (
+                self.normalized_records is not None
+                and update_records is not True
+                and resolve_records is None
+                and keep_api_specific_fields is None
+            ):
                 return self.normalized_records
 
             provider_config = provider_registry.get_from_url(self.url or "")
@@ -863,7 +1019,18 @@ class ProcessedResponse(APIResponse):
                 return []
             field_map = provider_config.field_map
 
-        normalized_records = field_map.normalize_records(data) if data is not None else None
+        resolve_records = resolve_records if resolve_records is not None else True
+        data = self._prepare_normalization_records(resolve_records)
+        normalized_records = (
+            field_map.normalize_records(data, keep_api_specific_fields=keep_api_specific_fields)
+            if data is not None
+            else None
+        )
+        normalized_records = (
+            DataExtractor.strip_annotations(normalized_records)
+            if strip_annotations is True or strip_annotations is None
+            else normalized_records
+        )
 
         # records are saved only if a normalized response does not exist or `update_records=True`
         if (
@@ -872,6 +1039,231 @@ class ProcessedResponse(APIResponse):
             self.normalized_records = normalized_records
 
         return normalized_records or []
+
+    def _prepare_normalization_records(self, resolve_records: Optional[bool] = True) -> RecordList | None:
+        """Merge extracted and processed records when annotation fields exist.
+
+        Extracted and processed records are only merged if the `processed_records` contains flattened fields.
+
+        Internal method that returns merged records (extracted | processed) when
+        resolution is beneficial, otherwise returns data unchanged.
+
+        Args:
+            resolve_records (Optional[bool]):
+                A flag that determines if resolution with annotated records should occur. If True or None, resolution
+                occurs. If False, normalization uses `processed_records` when not None and `extracted_records`
+                otherwise.
+
+        Returns:
+            RecordList | None:
+                Merged records if annotations exist, otherwise unchanged
+
+        """
+        if self.extracted_records is not None and self.processed_records is None:
+            return self.extracted_records
+        if self.extracted_records is None or self.processed_records is None or resolve_records is False:
+            return self.processed_records
+
+        # If the first sample contains no records, no other record will have the field either
+        sample = self.processed_records[0] if self.processed_records else {}
+        if DataExtractor.EXTRACTION_INDEX_KEY not in sample or all(
+            is_nested_json(record) for record in self.processed_records
+        ):
+            return self.processed_records
+
+        id_index = self.build_record_id_index()
+
+        if not id_index:
+            return self.processed_records
+
+        return [self._merge_record_pair(rec, id_index) for rec in self.processed_records]
+
+    def _merge_record_pair(
+        self,
+        processed_record: RecordType,
+        id_index: dict[str, RecordType],
+    ) -> RecordType:
+        """Merge a processed record with its corresponding extracted record.
+
+        Creates a combined view where extracted record fields serve as the base
+        and processed record fields overlay them, preserving nested structures
+        while including flattened/transformed fields.
+
+        Args:
+            processed_record (RecordType):
+                The processed (possibly flattened) record
+            id_index (dict[str, RecordType]):
+                Mapping of record IDs to extracted records
+
+        Returns:
+            RecordType: Merged record, or original processed_record if no match
+
+        """
+        record_id = processed_record.get(DataExtractor.RECORD_ID_KEY)
+
+        if not isinstance(record_id, str):
+            return processed_record
+
+        extracted_record = id_index.get(record_id)
+
+        if not extracted_record:
+            return processed_record
+
+        return extracted_record | processed_record
+
+    def strip_annotations(
+        self,
+        records: Optional[RecordType | RecordList] = None,
+    ) -> RecordList:
+        """Convenience method that removes metadata annotations from a record list for clean export.
+
+        This method removes all metadata annotations (dictionary keys that are prefixed with an underscore) that were
+        added during the record extraction step for pipeline traceability (e.g., `_extraction_index`, `_record_id`).
+
+        Args:
+            records: (RecordType | RecordList) Records to strip. Defaults to `processed_records` if None.
+
+        Returns:
+            RecordType | RecordList: New list of records with annotation fields removed.
+
+        Example:
+            >>> clean_data = response.strip_annotations()
+            >>> df = pd.DataFrame(clean_data)  # No internal fields in DataFrame
+
+        """
+        records = records if records is not None else self.processed_records
+
+        if not records:
+            return []
+
+        stripped_records = DataExtractor.strip_annotations(records)
+        return [stripped_records] if isinstance(stripped_records, dict) else stripped_records
+
+    def resolve_extracted_record(
+        self,
+        processed_index: int,
+    ) -> Optional[RecordType]:
+        """Resolve a processed record back to its original extracted record.
+
+        This method uses a two-phase resolution strategy with optional validation:
+
+        1. Primary: Direct index lookup via `_extraction_index` (fast, single access)
+        2. Validation: Verify `_record_id` matches
+        3. Fallback: Search by `_record_id` if index lookup fails or mismatches (scans all records)
+
+        Args:
+            processed_index (int):
+                The index of the record in `processed_records` to resolve.
+
+        Returns:
+            Optional[RecordType]:
+                The original extracted record, or None if resolution fails.
+
+        Example:
+            >>> from scholar_flux import SearchCoordinator, RecursiveDataProcessor
+            >>> coordinator = SearchCoordinator(
+            ...     query='public health',
+            ...     provider_name='openalex',
+            ...     annotate_records=True,
+            ...     processor=RecursiveDataProcessor()
+            ... )
+            >>> response = coordinator.search(page=1)
+            >>> # Get processed (possibly flattened) record
+            >>> processed = response.processed_records[0]
+            >>> print(processed.get("authorships.author.display_name"))  # ['Kenneth L. Howard...']
+            >>> # Resolve to original nested structure
+            >>> original = response.resolve_extracted_record(0)
+            >>> print(original.get("authorships"))
+            >>> print(original.get("authorships")[0].keys())
+            # OUTPUT: dict_keys(['author_position', 'author', 'institutions', 'countries', 'is_corresponding', 'raw_author_name', 'raw_affiliation_strings', 'affiliations'])
+
+        Note:
+            Resolution requires that records were extracted with `annotate_records=True` in the DataExtractor. Without
+            annotation fields, this method returns None.
+
+        """
+        if not self.processed_records or not self.extracted_records:
+            return None
+
+        if not 0 <= processed_index < len(self.processed_records):
+            return None
+
+        processed_record = self.processed_records[processed_index]
+        extraction_index = processed_record.get(DataExtractor.EXTRACTION_INDEX_KEY)
+        record_id = processed_record.get(DataExtractor.RECORD_ID_KEY)
+
+        if not record_id:
+            return None
+
+        # Phase 1: Direct index lookup
+        if isinstance(extraction_index, int) and 0 <= extraction_index < len(self.extracted_records):
+            candidate = self.extracted_records[extraction_index]
+
+            if candidate.get(DataExtractor.RECORD_ID_KEY) == record_id:
+                return candidate
+
+            logger.debug(
+                f"Record ID mismatch at index {extraction_index}: "
+                f"expected {record_id}, found {candidate.get(DataExtractor.RECORD_ID_KEY)}"
+            )
+
+        # Phase 2: Fallback ID search
+        return self._resolve_by_record_id(record_id)
+
+    def _resolve_by_record_id(self, record_id: str) -> Optional[RecordType]:
+        """Resolves an extracted record by its content-based ID.
+
+        This method resolves a record ID to its original, unprocessed, extracted record using a linear search in which
+        the received record ID is compared to the ID of each raw record until a match is found. This method is intended
+        as a fallback for finding the original, extracted record from an ID for when index-based resolution fails.
+
+        Args:
+            record_id (str): The `_record_id` value to search for.
+
+        Returns:
+            Optional[RecordType]: The matching extracted record, or None if not found.
+
+        """
+        extracted_records = self.extracted_records or []
+        return next(
+            (record for record in extracted_records if record.get(DataExtractor.RECORD_ID_KEY) == record_id),
+            None,
+        )
+
+    def build_record_id_index(self) -> dict[str, RecordType]:
+        """Builds a lookup table for ID-based resolution of extracted records.
+
+        This method creates a dictionary that maps `_record_id` values to their corresponding extracted records. Useful
+        when performing multiple resolutions for records the same response.
+
+        Returns:
+            dict[str, RecordType]:
+                A new dictionary mapping record IDs to the original record. An empty dictionary is returned if
+                `extracted_records` is None/empty or all records do not have an associated ID
+
+        Example:
+            >>> from scholar_flux import SearchCoordinator
+            >>> coordinator = SearchCoordinator(query = 'public health', annotate_records=True)
+            >>> response = coordinator.search(page = 1)
+            >>> id_index = response.build_record_id_index()
+            >>> processed_record = response.data[0]
+            >>> extracted_record = id_index.get(processed_record["_record_id"])
+            >>> isinstance(extracted_record, dict)
+            # OUTPUT: True
+
+        Note:
+            This method is used in the process of identifying raw, unprocessed records after extensive post-processing
+            and filtering has been performed on each record and relies on record annotation being enabled during data
+            extraction.
+
+        """
+        extracted_records = self.extracted_records or []
+        record_index = {
+            record[DataExtractor.RECORD_ID_KEY]: record
+            for record in extracted_records
+            if record and isinstance(record.get(DataExtractor.RECORD_ID_KEY), str)
+        }
+        return record_index
 
     def __repr__(self) -> str:
         """Helper method for creating a simple representation of the ProcessedResponse."""

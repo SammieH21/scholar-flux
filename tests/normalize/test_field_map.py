@@ -1,3 +1,15 @@
+"""Tests for record normalization with the `BaseFieldMap`, `NormalizingFieldMap`, and `AcademicFieldMap`
+
+This test suite covers:
+1. Basic initialization of each field map
+2. Normalizing API-specific field names into universal field names
+3. Resolution of the `provider_name` when not available
+4. Verifying that the normalization pipeline does not introduce unintended side-effects
+5. Error handling for unexpected data types
+6. Verifying that `NormalizingDataProcessor` keys are updated during normalization when the field mappings are modified
+
+"""
+
 from scholar_flux.api.normalization import BaseFieldMap, NormalizingFieldMap, AcademicFieldMap
 from scholar_flux.data import NormalizingDataProcessor
 from scholar_flux.exceptions import RecordNormalizationException, DataProcessingException
@@ -6,6 +18,7 @@ import pytest
 import re
 from typing import Any
 from textwrap import dedent
+from copy import deepcopy
 
 
 @pytest.fixture
@@ -40,6 +53,17 @@ def mock_complex_record_dictionary(mock_simple_record_dictionary: dict[str, Any]
     return mock_complex_record_dictionary
 
 
+@pytest.fixture
+def mock_testing_field_map() -> AcademicFieldMap:
+    """Fixture for testing and verifying field map normalization functionality."""
+    return AcademicFieldMap(
+        provider_name="scholar_flux_mocks",
+        title=["mock_title.name", "mock_title"],
+        doi=["mock_metadata.doi", "mock_doi"],
+        abstract="mock_abstract",
+    )
+
+
 def test_provider_name_overrides():
     """Tests the specification of defaults based on provided parameters."""
     default_provider_name = "default_provider_name"
@@ -61,7 +85,7 @@ def test_provider_name_overrides():
 
 
 def test_base_field_map_representation():
-    """Tests whether attempts at normalization with missing records/values show the absence of records on return."""
+    """Verifies that the BaseFieldMap `structure()` method returns a valid string representation."""
     base_mapping = BaseFieldMap(
         provider_name="example_provider",
         api_specific_fields={"mapped_name_one": "field_one", "mapped_name_two": "field_two"},
@@ -74,17 +98,17 @@ def test_base_field_map_representation():
 
 
 def test_missing_record_base_field_map_edge_cases():
-    """Tests whether attempts at normalization with missing records/values show the absence of records on return."""
+    """Verifies that normalization with missing records or empty lists returns empty results gracefully."""
     base_mapping = BaseFieldMap(provider_name=None)  # type: ignore
-    assert base_mapping([]) == base_mapping(None) == []
+    assert base_mapping([]) == base_mapping(None) == []  # type: ignore
     assert base_mapping.apply([]) == []
     assert base_mapping.apply({}) == {"provider_name": None}
 
 
 def test_field_map_apply_equivalence(mock_simple_record_dictionary):
-    """Tests whether attempts at normalization with missing records/values show the absence of records on return."""
+    """Verifies that `apply()` and `normalize_record()` produce equivalent results for the same input."""
     base_mapping = BaseFieldMap(provider_name=None)  # type: ignore
-    assert base_mapping([]) == base_mapping(None) == []
+    assert base_mapping([]) == base_mapping(None) == []  # type: ignore
     assert base_mapping.apply(mock_simple_record_dictionary) == base_mapping.normalize_record(
         mock_simple_record_dictionary
     )
@@ -146,7 +170,7 @@ def test_base_field_map_type_exception(caplog):
 
     err = f"Expected a dictionary-typed record, but received a value of type '{type(None)}'."
     with pytest.raises(TypeError) as excinfo:
-        _ = mapping([None])
+        _ = mapping([None])  # type: ignore
 
     assert err in str(excinfo.value)
 
@@ -185,6 +209,23 @@ def test_complex_record_dict_simplification(mock_simple_record_dictionary, mock_
     assert complex_normalized_record == normalized_record
 
 
+def test_field_map_fallback_paths_produce_equivalent_normalized_record_dicts(
+    mock_testing_field_map, mock_simple_record_dictionary, mock_complex_record_dictionary
+):
+    """Verifies that normalization with fallbacks can produce equivalent outputs for both simple and nested records."""
+
+    normalized_record = mock_testing_field_map.normalize_record(mock_simple_record_dictionary)
+
+    processor = mock_testing_field_map.processor
+    processor.value_delimiter = ""  # join on an empty string (basic string concatenation)
+    mock_testing_field_map.processor = processor
+
+    complex_normalized_record = mock_testing_field_map.normalize_record(
+        mock_complex_record_dictionary, keep_api_specific_fields=False
+    )
+    assert complex_normalized_record == normalized_record
+
+
 def test_caching(mock_simple_record_dictionary: dict[str, Any]):
     """Tests whether caching recomputes only when needed and lazily caches the configuration of the AcademicFieldMap."""
     mapping = AcademicFieldMap(title="mock_title", doi="mock_doi", abstract="mock_abstract")
@@ -216,7 +257,7 @@ def test_simple_empty_record_normalization():
 
 
 def test_incorrect_record_normalization(caplog):
-    """Tests response normalization behavior when `None` is provided instead of one or more records."""
+    """Verifies that normalization raises a `RecordNormalizationException` when an invalid record type is provided."""
     mapping = AcademicFieldMap(provider_name="Missing Provider Name")
     invalid_record_list = {1, 2, 3}
     with pytest.raises(RecordNormalizationException) as excinfo:
@@ -237,6 +278,7 @@ def test_incorrect_field_map_provider_type():
 
 
 def test_incorrect_value_types(caplog):
+    """Verifies that setting incorrect value types for processor or record raises a `RecordNormalizationException`."""
     mock_field_map = AcademicFieldMap()
 
     invalid_processor_type = "Not a processor"
@@ -252,3 +294,11 @@ def test_incorrect_value_types(caplog):
     message = f"Expected record to be of type `dict`, but received a variable of {type(invalid_record_type)}"
     assert message in caplog.text
     assert message in str(excinfo.value)
+
+
+def test_normalize_record_does_not_mutate_input_record(mock_testing_field_map, mock_complex_record_dictionary):
+    """Verifies that normalization returns a new dict without modifying the original dictionary."""
+    original_record_dictionary = mock_complex_record_dictionary.copy()
+    deep_copied_record_dictionary = deepcopy(mock_complex_record_dictionary)
+    _ = mock_testing_field_map.normalize_record(original_record_dictionary)
+    assert original_record_dictionary == deep_copied_record_dictionary == mock_complex_record_dictionary

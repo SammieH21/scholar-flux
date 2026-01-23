@@ -8,8 +8,10 @@ This class is also used during initialization and within the scholar_flux.Search
 emails, and other forms of sensitive data with the aim of redacting text from both console and file system logs.
 
 """
-from typing import List, Optional, Set, Any, MutableSequence
-from pydantic import SecretStr
+from typing import List, Optional, Set, Any, MutableSequence, Callable, TypeVar, ParamSpec
+from collections import deque
+from pydantic import SecretStr, BaseModel
+from dataclasses import is_dataclass
 from scholar_flux.security.patterns import (
     MaskingPattern,
     MaskingPatternSet,
@@ -19,6 +21,10 @@ from scholar_flux.security.patterns import (
 )
 from scholar_flux.security.utils import SecretUtils
 from scholar_flux.utils.repr_utils import generate_repr
+from functools import wraps
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class SensitiveDataMasker:
@@ -49,15 +55,16 @@ class SensitiveDataMasker:
         >>> masker = SensitiveDataMasker(register_defaults = True) # initializes a masker with defaults
         >>> masked = masker.mask_text("'API_KEY' = 'This_Should_Be_Masked_1234', email='a.secret.email@address.com'")
         >>> print(masked)
-        # Output: "'API_KEY' = '***', email='***'"
+        # OUTPUT: 'API_KEY' = '***', email='***'
 
+        # specifying a new secret to filter: uses regex by default
         >>> new_secret = "This string should be filtered"
-        ### specifies a new secret to filter - uses regex by default
         >>> masker.add_sensitive_string_patterns(name='custom', patterns=new_secret, use_regex = False)
+
         # applying the filter
         >>> masked = masker.mask_text(f"The following string should be masked: {new_secret}")
         >>> print(masked)
-        # Output: "The following string should be masked: ***"
+        # OUTPUT: The following string should be masked: ***
 
     """
 
@@ -193,9 +200,11 @@ class SensitiveDataMasker:
             >>> masker = SensitiveDataMasker()
             >>> api_key = SecretStr("sk-123456")
             >>> registered = masker.register_secret_if_exists("api_key", api_key)
-            >>> print(registered)  # True
+            >>> print(registered)
+            # OUTPUT: True
             >>> registered = masker.register_secret_if_exists("normal_field", "normal_value")
-            >>> print(registered)  # False
+            >>> print(registered)
+            # OUTPUT: False
 
         """
         if self.is_secret(value):
@@ -220,20 +229,198 @@ class SensitiveDataMasker:
         """
         self.add_sensitive_key_patterns(
             name="api_key",
-            fields=["api_key", "apikey", "API_KEY", "APIKEY"],
+            fields=["api_key", "apikey", "secret_key", "secretkey", "fernetkey", "fernet_key"],
             pattern=r"[A-Za-z0-9\-_]+",
+            ignore_case=True,
+            apply_to_dict=True,
         )
         self.add_sensitive_key_patterns(
             name="emails",
-            fields=["[eE]?mail", "[E]?MAIL", "mailto", "MAILTO"],
+            fields=["mail", "email", "mailto"],
             pattern=r"[a-zA-Z0-9._%+-]+(@|%40)[a-zA-Z0-9.-]+\.[a-zA-Z]+",
+            ignore_case=True,
             fuzzy=True,
+            apply_to_dict=True,
+        )
+        # Password fields - TWO patterns needed:
+        # 1. KeyMaskingPattern (dict-only): for actual dict objects
+        #    Dict-only because "pass" would cause false positives in text ("pass the test")
+        self.add_sensitive_key_patterns(
+            name="password_fields_dict",
+            fields=["password", "pass", "passwd", "pwd"],
+            ignore_case=True,
+            apply_to_text=False,  # Only mask in dictionaries
+            apply_to_dict=True,
+        )
+        # 2. StringMaskingPattern (text-only): for JSON/repr strings
+        #    Matches "password": "value" patterns in stringified configs
+        #    Pattern preserves quote structure: "password": "***" or 'password': '***'
+        self.add_sensitive_string_patterns(
+            name="password_fields_text",
+            patterns=[
+                # Handles both quoted and unquoted values, preserves quote style
+                r"""((?:["']?)(?:password|pass|passwd|pwd)(?:["']?)\s*[:\=]\s*)(["']?)([^"',}\s]+)(["']?)"""
+            ],
+            replacement=r"\1\2***\4",  # Preserves opening and closing quotes
+            ignore_case=True,
+            apply_to_text=True,  # Mask in text/JSON
+        )
+        self.add_sensitive_string_patterns(
+            name="SecretStr",
+            patterns=[
+                # Ensures that SecretStr implementations are masked in the logs (including the SecretStr class name)
+                r"""(SecretStr|\*{3})\(["']?\*{10}["']?\)"""
+            ],
+            replacement="**********",  # for consistency with default str(SecretStr) behavior
+            mask_pattern=False,
+            apply_to_text=True,  # Mask in text/JSON
+        )
+        # Database URI passwords (postgresql, postgres, mysql, mariadb, duckdb, redis, mongodb)
+        # Pattern breakdown:
+        #   Group 1: scheme://user:  (captures everything up to and including the colon before password)
+        #   Group 2: password        (greedy .+ captures password, including any @ characters)
+        #   Group 3: @host[:port]    (captures @hostname with optional port, regex backtracks to find last valid @host)
+        #            Supports both standard host names and bracketed IPv6 addresses (e.g., [::1], [2001:db8::1])
+        # Example: postgresql://user:p@ss@host:5432/db → postgresql://user:***@host:5432/db
+        # Example: postgresql://user:p@ss@[::1]:5432/db → postgresql://user:***@[::1]:5432/db
+        self.add_sensitive_string_patterns(
+            name="db_uri_credentials",
+            patterns=[
+                r"((?:postgres(?:ql)?|mysql|mariadb|duckdb|redis|mongodb(?:\+srv)?)(?:\+\w+)?://[^:@/]*:)(.+)(@(?:\[[a-fA-F0-9:]+\]|[a-zA-Z0-9.-]+)(?::\d+)?)"
+            ],
+            replacement=r"\1***\3",
+        )
+        # motherduck tokens in query strings
+        self.add_sensitive_string_patterns(
+            name="motherduck_tokens",
+            patterns=[r"(motherduck_token=)([^&\s\"']+)"],
+            replacement=r"\1***",
+        )
+        # Common secrets in URL query parameters (authentication tokens)
+        self.add_sensitive_string_patterns(
+            name="url_query_secrets",
+            patterns=[r"([?&](?:token|access_token|auth_token|session_token|secret|api_?key|password)=)([^&\s\"']+)"],
+            replacement=r"\1***",
+        )
+        # Private key headers (RSA and encrypted keys - most common types)
+        # Catches: "BEGIN PRIVATE KEY", "BEGIN RSA PRIVATE KEY", "BEGIN ENCRYPTED PRIVATE KEY"
+        self.add_sensitive_string_patterns(
+            name="private_key_headers",
+            patterns=[r"-----BEGIN ([A-Z]+ )?PRIVATE KEY-----"],
+            replacement="***PRIVATE_KEY_REDACTED***",
+            ignore_case=True,
         )
         self.add_sensitive_string_patterns(
             name="auth_headers",
-            patterns=[r"[Aa]uthorization\s*:\s*[Bb]earer\s+[A-Za-z0-9\-_]+"],
+            patterns=[r"authorization\s*:\s*bearer\s+[A-Za-z0-9\-_]+"],
             replacement="Authorization: Bearer ***",
+            ignore_case=True,
         )
+
+    def mask_dict(self, data: dict, convert_objects: bool = False) -> dict:
+        """Masks sensitive values in dictionaries based on registered key patterns.
+
+        This method provides more reliable masking for structured data than string pattern matching, as it directly
+        matches dictionary keys rather than parsing formatted text.
+
+        Args:
+            data (dict): The dictionary to mask
+            convert_objects (bool): Defines whether to convert data objects (BaseModels, dataclasses) as masked strings
+
+        Returns:
+            (dict): New dictionary with sensitive values masked
+
+        Example:
+            >>> masker = SensitiveDataMasker()
+            >>> config = {'password': 'secret123', 'host': 'localhost'}
+            >>> masked = masker.mask_dict(config)
+            >>> print(masked)
+            # OUTPUT: {'password': '***', 'host': 'localhost'}
+
+        """
+        if not isinstance(data, dict):
+            return data
+        result: dict = {}
+        for key, value in data.items():
+            replacement = self._get_dict_key_replacement(key) if isinstance(key, str) else None
+            if replacement is not None:
+                result[key] = replacement
+            else:
+                result[key] = self.mask_value(value, convert_objects)
+        return result
+
+    def mask_list(self, data: list | tuple, convert_objects: bool = False) -> list:
+        """Masks sensitive values in lists based on registered patterns.
+
+        Recursively processes nested structures (dicts, lists, tuples) and applies
+        masking patterns to any sensitive content found.
+
+        Args:
+            data (list | tuple): list or tuple to mask
+
+        Returns:
+            list: New list with sensitive values masked
+
+        Note:
+            For type-safety, tuples are converted into lists and may need to be converted as a tuple if used as input.
+
+        Example:
+            >>> masker = SensitiveDataMasker()
+            >>> configs = [{'password': 'secret'}, 'api_key=12345']
+            >>> masked = masker.mask_list(configs)
+            >>> print(masked)
+            # OUTPUT: [{'password': '***'}, 'api_key=***']
+
+        """
+        if not isinstance(data, (list, tuple)):
+            return data
+
+        return [self.mask_value(item, convert_objects) for item in data]
+
+    def mask_object(self, value: Any) -> Any:
+        """Converts objects into their masked string representation.
+
+        Args:
+            value (Any): The value to convert and mask
+
+        Returns:
+            str: Masked string representation of the value
+
+        """
+        if isinstance(value, BaseModel) or is_dataclass(value):
+            return self.mask_text(repr(value))
+        return self.mask_text(str(value)) if value is not None else value
+
+    def mask_value(self, value: Any, convert_objects: bool = False) -> Any:
+        """Recursively masks a single value based on its type."""
+        match value:
+            case dict():
+                return self.mask_dict(value, convert_objects)
+            case tuple():
+                return tuple(self.mask_value(item, convert_objects) for item in value)
+            case set():
+                return {self.mask_value(item, convert_objects) for item in value}
+            case deque():
+                return value.__class__((self.mask_value(item, convert_objects) for item in value), maxlen=value.maxlen)
+            case list():
+                return self.mask_list(value, convert_objects)
+            case str():
+                return self.mask_text(value)
+            case value if convert_objects:
+                return self.mask_object(value)
+            case _:
+                return value
+
+    def _get_dict_key_replacement(self, key: Any) -> Any:
+        """Finds the replacement string for a sensitive dict key.
+
+        If not sensitive, None is returned instead..
+
+        """
+        for pattern in self.patterns:
+            if isinstance(pattern, KeyMaskingPattern) and pattern.apply_to_dict and pattern.matches_key(key):
+                return pattern.replacement
+        return None
 
     def mask_text(self, text: str) -> str:
         """Public method for removing sensitive data from text/logs Note that the data that is obfuscated is dependent
@@ -243,13 +430,16 @@ class SensitiveDataMasker:
         Args:
             text (str): the text to scrub of sensitive data
         Returns:
-            the cleaned text that excludes sensitive fields
+            str: The cleaned text that excludes sensitive fields
 
         """
         if not isinstance(text, str):
             return text
         result = SecretUtils.unmask_secret(text)
         for pattern in self.patterns:
+            # Skip patterns not configured for text masking
+            if not pattern.apply_to_text:
+                continue
             result = pattern.apply_masking(result)
         return result
 
@@ -312,6 +502,48 @@ class SensitiveDataMasker:
 
         """
         return generate_repr(self, flatten=flatten, show_value_attributes=show_value_attributes)
+
+    def mask_output(self, convert_objects: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+        """Decorator that wraps a function or method using the current SensitiveDataMasker to mask sensitive values.
+
+        Args:
+            convert_objects (bool):
+                If True, objects of unknown types are converted to strings before masking. Otherwise, no conversion
+                takes place, and only strings (passed explicitly or nested within dictionaries, lists, sets) are masked.
+                Defaults to False.
+
+        Returns:
+            Callable[[Callable[P, R]], Callable[P, R]]:
+                A decorator that wraps a function, masking its output according to the registered patterns.
+
+        Note:
+            The decorated function's signature and docstring are preserved via ``functools.wraps``.
+
+        Example:
+            >>> import os
+            >>> from scholar_flux import masker
+            >>> @masker.mask_output()
+            ... def default_config():
+            ...     return {'API_KEY': os.environ.get('EXAMPLE_API_KEY'), 'host': 'https://example-api.com'}
+            >>> default_config()
+            # OUTPUT: {'API_KEY': '***', 'host': 'https://example-api.com'}
+
+        """
+
+        def decorator(
+            fn: Callable[P, R],
+        ) -> Callable[P, R]:
+            """Decorator defining the function or to method to be wrapped once the object masking logic is set."""
+
+            @wraps(fn)
+            def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
+                """Wrapper that enables inputs to be masked when a sensitive value is detected."""
+                output = fn(*args, **kwargs)
+                return self.mask_value(output, convert_objects=convert_objects)
+
+            return wrapped
+
+        return decorator
 
     def __repr__(self) -> str:
         """Helper method for creating a string representation of the SensitiveDataMasker in an easy to read manner."""

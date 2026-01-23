@@ -257,7 +257,7 @@ def test_record_map_resolution(all_path_nodes):
 
     assert (
         "Expected either a RecordPathNodeMap or a list of nodes to resolve into "
-        f"a record map, Received element of type {type(1)}"
+        f"a record map, but received an element of type {type(1)}"
     ) in str(excinfo.value)
 
 

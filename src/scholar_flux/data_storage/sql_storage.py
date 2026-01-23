@@ -1,18 +1,25 @@
 # /data_storage/sql_storage.py
-"""The scholar_flux.data_storage.sql_storage module implements the SQLAlchemyStorage for the DataCacheManager.
+"""The scholar_flux.data_storage.sql_storage module implements SQLAlchemy-based storage backends for the
+DataCacheManager.
 
-This class implements  abstract methods required for compatibility with the DataCacheManager in the scholar_flux
-package and uses SQLite as the default storage device. The `SQLAlchemyStorage` implements caching by recording each
-of the fields of a ProcessedResponse into and parsed fields into a recursively encoded and serialized JSON data
-structure. When retrieving the data, the data is then decoded and deserialized to return the original object.
+This module implements the SQLAlchemyStorage class and DuckDBStorage subclass, both of which implement the abstract
+methods required for compatibility with the scholar_flux.DataCacheManager. This module provides SQL database storage
+using the SQLAlchemy Object-Relational Mapper (ORM), using SQLite as the default backend.
+
+When `ProcessedResponse` fields are cached, this implementation uses the `JsonDataEncoder` to recursively encode and
+serialize each field within a storage compatible JSON data structure. When retrieving data, it is decoded and
+deserialized to return the original object.
 
 Classes:
     - CacheTable:
-        Defines the internal specification of the SQLAlchemy table that is used under the hood. This class inherits
-        from Base/DeclarativeBase subclass to define its structure and function as a SQLAlchemy table
-    - SQLCacheStorage:
-        Inherits from the scholar_flux.data_storage.abc_storage subclass and Defines the mechanisms by which the
-        storage uses SQLAlchemy to load, retrieve, and update, and delete data.
+        Defines the internal specification of the SQLAlchemy table used for caching. Inherits from
+        Base/DeclarativeBase to define its structure as a SQLAlchemy ORM model.
+    - SQLAlchemyStorage:
+        Primary storage class that uses SQLAlchemy to perform CRUD operations. Supports SQLite,
+        PostgreSQL, MySQL, and other SQLAlchemy-compatible databases.
+    - DuckDBStorage:
+        Extends SQLAlchemyStorage with DuckDB-specific configuration and validation. Requires the
+        `duckdb_engine` package for SQLAlchemy dialect support.
 
 """
 from __future__ import annotations
@@ -20,31 +27,36 @@ import logging
 from typing import Any, List, Dict, Optional, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import JsonDataEncoder
+from scholar_flux.utils.helpers import coerce_str
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.package_metadata import get_default_writable_directory
+from urllib.parse import urlparse
 from scholar_flux.exceptions import (
     SQLAlchemyImportError,
+    DuckDBImportError,
     StorageCacheException,
     CacheRetrievalException,
     CacheUpdateException,
     CacheDeletionException,
     CacheVerificationException,
+    CacheParameterValidationException,
 )
 
 import cattrs
 import threading
+import importlib.util
 
 logger = logging.getLogger(__name__)
 
 # SQLAlchemy import logic for type checking and runtime
 if TYPE_CHECKING:
     import sqlalchemy
-    from sqlalchemy import create_engine, Column, String, Integer, JSON, exc
+    from sqlalchemy import create_engine, Engine, Column, String, Integer, Sequence, JSON, exc
     from sqlalchemy.orm import DeclarativeBase, sessionmaker
 else:
     try:
         import sqlalchemy  # imported for consistent implementation with redis/pymongo, etc.
-        from sqlalchemy import create_engine, Column, String, Integer, JSON, exc
+        from sqlalchemy import create_engine, Engine, Column, String, Integer, Sequence, JSON, exc
         from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
     except ImportError:
@@ -55,7 +67,7 @@ else:
             """Placeholder function that returned when the sqlalchemy package is not available."""
             pass
 
-        String = Integer = JSON = exc = None
+        String = Integer = Sequence = JSON = exc = Engine = None
         DeclarativeBase = object  # type: ignore
         sessionmaker = None
         sqlalchemy = None
@@ -72,7 +84,7 @@ if TYPE_CHECKING or sqlalchemy is not None:
         """Table that implements caching in a manner similar to a dictionary with key-cache data pairs."""
 
         __tablename__ = "cache"
-        id = Column(Integer, primary_key=True, autoincrement=True)
+        id = Column(Integer, Sequence("cache_id_sequence"), primary_key=True)
         key = Column(String, unique=True, nullable=False)
         cache = Column(JSON, nullable=False)
 
@@ -137,6 +149,7 @@ class SQLAlchemyStorage(ABCStorage):
         "echo": False,
     }
     DEFAULT_RAISE_ON_ERROR: bool = False
+    STORAGE_TYPE: str = "SQL"
 
     def __init__(
         self,
@@ -144,6 +157,7 @@ class SQLAlchemyStorage(ABCStorage):
         namespace: Optional[str] = None,
         ttl: None = None,
         raise_on_error: Optional[bool] = False,
+        verify_connection: bool = False,
         **sqlalchemy_config,
     ) -> None:
         """Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter.
@@ -160,6 +174,9 @@ class SQLAlchemyStorage(ABCStorage):
             raise_on_error (Optional[bool]):
                 Determines whether an error should be raised when encountering unexpected issues when interacting with
                 SQLAlchemy. If `None`, the `raise_on_error` attribute defaults to `SQLAlchemyStorage.DEFAULT_RAISE_ON_ERROR`.
+            verify_connection (bool):
+                If True, verifies the SQL service is available immediately after initialization.
+                Raises StorageCacheException if connection fails. Defaults to False.
             **sqlalchemy_config:
                 Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine Typical parameters include
                 the following:
@@ -172,11 +189,10 @@ class SQLAlchemyStorage(ABCStorage):
         if sqlalchemy is None:
             raise SQLAlchemyImportError
 
-        sqlalchemy_config["url"] = url or self.DEFAULT_CONFIG["url"]()
+        default_config = self._get_default_config()
+        sqlalchemy_config["url"] = url or default_config["url"]()  # lazy writeable path creation for defaults
         sqlalchemy_config["echo"] = (
-            sqlalchemy_config.get("echo")
-            if isinstance(sqlalchemy_config.get("echo"), bool)
-            else self.DEFAULT_CONFIG["echo"]
+            sqlalchemy_config.get("echo") if isinstance(sqlalchemy_config.get("echo"), bool) else default_config["echo"]
         )
 
         self.config: dict = sqlalchemy_config
@@ -186,6 +202,8 @@ class SQLAlchemyStorage(ABCStorage):
         self.converter = cattrs.Converter()
         self.namespace = namespace or self.DEFAULT_NAMESPACE
         self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
+        if verify_connection:
+            self.verify_connection()
         self.lock = threading.Lock()
 
         if ttl:
@@ -308,12 +326,12 @@ class SQLAlchemyStorage(ABCStorage):
 
             except exc.SQLAlchemyError as e:
                 session.rollback()
-                msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}': {e}"
+                msg = f"Error during attempted update of key {key} (namespace = '{self.namespace}'): {e}"
                 self._handle_storage_exception(
                     exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
                 )
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str) -> Optional[bool]:
         """Delete the value associated with the provided key from cache.
 
         Args:
@@ -327,8 +345,11 @@ class SQLAlchemyStorage(ABCStorage):
                 if record:
                     session.delete(record)
                     session.commit()
-                else:
-                    logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
+                    logger.debug(f"Key: {key}  (namespace = '{self.namespace}') successfully deleted")
+                    return True
+
+                logger.info(f"Record for key {key} (namespace = '{self.namespace}') does not exist")
+                return False
             except exc.SQLAlchemyError as e:
                 session.rollback()
                 msg = f"Error during attempted deletion of key {key} (namespace = '{self.namespace}'): {e}"
@@ -337,6 +358,7 @@ class SQLAlchemyStorage(ABCStorage):
                     operation_exception_type=CacheDeletionException if self.raise_on_error else None,
                     msg=msg,
                 )
+            return None
 
     def delete_all(self) -> None:
         """Delete all records from cache that match the current namespace prefix."""
@@ -422,31 +444,172 @@ class SQLAlchemyStorage(ABCStorage):
             )
         return False
 
+    def verify_connection(self) -> None:
+        """Verifies that the SQLAlchemyStorage is available for connection with initialized storage configuration
+        settings."""
+        try:
+            self.ping(self.engine)
+        except Exception as e:
+            msg = f"Could not initialize a connection for the following storage device: {self.structure()}"
+            self._handle_storage_exception(
+                exception=e,
+                operation_exception_type=StorageCacheException,
+                msg=msg,
+            )
+
     @classmethod
-    def is_available(cls, url: Optional[str] = None, verbose: bool = True) -> bool:
+    def _get_default_config(cls) -> dict[str, Any]:
+        """Get default configuration with current config_settings values.
+
+        Returns:
+            dict: Configuration dictionary with host and port.
+
+        """
+
+        url = cls.DEFAULT_CONFIG.get("url")
+        return {
+            "url": url if callable(url) else lambda: url,
+            "echo": cls.DEFAULT_CONFIG.get("echo") or False,
+        }
+
+    @classmethod
+    def ping(cls, engine: Engine) -> None:
+        """Verifies that the client can successfully connect to the database."""
+        with engine.connect():
+            pass
+
+    @classmethod
+    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs) -> bool:
         """Tests whether the SQL service can be accessed. If so, this function returns True, otherwise False.
 
         Args:
             url (str): Indicates the location to attempt a connection
             verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
+            **kwargs: No-Op keyword arguments for compatibility with config connection availability checks
 
         """
         if sqlalchemy is None:
             logger.warning("The sqlalchemy module is not available")
             return False
 
-        db_url: str = url or cls.DEFAULT_CONFIG["url"]()
+        db_url: str = url or cls._get_default_config()["url"]()
         try:
             engine = create_engine(url=db_url)
-            with engine.connect():
-                pass
+            cls.ping(engine)
+
             if verbose:
-                logger.info(f"The SQL Service is available at {db_url}")
+                logger.info(f"The {cls.STORAGE_TYPE} Service is available at {db_url}")
             return True
 
         except (exc.SQLAlchemyError, TimeoutError, ConnectionError) as e:
-            logger.warning(f"An active SQL service could not be found at {db_url}: {e}")
+            logger.warning(f"An active {cls.STORAGE_TYPE} service could not be found at {db_url}: {e}")
             return False
 
 
-__all__ = ["SQLAlchemyStorage"]
+class DuckDBStorage(SQLAlchemyStorage):
+    """This class extends the `SQLAlchemyStorage` device to support DuckDB as a supported storage device.
+
+    Note that this class requires the `duckdb_engine` and `sqlalchemy` packages and will raise an error without both
+    being installed. This class can be initialized in the same manner as SQLAlchemy, only requiring that the passed
+    url has a valid `duckdb:///` URI scheme.
+
+    """
+
+    DEFAULT_CONFIG: Dict[str, Any] = {
+        "url": lambda: "duckdb:///" + str(get_default_writable_directory("package_cache") / "data_store.duckdb"),
+        "echo": False,
+    }
+    STORAGE_TYPE: str = "DuckDB"
+
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        namespace: Optional[str] = None,
+        ttl: None = None,
+        raise_on_error: Optional[bool] = False,
+        verify_connection: bool = False,
+        **sqlalchemy_config,
+    ):
+        """Initialize the DuckDBStorage storage backend and connect to the server indicated via the `url` parameter.
+
+        This class extends the original SQLAlchemyStorage to provide basic helpers that aid in the creation of both
+        simple and complex sessions using the DuckDB engine.
+
+        Args:
+            url (Optional[str]):
+                Database connection string. All URLs must begin with `duckdb:///`. A CacheParameterValidationException
+                will be raised if the URL is invalid or does not contain the required scheme.
+            namespace (Optional[str]):
+                The prefix associated with each cache key. By default, this is None.
+            ttl (None):
+                Ignored. Included for interface compatibility; not implemented.
+            raise_on_error (Optional[bool]):
+                Determines whether an error should be raised when encountering unexpected issues when interacting with
+                SQLAlchemy. If `None`, the `raise_on_error` attribute defaults to `SQLAlchemyStorage.DEFAULT_RAISE_ON_ERROR`.
+            verify_connection (bool):
+                If True, verifies the SQL service is available immediately after initialization.
+                Raises StorageCacheException if connection fails. Defaults to False.
+            **sqlalchemy_config:
+                Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine Typical parameters include
+                the following:
+
+                    - url (str): Indicates what server to connect to. Defaults to sqlite in the package directory.
+                    - echo (bool): Indicates whether to show the executed SQL queries in the console.
+
+        """
+        duckdb_url = url or self.DEFAULT_CONFIG["url"]()
+        self.verify_url_string(duckdb_url)
+
+        if not importlib.util.find_spec("duckdb_engine"):
+            raise DuckDBImportError()
+
+        super().__init__(duckdb_url, namespace, ttl, raise_on_error, verify_connection, **sqlalchemy_config)
+
+    @classmethod
+    def verify_url_string(cls, url: str) -> None:
+        """Helper method for verifying that the current URI is a valid DuckDB resource identifier."""
+        if not isinstance(url, str):
+            raise CacheParameterValidationException(f"Expected a valid DuckDB URI, but received type {type(url)}")
+        result = urlparse(url)
+        if not url.lower().startswith("duckdb:///"):
+            raise CacheParameterValidationException(
+                f"Only URIs with `duckdb:///' protocols are supported. Received: '{url}'"
+            )
+
+        # If the path is non-empty, then remove special characters after the scheme
+        if path := coerce_str(result.path):
+            path = path.strip(":/ ")
+        if not path:
+            raise CacheParameterValidationException(
+                f"Expected a path after the duckdb:/// protocol in the URI. Only the scheme was received: {url}"
+            )
+
+    @classmethod
+    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs) -> bool:
+        """Tests whether the SQL service can be accessed. If so, this function returns True, otherwise False.
+
+        Args:
+            url (str): Indicates the location to attempt a connection
+            verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
+            **kwargs: No-Op keyword arguments for compatibility with config connection availability checks
+
+        """
+        if not importlib.util.find_spec("duckdb_engine"):
+            logger.warning("The sqlalchemy duckdb_engine is not available")
+            return False
+
+        default_url_callable = cls._get_default_config()["url"]
+        duckdb_url = url or default_url_callable()
+
+        try:
+            cls.verify_url_string(duckdb_url)
+        except CacheParameterValidationException as e:
+            logger.info(f"DuckDB is not available for connection at the provided URI: {e}")
+            return False
+
+        available = super().is_available(url=duckdb_url, verbose=verbose, **kwargs)
+
+        return available
+
+
+__all__ = ["SQLAlchemyStorage", "DuckDBStorage"]

@@ -80,7 +80,7 @@ def test_provider_processed_response_retrieval(name, variation, simple_response_
 
 @pytest.mark.parametrize(("name", "variation"), NAME_VARIATIONS)
 def test_provider_error_response_retrieval(name, variation, error_response_history):
-    """Verifies that each method of response history retrieval returns the intended error rseponse after assignment."""
+    """Verifies that each method of response history retrieval returns the intended error response after assignment."""
     response = error_response_history[name]
     assert response is not None and not response and response.cache_key == name
     assert error_response_history.get(variation) == response

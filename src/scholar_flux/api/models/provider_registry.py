@@ -202,6 +202,21 @@ class ProviderRegistry(BaseProviderDict):
             )
         return None
 
+    def get_display_name(self, provider_name: str, default: Optional[str] = None) -> str | Optional[str]:
+        """Finds the human-readable name for a provider if it exists.
+
+        If the provider doesn't exist within the registry, the result falls back to the default if available and None otherwise.
+
+        Args:
+            provider_name: The provider identifier to look up
+            default: The name to fallback to. If not available, None is returned instead
+
+        Returns:
+            The display name if the provider exists, otherwise the original provider_name
+        """
+        provider = self.get(provider_name)
+        return provider.display_name if provider else default
+
     def __repr__(self) -> str:
         """Helper method for displaying the config in a user-friendly manner."""
         return self.structure(show_value_attributes=False)

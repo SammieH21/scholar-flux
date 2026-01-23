@@ -3,6 +3,7 @@ import pytest
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
+from scholar_flux.data_storage.sql_storage import DuckDBStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.data_storage.null_storage import NullStorage
 from pathlib import Path
@@ -45,6 +46,15 @@ def sqlite_test_config():
 
 
 @pytest.fixture(scope="module")
+def duckdb_test_config():
+    """Duckdb configuration for testing."""
+    return {
+        "url": "duckdb:///" + str(Path(__file__).resolve().parent.parent / "mocks/sql_data_storage_test.duckdb"),
+        "echo": False,
+    }
+
+
+@pytest.fixture(scope="module")
 def redis_test_storage(redis_test_config, storage_test_namespace):
     """Create a Redis Data Storage instance to use for later testing at the module level."""
     return RedisStorage(namespace=storage_test_namespace, **redis_test_config)
@@ -82,6 +92,23 @@ def sqlite_nm_test_storage(sqlite_test_config, storage_test_namespace):
 
     """
     return SQLAlchemyStorage(namespace=storage_test_namespace, **sqlite_test_config)
+
+
+@pytest.fixture(scope="module")
+def duckdb_test_storage(duckdb_test_config):
+    """Create a DuckDB SQL Data Storage instance to use for later testing at the module level."""
+    return DuckDBStorage(**duckdb_test_config)
+
+
+@pytest.fixture(scope="module")
+def duckdb_nm_test_storage(duckdb_test_config, storage_test_namespace):
+    """Create a DuckDB SQL Data Storage instance.
+
+    This storage instance uses a separate namespace than the original `duckdb_test_storage` to validate namespace
+    filtering for duckdb.
+
+    """
+    return DuckDBStorage(namespace=storage_test_namespace, **duckdb_test_config)
 
 
 @pytest.fixture(scope="module")

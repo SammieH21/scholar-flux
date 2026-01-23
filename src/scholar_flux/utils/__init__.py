@@ -1,6 +1,5 @@
 # /utils
-"""The scholar_flux.utils module contains a comprehensive set of utility tools used to simplify the re-implementation of
-common design patterns.
+"""The scholar_flux.utils module defines several utilities for simplifying the implementation of common design patterns.
 
 Modules:
     - initializer.py: Contains the tools used to initialize (or reinitialize) the scholar_flux package.
@@ -20,9 +19,9 @@ Modules:
     - file_utils.py: Implements a JsonFileUtils class that contains several static methods for reading files
 
     - encoder: Contains an implementation of a CacheDataEncoder and JsonDataEncoder that uses base64 and json utilities
-               to recursively serialize, deserialize, encode and decode JSON dictionaries and lists for storage and retrieval
-               by using base64. This method accounts for when direct serialization isn't possible and would otherwise
-               result in a JSONDecodeError as a direct result of not accounting for nested structures and types.
+               to recursively serialize, deserialize, encode and decode JSON dictionaries and lists for storage and
+               retrieval by using base64. This method accounts for when direct serialization isn't possible and would
+               otherwise result in a JSONDecodeError as a result of not accounting for nested structures and types.
 
     - json_processing_utils: Contains a variety of utilities used in the creation of the RecursiveJsonProcessor which
                              is used to streamline the process of filtering and flattening parsed record data
@@ -37,11 +36,12 @@ Modules:
                       the scholar_flux.api module to populate Search API configurations with API-specific settings.
 
     - repr_utils: Contains a set of helper functions specifically geared toward printing nested objects and
-                  compositions of classes into a human readable format to create sensible representations of objects
+                  compositions of classes into a human-readable format to create sensible representations of objects
 
 """
 
-from scholar_flux.utils.logger import setup_logging
+from scholar_flux.utils.logger import setup_logging, log_level_context
+from typing import Any
 from scholar_flux.utils.config_loader import ConfigLoader
 from scholar_flux.utils.initializer import config_settings, initialize_package
 
@@ -51,16 +51,23 @@ from scholar_flux.utils.encoder import CacheDataEncoder, JsonDataEncoder
 from scholar_flux.utils.helpers import (
     get_nested_data,
     nested_key_exists,
+    filter_record_key_prefixes,
+    infer_text_pattern_search,
+    get_first_available_key,
     generate_response_hash,
     coerce_int,
+    coerce_numeric,
     coerce_str,
+    coerce_flattened_str,
+    try_none,
     try_str,
     try_int,
     try_dict,
+    try_compile,
     try_pop,
-    get_first_available_key,
     try_call,
     as_list_1d,
+    as_tuple,
     unlist_1d,
     is_nested,
     get_values,
@@ -68,9 +75,11 @@ from scholar_flux.utils.helpers import (
     try_quote_numeric,
     quote_numeric,
     quote_if_string,
+    extract_year,
     generate_iso_timestamp,
     format_iso_timestamp,
     parse_iso_timestamp,
+    strip_html_tags,
 )
 
 from scholar_flux.utils.paths import (
@@ -100,6 +109,7 @@ from scholar_flux.utils.json_processing_utils import (
 from scholar_flux.utils.repr_utils import (
     truncate,
     generate_repr,
+    generate_sequence_repr,
     generate_repr_from_string,
     format_repr_value,
     normalize_repr,
@@ -107,45 +117,46 @@ from scholar_flux.utils.repr_utils import (
 )
 
 from scholar_flux.utils.response_protocol import ResponseProtocol
-
-import importlib
+from scholar_flux.utils.lazy_loader import lazy_import_attr
 
 _lazy_imports = {("scholar_flux.utils.provider_utils", "ProviderUtils")}
 
 
-def __getattr__(name: str):
-    """Enables the lazy retrieval of objects within the `scholar_flux.utils` module's namespace that are not loaded
-    until they are explicitly needed by a package resource or by user."""
-    try:
-        module, object_name = next(
-            ((module, object_name) for (module, object_name) in _lazy_imports if object_name == name)
-        )
-        imported_module = importlib.import_module(module)
-        current_object = getattr(imported_module, object_name, None)
-        globals()[name] = current_object
-        return current_object
-    except (ModuleNotFoundError, NameError, ValueError, AttributeError, StopIteration) as e:
-        raise AttributeError(f"'{name}' could not be imported from module, '{__name__}': {e}")
+def __getattr__(name: str) -> Any:
+    """Enables the lazy retrieval of objects within the `scholar_flux.utils` module's namespace.
+
+    These modules are not loaded until they are explicitly needed by a package resource or by a user.
+
+    """
+    return lazy_import_attr(name, _lazy_imports, __name__)
 
 
 __all__ = [
     "setup_logging",
+    "log_level_context",
     "ConfigLoader",
     "config_settings",
     "CacheDataEncoder",
     "JsonDataEncoder",
     "get_nested_data",
+    "filter_record_key_prefixes",
+    "infer_text_pattern_search",
     "nested_key_exists",
     "get_first_available_key",
     "generate_response_hash",
     "coerce_str",
+    "coerce_flattened_str",
     "coerce_int",
+    "coerce_numeric",
+    "try_none",
     "try_str",
     "try_int",
     "try_dict",
+    "try_compile",
     "try_pop",
     "try_call",
     "as_list_1d",
+    "as_tuple",
     "unlist_1d",
     "is_nested",
     "get_values",
@@ -171,15 +182,18 @@ __all__ = [
     "PathDiscoverer",
     "truncate",
     "generate_repr",
+    "generate_sequence_repr",
     "generate_repr_from_string",
     "format_repr_value",
     "normalize_repr",
     "adjust_repr_padding",
     "ResponseProtocol",
     "initialize_package",
+    "extract_year",
     "generate_iso_timestamp",
     "format_iso_timestamp",
     "parse_iso_timestamp",
+    "strip_html_tags",
     "set_public_api_module",
 ]
 

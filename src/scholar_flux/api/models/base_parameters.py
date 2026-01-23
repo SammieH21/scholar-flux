@@ -48,7 +48,7 @@ class APISpecificParameter:
 
     @property
     def validator_name(self):
-        """Helper method for generating a human readable string from the validator function, if used."""
+        """Helper method for generating a human-readable string from the validator function, if used."""
         if self.validator is None:
             return "None"
         name = getattr(self.validator, "__name__", "unnamed")
@@ -145,7 +145,7 @@ class BaseAPIParameterMap(BaseModel):
         """Helper method to show the complete list of all parameters that can be found in the current ParameterMap.
 
         Returns:
-            List: The complete list of all universal and api specific parameters corresponding to the current API
+            List: The complete list of all universal and API-specific parameters corresponding to the current API
 
         """
         parameters = [

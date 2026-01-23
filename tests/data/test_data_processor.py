@@ -1,6 +1,12 @@
 import pytest
-from scholar_flux.data import DataProcessor
+from scholar_flux.data import DataProcessor, DataExtractor
 from scholar_flux.exceptions import DataProcessingException
+
+
+@pytest.fixture
+def mocked_records_with_private_record_metadata(mock_api_parsed_json_records) -> list[dict]:
+    """Helper fixture used to verify that the DataProcessor successfully retains private metadata fields in records."""
+    return [{DataExtractor.EXTRACTION_INDEX_KEY: i, **record} for i, record in enumerate(mock_api_parsed_json_records)]
 
 
 def test_process_page_with_list_of_paths(mock_api_parsed_json_records):
@@ -41,8 +47,12 @@ def test_processing_without_a_record(caplog):
     assert f"Cannot retrieve {key} as the record is None." in caplog.text
 
 
-def test_process_page_with_record_path_strings(mock_api_parsed_json_records):
+@pytest.mark.parametrize(
+    "parsed_json_records_variable", ("mock_api_parsed_json_records", "mocked_records_with_private_record_metadata")
+)
+def test_process_page_with_record_path_strings(parsed_json_records_variable: str, request):
     """Verifies that the DataProcessor can use record path strings to extract and flatten nested JSON records."""
+    json_records = request.getfixturevalue(parsed_json_records_variable)
     record_keys = [
         "authors.principle_investigator",
         "authors.assistant",
@@ -53,12 +63,32 @@ def test_process_page_with_record_path_strings(mock_api_parsed_json_records):
         "abstract",
     ]
     processor = DataProcessor(record_keys=record_keys, value_delimiter=None)
-    results = processor.process_page(mock_api_parsed_json_records)
+    results = processor.process_page(json_records)
     assert len(results) == 2
     assert results[0]["authors.principle_investigator"] == "Dr. Smith"
     assert results[1]["authors.assistant"] == "John Roe"
     assert isinstance(results[0]["abstract"], list)
     assert results[1]["abstract"] == "Another abstract."
+
+
+def test_process_page_with_private_record_metadata(mocked_records_with_private_record_metadata):
+    """Verifies that the DataProcessor can additionally extract private record metadata from JSON records."""
+    record_keys = [
+        "authors.principle_investigator",
+        "authors.assistant",
+        "doi",
+        "title",
+        "genre.subspecialty",
+        "journal.topic",
+        "abstract",
+    ]
+    processor = DataProcessor(record_keys=record_keys, value_delimiter=None)
+    results = processor.process_page(mocked_records_with_private_record_metadata)
+
+    record_keys_with_metadata = record_keys + [DataExtractor.EXTRACTION_INDEX_KEY]
+
+    assert all(key in record for key in record_keys_with_metadata for record in results)
+    assert all(record[DataExtractor.EXTRACTION_INDEX_KEY] == i for i, record in enumerate(results))
 
 
 def test_process_page_with_mixed_path_record_types(mock_api_parsed_json_records):

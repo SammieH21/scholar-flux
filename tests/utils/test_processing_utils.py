@@ -313,10 +313,6 @@ def test_json_normalizer_with_nested_dicts():
     # manually extracts the data at the end of the path and the path where the data can be found
     json_record_data = processor.extracted_record_data_list
 
-    # Should produce:
-    # extracted_data = ["Alice", "alice@example.com", "Bob", "bob@example.com", 2]
-    # extracted_paths = [["users", 0, "name"], ["users", 0, "email"], ["users", 1, "name"], ["users", 1, "email"], ["meta", "count"]]
-
     # normalizes a set of values (data) and their paths where each index corresponds to an extracted path and element
     normalizer = JsonNormalizer(json_record_data)
     result = normalizer.normalize_extracted()

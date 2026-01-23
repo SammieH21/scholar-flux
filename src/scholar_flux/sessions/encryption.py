@@ -49,7 +49,7 @@ class EncryptionPipelineFactory:
     that uses a fernet generated secret_key to validate the serialized data before reading and decryption.
     This prevents errors and halts reading the cached data in case of modification via a malicious source.
 
-    The EncryptionPipelineFactory can be used for generalized use cases requiring encryption outside scholar_flux
+    The EncryptionPipelineFactory can be used for generalized use cases requiring encryption outside scholar_flux.
     and implemented as follows:
 
         >>> from scholar_flux.sessions import EncryptionPipelineFactory
@@ -72,8 +72,6 @@ class EncryptionPipelineFactory:
         SCHOLAR_FLUX_CACHE_SECRET_KEY environment variable from the config.
 
         Otherwise a random Fernet key is generated and used to encrypt the session.
-
-
 
         Args:
             secret_key Optional[str | bytes]: The key to use for encrypting and decrypting
@@ -99,10 +97,14 @@ class EncryptionPipelineFactory:
         self.salt = salt or ""
 
     @staticmethod
-    def _prepare_key(key: Optional[str | bytes]) -> bytes | None:
+    def _prepare_key(key: Optional[str | bytes]) -> Optional[bytes]:
         """Prepares the input (bytes, string) and returns a bytes variable if a non-missing value is provided.
 
-        If the key is None, the function will also return None
+        Args:
+            key (Optional[str | bytes]): The input key to use as a fernet/secret key.
+
+        Returns:
+            Optional[bytes]: The key prepared as a bytes object. If no key is provided, this method will return None.
 
         """
         cache_secret_key = config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
@@ -127,7 +129,7 @@ class EncryptionPipelineFactory:
     def _validate_key(key: bytes) -> None:
         """Ensures that the length of the received bytes is 44 characters."""
         if len(key) != 44:  # 32 bytes encoded in base64 => 44 characters
-            raise SecretKeyError("Fernet key must be 32 url-safe base64-encoded bytes (length 44)")
+            raise SecretKeyError("Fernet key must be 32 URL-safe base64-encoded bytes (length 44)")
         try:
             Fernet(key)
         except Exception as e:
@@ -135,16 +137,26 @@ class EncryptionPipelineFactory:
 
     @staticmethod
     def generate_secret_key() -> bytes:
-        """Generate a secret key for Fernet encryption."""
+        """Generates a secret key for Fernet encryption using the `cryptography` package.
+
+        Returns:
+            bytes: A new 32 byte URL-safe base 64 key
+
+        """
         return Fernet.generate_key()
 
     @property
     def fernet(self) -> Fernet:
-        """Returns a fernet key using the validated 32 byte url-safe base64 key."""
+        """Returns the current fernet key using the validated 32 byte URL-safe base64 key."""
         return Fernet(self.secret_key)
 
     def encryption_stage(self) -> Stage:
-        """Create a stage that uses Fernet encryption."""
+        """Creates a new serializer stage that uses Fernet encryption and decryption using the generated Fernet key.
+
+        Returns:
+            Stage: A new serializer stage that encrypts data when dumped and decrypts data when loaded.
+
+        """
         fernet = self.fernet
 
         return Stage(
@@ -154,8 +166,15 @@ class EncryptionPipelineFactory:
         )
 
     def signer_stage(self) -> Stage:
-        """Create a stage that uses `itsdangerous` to add a signature to responses on write, and validate that signature
-        with a secret key on read."""
+        """Creates a stage that uses `itsdangerous` to add a signature to responses during serialization.
+
+        This signature is generated on `write` and uses the provided secret key to enforce signature validation on
+        deserialization, verifying that the response data hasn't been tampered when the response is reloaded.
+
+        Returns:
+            Stage: A new stage that uses the secret key and salt for signature creation and validation.
+
+        """
         return Stage(
             self.signer(secret_key=self.secret_key, salt=self.salt),
             dumps="sign",
@@ -163,7 +182,16 @@ class EncryptionPipelineFactory:
         )
 
     def create_pipeline(self) -> SerializerPipeline:
-        """Create a serializer that uses pickle + itsdangerous for signing and cryptography for encryption."""
+        """Create a serializer that uses pickle + itsdangerous for signing and cryptography for encryption.
+
+        This pipeline encrypts the response data after generating a signature when serialized. On load, the data is then
+        decrypted and the signature that was previously generated with the secret key is  verified prior to
+        deserialization of the response.
+
+        Returns:
+            SerializerPipeline: A new serializer pipeline that enforces signature validation and encryption.
+
+        """
         base_stage = CattrStage()
 
         return SerializerPipeline(
@@ -173,7 +201,12 @@ class EncryptionPipelineFactory:
         )
 
     def __call__(self) -> SerializerPipeline:
-        """Helper method for being able to create the serializer pipeline by calling the factory object."""
+        """Convenience method that calls `EncryptionPipelineFactory.create_pipeline()` to create a serializer pipeline.
+
+        Returns:
+            SerializerPipeline: A new serializer pipeline that enforces signature validation and encryption.
+
+        """
         return self.create_pipeline()
 
 

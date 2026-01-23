@@ -92,7 +92,7 @@ def test_execute_with_retry_non_retryable_status(caplog):
     assert f"Returning a request of type {type(response)}, status_code={status_code}" in caplog.text
 
 
-def test_invalid_response_exception_non_json(caplog):
+def test_invalid_response_exception_non_json():
     """Tests and verifies that the InvalidResponseException is retrieves the error details as intended when
     available."""
     from scholar_flux.exceptions import InvalidResponseException
@@ -109,9 +109,9 @@ def test_invalid_response_exception_non_json(caplog):
     exc = InvalidResponseException(response)
     assert exc.error_details == ""
 
-    with pytest.raises(InvalidResponseException):
+    with pytest.raises(InvalidResponseException) as excinfo:
         raise InvalidResponseException(None)  # type: ignore
-    assert f"An error occurred when making the request - Received a nonresponse: {type(None)}" in caplog.text
+    assert f"An error occurred when making the request - Received a nonresponse: {type(None)}" in excinfo.value.message
 
 
 def test_calculate_retry_delay_with_invalid_retry_after(caplog):

@@ -16,6 +16,27 @@ Classes:
         Inherits from a basic list to constrain the output to a list of SearchResults while providing
         data preparation convenience functions for downstream frameworks.
 
+Example:
+    >>> from scholar_flux import SearchCoordinator
+    >>> coordinator = SearchCoordinator(query="sight restoration", provider_name="crossref")
+    >>> response = coordinator.search_page(1)
+    >>>
+    >>> # Check if processing succeeded
+    >>> if response:
+    ...     print(f"Retrieved {response.record_count} records for page {response.page} with query {response.query}")
+    ...     print(f"Total available: {response.total_query_hits}")
+    ...
+    ...     # Normalize to common schema with post-processing
+    ...     normalized = response.normalize(include = {'query', 'page', 'display_name'})
+    ...     for record in normalized[:3]:
+    ...         print(f"Title: {record['title']}")
+    ...         print(f"Authors: {record['authors']}")  # Formatted as a list
+    ...         print(f"Publisher: {record['publisher']}") # Recursively extracted
+    ...         print(f"Year: {record['year']}")  # Extracted and parsed as an integer
+    ...         print("-"*100)  # Already extracted
+    ... else:
+    ...     print(f"Error: {response.error} - {response.message}")
+
 """
 from __future__ import annotations
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
@@ -24,10 +45,22 @@ from scholar_flux.api.normalization import BaseFieldMap
 from scholar_flux.api.models import ResponseMetadataMap
 from scholar_flux.exceptions import RecordNormalizationException
 from scholar_flux.api.providers import provider_registry
-from typing import Optional, Any, MutableSequence, Iterable, Literal
+from scholar_flux.data.data_extractor import DataExtractor
+from scholar_flux.utils.record_types import (
+    RecordType,
+    NormalizedRecordType,
+    MetadataType,
+    RecordList,
+    NormalizedRecordList,
+)
+from scholar_flux.utils.helpers import coerce_str, as_tuple
+from typing import Optional, Any, MutableSequence, Iterable, Iterator, Literal, Sequence, overload, TYPE_CHECKING
 from requests import Response
-from pydantic import BaseModel, Field, AliasChoices
+from pydantic import BaseModel, Field, AliasChoices, computed_field
 import logging
+
+if TYPE_CHECKING:
+    from re import Pattern
 
 
 logger = logging.getLogger(__name__)
@@ -95,8 +128,8 @@ class SearchResult(BaseModel):
     def parsed_response(self) -> Optional[Any]:
         """Contains the parsed response content from the API response parsing step.
 
-        The parsed response is generally a dictionary that contains the extracted the JSON, XML, or YAML content from a
-        successfully received response.
+        Parsed API responses are generally formatted as dictionaries that contain the extracted JSON, XML, or YAML
+        content from a successfully received, raw response.
 
         If an ErrorResponse was received instead, the value of this property is None.
 
@@ -108,26 +141,26 @@ class SearchResult(BaseModel):
         return self.response_result.parsed_response if self.response_result else None
 
     @property
-    def extracted_records(self) -> Optional[list[Any]]:
+    def extracted_records(self) -> Optional[RecordList]:
         """Contains the extracted records from the response record extraction step after successful response parsing.
 
         If an ErrorResponse was received instead, the value of this property is None.
 
         Returns:
-            Optional[list[Any]]:
+            Optional[RecordList]:
                 A list of extracted records if `ProcessedResponse.extracted_records` is not None. None otherwise.
 
         """
         return self.response_result.extracted_records if self.response_result else None
 
     @property
-    def metadata(self) -> Optional[Any]:
+    def metadata(self) -> Optional[MetadataType]:
         """Contains the metadata from the API response metadata extraction step after successful response parsing.
 
         If an ErrorResponse was received instead, the value of this property is None.
 
         Returns:
-            Optional[dict[str, Any]]:
+            Optional[MetadataType]:
                 A dictionary of metadata if `ProcessedResponse.metadata` is not None. None otherwise.
 
         """
@@ -144,53 +177,76 @@ class SearchResult(BaseModel):
         return self.response_result.records_per_page if self.response_result else None
 
     @property
-    def processed_records(self) -> Optional[list[dict[Any, Any]]]:
-        """Contains the processed records from the API response processing step after a processing the response.
+    def processed_records(self) -> Optional[RecordList]:
+        """Contains the processed records from the API response processing step after processing the response.
 
         If an error response was received instead, the value of this property is None.
 
         Returns:
-            Optional[list[dict[Any, Any]]]:
+            Optional[RecordList]:
                 The list of processed records if `ProcessedResponse.processed_records` is not None. None otherwise.
 
         """
         return self.response_result.processed_records if self.response_result else None
 
     @property
-    def processed_metadata(self) -> Optional[dict[str, Any]]:
+    def processed_metadata(self) -> Optional[MetadataType]:
         """Contains the processed metadata from the API response processing step after the response has been processed.
 
         If an error response was received instead, the value of this property is None.
 
         Returns:
-            Optional[dict[str, Any]]:
+            Optional[MetadataType]:
                 The processed metadata dict if `ProcessedResponse.processed_metadata` is not None. None otherwise.
 
         """
         return self.response_result.processed_metadata if self.response_result else None
 
     @property
-    def normalized_records(self) -> Optional[list[dict[Any, Any]]]:
+    def normalized_records(self) -> Optional[NormalizedRecordList]:
         """Contains the normalized records from the API response processing step after normalization.
 
         If an error response was received instead, the value of this property is None.
 
         Returns:
-            Optional[list[dict[Any, Any]]]:
-                The list of normalized records if `ProcessedResponse.normalized_records` is not None. None otherwise.
+            Optional[NormalizedRecordList]:
+                The list of normalized dictionary records if `ProcessedResponse.normalized_records` is not None.
 
         """
         return self.response_result.normalized_records if self.response_result else None
 
+    def strip_annotations(
+        self,
+        records: Optional[RecordType | RecordList] = None,
+    ) -> RecordList:
+        """Convenience method for removing metadata annotations from a record list for clean export.
+
+        Strips fields prefixed with underscore that were added during extraction
+        for pipeline traceability (e.g., `_extraction_index`, `_record_id`).
+
+        Args:
+            records (Optional[RecordType | RecordList]): Records to strip. Defaults to `processed_records` if None.
+
+        Returns:
+            New list of records with annotation fields removed. If there are no records to strip, an empty list is
+            returned instead.
+
+        Example:
+            >>> clean_data = response.strip_annotations()
+            >>> df = pd.DataFrame(clean_data)  # No internal fields in DataFrame
+
+        """
+        return self.response_result.strip_annotations(records) if self.response_result is not None else []
+
     @property
-    def data(self) -> Optional[list[dict[Any, Any]]]:
+    def data(self) -> Optional[RecordList]:
         """Alias referring back to the processed records from the ProcessedResponse or ErrorResponse.
 
         Contains the processed records from the API response processing step after a successfully received response has
         been processed. If an error response was received instead, the value of this property is None.
 
         Returns:
-            Optional[list[dict[Any, Any]]]:
+            Optional[RecordList]:
                 The list of processed records if `ProcessedResponse.data` is not None. None otherwise.
 
         """
@@ -212,6 +268,17 @@ class SearchResult(BaseModel):
             if isinstance(self.response_result, (ProcessedResponse, ErrorResponse))
             else None
         )
+
+    @property
+    def cached(self) -> Optional[bool]:
+        """Identifies whether the current response was retrieved from the session cache.
+
+        Returns:
+            bool: True if the response is a CachedResponse object and False if it is a fresh requests.Response object
+            None: Unknown (e.g., the response attribute is not a requests.Response object or subclass)
+
+        """
+        return self.response_result.cached if self.response_result is not None else None
 
     @property
     def error(self) -> Optional[str]:
@@ -264,12 +331,17 @@ class SearchResult(BaseModel):
         """Extracts the human-readable status description from the underlying response, if available."""
         return self.response_result.status if self.response_result is not None else None
 
+    @computed_field
+    def display_name(self) -> str:
+        """Returns a human-readable provider name for the current provider when available."""
+        return provider_registry.get_display_name(self.provider_name) or self.provider_name
+
     def process_metadata(
         self,
         metadata_map: Optional[ResponseMetadataMap] = None,
         update_metadata: Optional[bool] = None,
-    ) -> Optional[dict[str, Any]]:
-        """Processes the `ProcessedResponse.metadata` field to map metadata fields to provider-agnostic field names.
+    ) -> Optional[MetadataType]:
+        """Processes and maps API-specific `ProcessedResponse.metadata` fields to provider-agnostic field names.
 
         By default, the `ResponseMetadataMap` map retrieves and converts the API-specific page-size (records per page)
         and total results (total query hits) fields to integers when possible.
@@ -277,8 +349,8 @@ class SearchResult(BaseModel):
         The field map is resolved in the following order of priority:
 
         1. User-specified field maps
-        2. resolving a provider name to a BaseFieldMap or subclass from the registry.
-        3. Resolving the URL to a BaseFieldMap or subclass
+        2. Resolving a provider name to a ResponseMetadataMap or subclass from the registry.
+        3. Resolving the URL to a ResponseMetadataMap or subclass
 
         If a metadata_map is not available, `None` will be returned.
 
@@ -287,15 +359,12 @@ class SearchResult(BaseModel):
                 An optional response metadata map to use in the mapping and processing of the response metadata. If not
                 provided, the metadata map is looked up via the registry using the name or URL of the current provider.
             update_metadata (Optional[bool]):
-                A flag that determines whether updates should be made to the `normalized_records` attribute after
-                computation. If `None`, updates are made only if the `normalized_records` attribute is None.
+                A flag that determines whether updates should be made to the `processed_metadata` attribute after
+                computation. If `None`, updates are made only if the `processed_metadata` attribute is None.
 
         Returns:
-            dict[str, Any]:
+            MetadataType:
                 A processed metadata dictionary mapping `total_query_hits` and `records_per_page` fields where possible.
-
-        Raises:
-            RecordNormalizationException: If raise_on_error=True and no field map found.
 
         """
         if self.response_result is None:
@@ -303,29 +372,82 @@ class SearchResult(BaseModel):
 
         if not isinstance(metadata_map, ResponseMetadataMap):
             provider_config = provider_registry.get(self.provider_name)
-            # if the lookup by provider name fails, the APIResponse.processed_metadata method tries by URL
+            # If the lookup by provider name fails, the APIResponse.processed_metadata method tries by URL
             metadata_map = getattr(provider_config, "metadata_map", None)
         return self.response_result.process_metadata(metadata_map, update_metadata=update_metadata)
+
+    def build_record_id_index(self, *args, **kwargs) -> dict[str, RecordType]:
+        """Builds a lookup table mapping record IDs to their original extracted records.
+
+        This method delegates to the underlying `ProcessedResponse` or `ErrorResponse` to build an index
+        for fast ID-based resolution of extracted records. Useful for batch resolution operations where
+        multiple records need to be resolved to their original nested structures without repeated searches.
+
+        Args:
+            *args:
+                Positional arguments passed through to the underlying response's `build_record_id_index` method.
+                The ProcessedResponse implementation accepts no positional arguments.
+            **kwargs:
+                Keyword arguments passed through to the underlying response's `build_record_id_index` method.
+                The ProcessedResponse implementation accepts no keyword arguments.
+
+        Returns:
+            dict[str, RecordType]:
+                A dictionary mapping `_record_id` values to their corresponding extracted records. Returns an empty dict
+                if `response_result` is None or if no extracted records exist.
+
+        """
+        return (self.response_result.build_record_id_index(*args, **kwargs) if self.response_result else None) or {}
+
+    def resolve_extracted_record(self, *args, **kwargs) -> Optional[RecordType]:
+        """Resolves a processed record back to its original extracted record.
+
+        This method delegates to the underlying `ProcessedResponse` or `ErrorResponse` to resolve a single
+        processed record (identified by its index) back to its original extracted record with nested structure.
+        Uses annotation fields (`_extraction_index`, `_record_id`) added during extraction.
+
+        Args:
+            *args:
+                Positional arguments passed through to the underlying response's `resolve_extracted_record` method.
+                The ProcessedResponse implementation accepts:
+                - processed_index (int): Index of the record in processed_records
+            **kwargs:
+                Keyword arguments passed through to the underlying response's `resolve_extracted_record` method.
+
+        Returns:
+            Optional[RecordType]:
+                The original extracted record with nested structure, or None if:
+                - `response_result` is None
+                - The record index is invalid
+                - No matching extracted record is found
+
+        """
+        return self.response_result.resolve_extracted_record(*args, **kwargs) if self.response_result else None
 
     def normalize(
         self,
         field_map: Optional[BaseFieldMap] = None,
         raise_on_error: bool = False,
         update_records: Optional[bool] = None,
-    ) -> list[dict[str, Any]]:
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        *,
+        resolve_records: Optional[bool] = None,
+        keep_api_specific_fields: Optional[bool | Sequence] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> NormalizedRecordList:
         """Normalizes `ProcessedResponse` record fields to map API-specific fields to provider-agnostic field names.
 
         The field map is resolved in the following order of priority:
 
         1. User-specified field maps
-        2. resolving a provider name to a BaseFieldMap or subclass from the registry.
+        2. Resolving a provider name to a BaseFieldMap or subclass from the registry.
         3. Resolving the URL to a BaseFieldMap or subclass
 
-        If a field map is not available, an empty list will be returned if `raise_on_error=False`. Otherwise, a
-        `RecordNormalizationException` is raised.
+        If a field map is not available at any step in the process, an empty list will be returned if
+        `raise_on_error=False`. Otherwise, a `RecordNormalizationException` is raised.
 
         Args:
-            field_map (Optional[field_map]):
+            field_map (Optional[BaseFieldMap]):
                 Optional field map to use in the normalization of the record list. If not provided, the field map is
                 looked up from the registry using the name or URL of the current provider.
             raise_on_error (bool):
@@ -334,26 +456,82 @@ class SearchResult(BaseModel):
             update_records (Optional[bool]):
                 A flag that determines whether updates should be made to the `normalized_records` attribute after
                 computation. If `None`, updates are made only if the `normalized_records` attribute is None.
+            include (Optional[set[Literal['query', 'provider_name', "display_name", 'page']]]):
+                Optionally appends the specified model fields as key-value pairs to each normalized record dictionary.
+                Possible fields include `provider_name`, `query`, `display_name`, and `page`. By default, no model
+                fields are appended.
+            resolve_records (Optional[bool]):
+                A flag that determines if resolution with annotated records should occur. If True or None, resolution
+                occurs. If False, normalization uses `processed_records` when not None and `extracted_records`
+                otherwise.
+            keep_api_specific_fields (Optional[bool | Sequence]):
+                Indicates what API-specific records should be retained from the complete list of API parameters that
+                are returned. If False, only the core parameters defined by the FieldMap are returned. If True or None,
+                all parameters are returned instead.
+            strip_annotations (Optional[bool]):
+                A flag indicating whether to remove metadata annotations from normalized records. If True or None,
+                fields with leading underscores are removed from each normalized record.
 
         Returns:
-            list[dict[str, Any]]: A list of normalized records, or empty list if normalization is unavailable.
+            NormalizedRecordList: A list of normalized records, or empty list if normalization is unavailable.
 
         Raises:
             RecordNormalizationException: If raise_on_error=True and no field map found.
+
+        Note:
+            The `ProcessedResponse.normalize()` method will handle most of the internal logic. This method delegates
+            normalization to the `ProcessedResponse` when the user does not explicitly pass a field map and the
+            provider-name-resolved map matches the URL-resolved map. If the automatically resolved field maps do not
+            differ, the `ProcessedResponse.normalize()` method handles the resolution details for caching purposes.
+
+        Example:
+            >>> from scholar_flux import SearchCoordinator
+            >>> from scholar_flux.utils import truncate, coerce_flattened_str
+            >>> coordinator = SearchCoordinator(query = 'AI Safety', provider_name = 'arXiv')
+            >>> response = coordinator.search_page(page = 1)
+            >>> normalized_records = response.normalize(include = {'display_name', 'query', 'page'})
+            >>> for record in normalized_records[:5]:
+            ...     print(f"Title: {record['title']}")
+            ...     print(f"URL: {record['url']}")
+            ...     print(f"Source: From {record['display_name']}: '{record['query']}' Page={record['page']}")
+            ...     print(f"Abstract: {truncate(record['abstract'] or 'Not available')}")
+            ...     print(f"Authors: {coerce_flattened_str(record['authors'])}")
+            ...     print("-"*100)
+
+            # OUTPUT:
+            Title: AI Safety...
+            URL: http://arxiv.org/abs/...
+            Source: From arXiv: 'AI Safety' Page=1
+            Abstract: This report ...
+            Authors: ...
+            --------------------------------------
 
         """
         try:
             if self.response_result is None:
                 raise RecordNormalizationException("Cannot normalize a response result of type `None`.")
 
+            url_field_map = None
             if field_map is None:
                 provider_config = provider_registry.get(self.provider_name)
-                # if the lookup by provider name fails, the APIResponse.normalize method tries by URL
+                # if the lookup by provider name fails, the APIResponse.normalize method tries by URL.
+                # Only pass the field map if the provider name-resolved map differs from the URL-resolved map.
                 field_map = getattr(provider_config, "field_map", None)
-            return (
-                self.response_result.normalize(field_map=field_map, raise_on_error=True, update_records=update_records)
+                # Returns None when the URL or field map is missing.
+                url_field_map = getattr(provider_registry.get_from_url(self.url), "field_map", None)
+
+            normalized_record = (
+                self.response_result.normalize(
+                    field_map=field_map if field_map is not url_field_map else None,
+                    raise_on_error=True,
+                    update_records=update_records,
+                    resolve_records=resolve_records,
+                    keep_api_specific_fields=keep_api_specific_fields,
+                    strip_annotations=strip_annotations,
+                )
                 or []
             )
+            return self.with_search_fields(normalized_record, include=include) if include else normalized_record
         except (RecordNormalizationException, NotImplementedError) as e:
             msg = (
                 f"The normalization of the page {self.page} response result for provider, {self.provider_name} failed: "
@@ -382,6 +560,107 @@ class SearchResult(BaseModel):
             return False
         return self.model_dump() == other.model_dump()
 
+    @overload
+    def with_search_fields(
+        self,
+        records: NormalizedRecordType,
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> NormalizedRecordType:
+        """When a normalized record is received, the same record is returned with additional search fields."""
+        ...
+
+    @overload
+    def with_search_fields(
+        self,
+        records: NormalizedRecordList,
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> NormalizedRecordList:
+        """When a normalized record list is received, the normalized list is returned with additional search fields."""
+        ...
+
+    @overload
+    def with_search_fields(
+        self,
+        records: RecordType,
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> RecordType:
+        """When a parsed record is received, the record is returned with additional search fields."""
+        ...
+
+    @overload
+    def with_search_fields(
+        self,
+        records: RecordList | Iterator[RecordType],
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> RecordList:
+        """When a parsed records list is received, a parsed record list with additional search fields is returned."""
+        ...
+
+    @overload
+    def with_search_fields(
+        self,
+        records: None,
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> RecordType:
+        """When called with None, a dictionary is returned containing the search fields indicating the request."""
+        ...
+
+    def with_search_fields(
+        self,
+        records: Optional[
+            RecordType | Iterator[RecordType] | NormalizedRecordType | RecordList | NormalizedRecordList
+        ] = None,
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> RecordType | NormalizedRecordType | RecordList | NormalizedRecordList:
+        """Returns a record or list of record dictionaries merged with selected SearchResult fields.
+
+        Args:
+            records (RecordType | Iterator[RecordType] | NormalizedRecordType |  RecordList | NormalizedRecordList):
+                The record dictionary or list of records to be merged with `SearchResult` fields.
+
+            include:
+                Set of SearchResult fields to include (default: {"provider_name", "page"}).
+            strip_annotations (Optional[bool]):
+                A flag indicating whether to remove metadata annotations from records. If True, fields with leading
+                underscores are removed from each processed record.
+
+        Returns:
+            RecordType: A single dictionary is returned if a single parsed record is provided.
+            RecordList: A list of dictionaries is returned if a list of parsed records is provided.
+            NormalizedRecordType: A single normalized dictionary is returned if a single normalized record is provided.
+            NormalizedRecordList: A list of normalized dictionaries is returned if a list of normalized records is provided.
+
+        """
+        try:
+            fields: set = set(include) if include is not None else {"provider_name", "page", "query"}
+
+            # Lists of records are primarily expected by default. Iterators aren't recommended but still supported
+            if isinstance(records, (list, tuple, Iterator)):
+                # Will raise a TypeError if an element type is not a `record_dict`
+                record_list = [
+                    (record_dict or {}) | self.model_dump(include=fields, exclude={"response_result"})
+                    for record_dict in records
+                ]
+                return DataExtractor.strip_annotations(record_list) if strip_annotations else record_list
+
+            if isinstance(records, dict) or records is None:
+                annotated_record = (records or {}) | self.model_dump(include=fields, exclude={"response_result"})
+                return DataExtractor.strip_annotations(annotated_record) if strip_annotations else annotated_record
+
+            raise TypeError(
+                f"Expected a dictionary or list of records to append search fields, but received type, {type(records)}"
+            )
+        except TypeError as e:
+            raise TypeError(
+                f"Encountered an invalid type when attempting to append search fields to the current input: {e}"
+            )
+
 
 class SearchResultList(list[SearchResult]):
     """A custom list that store the results of multiple `SearchResult` instances for enhanced type safety.
@@ -393,10 +672,10 @@ class SearchResultList(list[SearchResult]):
         - SearchResultList.append: Basic `list.append` implementation extended to accept only SearchResults
         - SearchResultList.extend: Basic `list.extend` implementation extended to accept only iterables of SearchResults
         - SearchResultList.filter: Removes NonResponses and ErrorResponses from the list of SearchResults
-        - SearchResultList.filter: Removes NonResponses and ErrorResponses from the list of SearchResults
+        - SearchResultList.select: Selects a subset of SearchResults by `query`, `provider_name`, or `page`
         - SearchResultList.join: Combines all records from ProcessedResponses into a list of dictionary-based records
 
-    Note Attempts to add other classes to the SearchResultList other than SearchResults will raise a TypeError.
+    Note: Attempts to add other classes to the SearchResultList other than SearchResults will raise a TypeError.
 
     """
 
@@ -453,13 +732,59 @@ class SearchResultList(list[SearchResult]):
                 instances
 
         """
-        if not isinstance(other, SearchResultList) and not (
-            isinstance(other, (MutableSequence, Iterable)) and all(isinstance(item, SearchResult) for item in other)
-        ):
-            raise TypeError(f"Expected an iterable of SearchResults, received an object type {type(other)}")
+
+        if isinstance(other, Iterator):
+            other = list(other)
+
+        if not isinstance(other, (MutableSequence, Iterable)):
+            raise TypeError(f"Expected an iterable of SearchResults, received an object of type {type(other)}")
+
+        if not (all(isinstance(item, SearchResult) for item in other)):
+            raise TypeError(
+                "Expected an iterable of SearchResults, but not all elements in the iterable are SearchResult elements."
+            )
+
         super().extend(other)
 
-    def join(self, include: Optional[set[Literal["query", "provider_name", "page"]]] = None) -> list[dict[str, Any]]:
+    def __add__(  # type: ignore[override]
+        self, other: SearchResultList | MutableSequence[SearchResult] | Iterable[SearchResult]
+    ) -> SearchResultList:
+        """Overrides the default `list.__add__` to return a SearchResultList.
+
+        Args:
+            other (SearchResultList | MutableSequence[SearchResult] | Iterable[SearchResult]):
+                A SearchResultList, list of SearchResults, or an iterable of SearchResult instances to concatenate.
+
+        Returns:
+            SearchResultList: A new SearchResultList containing elements from both objects.
+
+        Raises:
+            TypeError: When `other` contains non-SearchResult items.
+
+        """
+        search_result_list = self.copy()
+        try:
+            search_result_list.extend(other)
+        except TypeError as e:
+            raise TypeError(
+                f"Encountered an error while attempting to concatenate search results to a SearchResultList: {e} "
+            ) from e
+        return search_result_list
+
+    def copy(self) -> SearchResultList:
+        """Overrides the default `list.copy` to return a shallow copy as a SearchResultList.
+
+        Returns:
+            SearchResultList: A new, shallow copy of the current list.
+
+        """
+        return SearchResultList(self)
+
+    def join(
+        self,
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        strip_annotations: Optional[bool] = None,
+    ) -> RecordList:
         """Combines all successfully processed API responses into a single list of dictionary records across all pages.
 
         This method is especially useful for compatibility with pandas and polars dataframes that can accept a list of
@@ -469,44 +794,30 @@ class SearchResultList(list[SearchResult]):
         extracted and processed.
 
         Args:
-            include (Optional[set[Literal['query', 'provider_name', 'page']]]):
-                Optionally appends the specified model fields as key-value pairs to each normalized record
-                dictionary. Possible fields include `provider_name`, `query`, and `page`.
+            include (Optional[set[Literal['query', 'provider_name', "display_name", 'page']]]):
+                Optionally appends the specified model fields as key-value pairs to each parsed record
+                dictionary. Possible fields include `provider_name`, `display_name`, `query`, and `page`.
+            strip_annotations (Optional[bool]):
+                A flag indicating whether to remove metadata annotations from records. If True, fields with leading
+                underscores are removed from each processed record.
 
         Returns:
-            list[dict[str, Any]]: A single list containing all records retrieved from each page
+            RecordList: A single list containing all records retrieved from each page
 
         """
-        return [
-            self._resolve_record(record, item, include) for item in self for record in self._get_records(item) if record
-        ]
+        record_list: list[RecordType] = []
 
-    @classmethod
-    def _get_records(cls, item: SearchResult) -> list[dict[str, Any]] | list[dict[str | int, Any]]:
-        """Extracts a list of records (dictionaries) from a SearchResult."""
-        records = (
-            None if not isinstance(item, SearchResult) or item.response_result is None else item.response_result.data
-        )
-
-        return records or []
-
-    @classmethod
-    def _resolve_record(
-        cls,
-        record: Optional[dict],
-        item: SearchResult,
-        include: Optional[set[Literal["query", "provider_name", "page"]]] = None,
-    ) -> dict[str, Any]:
-        """Formats the current record and appends the provider_name and page number to the record."""
-        fields = include if include is not None else ("provider_name", "page")
-        record_dict = record or {}
-        return record_dict | item.model_dump(include=set(fields))
+        for record in self:
+            record_list.extend(
+                record.with_search_fields(record.data or [], include=include, strip_annotations=strip_annotations)
+            )
+        return record_list
 
     def process_metadata(
         self,
         update_metadata: Optional[bool] = None,
-        include: Optional[set[Literal["query", "provider_name", "page"]]] = None,
-    ) -> list[dict[str, Any]]:
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+    ) -> list[MetadataType]:
         """Processes the `ProcessedResponse.metadata` field to map metadata fields to provider-agnostic field names.
 
         By default, the `ResponseMetadataMap` map retrieves and converts the API-specific page-size (records per page)
@@ -515,30 +826,29 @@ class SearchResultList(list[SearchResult]):
         The field map is resolved in the following order of priority:
 
         1. User-specified field maps
-        2. resolving a provider name to a BaseFieldMap or subclass from the registry.
+        2. Resolving a provider name to a BaseFieldMap or subclass from the registry.
         3. Resolving the URL to a BaseFieldMap or subclass
 
         Args:
             update_metadata (Optional[bool]):
                 A flag that determines whether updates should be made to the `processed_metadata` attribute after
-                computation. If `None`, updates are made only if the `normalized_records` attribute is None.
-            include (Optional[set[Literal['query', 'provider_name', 'page']]]):
-                Optionally appends the specified model fields as key-value pairs to each normalized record
-                dictionary. Possible fields include `provider_name`, `query`, and `page`.
+                computation. If `None`, updates are made only if the `processed_metadata` attribute is None.
+            include (Optional[set[Literal['query', 'provider_name', "display_name", 'page']]]):
+                Optionally appends the specified model fields as key-value pairs to each listed metadata dictionary.
+                Possible fields include `provider_name`, `display_name`, `query`, and `page`.
 
         Returns:
-            list[dict[str, Any]]:
-                A processed metadata dictionary mapping `total_query_hits` and `records_per_page` fields where possible.
+            list[MetadataType]:
+                A list of processed metadata dictionaries mapping `total_query_hits` and `records_per_page` fields where
+                possible.
 
         Raises:
             RecordNormalizationException: If raise_on_error=True and no field map found.
 
         """
-        include = include if include is not None else {"provider_name", "page", "query"}
-
         return [
-            self._resolve_record(
-                search_result.process_metadata(update_metadata=update_metadata), search_result, include=include
+            search_result.with_search_fields(
+                search_result.process_metadata(update_metadata=update_metadata) or {}, include=include
             )
             for search_result in self
         ]
@@ -547,9 +857,16 @@ class SearchResultList(list[SearchResult]):
         self,
         raise_on_error: bool = False,
         update_records: Optional[bool] = None,
-        include: Optional[set[Literal["query", "provider_name", "page"]]] = None,
-    ) -> list[dict[str, Any]]:
+        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        **kwargs,
+    ) -> NormalizedRecordList:
         """Convenience method allowing the batch normalization of all SearchResults in a SearchResultList.
+
+        When called, each result in the current `SearchResultList` is sequentially normalized as a record dictionary
+        and outputted into a flattened list of normalized records across all pages, providers, and queries. The provider
+        name is extracted from the normalization step and identifies the origin of each record, but additional search
+        annotations (e.g., `query`, `provider_name`, `display_name`, `page`) can be added to each record to identify its
+        origin.
 
         Args:
             raise_on_error (bool):
@@ -559,14 +876,21 @@ class SearchResultList(list[SearchResult]):
             update_records (Optional[bool]):
                 A flag that determines whether updates should be made to the `normalized_records` attribute after
                 computation. If `None`, updates are made only if the `normalized_records` attribute is None.
-            include (Optional[set[Literal['query', 'provider_name', 'page']]]):
+            include (Optional[set[Literal['query', 'provider_name', "display_name", 'page']]]):
                 Optionally appends the specified model fields as key-value pairs to each normalized record
-                dictionary. Possible fields include `provider_name`, `query`, and `page`. By default,
+                dictionary. Possible fields include `provider_name`, `query`, `display_name`, and `page`. By default,
                 no model fields are appended.
+            **kwargs:
+                Additional keyword parameters forwarded to `SearchResult.normalize()`. Supported parameters include:
+
+                - `strip_annotations` (bool): Removes internal annotation fields from normalized records
+                - `resolve_records` (bool): Merges extracted and processed records when annotations exist
+                - `keep_api_specific_fields` (bool | Sequence): Controls API-specific field inclusion
+                - `field_map` (BaseFieldMap): An optional override to the field map to be used for record normalization
 
         Returns:
-            list[dict[str, Any]]:
-                A list of normalized records, or an empty list if no records are available for normalization.
+            NormalizedRecordList:
+                A list of all normalized records across all queried pages, or an empty list if no records are available.
 
         Raises:
             RecordNormalizationException: If raise_on_error=True and no field map found.
@@ -574,14 +898,10 @@ class SearchResultList(list[SearchResult]):
         """
         try:
             return [
-                (
-                    self._resolve_record(normalized_records, search_result, include=include)
-                    if include
-                    else normalized_records
-                )
-                for search_result in self
-                for normalized_records in search_result.normalize(
-                    raise_on_error=raise_on_error, update_records=update_records
+                record
+                for result in self
+                for record in result.normalize(
+                    raise_on_error=raise_on_error, update_records=update_records, include=include, **kwargs
                 )
             ]
         except RecordNormalizationException as e:
@@ -607,25 +927,69 @@ class SearchResultList(list[SearchResult]):
     def select(
         self,
         query: Optional[str] = None,
-        provider_name: Optional[str] = None,
+        provider_name: Optional[str | Pattern] = None,
         page: Optional[tuple | MutableSequence | int] = None,
+        *,
+        fuzzy: bool = True,
+        regex: Optional[bool] = None,
     ) -> SearchResultList:
-        """Helper method that enables the selection of all responses (successful or failed) based on its attributes."""
-        if page is not None and not isinstance(page, (MutableSequence, tuple)):
-            page = [page]
+        """Helper method that enables the selection of all responses (successful or failed) based on its attributes.
 
-        provider_name = (
-            provider_registry._normalize_name(provider_name) if isinstance(provider_name, str) else provider_name
-        )
+        Args:
+            query (Optional[str]): The exact query string to match (if provided). Ignored if None
+            provider_name (Optional[str | Pattern]):
+                The provider string or regex pattern to match (if provided). Ignored if None.
+            page (Optional[tuple | MutableSequence | int]): The page or sequence of pages to match. Ignored if None.
+            fuzzy (bool):
+                Identifies search results by provider using `fuzzy` finding, or "flexible matching that's more forgiving
+                than exact". When true, this implementation matches providers with normalized names that begin with the
+                provided prefix. (e.g., `pubmed` can match `pubmed` or `pubmedefetch`). The `provider_registry.find()`
+                method is used to find providers within the package-level registry with names starting with the prefix.
+                Pattern matching is performed if `provider_name` is a re.Pattern. If `fuzzy=False`, then only strict
+                string matches will be preserved.
+            regex (Optional[bool]):
+                An optional keyword parameter passed to `provider_registry.find()` when `fuzzy=True`. When True, key
+                pattern matching is enabled and registered providers can be identified using regex. This parameter is
+                No-Op if `fuzzy=False`.
 
+            Examples:
+                >>> from scholar_flux.api.models import SearchResult, SearchResultList
+                >>> crossref_result = SearchResult(page=1, query = 'q1', provider_name='crossref')
+                >>> pubmed_result = SearchResult(page=2, query = 'q2', provider_name='pubmedefetch')
+                >>> springer_nature_result = SearchResult(page=3, query = 'q3', provider_name='springernature')
+                >>> search_result_list = SearchResultList([crossref_result, pubmed_result, springer_nature_result])
+                >>> len(search_result_list.select()) # No filters selected
+                # OUTPUT: 3
+                >>> search_result_list.select(provider_name="pubmed") # No filters selected
+                # OUTPUT: [SearchResult(query='q2', provider_name='pubmedefetch', page=2, response_result=None, display_name='PubMed (eFetch)')]
+                >>> search_result_list.select(provider_name="springer")
+                # OUTPUT: [SearchResult(query='q3', provider_name='springernature', page=3, response_result=None, display_name='Springer Nature')]
+                >>> search_result_list.select(query="q1")
+                # OUTPUT: [SearchResult(query='q1', provider_name='crossref', page=1, response_result=None, display_name='Crossref')]
+
+        Returns:
+            SearchResultList: A filtered list of search results containing only results that match the conditions.
+
+        """
+        # Identify known providers and coerce+normalize strings/patterns for both known/unknown providers as a fallback
+        known_providers: set[str] = set()
+
+        if provider_name:
+            normalized_provider_name = provider_registry._normalize_name(coerce_str(provider_name) or "")
+            known_providers |= set(provider_registry.find(provider_name, regex=regex)) if fuzzy else set()
+            if normalized_provider_name:
+                known_providers.add(normalized_provider_name)
+
+        # Only use a provider, page, or query as a filter when explicitly provided:
         return SearchResultList(
             search_result
             for search_result in self
             if (query is None or search_result.query == query)
             and (
-                provider_name is None or provider_registry._normalize_name(search_result.provider_name) == provider_name
+                provider_name is None
+                or provider_registry._normalize_name(search_result.provider_name) in known_providers
             )
-            and (not page or search_result.page in page)
+            and (not page or search_result.page in as_tuple(page))
         )
 
     @property

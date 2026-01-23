@@ -56,11 +56,13 @@ class SecretUtils:
 
         Examples:
             >>> from scholar_flux.security import SecretUtils
+            >>> from pydantic import SecretStr
             >>> string = 'a secret'
             >>> secret_string = SecretUtils.mask_secret(string)
             >>> isinstance(secret_string, SecretStr) is True
             # OUTPUT: True
             >>> SecretUtils.unmask_secret(secret_string) == string
+            # OUTPUT: True
             >>> SecretUtils.unmask_secret(None) is None
             # OUTPUT: True
 

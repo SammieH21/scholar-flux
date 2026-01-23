@@ -1,6 +1,9 @@
-# /utils/models/session.py
-"""The scholar_flux.utils.models.session module defines the pydantic-based configuration models and BaseSessionManager
-abstract base class that is a key building block in the creation of new sessions.
+# /sessions/models/session.py
+"""The scholar_flux.session.models.session module defines basic models used for CachedSessionManager configuration.
+
+This module defines the `BaseSessionManager` which specifies the methods to be implemented by the `SessionManger` and
+`CachedSessionManager` subclasses while the `CachedSessionConfig` uses pydantic-based configuration models to validate
+the creation of `CachedSessionManager` instances.
 
 Classes:
     BaseSessionManager: Defines the core, abstract methods necessary to create a new session object from session
@@ -20,6 +23,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
+from scholar_flux.utils.helpers import parse_iso_timestamp, coerce_numeric
 
 import logging
 
@@ -124,12 +128,27 @@ class CachedSessionConfig(BaseModel):
         return v.replace("./", "", 1) if v.startswith(".") else v
 
     @field_validator("expire_after", mode="after")
-    def validate_expire_after(cls, v):
+    def validate_expire_after(cls, v) -> Optional[int | float | datetime.datetime | datetime.timedelta]:
         """Validates the expire_after field to flag simple cases where numeric values below 0 are marked as invalid."""
-        if isinstance(v, int) and v < 0 and not v == -1:
+        # convert ISO dates into timestamps when possible. This returns as a datetime object:
+        if isinstance(v, str) and (expire_after_date := parse_iso_timestamp(v)) is not None:
+            return expire_after_date
+
+        if isinstance(v, (int, str, float)) and (expire_after_seconds := coerce_numeric(v)) is not None:
+            # Account for raw integers (before conversion) and floats (after conversion)
+            no_expiration = v == -1 or expire_after_seconds == -1.0
+            if expire_after_seconds < 0 and not no_expiration:
+                raise ValueError(
+                    f"The provided integer for the expire_after parameter ({v}) must be greater "
+                    "than 0 or equal to -1 to signify that the cache should not expire."
+                )
+            return None if no_expiration else (expire_after_seconds)
+
+        # for all other strings that aren't valid timestamps
+        if isinstance(v, str):
             raise ValueError(
-                f"The provided integer for the expire_after parameter ({v}) must be greater "
-                f"than 0 or equal to -1 to signify that the cache will not expire"
+                f"Received an invalid string for the expire_after parameter ({v}). The string could not be "
+                "successfully converted into a date nor a valid numeric TTL value."
             )
         return v
 
@@ -163,7 +182,7 @@ class CachedSessionConfig(BaseModel):
             missing_str = ", ".join(missing)
             logger.error(f"The specified backend requires missing dependencies: {backend}")
             raise ValueError(
-                f"Backend '{v}' requires missing dependencies: {missing_str}"
+                f"Backend '{v}' requires missing dependencies: {missing_str}. "
                 "Please install them or choose a different backend."
             )
         return backend
@@ -188,14 +207,14 @@ class CachedSessionConfig(BaseModel):
         # Auto-populate using storage backend defaults (single source of truth)
         backend = backend.lower() if isinstance(backend, str) else backend
 
+        connection_keys = ("host", "port")
         match backend:
             case "redis":
-                kwargs = RedisStorage.DEFAULT_CONFIG.copy()
+                kwargs = {key: value for key, value in RedisStorage.DEFAULT_CONFIG.items() if key in connection_keys}
                 logger.info("Auto-configured Redis from RedisStorage.DEFAULT_CONFIG")
                 return kwargs
             case "mongodb":
-                config = MongoDBStorage.DEFAULT_CONFIG.copy()
-                kwargs = {"host": config["host"], "port": config["port"]}
+                kwargs = {key: value for key, value in MongoDBStorage.DEFAULT_CONFIG.items() if key in connection_keys}
                 logger.info("Auto-configured MongoDB from MongoDBStorage.DEFAULT_CONFIG")
                 return kwargs
             case _:

@@ -6,11 +6,12 @@ The pass through data processor is designed for simplicity, allowing end-users t
 also filter records based on conditions and extract nested key-value pairs within each record if specified.
 
 """
-from typing import Any, Optional
+from typing import Optional
 from scholar_flux.utils import nested_key_exists
 
 from scholar_flux.data import ABCDataProcessor
 from scholar_flux.exceptions import DataProcessingException
+from scholar_flux.utils.record_types import RecordType, RecordList
 
 import logging
 
@@ -48,7 +49,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
         self.keep_keys: list[str] = keep_keys or []
         self.regex: bool = regex if regex is not None else False
 
-    def process_record(self, record_dict: dict[str | int, Any]) -> dict[str | int, Any]:
+    def process_record(self, record_dict: RecordType) -> RecordType:
         """A no-op method retained for to maintain a similar interface as other DataProcessor implementations.
 
         Args:
@@ -62,7 +63,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
 
     def process_page(
         self,
-        parsed_records: list[dict[str | int, Any]],
+        parsed_records: RecordList,
         ignore_keys: Optional[list[str]] = None,
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
@@ -92,7 +93,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
             raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
     def record_filter(
-        self, record_dict: dict[str | int, Any], record_keys: Optional[list[str]] = None, regex: Optional[bool] = None
+        self, record_dict: RecordType, record_keys: Optional[list[str]] = None, regex: Optional[bool] = None
     ) -> Optional[bool]:
         """Helper method that filters records using regex pattern matching, checking if any of the keys provided in the
         function call exist."""

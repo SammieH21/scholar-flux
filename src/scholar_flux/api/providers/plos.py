@@ -18,6 +18,7 @@ provider = ProviderConfig(
         api_key_parameter=None,
         api_key_required=False,
         auto_calculate_page=True,
+        zero_indexed_pagination=True,
         api_specific_parameters=dict(
             sort=APISpecificParameter(
                 name="sort",
@@ -29,7 +30,7 @@ provider = ProviderConfig(
                 name="fq",
                 description=(
                     "Filter query to narrow results without affecting relevance scoring. "
-                    "Examples: 'journal:PLoS ONE', 'article_type:Research Article', "
+                    "Examples: 'doc_type:full', "
                     "'publication_date:[2020-01-01T00:00:00Z TO *]'."
                 ),
                 validator=validate_plos_field(validate_str, field="fq"),
@@ -43,6 +44,7 @@ provider = ProviderConfig(
     base_url="https://api.plos.org/search",
     records_per_page=50,
     docs_url="https://api.plos.org/solr/faq",
+    display_name="PLOS",
 )
 
 __all__ = ["provider"]

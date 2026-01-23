@@ -1,3 +1,13 @@
+"""Tests for API-specific response metadata processing functionality.
+
+This test suite covers:
+1. Basic initialization of a ResponseMetadataMap
+2. Calculation/extraction of record counts, query hits, and page sizes
+3. Verification that `SearchResult` correctly delegates metadata processing to `ProcessedResponse`
+4. Integration of metadata processing with the search pipeline orchestrated by the `SearchCoordinator`
+
+"""
+
 from scholar_flux.api import (
     APIResponse,
     ProcessedResponse,
@@ -58,6 +68,34 @@ def mock_metadata_dictionary():
     return {"pageSize": "10", "statistics": {"numResults": "50"}, "startPage": "1"}
 
 
+@pytest.fixture
+def default_search_coordinator(with_mock_api_provider: None) -> Generator[SearchCoordinator, None, None]:
+    """A basic search coordinator that uses a temporary provider for testing common metadata processing scenarios."""
+    provider_name = "mock_api_provider"
+    coordinator = SearchCoordinator(query="test-query", provider_name=provider_name)
+    yield coordinator
+
+
+@pytest.fixture
+def response_json(mock_metadata_dictionary: dict) -> dict:
+    """A basic JSON data set that enables the processing testing for JSON records data after response retrieval."""
+    response_json = {"records": [], **mock_metadata_dictionary}
+    return response_json
+
+
+@pytest.fixture
+def setup_mocking(default_search_coordinator: SearchCoordinator, response_json: dict) -> Callable:
+    """Creates a nested function used to mock search results using a coordinator, response JSON, and requests_mock."""
+    partial_mocking_context = partial(
+        search_coordinator_mocking_context,
+        search_coordinator=default_search_coordinator,
+        json=response_json,
+        headers={"content-type": "application/json"},
+    )
+
+    return partial_mocking_context
+
+
 def test_normalization_not_implemented():
     """Verifies that classes without a subclassed `normalize` method raise an error by default."""
     api_response = APIResponse()
@@ -78,8 +116,8 @@ def test_error_response_return_nonetype(ResponseType):
     assert response.processed_metadata is None
 
 
-def test_responose_metadata_processing_method_equality(mock_metadata_map, mock_metadata_dictionary):
-    """Verifies that `ProcessedResponse.process_metadata` and `ResponseMetadataMap()` produces equal results."""
+def test_response_metadata_processing_method_equality(mock_metadata_map, mock_metadata_dictionary):
+    """Verifies that `ProcessedResponse.process_metadata` and `ResponseMetadataMap()` produce equal results."""
     mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
     response = ProcessedResponse(response=mock_response, metadata=mock_metadata_dictionary)
 
@@ -109,14 +147,19 @@ def test_mock_metadata_map_response_nonexistent_keys():
 
 
 def test_processing_without_records_update(mock_metadata_map, mock_metadata_dictionary):
-    """Tests if processing with `update_metadata=false` flag will not update `.processed_metadata`."""
+    """Verifies that processing with `update_metadata=false` flag will not update `.processed_metadata` when called."""
     mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
     response = ProcessedResponse(response=mock_response, metadata=mock_metadata_dictionary)
     assert response.process_metadata(mock_metadata_map, update_metadata=False) and response.processed_metadata is None
 
 
 def test_missing_metadata():
-    """Tests whether processing `ProcessedResponse.metadata` will instead return None when missing a metadata dict."""
+    """Tests whether `ProcessedResponse.process_metadata()` will instead return None when missing a metadata dict.
+
+    A metadata dictionary should only be missing when not directly provided by the user, and the current provider does
+    not have a ResponseMetadataMap registered within its configuration from the `scholar_flux.api.provider_registry`
+
+    """
     mock_response = ReconstructedResponse.build(status_code=200, url="https://non-existent-url.com")
     response = ProcessedResponse(response=mock_response)
 
@@ -124,42 +167,20 @@ def test_missing_metadata():
 
 
 def test_missing_response_search_result(caplog):
-    """Tests whether processing search result metadata will return None if a response isn't provided."""
+    """Verifies that calling `SearchResult.process_metadata()` will return None if a response isn't provided."""
     search_result = SearchResult(page=1, query="new-query", provider_name="mock-provider")
     metadata = search_result.process_metadata()
     assert metadata is None
 
 
-@pytest.fixture
-def response_json(mock_metadata_dictionary: dict) -> dict:
-    """A basic JSON data set that enables the processing testing for JSON records data after response retrieval."""
-    response_json = {"records": [], **mock_metadata_dictionary}
-    return response_json
+def test_search_result_processed_metadata_integration(default_search_coordinator, setup_mocking):
+    """Verifies that response metadata processing via `SearchResult` correctly delegates to the `ProcessedResponse`.
 
+    When calling the `process_metadata()` method from a SearchResultList`, the output will be a list of processed
+    metadata dictionaries, each of which that should also be consistent when calling from
+    `SearchResult.process_metadata()`.
 
-@pytest.fixture
-def default_search_coordinator(with_mock_api_provider: None) -> Generator[SearchCoordinator, None, None]:
-    """A basic search coordinator that uses a temporary provider for testing common metadata processing scenarios."""
-    provider_name = "mock_api_provider"
-    coordinator = SearchCoordinator(query="test-query", provider_name=provider_name)
-    yield coordinator
-
-
-@pytest.fixture
-def setup_mocking(default_search_coordinator: SearchCoordinator, response_json: dict) -> Callable:
-    """Creates a nested function used to mock search results using a coordinator, response JSON, and requests_mock."""
-    partial_mocking_context = partial(
-        search_coordinator_mocking_context,
-        search_coordinator=default_search_coordinator,
-        json_data=response_json,
-        headers={"content-type": "application/json"},
-    )
-
-    return partial_mocking_context
-
-
-def test_search_processing(default_search_coordinator, setup_mocking):
-    """Verifies that the processing of records occurs as intended through the full, orchestrated pipeline."""
+    """
     with setup_mocking(page=1) as _:
         response = default_search_coordinator.search(page=1)
         search_result_list = default_search_coordinator.search_pages(pages=[1])
@@ -178,8 +199,8 @@ def test_search_processing(default_search_coordinator, setup_mocking):
     assert processed_metadata == processed_metadata_three[0]
 
 
-def test_search_processing_structure(default_search_coordinator, setup_mocking):
-    """Verifies that the processing of records returns a list of dictionaries with the required structure."""
+def test_search_processed_metadata_structure(default_search_coordinator, setup_mocking):
+    """Verifies that response metadata processing returns a new metadata dictionary with the expected structure."""
     provider_config = provider_registry[default_search_coordinator.api.provider_name]
     assert provider_config and provider_config.metadata_map
 

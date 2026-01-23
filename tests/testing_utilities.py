@@ -26,6 +26,8 @@ def prepare_env():
         "SCHOLAR_FLUX_DEFAULT_USER_AGENT",
         "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND",
         "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE",
+        "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL",
+        "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL",
         "SCHOLAR_FLUX_DEFAULT_PROVIDER",
         "SCHOLAR_FLUX_DEFAULT_CACHE_DIRECTORY",
         "SCHOLAR_FLUX_DEFAULT_LOG_DIRECTORY",
@@ -47,7 +49,7 @@ def search_coordinator_mocking_context(
     endpoint: Optional[str] = None,
     status_code: int = 200,
     headers: Optional[Mapping] = None,
-    json_data: Optional[dict] = None,
+    json: Optional[dict] = None,
     kwargs: Optional[dict] = None,
 ) -> Generator[requests_mock.Mocker, None, None]:
     """Context manager that uses the coordinator as well as the response json to mock a response."""
@@ -55,7 +57,7 @@ def search_coordinator_mocking_context(
     prepared_search = search_coordinator.api.prepare_search(page=page, endpoint=endpoint)
 
     with requests_mock.Mocker() as m:
-        m.get(prepared_search.url, headers=headers, status_code=status_code, json=json_data, **(kwargs or {}))
+        m.get(prepared_search.url, headers=headers, status_code=status_code, json=json, **(kwargs or {}))
         yield m
 
 

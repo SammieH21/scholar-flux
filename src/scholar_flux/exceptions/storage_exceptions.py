@@ -44,6 +44,12 @@ class CacheVerificationException(StorageCacheException):
     pass
 
 
+class CacheParameterValidationException(StorageCacheException):
+    """Exception raised when invalid parameters are passed to a CacheStorage device."""
+
+    pass
+
+
 __all__ = [
     "StorageCacheException",
     "ConnectionFailed",
@@ -52,4 +58,5 @@ __all__ = [
     "CacheUpdateException",
     "CacheDeletionException",
     "CacheVerificationException",
+    "CacheParameterValidationException",
 ]

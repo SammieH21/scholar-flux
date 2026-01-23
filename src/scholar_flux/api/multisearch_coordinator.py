@@ -7,6 +7,7 @@ This implementation uses shared rate limiting to ensure that rate limits to diff
 """
 from __future__ import annotations
 from typing import Optional, Generator, Sequence, Iterable
+from typing_extensions import Self
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 import logging
@@ -139,6 +140,13 @@ class MultiSearchCoordinator(UserDict):
         # skipping re-evaluation via __setitem___
         super().__setitem__(key, search_coordinator)
 
+    @classmethod
+    def from_coordinators(cls, search_coordinators: Iterable[SearchCoordinator]) -> Self:
+        """Constructs a new `MultiSearchCoordinator` instance from a sequence of coordinators at a time."""
+        multi_search_coordinator = cls()
+        multi_search_coordinator.add_coordinators(search_coordinators)
+        return multi_search_coordinator
+
     def add_coordinators(self, search_coordinators: Iterable[SearchCoordinator]):
         """Helper method for adding a sequence of coordinators at a time."""
 
@@ -263,7 +271,7 @@ class MultiSearchCoordinator(UserDict):
 
         if max_workers is not None and not isinstance(max_workers, int):
             raise InvalidCoordinatorParameterException(
-                "Expected max_workers to be a positive integer, " f"Received a value of type {type(max_workers)}"
+                f"Expected max_workers to be a positive integer, but received a value of type {type(max_workers)}"
             )
 
         pages = SearchCoordinator._validate_page_list_input(pages)
@@ -490,8 +498,6 @@ class MultiSearchCoordinator(UserDict):
         # will be used to flag non-retryable error codes from the provider for early stopping across queries if needed
         last_response: Optional[APIResponse] = None
         for search_coordinator in provider_coordinators.values():
-            provider_name = ProviderConfig._normalize_name(search_coordinator.api.provider_name)
-
             if (
                 isinstance(last_response, ErrorResponse)
                 and not isinstance(last_response, NonResponse)
@@ -502,7 +508,7 @@ class MultiSearchCoordinator(UserDict):
                 # breaks if a non-retryable status code is encountered.
                 logger.warning(
                     f"Encountered a non-retryable response during retrieval: {last_response}. "
-                    f"Halting retrieval for provider, {provider_name}"
+                    f"Halting retrieval for provider, {search_coordinator.display_name}"
                 )
                 break
 
@@ -518,7 +524,7 @@ class MultiSearchCoordinator(UserDict):
 
     def current_providers(self) -> set[str]:
         """Extracts a set of names corresponding to the each API provider assigned to the MultiSearchCoordinator."""
-        return {ProviderConfig._normalize_name(coordinator.api.provider_name) for coordinator in self.data.values()}
+        return {ProviderConfig._normalize_name(coordinator.provider_name) for coordinator in self.data.values()}
 
     def group_by_provider(self) -> dict[str, dict[str, SearchCoordinator]]:
         """Groups all coordinators by provider name to facilitate retrieval with normalized components where needed.
@@ -535,14 +541,14 @@ class MultiSearchCoordinator(UserDict):
 
         provider_search_dict: dict[str, dict[str, SearchCoordinator]] = defaultdict(dict)
         for key, coordinator in self.data.items():
-            provider_name = ProviderConfig._normalize_name(coordinator.api.provider_name)
+            provider_name = ProviderConfig._normalize_name(coordinator.provider_name)
             provider_search_dict[provider_name][key] = coordinator
         return dict(provider_search_dict)
 
     def _normalize_rate_limiter(self, search_coordinator: SearchCoordinator):
         """Helper method that retrieves the threaded rate_limiter for the coordinator's provider and normalizes the rate
         limiter used for searches."""
-        provider_name = ProviderConfig._normalize_name(search_coordinator.api.provider_name)
+        provider_name = ProviderConfig._normalize_name(search_coordinator.provider_name)
 
         # ensure that the same rate limiter is used with threading if needed to ensure rate limiting across providers
         # if the provider doesn't already exist, initialize the provider rate limiter in the registry
@@ -559,7 +565,7 @@ class MultiSearchCoordinator(UserDict):
         """Create a hashed key from a coordinator using the provider name, query, and structure of the
         SearchCoordinator."""
         hash_value = hash(repr(search_coordinator))
-        provider_name = ProviderConfig._normalize_name(search_coordinator.api.provider_name)
+        provider_name = ProviderConfig._normalize_name(search_coordinator.provider_name)
         query = str(search_coordinator.api.query)
         key = f"{provider_name}_{query}:{hash_value}"
         return key
@@ -578,7 +584,7 @@ class MultiSearchCoordinator(UserDict):
             for coordinator in self.coordinators
             if (query is None or query == coordinator.api.query)
             and provider_name is None
-            or provider_name == coordinator.api.provider_name
+            or provider_name == coordinator.provider_name
         ]
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True) -> str:

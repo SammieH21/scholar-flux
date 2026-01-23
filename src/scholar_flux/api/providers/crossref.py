@@ -52,6 +52,16 @@ provider = ProviderConfig(
                 validator=validate_crossref_field(validate_str, field="sort"),
                 required=False,
             ),
+            filter=APISpecificParameter(
+                name="filter",
+                description=(
+                    "Return filtered records by key-value pair (e.g., 'has-abstract:1', 'update-type:retraction', "
+                    "'from-created-date:YYYY-MM-DD', 'has-license:f'). Filter parameters can also be used together "
+                    "(i.e., has-abstract:1,from-created-date:2025)"
+                ),
+                validator=validate_crossref_field(validate_str, field="filter"),
+                required=False,
+            ),
             order=APISpecificParameter(
                 name="order",
                 description="Sort direction: 'asc' or 'desc'.",
@@ -68,6 +78,7 @@ provider = ProviderConfig(
     request_delay=1.0,
     records_per_page=25,
     docs_url="https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
+    display_name="Crossref",
 )
 
 __all__ = ["provider"]

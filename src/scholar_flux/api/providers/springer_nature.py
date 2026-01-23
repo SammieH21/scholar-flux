@@ -90,6 +90,7 @@ provider = ProviderConfig(
     api_key_env_var="SPRINGER_NATURE_API_KEY",
     records_per_page=25,
     docs_url="https://dev.springernature.com/docs/introduction/",
+    display_name="Springer Nature",
 )
 
 

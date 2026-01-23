@@ -2,6 +2,7 @@
 """The scholar_flux.api.models.response_metadata_map module implements the ResponseMetadataMap for field resolution."""
 from pydantic import BaseModel
 from typing import Optional, Any, Mapping
+from scholar_flux.utils.record_types import MetadataType
 from scholar_flux.utils import coerce_int, get_nested_data, PathUtils
 from math import ceil
 
@@ -50,15 +51,14 @@ class ResponseMetadataMap(BaseModel):
         # returns None if coercion into an integer isn't possible
         return value
 
-    def calculate_query_hits(self, metadata: dict[str, Any]) -> Optional[int]:
+    def calculate_query_hits(self, metadata: MetadataType) -> Optional[int]:
         """Extract and convert total query hits from response metadata.
 
         Args:
-            metadata: A mapping containing response metadata typically from ProcessedResponse.metadata
+            metadata (MetadataType): A mapping containing response metadata typically from ProcessedResponse.metadata
 
         Returns:
-            Total number of query hits as an integer if available and convertible,
-            otherwise None
+            Optional[int]: Total number of query hits as an integer if available and convertible, otherwise None
 
         Example:
             >>> from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
@@ -71,16 +71,16 @@ class ResponseMetadataMap(BaseModel):
         key = self.total_query_hits or ""
         return coerce_int(self._extract_key(metadata, key))
 
-    def calculate_records_per_page(self, metadata: dict[str, Any]) -> Optional[int]:
+    def calculate_records_per_page(self, metadata: MetadataType) -> Optional[int]:
         """Extract and convert the total number of records on the current page from response metadata.
 
         Args:
-            metadata (dict[str, Any]):
+            metadata (MetadataType):
                 A mapping containing response metadata (typically from ProcessedResponse.metadata)
 
         Returns:
-            Total number of records on the current page as an integer if available and convertible,
-            otherwise None
+            Optional[int]:
+                Total number of records on the current page as an integer if available and convertible, otherwise None
 
         Example:
             >>> from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
@@ -93,15 +93,15 @@ class ResponseMetadataMap(BaseModel):
         key = self.records_per_page or ""
         return coerce_int(self._extract_key(metadata, key))
 
-    def process_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
+    def process_metadata(self, metadata: MetadataType) -> MetadataType:
         """Helper method for processing metadata after mapping relevant fields using the metadata schema.
 
         Args:
-            metadata (dict[str, Any]):
+            metadata (MetadataType):
                 A mapping containing response metadata (typically from ProcessedResponse.metadata)
 
         Returns:
-            metadata (dict[str, Any]):
+            metadata (MetadataType):
                 A mapped dictionary of processed metadata fields.
 
         Example:
@@ -122,7 +122,7 @@ class ResponseMetadataMap(BaseModel):
         page: int,
         total_query_hits: Optional[int] = None,
         records_per_page: Optional[int] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: Optional[MetadataType] = None,
     ) -> Optional[int]:
         """Calculating the total number of pages yet to be queried using either metadata or direct integer fields.
 
@@ -132,6 +132,8 @@ class ResponseMetadataMap(BaseModel):
                 from the metadata
             records_per_page (Optional[int]):
                 Total number of records on the current page as an integer if available and convertible
+            metadata (MetadataType):
+                A mapping containing response metadata (typically from ProcessedResponse.metadata)
 
         Returns:
             Optional[int]:
@@ -178,7 +180,7 @@ class ResponseMetadataMap(BaseModel):
         under_record_limit = calculated_page_max - page
         return max(0, under_record_limit)
 
-    def __call__(self, *args, **kwargs) -> Optional[dict[str, Any]]:
+    def __call__(self, *args, **kwargs) -> Optional[MetadataType]:
         """Helper method that enables the current map to be used as a callable to map and process response metadata.
 
         The call delegates metadata processing to the `process_metadata` method which will return a list if it receives

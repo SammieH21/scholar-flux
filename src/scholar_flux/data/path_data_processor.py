@@ -7,10 +7,11 @@ nested paths while formatting the output based on its specification.
 
 """
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from scholar_flux.utils import PathNodeIndex, ProcessingPath, PathDiscoverer, as_list_1d, generate_repr
 from scholar_flux.data.abc_processor import ABCDataProcessor
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
+from scholar_flux.utils.record_types import RecordType, RecordList
 import threading
 
 import re
@@ -41,8 +42,8 @@ class PathDataProcessor(ABCDataProcessor):
 
     def __init__(
         self,
-        json_data: Union[dict, Optional[list[dict]]] = None,
-        value_delimiter: Optional[str] = "; ",
+        json_data: Optional[RecordType | RecordList] = None,
+        value_delimiter: Optional[str] = None,
         ignore_keys: Optional[list] = None,
         keep_keys: Optional[list[str]] = None,
         regex: Optional[bool] = True,
@@ -67,13 +68,13 @@ class PathDataProcessor(ABCDataProcessor):
         """Property indicating whether the underlying path node index uses a cache of weakreferences to nodes."""
         return self.path_node_index.node_map.use_cache
 
-    def load_data(self, json_data: Optional[dict | list[dict]] = None) -> bool:
+    def load_data(self, json_data: Optional[RecordType | RecordList] = None) -> bool:
         """Attempts to load a data dictionary or list, contingent on it having at least one non-missing record to load
         from. If `json_data` is missing or the json input is equal to the current `json_data` attribute, then the
         `json_data` attribute will not be updated from the json input.
 
         Args:
-            json_data (Optional[dict | list[dict]]): The json data to be loaded as an attribute
+            json_data (Optional[RecordType | RecordList]): The json data to be loaded as an attribute
         Returns:
             bool: Indicates whether the data was successfully loaded (True) or not (False)
 
@@ -136,12 +137,12 @@ class PathDataProcessor(ABCDataProcessor):
 
     def process_page(
         self,
-        parsed_records: Optional[list[dict]] = None,
+        parsed_records: Optional[RecordType | RecordList] = None,
         keep_keys: Optional[list[str]] = None,
         ignore_keys: Optional[list[str]] = None,
         combine_keys: bool = True,
         regex: Optional[bool] = None,
-    ) -> list[dict]:
+    ) -> RecordList:
         """Processes each individual record dict from the JSON data."""
         self._validate_inputs(ignore_keys, keep_keys, regex, value_delimiter=self.value_delimiter)
 

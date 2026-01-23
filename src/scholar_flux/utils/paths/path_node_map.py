@@ -81,7 +81,6 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         self,
         key: ProcessingPath,
         value: PathNode,
-        # *, overwrite: Optional[bool] = None
     ) -> None:
         """Sets an item in the PathNodeMap instance.
 
@@ -104,7 +103,6 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
         if self.use_cache:
             self._cache.lazy_add(key)
-        # self._add_to_cache(key)
 
     def __delitem__(self, key: Union[str, ProcessingPath]) -> None:
         """Deletes an item from the PathNodeMap instance.
@@ -295,10 +293,6 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             raise PathNodeMapError(
                 f"Invalid path: The key provided as a path:  {processing_path}  does not match the path within the provided node: {node}"
             )
-
-        # Prevent reassigning paths to the same path map
-        # if processing_path in self and self[processing_path] is not node:
-        #    raise PathNodeMapError(f'Non-unique path: {processing_path}. Reassigning paths to the same map is not allowed.')
 
         if descendant_nodes := self.filter(node.path, min_depth=node.path.depth + 1):
             raise PathNodeMapError(
@@ -493,21 +487,6 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
         return filtered_dict
 
-    #   def _extract_node(self, *nodes) -> Optional[PathNode]:
-    #       """
-    #       Attempts to extract a node from arguments of arbitrary lengths.
-    #       If there is more than one node, this method will return None with
-    #       the aim of deferring processing multiple nodes to other helper methods
-
-    #       """
-    #       if isinstance(nodes, PathNode):
-    #           return nodes
-
-    #       if isinstance(nodes, (list, tuple)) and len(nodes) == 1:
-    #           node = nodes[0]
-    #           return node if isinstance(node, PathNode) else None
-    #       return None
-
     @classmethod
     def _format_nodes_as_dict(cls, *nodes, **path_nodes) -> Union[
         PathNodeMap,
@@ -689,7 +668,6 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             self.__setitem__(
                 node.path,
                 node,
-                # overwrite=overwrite
             )
         except Exception as e:
             raise PathNodeMapError(f"Error adding nodes to PathNodeMap: {e}") from e

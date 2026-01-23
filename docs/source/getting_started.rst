@@ -55,16 +55,20 @@ For full functionality, install optional dependencies:
 .. code-block:: bash
 
    # All features (recommended for development)
-   pip install scholar-flux[parsing,database,cryptography]
+   pip install scholar-flux[parsing,database,cryptography,duckdb]
 
    # XML parsing only (for PubMed, arXiv)
    pip install scholar-flux[parsing]
 
-   # Database caching backends (Redis, MongoDB, SQLAlchemy)
+   # Database response caching backends (Redis, MongoDB, SQLAlchemy)
    pip install scholar-flux[database]
+
+   # For DuckDB response caching via sqlalchemy:
+   pip install scholar-flux[duckdb]
 
    # Encrypted caching support
    pip install scholar-flux[cryptography]
+
 
 **When to use which extras:**
 
@@ -98,7 +102,7 @@ Test your installation:
 
    import scholar_flux
    print(scholar_flux.__version__)
-   # Output: 0.3.1
+   # Output: 0.4.0
 
 .. code-block:: python
 
@@ -152,7 +156,7 @@ The default behavior for API requests across all providers can also be configure
    SCHOLAR_FLUX_DEFAULT_MAILTO=your.email@institution.edu
 
 .. tip::
-   **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` automatically enables higher rate limits:
+   **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` automatically enables higher rate limits for OpenAlex and Crossref:
    
    - **OpenAlex**: 10 requests/second (vs 1 req/sec without)
    - **Crossref**: Priority access and faster responses
@@ -223,35 +227,51 @@ API Key Setup
 Providers requiring API keys
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-+---------------------+----------------+---------------------------------------+
-| Provider            | API Key Needed | How to Obtain                         |
-+=====================+================+=======================================+
-| PLOS                |    No          | Works out-of-the-box                  |
-+---------------------+----------------+---------------------------------------+
-| arXiv               |    No          | Works out-of-the-box                  |
-+---------------------+----------------+---------------------------------------+
-| OpenAlex            |    No          | Optional ``mailto`` for higher limits |
-+---------------------+----------------+---------------------------------------+
-| Crossref            |    No          | Optional ``mailto`` for higher limits |
-+---------------------+----------------+---------------------------------------+
-| PubMed              | ✅ Yes         | https://www.ncbi.nlm.nih.gov/account/ |
-+---------------------+----------------+---------------------------------------+
-| CORE                | ✅ Yes         | https://core.ac.uk/services/api       |
-+---------------------+----------------+---------------------------------------+
-| Springer Nature     | ✅ Yes         | https://dev.springernature.com        |
-+---------------------+----------------+---------------------------------------+
+While most APIs work out of the box, some may require an API key for use (`Springer Nature`) or for higher rate limits (`PubMed` and `CORE API`):
+
++---------------------+------------------+---------------------------------------+
+| Provider            | API Key Needed   | How to Obtain                         |
++=====================+==================+=======================================+
+| PLOS                |    No            | Works out-of-the-box                  |
++---------------------+------------------+---------------------------------------+
+| arXiv               |    No            | Works out-of-the-box                  |
++---------------------+------------------+---------------------------------------+
+| OpenAlex            |    No            | Optional ``mailto`` for higher limits |
++---------------------+------------------+---------------------------------------+
+| Crossref            |    No            | Optional ``mailto`` for higher limits |
++---------------------+------------------+---------------------------------------+
+| PubMed              |    No (Optional) | https://www.ncbi.nlm.nih.gov/account/ |
++---------------------+------------------+---------------------------------------+
+| CORE                |    No (Optional) | https://core.ac.uk/services/api       |
++---------------------+------------------+---------------------------------------+
+| Springer Nature     |    ✅ Yes        | https://dev.springernature.com        |
++---------------------+------------------+---------------------------------------+
 
 PubMed API Key Setup
 ^^^^^^^^^^^^^^^^^^^^
 
+While PubMed doesn't require an API key, having one can increase rate limits from 3 requests per second to 10 requests per second (as of 2026).
+
 1. Create an NCBI account: https://www.ncbi.nlm.nih.gov/account/
 2. Navigate to Settings → API Key Management
 3. Generate a new API key
-4. Add to ``.env``:
+4. Export your PubMed API key as an environment variable or add it to a ``.env`` file (See the configuration section above)
+
+
+CORE API Key Setup
+^^^^^^^^^^^^^^^^^^^^
+
+Similarly, the CORE API doesn't require an API key but having one can greatly increase rate limits, which is **very** important for batch requests.
+
+1. Create an CORE account: https://core.ac.uk/services/api
+2. Navigate to `Register Now` and select either `Academic`, `Non-Academic`, or `Personal Use` depending on your affiliation
+3. Check your email for a new API key
+4. Export your CORE API key as an environment variable or add it to a ``.env`` file (See the configuration section above)
+
 
 .. code-block:: bash
 
-   PUBMED_API_KEY=your_key_here
+   CORE_API_KEY=your_key_here
 
 5. Verify:
 
@@ -259,11 +279,11 @@ PubMed API Key Setup
 
    from scholar_flux import SearchCoordinator
    
-   coordinator = SearchCoordinator(query="cancer", provider_name="pubmed")
+   coordinator = SearchCoordinator(query="human psychology", provider_name="pubmed")
    result = coordinator.search_page(page=1)
    
-   if result:
-       print(f"✅ PubMed API key working! Retrieved {len(result.data)} records")
+   if coordinator.api.api_key and result:
+       print(f"✅ PubMed API key working! Retrieved {result.record_count} records!")
 
 Your First Search
 -----------------
@@ -557,7 +577,7 @@ Common Pitfalls
    
    .. code-block:: bash
    
-      pip install scholar-flux[parsing]  # Installs xmltodict for XML parsing
+      pip install scholar-flux[parsing]  # Installs xmltodict for XML parsing and beautifulsoup4 for html text parsing
 
 4. **Hardcoding API keys**
    

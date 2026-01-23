@@ -1,5 +1,25 @@
 # /api/providers/arxiv.py
-"""Defines the core configuration necessary to interact with the arXiv API using the scholar_flux package."""
+"""Defines the core configuration necessary to interact with the arXiv API using the scholar_flux package.
+
+Note:
+    While arXiv allows you to filter by several categories, this is handled at the level of the query. This is defined
+    when creating a` SearchCoordinator` or `SearchAPI` with the required `query` parameter for basic searches.
+
+    Possible categories include:
+    - `au:` To filter results by author
+    - `abs:` Records containing abstracts
+    - `all:` all results for a particular query
+
+    For a complete list of arXiv category codes, see: https://arxiv.org/category_taxonomy
+
+Example:
+    >>> from scholar_flux import SearchCoordinator
+    >>> from pprint import pprint
+    >>> coordinator = SearchCoordinator(query = "cat:cs.AI AND probability", provider_name='arXiv')
+    >>> results = coordinator.search_page(1)
+    >>> pprint(results.data[:5] if results.data else "No data retrieved")
+
+"""
 from functools import partial
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
@@ -58,6 +78,7 @@ provider = ProviderConfig(
     records_per_page=25,
     request_delay=4,
     docs_url="https://info.arxiv.org/help/api/basics.html",
+    display_name="arXiv",
 )
 
 __all__ = ["provider"]
