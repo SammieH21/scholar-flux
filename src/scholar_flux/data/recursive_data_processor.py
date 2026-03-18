@@ -12,6 +12,7 @@ from scholar_flux.utils import nested_key_exists
 from scholar_flux.data.abc_processor import ABCDataProcessor
 
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
+from scholar_flux.utils.record_types import RecordType, RecordList
 
 import threading
 import logging
@@ -83,39 +84,60 @@ class RecursiveDataProcessor(ABCDataProcessor):
             use_full_path=use_full_path,
         )
 
-        self.json_data: Optional[list[dict]] = json_data
+        self.json_data = None
         self.load_data(json_data)
         self.lock = threading.Lock()
 
-    def load_data(self, json_data: Optional[list[dict]] = None):
-        """Attempts to load a data dictionary or list, contingent of it having at least one non-missing record to load
-        from. If `json_data` is missing, or the json input is equal to the current `json_data` attribute, then the
+    @property
+    def json_data(self) -> Optional[RecordList]:
+        """A list of dictionary-based records to further process."""
+        return self._json_data
+
+    @json_data.setter
+    def json_data(self, data: Optional[RecordType | RecordList]) -> None:
+        """A list of dictionary-based records to further process."""
+        if isinstance(data, dict):
+            data = [data]
+
+        self._validate_json_data(data)
+        self._json_data = data
+
+    def load_data(self, json_data: Optional[RecordType | RecordList] = None) -> bool:
+        """Attempts to load a data dictionary or list, contingent on the input having at least one non-missing record.
+
+        If `json_data` is missing, or the json input is equal to the current `json_data` attribute, then the
         json_data attribute will not be updated from the json input.
 
         Args:
-            json_data (Optional[list[dict]]) The json data to be loaded as an attribute
+            json_data (Optional[RecordType | RecordList]): The json data to be loaded as an attribute.
+
         Returns:
-            bool: Indicates whether the data was successfully loaded (True) or not (False)
+            bool: Indicates whether the data was successfully loaded (True) or not (False).
 
         """
+        if json_data is None and self.json_data is None:
+            return False
+
         try:
-            json_data = json_data if json_data is not None else self.json_data
-            if json_data:
+
+            if json_data is not None and json_data != self.json_data:
+                if self.json_data is not None:
+                    logger.debug("Updating JSON data...")
                 self.json_data = json_data
-                self.key_discoverer = KeyDiscoverer(json_data)
-            logger.debug("JSON data loaded")
+
+            self.key_discoverer = KeyDiscoverer(self.json_data)
+
+            logger.debug("JSON data loaded.")
+            return True
         except Exception as e:
-            raise DataValidationException(
-                f"The JSON data of type {type(self.json_data)} could not be successfully " f"processed and loaded: {e}"
-            )
+            raise DataValidationException(f"The JSON data could not be successfully loaded and processed: {e}")
 
     def discover_keys(self) -> Optional[dict[str, list[str]]]:
         """Discovers all keys within the JSON data."""
         return self.key_discoverer.get_all_keys()
 
-    def process_record(self, record_dict: dict[str, Any], **kwargs) -> dict[str, Any]:
-        """Processes a record dictionary to extract record data and article content, creating a processed record
-        dictionary with an abstract field."""
+    def process_record(self, record_dict: RecordType, **kwargs: Any) -> RecordType:
+        """Processes and flattens record dictionary, extracting record data and article content in the process."""
         # Retrieve a dict containing the fields for the current record
         if not record_dict:
             return {}
@@ -130,25 +152,22 @@ class RecursiveDataProcessor(ABCDataProcessor):
         regex: Optional[bool] = None,
     ) -> list[dict]:
         """Processes each individual record dict from the JSON data."""
-
-        if parsed_records is not None:
-            logger.debug("Processing next page..")
-            self.load_data(parsed_records)
-        elif self.json_data:
-            logger.debug("Reprocessing last page..")
-        else:
-            raise DataValidationException(f"JSON Data has not been loaded successfully: {self.json_data}")
-
-        if not self.json_data:
-            raise DataValidationException(f"JSON Data has not been loaded successfully: {self.json_data}")
-
-        keep_keys = keep_keys or self.keep_keys
-        ignore_keys = ignore_keys or self.ignore_keys
-        regex = regex if regex is not None else self.regex
-
-        self._validate_inputs(ignore_keys, keep_keys, regex)
-
         try:
+            if parsed_records is not None:
+                logger.debug("Processing next page...")
+                self.load_data(parsed_records)
+            elif self.json_data:
+                logger.debug("Reprocessing last page...")
+
+            if self.json_data is None:
+                raise DataValidationException("A valid JSON dictionary could not be successfully loaded.")
+
+            keep_keys = keep_keys or self.keep_keys
+            ignore_keys = ignore_keys or self.ignore_keys
+            regex = regex if regex is not None else self.regex
+
+            self._validate_inputs(ignore_keys, keep_keys, regex)
+
             processed_json = (
                 self.process_record(record_dict, exclude_keys=ignore_keys)
                 for record_dict in self.json_data
@@ -162,23 +181,26 @@ class RecursiveDataProcessor(ABCDataProcessor):
 
             # Return the list of processed record dicts
             return processed_data
+        except DataProcessingException:
+            raise
         except Exception as e:
             raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
+    @classmethod
     def record_filter(
-        self,
-        record_dict: dict[str, Any],
+        cls,
+        record_dict: RecordType,
         record_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
     ) -> bool:
-        """Filters records, using regex pattern matching, checking if any of the keys provided in the function call
-        exist."""
+        """Indicates if the current record contains any of the keys."""
+        if not record_keys:
+            return False
+
         use_regex = regex if regex is not None else False
-        if record_keys:
-            logger.debug(f"Finding field key matches within processing data: {record_keys}")
-            matches = [nested_key_exists(record_dict, key, regex=use_regex) for key in record_keys] or []
-            return len([match for match in matches if match]) > 0
-        return False
+        logger.debug(f"Finding field key matches within processing data: {record_keys}")
+        matches = (nested_key_exists(record_dict, key, regex=use_regex) for key in record_keys)
+        return any(matches)
 
     def filter_keys(
         self,
@@ -187,10 +209,9 @@ class RecursiveDataProcessor(ABCDataProcessor):
         substring: Optional[str] = None,
         pattern: Optional[str] = None,
         include: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, list[str]]:
         """Filters discovered keys based on specified criteria."""
-
         return KeyFilter.filter_keys(
             self.key_discoverer.get_all_keys(),
             prefix=prefix,
@@ -201,11 +222,10 @@ class RecursiveDataProcessor(ABCDataProcessor):
             **kwargs,
         )
 
-    def __call__(self, *args, **kwargs) -> list[dict]:
-        """Convenience method that calls process_page while also locking the class for processing while a single page is
-        processed.
+    def __call__(self, *args: Any, **kwargs: Any) -> list[dict]:
+        """Convenience method that applies a thread lock and processes a single page of JSON data via `.process_page()`.
 
-        Useful in a threading context where multiple SearchCoordinators may be using the same RecursiveDataProcessor.
+        Useful in a threading context where multiple SearchCoordinators may be using the same `RecursiveDataProcessor`.
 
         """
         with self.lock:

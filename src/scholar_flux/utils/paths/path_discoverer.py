@@ -102,14 +102,14 @@ class PathDiscoverer:
         record: Any,
         current_path: ProcessingPath,
         max_depth: Optional[int] = None,
-    ):
+    ) -> None:
         """
         Helper function for recursively traversing a dictionary and adding terminal path - value pairs where they exist.
         In the event that a max depth parameter is specified, the code will attempt to retrieve terminal paths only up
         to the depth specified by max_depth.
 
         Args:
-            records (Optional[list[dict]]): A list of dictionaries to be flattened if not already provided.
+            records (Any): A record dictionary or nested object within the current record
             current_path (Optional[dict[ProcessingPath, Any]]): The parent path to prefix all subsequent paths with.
                                                                 Is useful when working with a subset of a dict.
             max_depth (Optional[int]): Indicates the times we should recursively attempt to retrieve a terminal path.
@@ -170,7 +170,7 @@ class PathDiscoverer:
             raise
 
     @staticmethod
-    def _log_early_stop(path: ProcessingPath, value: Any, max_depth: Optional[int] = None):
+    def _log_early_stop(path: ProcessingPath, value: Any, max_depth: Optional[int] = None) -> None:
         """Logs the resulting value after halting the addition of paths early by max depth.
 
         Args:
@@ -185,7 +185,7 @@ class PathDiscoverer:
         )
 
     @staticmethod
-    def _log_recorded_paths(path: ProcessingPath, value: Any):
+    def _log_recorded_paths(path: ProcessingPath, value: Any) -> None:
         """Logs the resulting value after adding a terminal path.
 
         Args:
@@ -196,7 +196,7 @@ class PathDiscoverer:
         value_str = f"{str(value)[:30]}..." if len(str(value)) > 30 else str(value)
         logger.debug(f"Recorded path {path}. Value ({type(value)}) = {value_str}...")
 
-    def clear(self):
+    def clear(self) -> None:
         """Removes all path-value mappings from the self.path_mappings dictionary."""
         self.path_mappings.clear()
         logger.debug("Cleared all paths from the Discoverer...")

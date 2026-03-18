@@ -49,7 +49,7 @@ class DataParser(BaseDataParser):
     def parse(
         self, response: requests.Response | ResponseProtocol, format: Optional[str] = None
     ) -> dict | list[dict] | None:
-        """Parses the API response content using to core steps.
+        """Parses the API response content using two core steps.
 
         1. Detects the API response format if a format is not already specified
         2. Uses the previously determined format to parse the content of the response

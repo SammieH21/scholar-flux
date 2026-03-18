@@ -2,9 +2,10 @@
 """Implements exceptions involving the creation of requests and retrieval of responses from API Providers."""
 import requests
 from json import JSONDecodeError
-from typing import Optional
+from typing import Any, Optional
 import logging
-from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.response_protocol import ResponseProtocol, response_supports_json
+from scholar_flux.utils.helpers import get_nested_data, as_str
 
 logger = logging.getLogger(__name__)
 
@@ -28,25 +29,19 @@ class MissingAPISpecificParameterException(ValueError):
 
 
 class MissingProviderException(ValueError):
-    """Exception raised when an API specific parameter is required but not provided in the config."""
+    """Exception raised when the specification of a provider is required but not provided in the config."""
 
     pass
 
 
 class MissingResponseException(ValueError):
-    """Exception raised when a response or response-like objects is required but not provided."""
+    """Exception raised when a response or response-like object is required but not provided."""
 
     pass
 
 
 class NoRecordsAvailableException(APIException):
     """Exception raised when an operation depends on the presence of records but none exist."""
-
-    pass
-
-
-class PermissionException(APIException):
-    """Exception raised for permission errors."""
 
     pass
 
@@ -64,9 +59,30 @@ class RequestFailedException(APIException):
     def extract_error_details(cls, response: requests.Response | ResponseProtocol) -> str:
         """Extracts detailed error message from response body."""
         try:
-            return response.json().get("error", {}).get("message", "")  # type: ignore
+            json_data: dict[str, Any] = response.json() if response_supports_json(response) else {}
+            error_details = get_nested_data(json_data, "error.message")
+            return as_str(error_details) if error_details else ""
         except (ValueError, KeyError, AttributeError, JSONDecodeError):
             return ""
+
+
+class PageUnavailableFromCacheException(RequestFailedException):
+    """Exception raised when a valid response cannot be retrieved from the session cache."""
+
+    def __init__(self, *args: Any, message: str = "", **kwargs: Any) -> None:
+        """Initializes the `PageUnavailableFromCacheException` class with a response or response-like parameter."""
+        self.message = f"{message}" or ""
+        super().__init__(self.message, *args, **kwargs)
+
+    @property
+    def response(self) -> None:
+        """Added for interface compatibility."""
+        return None
+
+    @property
+    def error_details(self) -> str:
+        """Added for interface compatibility."""
+        return ""
 
 
 class RequestCreationException(APIException):
@@ -77,26 +93,8 @@ class RecordNormalizationException(APIException):
     """Exception raised when the normalization of a response record cannot be completed."""
 
 
-class NotFoundException(APIException):
-    """Exception raised when a requested resource is not found."""
-
-    pass
-
-
 class QueryValidationException(APIException):
     """Exception raised when a requested resource is not found."""
-
-    pass
-
-
-class SearchRequestException(APIException):
-    """Exception raised when a requested resource is not found."""
-
-    pass
-
-
-class SearchAPIException(APIException):
-    """Exception raised when the search api fails in retrying data from APIs."""
 
     pass
 
@@ -114,7 +112,7 @@ class RequestCacheException(APIException):
 
 
 class InvalidResponseStructureException(APIException):
-    """Exception raised on when encountering an non response/response-like object when a valid response was expected."""
+    """Exception raised when encountering a non-response/response-like object where a valid response is expected."""
 
     pass
 
@@ -128,7 +126,9 @@ class InvalidResponseReconstructionException(InvalidResponseStructureException):
 class RetryAfterDelayExceededException(RequestFailedException):
     """Exception raised when a Retry-After field from a rate limited (429) response exceeds the user-specified limit."""
 
-    def __init__(self, response: Optional[requests.Response | ResponseProtocol], *args, message: str = "", **kwargs):
+    def __init__(
+        self, response: Optional[requests.Response | ResponseProtocol], *args: Any, message: str = "", **kwargs: Any
+    ) -> None:
         """Initializes the `RetryAfterDelayExceededException` class with a response or response-like parameter."""
         self.response: Optional[requests.Response | ResponseProtocol] = response
         self.error_details: str = self.extract_error_details(response) if response is not None else ""
@@ -139,7 +139,9 @@ class RetryAfterDelayExceededException(RequestFailedException):
 class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""
 
-    def __init__(self, response: Optional[requests.Response | ResponseProtocol] = None, *args, **kwargs):
+    def __init__(
+        self, response: Optional[requests.Response | ResponseProtocol] = None, *args: Any, **kwargs: Any
+    ) -> None:
         """Initializes the `InvalidResponseException` class with a response or response-like parameter."""
 
         self.response: Optional[requests.Response | ResponseProtocol] = (
@@ -166,12 +168,6 @@ class RetryLimitExceededException(APIException):
     pass
 
 
-class TimeoutException(APIException):
-    """Exception raised for request timeouts."""
-
-    pass
-
-
 __all__ = [
     "APIException",
     "MissingAPIKeyException",
@@ -179,17 +175,13 @@ __all__ = [
     "MissingProviderException",
     "MissingResponseException",
     "NoRecordsAvailableException",
-    "PermissionException",
     "InvalidResponseException",
     "RetryAfterDelayExceededException",
-    "NotFoundException",
-    "SearchAPIException",
-    "SearchRequestException",
     "RequestCreationException",
     "RequestFailedException",
+    "PageUnavailableFromCacheException",
     "RateLimitExceededException",
     "RetryLimitExceededException",
-    "TimeoutException",
     "APIParameterException",
     "RequestCacheException",
     "InvalidResponseStructureException",

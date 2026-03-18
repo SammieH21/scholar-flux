@@ -42,7 +42,7 @@ class MockConfigWithMasking(BaseModel):
 
     @masker.mask_output(convert_objects=True)
     def __repr__(self) -> str:
-        """Repr that uses a masker to mask sensitive fields"""
+        """Repr that uses a masker to mask sensitive fields."""
         myrepr = generate_repr(self, flatten=True)
         return myrepr
 
@@ -124,11 +124,11 @@ def test_fuzzy_key_pattern():
     masker.add_pattern(fuzzy_key_pattern)
 
     birthday_keys = ["birthday", "birth", "date_of_birth", "dob", "my_dob", "my_bday", "date_born"]
-    test_dictionary = {key: "1122-34-56" for key in birthday_keys}
+    test_dictionary = dict.fromkeys(birthday_keys, "1122-34-56")
     birthday_json = json.dumps(test_dictionary)
     masked_json = masker.mask_text(birthday_json)
     loaded_masked_dictionary = json.loads(masked_json)
-    assert loaded_masked_dictionary == {key: masking_text for key in birthday_keys}
+    assert loaded_masked_dictionary == dict.fromkeys(birthday_keys, masking_text)
 
 
 def test_fuzzy_fixed_values_pattern():
@@ -177,9 +177,9 @@ def test_basic_key_pattern():
         for field in fields
     }
     masker.update(string_patterns)
-    masked_parameters = json.dumps({field: masking_text for field in fields}).strip()
-    parameters = json.dumps({field: "5-12-2024" for field in fields})
-    parameters2 = json.dumps({field: "2024-05-12" for field in fields})
+    masked_parameters = json.dumps(dict.fromkeys(fields, masking_text)).strip()
+    parameters = json.dumps(dict.fromkeys(fields, "5-12-2024"))
+    parameters2 = json.dumps(dict.fromkeys(fields, "2024-05-12"))
 
     assert masker.mask_text(parameters) == masked_parameters
     assert masker.mask_text(parameters2) == masked_parameters
@@ -697,7 +697,8 @@ def test_mask_list_with_nested_mixed_structures():
 
 
 def test_masking_with_pydantic_input_structures(mock_pydantic_model):
-    """Verifies that representations of pydantic input structures are masked of sensitive data when via `masker.mask_text"""
+    """Verifies that representations of pydantic input structures are masked of sensitive data when via
+    `masker.mask_text."""
     masker = SensitiveDataMasker(register_defaults=True)
     expected = "MockInputs(url='https://mock-example.url.com', api_key='***', email='***')"
     assert expected == masker.mask_text(repr(mock_pydantic_model))
@@ -814,4 +815,4 @@ def test_mask_output_preserves_function_metadata():
         """Function used to verify the behavior of `masked_output: Returns a basic configuration with sensitive data."""
     )
     assert "config" in str(decorated.__annotations__)
-    assert decorated.__annotations__["return"] == dict
+    assert decorated.__annotations__["return"] is dict

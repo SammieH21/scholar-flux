@@ -440,6 +440,34 @@ Enable logging to see what's being cached:
        records = value.get('processed_records', {})
        print(f"Key: {key}, Records: {len(records)}")
 
+Or for directly inspecting search results cached with the current SearchCoordinator configuration:
+
+.. code-block:: python
+
+   from scholar_flux import SearchCoordinator
+   coordinator = SearchCoordinator(provider_name = 'arxiv', query = 'machine learning', use_cache=True)
+
+   results = coordinator.search_pages(range(1, 4))
+
+   # Inspecting cache keys relevant to the current search coordinator:
+   print(coordinator.get_cached_response_keys())
+   # ['arxiv_machine learning_1_25',
+   #  'arxiv_machine learning_2_25',
+   #  'arxiv_machine learning_3_25']
+
+   # Attempts to retrieve a single result:
+   result1 = coordinator.get_cached_search_result(page = 1)
+
+   # Retrieve a search result from session cache only:
+   cached_results = coordinator.search_pages(range(1, 5), cache_only=True)
+
+   print(cached_results)
+   # [SearchResult(query='machine learning', provider_name='arxiv', page=1, ...,'),
+   #  SearchResult(query='machine learning', provider_name='arxiv', page=2, ...,'),
+   #  SearchResult(query='machine learning', provider_name='arxiv', page=3, ...,')]
+
+
+
 Practical Examples
 ------------------
 

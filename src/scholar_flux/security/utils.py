@@ -6,7 +6,7 @@ This class uses the pydantic.SecretStr class to mask and unmask fields and can b
 decrypt text as needed before and after conversion to a secret string, respectively.
 
 """
-from typing import Any, Optional
+from typing import Any, Optional, overload
 from pydantic import SecretStr
 
 
@@ -17,6 +17,18 @@ class SecretUtils:
     implement the class methods directly.
 
     """
+
+    @classmethod
+    @overload
+    def mask_secret(cls, obj: None) -> None:
+        """The mask_secret utility will only return None if the input is None."""
+        ...
+
+    @classmethod
+    @overload
+    def mask_secret(cls, obj: Any) -> SecretStr:
+        """The mask_secret method will return a secret string if the provided value is not None."""
+        ...
 
     @classmethod
     def mask_secret(cls, obj: Any) -> Optional[SecretStr]:
@@ -41,7 +53,6 @@ class SecretUtils:
             # OUTPUT: True
 
         """
-
         return obj if cls.is_secret(obj) else SecretStr(str(obj)) if obj is not None else obj
 
     @classmethod
@@ -67,7 +78,6 @@ class SecretUtils:
             # OUTPUT: True
 
         """
-
         return obj.get_secret_value() if cls.is_secret(obj) else obj
 
     @classmethod

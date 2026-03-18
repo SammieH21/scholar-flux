@@ -160,7 +160,7 @@ class ResponseMetadataMap(BaseModel):
         )
 
     @classmethod
-    def _calculate_pages_remaining(cls, page: int, total_query_hits: int, records_per_page: int):
+    def _calculate_pages_remaining(cls, page: int, total_query_hits: int, records_per_page: int) -> int:
         """Calculates the total number of pages that remain given the total number of hits and records per page.
 
         Args:
@@ -180,7 +180,7 @@ class ResponseMetadataMap(BaseModel):
         under_record_limit = calculated_page_max - page
         return max(0, under_record_limit)
 
-    def __call__(self, *args, **kwargs) -> Optional[MetadataType]:
+    def __call__(self, *args: Any, **kwargs: Any) -> Optional[MetadataType]:
         """Helper method that enables the current map to be used as a callable to map and process response metadata.
 
         The call delegates metadata processing to the `process_metadata` method which will return a list if it receives

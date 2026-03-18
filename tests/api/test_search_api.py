@@ -77,6 +77,19 @@ def test_session_attribute_removal():
     assert api.cache is None
 
 
+def test_default_provider_name(caplog, restore_config_settings):
+    """Verifies that unknown configured default providers otherwise falls back to `SearchAPIConfig.DEFAULT_PROVIDER`."""
+
+    provider_name = "NotAKnownProvider"
+    config_settings.set("SCHOLAR_FLUX_DEFAULT_PROVIDER", provider_name)
+    assert SearchAPI.get_default_provider_name() == SearchAPIConfig.DEFAULT_PROVIDER
+    assert (
+        f"The provider name, '{provider_name}' configured from the environment variable, "
+        "SCHOLAR_FLUX_DEFAULT_PROVIDER, does not reference a valid provider. "
+        f"Defaulting to the provider, {SearchAPIConfig.DEFAULT_PROVIDER} instead..."
+    ) in caplog.text
+
+
 @pytest.mark.parametrize("provider_name", ("plos", "arxiv", "openalex", "pubmed", "springernature", "crossref", "core"))
 def test_parameter_build_successful(provider_name, original_config_test_api_key):
     """Verifies that the `build_parameters` method successfully prepares all required fields and, when required, API
@@ -359,14 +372,14 @@ def test_api_key_build_parameter_overrides(caplog):
 
 
 def test_search_api_initialization(default_api_parameter_config):
-    """
-    Tests whether the search_api can be initialized independently from the
-    api parameter configuration.
+    """Tests whether the search_api can be initialized independently from the api parameter configuration.
+
     Validations:
         - SearchAPI.query is correctly set
         - SearchAPI.records_per_page is correctly set
         - SearchAPI.query can be modified as a mutable property
         - Invalid query assignment raises QueryValidationException but retains previous valid query value
+
     """
 
     api = SearchAPI(
@@ -817,8 +830,7 @@ def test_missing_search_parameters():
 
 
 def test_request_preparation_parameter_exceptions(monkeypatch, mock_successful_response):
-    """Tests whether an APIParameterException is raised when the `parameters` argument to `prepare_request` is not a
-    dictionary as intended."""
+    """Tests whether an `RequestCreationException` is raised when the request preparation parameters are invalid."""
     minimum_request_delay = 0.5  # second interval between requests minimum
 
     api = SearchAPI.from_defaults(
@@ -837,9 +849,7 @@ def test_request_preparation_parameter_exceptions(monkeypatch, mock_successful_r
 
 
 def test_request_preparation_base_url_omission(default_search_api):
-    """Validates that the omission of a base URL in the preparation of a request will return the automatically same URL
-    value for the API as when it is specified explicitly."""
-
+    """Verifies that `SearchAPI.prepare_request()` uses `SearchAPI.base_url` by default when the URL is omitted."""
     params = default_search_api.build_parameters(page=1)
     prepared_request = default_search_api.prepare_request(default_search_api.base_url, parameters=params)
     prepared_request_default = default_search_api.prepare_request(parameters=params)
@@ -864,7 +874,7 @@ def test_prepare_search_and_prepare_request_equivalence(page, default_search_api
 def test_search_with_endpoint_only(default_search_api):
     """Verifies that searches specifying only `endpoint` without a `page` or `parameters` argument are successful.
 
-    The `search()` argument, by default should only allow searches if at least one parameter/endpoit is specified when
+    The `search()` argument, by default should only allow searches if at least one parameter/endpoint is specified when
     `page` is not directly provided and will otherwise raise an APIParameterException.
 
     """

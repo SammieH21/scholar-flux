@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 from scholar_flux.api import SearchAPI, SearchCoordinator, APIParameterMap, MultiSearchCoordinator
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
-from scholar_flux.utils import parse_iso_timestamp
 from scholar_flux.api.rate_limiting import ThreadedRateLimiter, threaded_rate_limiter_registry
 from scholar_flux.api.models import SearchResultList, ProcessedResponse, ErrorResponse, PageListInput
 from unittest.mock import patch
@@ -44,7 +43,7 @@ def mock_json_provider_page_dict(paginated_records_directory):
 def pause_rate_limiting():
     """Fixture for briefly turning off the default rate limit for unknown providers:
 
-    Used to temporarily pauses rate limiting for individual tests when included as a fixture dependency
+    Used to temporarily pause rate limiting for individual tests when included as a fixture dependency
 
     """
     default_rate_limit = MultiSearchCoordinator.DEFAULT_THREADED_REQUEST_DELAY
@@ -158,8 +157,8 @@ def coordinator_dict_rate(path_component_dict_rate, parameter_map) -> dict[str, 
 def coordinator_dict_new_query(path_component_dict, parameter_map) -> dict[str, SearchCoordinator]:
     """Creates new coordinators that retrieve data from the API with the query, `new-query`.
 
-    Used to simulate pulling from the same provider with a different query, while require the same rate limit to be
-    triggered as used with the initial `quantum-computing` query
+    Used to simulate retrieval from the same provider with a different query while requiring that the same rate limit
+    universally applies and is enforced for all coordinators of the same provider.
 
     """
     return create_coordinators(path_component_dict, query="new-query", parameter_config=parameter_map)
@@ -167,11 +166,12 @@ def coordinator_dict_new_query(path_component_dict, parameter_map) -> dict[str, 
 
 @pytest.fixture
 def coordinator_dict_rate_new_query(path_component_dict_rate, parameter_map) -> dict[str, SearchCoordinator]:
-    """Creates new coordinators that retrieve data from the API with the query, `new-query` from the URLs prefixed with
-    `rate-`.
+    """Creates new coordinators for testing API data retrieval with the query, `new-query`.
 
-    Simulate pulling from a different provider with a different query, while require a different rate limiter given that
-    the provider differs from the initial `coordinator_dict`
+    The URL for each simulated API is prefixed with `rate-` for later rate limit testing.
+
+    Used to simulate API retrieval from a different provider and query, requiring that different rate limiters are not
+    shared between unique providers.
 
     """
 
@@ -516,6 +516,39 @@ def test_page_range_search(coordinator_dict, initialize_mocker, path_component_d
         assert sorted(result_list_two.join(), key=str) == sorted(result_list_three.join(), key=str)
 
 
+def test_search_records_result_equivalence(
+    coordinator_dict, initialize_mocker, path_component_dict, pause_rate_limiting
+):
+    """Verifies that results retrieved via `search_pages` and `search_records` match at the value of `min_records`.
+
+    The actual page count retrieved will depend on the number of successful results available and whether any
+    unsuccessful status codes are returned. In both scenarios, each method should stop early.
+
+    """
+    multisearch_coordinator = MultiSearchCoordinator()
+    multisearch_coordinator.add_coordinators(coordinator_dict.values())
+    max_pages = max(component_dict["page"] for component_dict in path_component_dict.values())
+    total_pages = len(path_component_dict.keys())
+    page_range = range(1, max_pages + 1)
+
+    record_count = multisearch_coordinator.coordinators[0].api.records_per_page * max_pages
+
+    with initialize_mocker() as _:
+        result_list = multisearch_coordinator.search_pages(
+            pages=page_range, iterate_by_group=True, multithreading=False
+        )
+
+        assert isinstance(result_list, SearchResultList) and len(result_list) == total_pages
+
+        result_list_two = multisearch_coordinator.search_records(record_count, page_offset=0, multithreading=True)
+        assert isinstance(result_list_two, SearchResultList) and len(result_list_two) == total_pages
+
+        # should give the same results as iter pages, just performed automatically instead of requiring manual iteration
+        assert len(result_list) == len(result_list_two) == total_pages
+        assert len(result_list.filter()) == len(result_list_two.filter()) == total_pages
+        assert sorted(result_list.join(), key=str) == sorted(result_list_two.join(), key=str)
+
+
 def test_rate_limiter_normalization(
     coordinator_dict_rate,
     coordinator_dict_rate_new_query,
@@ -600,14 +633,16 @@ def test_rate_limiter_normalization(
 
         intervals = {
             provider_name: sorted(
-                parse_iso_timestamp(search.created_at)  # type: ignore
+                search.retrieval_timestamp  # type: ignore
                 for search in all_searches
-                if search.response_result and search.created_at and search.provider_name == provider_name
+                if search.response_result
+                and search.retrieval_timestamp is not None
+                and search.provider_name == provider_name
             )
             for provider_name in unique_providers
         }
 
-        time_between_requests = []
+        time_between_requests: list[float] = []
         for provider_name in unique_providers:
             prev_timestamp = None
             for timestamp in intervals[provider_name]:

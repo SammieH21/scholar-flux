@@ -94,7 +94,7 @@ def test_encode_decode_roundtrip(data):
     assert data == result == round_trip_json_encoder(data)
 
 
-def test_tuple_roundtrip():
+def test_tuple_json_serialization_roundtrip():
     """Verifies that tuples and sets can safely be encoded and decoded in JSON format when using the `CacheDataEncoder`.
 
     Note that, because these types cannot be directly dumped via JSON, they must be coerced into lists instead.
@@ -106,6 +106,22 @@ def test_tuple_roundtrip():
     result = round_trip_data_encoder(data)
     # note that json dumps+loads results in lists becoming tuples
     assert data == tuple(result)
+
+
+def test_tuple_encoding_decoding_retains_data_structure():
+    """Verifies that encoding and decoding a tuple without storing it as JSON retains the original data type."""
+    data = (b"bytes", "string", None)
+
+    # Should still be a tuple after encoding:
+    encoded_tuple = CacheDataEncoder.encode(data)
+    assert isinstance(encoded_tuple, tuple)
+
+    # Should be called under the hood when decoding:
+    decoded_tuple = CacheDataEncoder._decode_tuple(encoded_tuple, CacheDataEncoder.DEFAULT_HASH_PREFIX)
+
+    # Equivalent:
+    assert decoded_tuple == data
+    assert data == CacheDataEncoder.decode(encoded_tuple)
 
 
 @pytest.mark.parametrize("DictType", (UserDict, CaseInsensitiveDict, OrderedDict))

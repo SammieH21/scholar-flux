@@ -102,7 +102,7 @@ def test_basic_cache_manager_operations(
     assert len(storage.retrieve_all()) == 3
     assert not set(keys).symmetric_difference(storage.retrieve_keys())
     storage.delete_all()
-    assert [] == storage.retrieve_keys()
+    assert storage.retrieve_keys() == []
     assert len(storage.retrieve_all()) == 0
     storage.delete_all()
 
@@ -122,7 +122,7 @@ def test_default_config_equivalence_at_runtime(storage_type, request, db_depende
     storage = request.getfixturevalue(storage_type)
 
     default_config_dynamic = {
-        key: value for key, value in storage._get_default_config().items() if key in ("host", "port")
+        key: value for key, value in storage.get_default_config().items() if key in ("host", "port")
     }
     default_config_class_variable = {
         key: value for key, value in storage.DEFAULT_CONFIG.items() if key in ("host", "port")
@@ -153,7 +153,7 @@ def test_default_config_settings_override(
     config_settings.set(host, host_value)
     config_settings.set(port, port_value)
 
-    default_config = storage._get_default_config()
+    default_config = storage.get_default_config()
     assert default_config["host"] == host_value
     assert default_config["port"] == port_value
 
@@ -305,7 +305,7 @@ def test_mongodb_set_ttl_no_expire(mongo_test_storage, db_dependency_unavailable
 
 
 def test_mongodb_invalid_ttl(mongo_test_storage, db_dependency_unavailable):
-    """Verifies that MongoDB uses a TTL that foregoes expiration when `SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL=-1`."""
+    """Verifies that MongoDBStorage raises a CacheParameterValidationException when an invalid TTL value is provided."""
     if db_dependency_unavailable("mongodb"):
         pytest.skip()
 
@@ -319,7 +319,7 @@ def test_mongodb_invalid_ttl(mongo_test_storage, db_dependency_unavailable):
 
 
 def test_redis_invalid_ttl(redis_test_storage, db_dependency_unavailable):
-    """Verifies that Redis uses a TTL that foregoes expiration when `SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL=-1`."""
+    """Verifies that RedisStorage raises a CacheParameterValidationException when an invalid TTL value is provided."""
     if db_dependency_unavailable("redis"):
         pytest.skip()
 
@@ -475,7 +475,7 @@ def test_unexpected_memory_cache_verification_input(value, in_memory_test_storag
 def test_roundtrip_deserialization(data, sqlite_test_storage):
     """Verifies that roundtrip encoding and decoding JSON with the `SQLAlchemyStorage` produces the original data.
 
-    The `_serialize_data` and `_deserialize_data`  methods of the `SQLAlchemyStorage` both use the `JSONDataEncoder` to
+    The `_serialize_data` and `_deserialize_data`  methods of the `SQLAlchemyStorage` both use the `JsonDataEncoder` to
     recursively encode and decode raw json data in preparation for JSON data storage and retrieval  in SQL.
 
     This test verifies that, with unexpected data types, the `SQLAlchemyStorage` will still serialize and deserialize
@@ -548,7 +548,7 @@ def test_delete_nonexistent_key(request, mock_response, storage_type, db_depende
     ],
 )
 def test_default_config_class_variable_override(storage_class, db_dependency_unavailable, monkeypatch):
-    """Verifies that modifying DEFAULT_CONFIG at class level affects _get_default_config()."""
+    """Verifies that modifying DEFAULT_CONFIG at class level affects get_default_config()."""
     dependency_name = storage_class.__name__.replace("Storage", "").lower()
     if db_dependency_unavailable(dependency_name):
         pytest.skip()
@@ -565,8 +565,8 @@ def test_default_config_class_variable_override(storage_class, db_dependency_una
         storage_class.DEFAULT_CONFIG["host"] = "custom-host.example.com"
         storage_class.DEFAULT_CONFIG["port"] = 9999
 
-        # Verify _get_default_config respects the modification
-        default_config = storage_class._get_default_config()
+        # Verify get_default_config respects the modification
+        default_config = storage_class.get_default_config()
         assert default_config["host"] == "custom-host.example.com"
         assert default_config["port"] == 9999
 

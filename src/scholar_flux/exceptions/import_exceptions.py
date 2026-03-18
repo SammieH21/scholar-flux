@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class OptionalDependencyImportError(Exception):
     """Base exception for Optional Dependency Issues."""
 
-    def __init__(self, message="Optional Dependency not found"):
+    def __init__(self, message: str = "Optional Dependency not found") -> None:
         """Initializes the foundational OptionalDependencyImportError that forms the basis of more specific error
         handling when dependencies are missing."""
         logger.error(message)
@@ -24,7 +24,7 @@ class OptionalDependencyImportError(Exception):
 class ItsDangerousImportError(OptionalDependencyImportError):
     """Exception for itsdangerous Dependency Issues."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `itsdangerous` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: itsdangerous backend is not installed.
         Please install the 'itsdangerous' package to use this feature."""
@@ -34,7 +34,7 @@ class ItsDangerousImportError(OptionalDependencyImportError):
 class CryptographyImportError(OptionalDependencyImportError):
     """Exception for cryptography Dependency Issues."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `cryptography` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: cryptography backend is not installed.
         Please install the 'cryptography' package to use this feature."""
@@ -44,7 +44,7 @@ class CryptographyImportError(OptionalDependencyImportError):
 class RedisImportError(OptionalDependencyImportError):
     """Exception for missing redis backend."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `redis` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: Redis backend is not installed.
         Please install the 'redis' package to use this feature."""
@@ -54,7 +54,7 @@ class RedisImportError(OptionalDependencyImportError):
 class SQLAlchemyImportError(OptionalDependencyImportError):
     """Exception for missing sql alchemy backend."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `sqlalchemy` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: SQL Alchemy backend is not installed.
         Please install the 'sqlalchemy' package to use this feature."""
@@ -64,7 +64,7 @@ class SQLAlchemyImportError(OptionalDependencyImportError):
 class DuckDBImportError(OptionalDependencyImportError):
     """Exception for missing DuckDB engine for SQL Alchemy."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `duckdb-engine` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: SQLAlchemy DuckDB engine is not installed.
         Please install the 'sqlalchemy' package to use this feature."""
@@ -74,7 +74,7 @@ class DuckDBImportError(OptionalDependencyImportError):
 class MongoDBImportError(OptionalDependencyImportError):
     """Exception for Mongo Dependency Issues."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `pymongo` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: MongoDB backend is not installed
         Please install the 'pymongo' package to use this feature."""
@@ -84,7 +84,7 @@ class MongoDBImportError(OptionalDependencyImportError):
 class XMLToDictImportError(OptionalDependencyImportError):
     """Exception for xmltodict Dependency Issues."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `xmltodict` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: 'xmltodict' backend is not installed
         Please install the 'xmltodict' package to use this feature."""
@@ -95,7 +95,7 @@ class XMLToDictImportError(OptionalDependencyImportError):
 class YAMLImportError(OptionalDependencyImportError):
     """Exception for yaml Dependency Issues."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the `yaml` import exception for improved logging before the exception is raised."""
         err = """Optional Dependency: 'yaml' backend is not installed
         Please install the 'yaml' package to use this feature."""

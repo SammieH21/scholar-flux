@@ -4,8 +4,8 @@
 By caching terminal paths and their parent paths, the PathProcessingCache class facilitates the faster, more efficient
 filtering, processing, and retrieval of nested JSON data components and structures as represented by path nodes.
 
-For the duration that each path-node combination exists, the cache uses weakly-referenced dictionaries and
-weakly-referenced sets to facilitate indexed trie operations and the process of filtering each path-node combination.
+For the duration that each path-node combination exists, the cache uses weakly-referenced dictionaries and weakly-
+referenced sets to facilitate indexed trie operations and the process of filtering each path-node combination.
 
 """
 from __future__ import annotations
@@ -27,19 +27,19 @@ logger.setLevel(logging.WARNING)
 
 
 class PathProcessingCache:
-    """The PathProcessingCache class implements a method of path caching that enables faster prefix searches. and
+    """The PathProcessingCache class implements a method of path caching that enables faster prefix searches and
     retrieval of terminal paths associated with a path to node mapping. This class is used within PathNodeMaps and
     RecordPathNodeMaps to increase the speed and efficiency of path discovery, processing, and filtering path-node
     mappings.
 
     Because the primary purpose of the scholar_flux Trie-based path-node-processing implementation is the processing and
-    preparation of highly nested JSON structures from API responses, the PathProcessingCache was created
-    to efficiently keep track of all descendants of a terminal node with weak references and facilitate of filtering
-    and flattening path-node combinations.
+    preparation of highly nested JSON structures from API responses, the PathProcessingCache was created to efficiently
+    keep track of all descendants of a terminal node with weak references and facilitate of filtering and flattening
+    path-node combinations.
 
-    Stale data is automatically removed to reduce the number of comparisons needed to retrieve terminal paths only,
-    and, as a result, later steps can more efficiently filter the complete list of terminal paths with faster path
-    prefix searches to facilitate processing using Path-Node Maps and Indexes when processing JSON data structures.
+    Stale data is automatically removed to reduce the number of comparisons needed to retrieve terminal paths only, and,
+    as a result, later steps can more efficiently filter the complete list of terminal paths with faster path prefix
+    searches to facilitate processing using Path-Node Maps and Indexes when processing JSON data structures.
 
     """
 
@@ -141,7 +141,7 @@ class PathProcessingCache:
                 logger.debug(f"Removed path from cache: {path}")
 
     def _prune_cache(self) -> None:
-        """Prunes empty weak-key referenced dictionary key entries from the cache. As the set is cleared.
+        """Prunes weak-referenced dictionary key entries from the cache if their associated sets are empty.
 
         Args:
             path (ProcessingPath): The path to remove from the cache.

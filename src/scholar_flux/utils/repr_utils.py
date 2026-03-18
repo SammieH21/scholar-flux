@@ -13,8 +13,8 @@ Functions:
     - generate_repr_from_string:
         Takes a class name and dictionary of attribute name-value pairs to create a representation from scratch.
     - generate_sequence_repr:
-        Generates a representation of a sequence given its class and internal elements. This class uses  `generate_repr`
-        on each nested component to generate the complete the representation.
+        Generates a representation of a sequence given its class and internal elements. This class uses `generate_repr`
+        on each nested component to generate the complete representation of the sequence.
     - adjust_repr_padding:
         Helper function that adjusts the padding of the representation to ensure all attributes are shown in-line.
     - format_repr_value:
@@ -390,7 +390,7 @@ def generate_repr(
 
 
 def generate_sequence_repr(
-    obj: Sequence,
+    obj: Sequence | set,
     flatten: bool = False,
     show_value_attributes: bool = True,
     replace_numeric: bool = False,

@@ -7,7 +7,7 @@ This encryption factory uses encryption and a safer_serializer for two steps:
     1) To sign the requests storage cache for invalidation on unexpected data changes/tampering
     2) To encrypt request cache for storage after serialization and decrypt it before deserialization during retrieval
 
-If a key does not exist and is not provided, the EncryptionPipelineFactory will create a new Fernet key. for these steps
+If a key does not exist and is not provided, the EncryptionPipelineFactory will create a new Fernet key for these steps
 
 """
 from scholar_flux.exceptions import (
@@ -17,12 +17,13 @@ from scholar_flux.exceptions import (
 )
 from requests_cache.serializers.pipeline import SerializerPipeline, Stage
 from requests_cache.serializers.cattrs import CattrStage
+from scholar_flux.security import SecretUtils
 from scholar_flux.utils import config_settings
 from pydantic import SecretStr
 import logging
 
 
-from typing import Optional, TYPE_CHECKING
+from typing import Final, Optional, TYPE_CHECKING
 import pickle
 
 if TYPE_CHECKING:
@@ -31,9 +32,11 @@ if TYPE_CHECKING:
 else:
     try:
         from itsdangerous import Signer
-        from cryptography.fernet import Fernet
     except ImportError:
         Signer = None
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError:
         Fernet = None
 
 
@@ -44,7 +47,7 @@ class EncryptionPipelineFactory:
     """Helper class used to create a factory for encrypting and decrypting session cache and pipelines using a secret
     key.
 
-    Note that pickle in common uses carries the potential for vulnerabilities when reading untrusted serialized
+    Note that pickle in common use carries the potential for vulnerabilities when reading untrusted serialized
     data and can otherwise perform arbitrary code execution. This implementation makes use of a safe serializer
     that uses a fernet generated secret_key to validate the serialized data before reading and decryption.
     This prevents errors and halts reading the cached data in case of modification via a malicious source.
@@ -64,7 +67,9 @@ class EncryptionPipelineFactory:
 
     """
 
-    def __init__(self, secret_key: Optional[str | bytes] = None, salt: Optional[str] = ""):
+    ENCODING: Final[str] = "utf-8"
+
+    def __init__(self, secret_key: Optional[str | bytes | SecretStr] = None, salt: Optional[str] = ""):
         """Initializes the EncryptionPipelineFactory class that generates an encryption pipeline for use with
         CachedSession objects.
 
@@ -74,30 +79,42 @@ class EncryptionPipelineFactory:
         Otherwise a random Fernet key is generated and used to encrypt the session.
 
         Args:
-            secret_key Optional[str | bytes]: The key to use for encrypting and decrypting
-                       the data that flows through the pipeline.
+            secret_key Optional[str | bytes]:
+                The key to use for encrypting and decrypting the data that flows through the pipeline.
             salt: Optional[str]: An optional salt used to further increase security on write
 
         """
 
         if Signer is None:
-            raise ItsDangerousImportError
+            raise ItsDangerousImportError()
 
         if Fernet is None:
-            raise CryptographyImportError
+            raise CryptographyImportError()
 
         self.signer = Signer
 
         prepared_key = self._prepare_key(secret_key)
-
-        if prepared_key:
-            self._validate_key(prepared_key)
-
         self.secret_key = prepared_key or self.generate_secret_key()
         self.salt = salt or ""
 
-    @staticmethod
-    def _prepare_key(key: Optional[str | bytes]) -> Optional[bytes]:
+    @property
+    def secret_key(self) -> bytes:
+        """Returns the secret key used for encrypting and decrypting the cache serialization pipeline."""
+        unmasked_secret_str = SecretUtils.unmask_secret(self._secret_key)
+        return (
+            unmasked_secret_str.encode(self.ENCODING) if isinstance(unmasked_secret_str, str) else unmasked_secret_str
+        )
+
+    @secret_key.setter
+    def secret_key(self, key: str | bytes | SecretStr) -> None:
+        """Validates and assigns a secret key for encrypting and decrypting the cache serialization pipeline."""
+        unmasked_key = SecretUtils.unmask_secret(key)
+        unmasked_key_bytes = unmasked_key.encode(self.ENCODING) if isinstance(unmasked_key, str) else unmasked_key
+        self._validate_key(unmasked_key_bytes)
+        self._secret_key = SecretUtils.mask_secret(unmasked_key_bytes.decode(self.ENCODING))
+
+    @classmethod
+    def _prepare_key(cls, key: Optional[str | bytes | SecretStr]) -> Optional[bytes]:
         """Prepares the input (bytes, string) and returns a bytes variable if a non-missing value is provided.
 
         Args:
@@ -107,21 +124,22 @@ class EncryptionPipelineFactory:
             Optional[bytes]: The key prepared as a bytes object. If no key is provided, this method will return None.
 
         """
-        cache_secret_key = config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
-
-        if not key and cache_secret_key:
+        if not key and (cache_secret_key := config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")):
             logger.debug(
                 "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build cache‑session" " encryption pipeline"
             )
 
-            key = cache_secret_key.get_secret_value() if isinstance(cache_secret_key, SecretStr) else cache_secret_key
+            key = SecretUtils.unmask_secret(cache_secret_key)
 
         if key is None:
             return None
 
-        byte_key = key.encode("utf-8") if isinstance(key, str) else key
+        byte_key = SecretUtils.unmask_secret(key).encode(cls.ENCODING) if isinstance(key, str | SecretStr) else key
         if not isinstance(byte_key, bytes):
-            raise SecretKeyError("secret_key must be bytes or UTF-8 string")
+            raise SecretKeyError(
+                f"The secret key used for pipeline serialization encryption must be a bytes or {cls.ENCODING.upper()} "
+                "string object."
+            )
 
         return byte_key
 
@@ -185,7 +203,7 @@ class EncryptionPipelineFactory:
         """Create a serializer that uses pickle + itsdangerous for signing and cryptography for encryption.
 
         This pipeline encrypts the response data after generating a signature when serialized. On load, the data is then
-        decrypted and the signature that was previously generated with the secret key is  verified prior to
+        decrypted and the signature that was previously generated with the secret key is verified prior to
         deserialization of the response.
 
         Returns:

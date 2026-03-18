@@ -1,19 +1,20 @@
 # /security/patterns.py
-"""The scholar_flux.security.patterns module implements the foundational patterns required to implement a light-weight
-fixed/regex pattern matching utility that determines keys to mask in both text and JSON-formatted parameter
-dictionaries.
+"""The scholar_flux.security.patterns module implements pattern matching utilities for sensitive string masking.
+
+This module defines the foundational patterns required to implement lightweight fixed/regular expression pattern
+matching objects for masking sensitive strings in both text and JSON-formatted dictionaries.
 
 Classes:
     MaskingPattern:
         Implements the abstract base class that defines how MaskingPatterns are created and formatted.
     MaskingPatternSet:
-        Defines a subclass of a set that excepts only subclasses of MaskingPatterns for robustness.
+        Defines a subclass of a set that accepts only subclasses of MaskingPatterns for robustness.
     KeyMaskingPattern:
         Defines the class and methods necessary to mask text based on the presence or absence of a specific field name
-        when determining what patterns to mask.
+        when determining which patterns to mask.
     StringMaskingPattern:
         Defines the class and methods necessary to mask text based on the presence or absence of specific patterns.
-        These patterns can either be fixed or regular expressions, and accept both case-sensitive and case-insensitive
+        These patterns can either be fixed or regular expressions and accept both case-sensitive and case-insensitive
         pattern matching settings.
 
 """
@@ -42,25 +43,26 @@ class MaskingPattern(ABC):
         ...
 
     def __hash__(self) -> int:
-        """A helper method for resolving a pattern into an identifying hash using the self._identity_key() private
-        method to be later overridden by subclasses.
+        """Resolves the current pattern into an identifying hash using the self._identity_key() private method.
 
-        The purpose of this method is to ensure patterns can be stored in dictionaries and lists
+        This method ensures that patterns can be stored in dictionaries and sets and replaced with new
+        pattern-specific settings when needed.
+
+        Returns:
+            int: An integer-based hash of the current pattern.
 
         """
         return hash(self._identity_key())
 
     def __eq__(self, other: object) -> bool:
-        """Uses the class identity key method in order to determine whether the pattern ca be considered equal to that
-        of another pattern minus the instance-specific settings."""
+        """Uses the class-specific `_identity_key()` method to check if the current pattern is equal to another."""
         if not isinstance(other, type(self)):
             return False
         return self._identity_key() == other._identity_key()
 
     @abstractmethod
     def _identity_key(self) -> str:
-        """This private method, when overridden, allows the current class to resolve into a hash for easier comparisons
-        to other patterns of the same type."""
+        """This private method, when overridden, allows for hash-based pattern storage and identification."""
         ...
 
     @classmethod
@@ -118,8 +120,8 @@ class KeyMaskingPattern(MaskingPattern):
     mask_pattern: bool = True
     apply_to_dict: bool = True
 
-    def __post_init__(self):
-        """Post initialization step that prepares  `mask_pattern` and other attributes for use with `.apply_masking()`.
+    def __post_init__(self) -> None:
+        """Post initialization step that prepares the `pattern` attribute for use with `.apply_masking()`.
 
         This implementation can optionally mask the pattern attribute on post initialization to ensure that the current
         pattern, itself, doesn't inadvertently link sensitive patterns to logs.
@@ -131,7 +133,7 @@ class KeyMaskingPattern(MaskingPattern):
     def matches_key(self, key: str) -> bool:
         """Checks if a dictionary key matches this pattern's field.
 
-        This method returns True, when the field of the current KeyMaskingPattern matches the key. If the field doesn't
+        This method returns True when the field of the current KeyMaskingPattern matches the key. If the field doesn't
         match, False is returned. A case insensitive match is only performed if `KeyMaskingPattern.ignore_case=True`.
 
         Args:
@@ -153,9 +155,7 @@ class KeyMaskingPattern(MaskingPattern):
         if not isinstance(key, str):
             return False
 
-        if self.ignore_case:
-            return key.lower() == self.field.lower()
-        return key == self.field
+        return key.lower() == self.field.lower() if self.ignore_case else key == self.field
 
     def apply_masking(self, text: str) -> str:
         """Removes sensitive fields from text based on the current KeyMaskingPattern's defined settings.
@@ -213,7 +213,7 @@ class FuzzyKeyMaskingPattern(KeyMaskingPattern):
     """
 
     def matches_key(self, key: str) -> bool:
-        """Checks if a dictionary key matches this pattern's field using regex.
+        """Checks if a dictionary key matches this pattern's field using regular expressions.
 
         This method returns True if the field of the current `FuzzyKeyMaskingPattern`, when used as a regular
         expression, matches the provided key and false otherwise.
@@ -305,7 +305,7 @@ class StringMaskingPattern(MaskingPattern):
     ignore_case: bool = True
     mask_pattern: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Uses the mask_pattern field to determine whether or not to mask a particular string."""
         if self.mask_pattern and not isinstance(self.pattern, SecretStr):
             object.__setattr__(self, "pattern", SecretUtils.mask_secret(self.pattern))
@@ -313,20 +313,19 @@ class StringMaskingPattern(MaskingPattern):
     def apply_masking(self, text: str) -> str:
         """Removes sensitive strings or patterns from text based on the defined settings of the `StringMaskingPattern`.
 
-        For the current pattern to trigger, the registered pattern must match the text exactly if `use_regex=False`.
-        Otherwise the pattern is treated as a regular expression. Cases sensitivity is determined by the `ignore_case`
-        attribute.
+        For the current pattern to trigger, the registered pattern must match the text exactly if
+        `use_regex=False`. Otherwise, the pattern is treated as a regular expression. Case sensitivity is
+        determined by the `ignore_case` attribute.
 
         Masking behavior can be further customized based on the defined settings of the current masking pattern based on
         the attributes specified for `pattern`, `replacement`, `use_regex`, and `ignore_case`.
 
         Args:
             text (str): The text to clean of sensitive fields
-        Returns
+        Returns:
             text (str): The text after scrubbing sensitive fields
 
         """
-
         flags = re.IGNORECASE if self.ignore_case else 0
         pattern = SecretUtils.unmask_secret(self.pattern)
         if not self.use_regex:
@@ -339,27 +338,25 @@ class StringMaskingPattern(MaskingPattern):
 
 
 class MaskingPatternSet(set[MaskingPattern]):
-    """Defines the subclass of a set that implements type safety to ensure that only subclasses of MaskingPatterns can
-    be added.
+    """Subclasses the `set` to implement the type-safe storage of MaskingPatterns.
 
-    As a result, robustness is increased, and the likelihood of unsuspecting errors from the use of incorrect types
-    decreases at runtime when using the scholar_flux API for response retrieval and sensitive pattern masking.
+    As a result, the robustness of operations requiring sensitive pattern masking is increased, reducing the likelihood
+    of unexpected errors during response retrieval and the redaction of sensitive parameters with ScholarFlux.
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the MaskingPatternSet as an empty set."""
         super().__init__()
 
     def add(self, item: MaskingPattern) -> None:
-        """Overrides the basic `add` method to ensure that each `item` is typed checked prior to entering the set."""
+        """Overrides the basic `add` method to ensure that each `item` is type-checked prior to entering the set."""
         if not isinstance(item, MaskingPattern):
             raise TypeError(f"Expected a MaskingPattern, got {type(item)}")
         super().add(item)
 
     def update(self, *others: Iterable[MaskingPattern]) -> None:
-        """Overrides the basic `update` method to ensure that all `items` are typed checked prior to entering the
-        set."""
+        """Overrides the basic `update` method to ensure that all `items` are type-checked prior to entering the set."""
         for patterns in others:
             if isinstance(patterns, MaskingPattern):
                 super().add(patterns)

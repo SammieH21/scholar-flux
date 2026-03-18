@@ -7,7 +7,6 @@ provider does not exceed the limit within the specified time interval.
 """
 from __future__ import annotations
 from contextlib import contextmanager
-from typing_extensions import Self
 import time
 from functools import wraps
 from scholar_flux.exceptions import APIParameterException
@@ -17,8 +16,13 @@ from scholar_flux.api.rate_limiting.history import (
     RateLimitEvent,
 )
 from datetime import datetime
-from typing import Optional, Iterator, Dict, Any, Callable, TypeVar, ParamSpec
+
+from typing import Optional, Iterator, Dict, Any, Callable, TypeVar, ParamSpec, TYPE_CHECKING
 import logging
+
+if TYPE_CHECKING:
+    from typing_extensions import Self, Literal
+    from types import TracebackType
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +90,7 @@ class RateLimiter:
         return self._min_interval
 
     @min_interval.setter
-    def min_interval(self, min_interval: float | int):
+    def min_interval(self, min_interval: float | int) -> None:
         """Validates the `min_interval` property upon assignment to ensure that the received value is numeric.
 
         This setter allows the `min_interval` property to be assigned directly to a rate limiter instance and requires
@@ -149,7 +153,9 @@ class RateLimiter:
         self._last_call = time.time()
 
     @classmethod
-    def _wait(cls, min_interval: float | int, last_call: float | int, metadata: Optional[Dict[str, Any]] = None):
+    def _wait(
+        cls, min_interval: float | int, last_call: float | int, metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Helper Method that calls `time.sleep()` in the background to wait for a specific number of seconds.
 
         This method determines how long to wait by referencing when `._wait()` was last called along with the
@@ -250,7 +256,7 @@ class RateLimiter:
         cls.history.append(record)
         time.sleep(interval)
 
-    def __call__(self, fn: Callable[P, R]):
+    def __call__(self, fn: Callable[P, R]) -> Callable[P, R]:
         """Implements a rate limit for the defined function when the `RateLimiter` is used as a decorator.
 
         This decorator can be used to ensure a function can be called once every `min_interval` seconds and helps to
@@ -274,7 +280,7 @@ class RateLimiter:
 
         return wrapped
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Enables a `RateLimiter` instance to be used as a context manager for throttling function calls or requests.
 
         Example:
@@ -285,7 +291,12 @@ class RateLimiter:
         self.wait()
         return self
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> Literal[False]:
         """Exits the context manager after the execution of the wrapped function."""
         return False
 

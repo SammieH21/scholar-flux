@@ -6,16 +6,16 @@ parameter names and request formation are abstracted.
 
 """
 from __future__ import annotations
-from typing import Dict, Optional, Any, Annotated, Iterator
+from typing import Optional, Any, Annotated, Iterator
 from contextlib import contextmanager
-from requests_cache import CachedSession
+from requests_cache.session import CachedSession
 from pydantic import SecretStr
 import logging
 import requests
 from requests import Response
 from scholar_flux import masker as default_masker
 from scholar_flux.utils import config_settings
-from scholar_flux.api.models import BaseAPIParameterMap
+from scholar_flux.api.models import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.api import BaseAPI, APIParameterConfig, APIParameterMap, SearchAPIConfig, RateLimiter
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models import ProviderConfig
@@ -79,8 +79,8 @@ class SearchAPI(BaseAPI):
         api_key: Optional[str | SecretStr] = None,  # SearchAPIConfig
         records_per_page: int = 20,  # SearchAPIConfig
         request_delay: Optional[float] = None,  # SearchAPIConfig
-        **api_specific_parameters,  # SearchAPIConfig
-    ):
+        **api_specific_parameters: Any,  # SearchAPIConfig
+    ) -> None:
         """Initializes the SearchAPI with a query and optional parameters. The absolute bare minimum for interacting
         with APIs requires a query, base_url, and an APIParameterConfig that associates relevant fields (aka query,
         records_per_page, etc. with fields that are specific to each API provider.
@@ -153,7 +153,7 @@ class SearchAPI(BaseAPI):
         parameter_config: Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig] = None,
         masker: Optional[SensitiveDataMasker] = None,
         rate_limiter: Optional[RateLimiter] = None,
-    ):
+    ) -> None:
         """Initializes the API session with the provided base URL and API key. This method is called during the
         initialization of the class.
 
@@ -205,8 +205,8 @@ class SearchAPI(BaseAPI):
         use_cache: Optional[bool] = None,
         masker: Optional[SensitiveDataMasker] = None,
         rate_limiter: Optional[RateLimiter] = None,
-        **api_specific_parameters,
-    ):
+        **api_specific_parameters: Any,
+    ) -> SearchAPI:
         """Helper method for generating a new SearchAPI from an existing SearchAPI instance. All parameters that are not
         modified are pulled from the original SearchAPI. If no changes are made, an identical SearchAPI is generated
         from the existing defaults.
@@ -218,11 +218,11 @@ class SearchAPI(BaseAPI):
                 Maps global scholar_flux parameters to those that are API specific.
             session:(Optional[requests.Session | CachedSession]):
                 An optional session to use for the creation of request sessions
+            user_agent (Optional[str]): A user agent to associate with the session
             timeout: (Optional[int | float]): Identifies the number of seconds to wait before raising a TimeoutError
             use_cache: Optional[bool]: Indicates whether or not to use cache. The settings from session
                                        are otherwise used this option is not specified.
             masker: (Optional[SensitiveDataMasker]): A masker used to filter logs of API keys and other sensitive data
-            user_agent: Optional[str] = An user agent to associate with the session
 
 
         Returns:
@@ -344,7 +344,7 @@ class SearchAPI(BaseAPI):
         return self.__query
 
     @query.setter
-    def query(self, query):
+    def query(self, query: str) -> None:
         """Uses the private method, __query to update the current query and uses validation to ensure that the query is
         a non-empty string."""
         if not query or not isinstance(query, str):
@@ -407,12 +407,12 @@ class SearchAPI(BaseAPI):
         return self.config.request_delay
 
     @property
-    def api_specific_parameters(self) -> dict:
+    def api_specific_parameters(self) -> dict[str, APISpecificParameter]:
         """This property pulls additional parameters corresponding to the API from the configuration of the current API
         instance.
 
         Returns:
-            dict[str, APISpecificParameter]: A list of all parameters specific to the current API.
+            dict[str, APISpecificParameter]: A dictionary of all parameters specific to the current API.
 
         """
         return self.config.api_specific_parameters or {}
@@ -427,7 +427,7 @@ class SearchAPI(BaseAPI):
         user_agent: Optional[str] = None,
         timeout: Optional[int | float] = None,
         use_cache: Optional[bool] = None,
-        masker=None,
+        masker: Optional[SensitiveDataMasker] = None,
         rate_limiter: Optional[RateLimiter] = None,
     ) -> SearchAPI:
         """Advanced constructor: instantiate directly from a SearchAPIConfig instance.
@@ -443,15 +443,13 @@ class SearchAPI(BaseAPI):
             use_cache: Optional[bool]:
                 Indicates whether or not to use cache. The settings from session are otherwise used this option is
                 not specified.
-            masker: (Optional[SensitiveDataMasker]): A masker used to filter logs of API keys and other sensitive data
-            user_agent: Optional[str] = An user agent to associate with the session
-
+            masker (Optional[SensitiveDataMasker]): A masker used to filter logs of API keys and other sensitive data.
+            user_agent (Optional[str]): A user agent to associate with the session.
 
         Returns:
-            SearchAPI: A newly constructed SearchAPI with the chosen/validated settings
+            SearchAPI: A newly constructed SearchAPI with the chosen/validated settings.
 
         """
-
         # bypass __init__
         instance = cls.__new__(cls)
         # Manually assign config and call super
@@ -478,7 +476,7 @@ class SearchAPI(BaseAPI):
         timeout: Optional[int | float] = None,
         masker: Optional[SensitiveDataMasker] = None,
         rate_limiter: Optional[RateLimiter] = None,
-        **api_specific_parameters,
+        **api_specific_parameters: Any,
     ) -> SearchAPI:
         """Factory method to create a new SearchAPI instance using a ProviderConfig.
 
@@ -538,6 +536,30 @@ class SearchAPI(BaseAPI):
                 provider_registry.remove(provider_name)
 
     @classmethod
+    def get_default_provider_name(cls) -> str:
+        """Retrieves the name of the default provider as configured via `config_settings`.
+
+        Note:
+            When `config_settings` does not resolve to a known provider, a warning is raised, and
+            SearchAPIConfig.DEFAULT_PROVIDER is returned instead.
+
+        Returns:
+            str:
+                A known default, either resolved from `SCHOLAR_FLUX_DEFAULT_PROVIDER` or
+                `SearchAPIConfig.DEFAULT_PROVIDER`.
+
+        """
+        default_provider_name = config_settings.get("SCHOLAR_FLUX_DEFAULT_PROVIDER")
+        default_provider_config = provider_registry.get(default_provider_name)
+        if default_provider_name is not None and not default_provider_config:
+            logger.warning(
+                f"The provider name, '{default_provider_name}' configured from the environment variable, "
+                "SCHOLAR_FLUX_DEFAULT_PROVIDER, does not reference a valid provider. "
+                f"Defaulting to the provider, {SearchAPIConfig.DEFAULT_PROVIDER} instead..."
+            )
+        return default_provider_config.provider_name if default_provider_config else SearchAPIConfig.DEFAULT_PROVIDER
+
+    @classmethod
     def from_defaults(
         cls,
         query: str,
@@ -548,7 +570,7 @@ class SearchAPI(BaseAPI):
         timeout: Optional[int | float] = None,
         masker: Optional[SensitiveDataMasker] = None,
         rate_limiter: Optional[RateLimiter] = None,
-        **api_specific_parameters,
+        **api_specific_parameters: Any,
     ) -> SearchAPI:
         """Factory method to create SearchAPI instances with sensible defaults for known providers.
 
@@ -572,7 +594,7 @@ class SearchAPI(BaseAPI):
 
         """
         try:
-            default_provider_name = provider_name or config_settings.get("SCHOLAR_FLUX_DEFAULT_PROVIDER", "PLOS")
+            default_provider_name = provider_name or cls.get_default_provider_name()
             search_api_config = SearchAPIConfig.from_defaults(
                 provider_name=default_provider_name, **api_specific_parameters
             )
@@ -596,8 +618,8 @@ class SearchAPI(BaseAPI):
         self,
         page: int,
         additional_parameters: Optional[dict[str, Any]] = None,
-        **api_specific_parameters,
-    ) -> Dict[str, Any]:
+        **api_specific_parameters: Any,
+    ) -> dict[str, Any]:
         """Constructs the request parameters for the API call, using the provided APIParameterConfig and its associated
         APIParameterMap. This method maps standard fields (query, page, records_per_page, api_key, etc.) to the
         provider-specific parameter names.
@@ -625,7 +647,7 @@ class SearchAPI(BaseAPI):
                 the additional_parameters parameter.
 
         Returns:
-            Dict[str, Any]: The constructed request parameters.
+            dict[str, Any]: The constructed request parameters.
 
         """
 
@@ -703,7 +725,7 @@ class SearchAPI(BaseAPI):
     def search(
         self,
         page: Optional[int] = None,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: Optional[dict[str, Any]] = None,
         request_delay: Optional[float] = None,
         endpoint: Optional[str] = None,
     ) -> Response:
@@ -716,7 +738,7 @@ class SearchAPI(BaseAPI):
 
         Args:
             page (Optional[int]): Page number to query. If provided, parameters are built from the config and this page.
-            parameters (Optional[Dict[str, Any]]):
+            parameters (Optional[dict[str, Any]]):
                 If provided alone, used as the full parameter set for the request.
                 If provided together with `page`, these act as additional or overriding parameters on top of
                 the built config.
@@ -747,7 +769,7 @@ class SearchAPI(BaseAPI):
     def prepare_search(
         self,
         page: Optional[int] = None,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: Optional[dict[str, Any]] = None,
         request_delay: Optional[float] = None,
         endpoint: Optional[str] = None,
     ) -> requests.PreparedRequest:
@@ -758,7 +780,7 @@ class SearchAPI(BaseAPI):
 
         Args:
             page (Optional[int]): Page number to query. If provided, parameters are built from the config and this page.
-            parameters (Optional[Dict[str, Any]]):
+            parameters (Optional[dict[str, Any]]):
                 If provided alone, used as the full parameter set to build the current request.
                 If provided together with `page`, these act as additional or overriding parameters on top of
                 the built config.
@@ -825,7 +847,7 @@ class SearchAPI(BaseAPI):
         self,
         base_url: Optional[str] = None,
         endpoint: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: Optional[dict[str, Any]] = None,
         api_key: Optional[str] = None,
     ) -> requests.PreparedRequest:
         """Prepares a GET request for the specified endpoint with optional parameters.
@@ -837,7 +859,7 @@ class SearchAPI(BaseAPI):
         Args:
             base_url (str): The base URL for the API.
             endpoint (Optional[str]): The API endpoint to prepare the request for.
-            parameters (Optional[Dict[str, Any]]): Optional query parameters for the request.
+            parameters (Optional[dict[str, Any]]): Optional query parameters for the request.
 
         Returns:
             requests.PreparedRequest: The prepared request object.
@@ -875,12 +897,12 @@ class SearchAPI(BaseAPI):
             )
 
     @staticmethod
-    def _api_key_exists(parameters: Dict[str, Any]) -> bool:
+    def _api_key_exists(parameters: dict[str, Any]) -> bool:
         """Helper method for determining whether an api key exists in the list of dict parameters provided to the
         request.
 
         Args:
-            parameters (Dict): Optional query parameters for the request.
+            parameters (dict[str, Any]): Optional query parameters for the request.
 
         Returns:
             bool: Indicates whether or not an api key parameter exists
@@ -949,7 +971,7 @@ class SearchAPI(BaseAPI):
 
     @contextmanager
     def with_config_parameters(
-        self, provider_name: Optional[str] = None, query: Optional[str] = None, **api_specific_parameters
+        self, provider_name: Optional[str] = None, query: Optional[str] = None, **api_specific_parameters: Any
     ) -> Iterator[SearchAPI]:
         """Allows for the temporary modification of the search configuration, and parameter mappings, and cache
         namespace. For the current API. Uses a `contextmanager` to temporarily change the provided parameters without
@@ -992,14 +1014,13 @@ class SearchAPI(BaseAPI):
             self.parameter_config = original_parameter_config
             self.query = original_query
 
-    def describe(self) -> dict:
+    def describe(self) -> dict[str, Any]:
         """A helper method used that describe accepted configuration for the current provider or user-defined parameter
         mappings.
 
         Returns:
-            dict:
-                a dictionary describing valid config fields and provider-specific api parameters for the current provider
-                (if applicable).
+            dict[str, Any]: A dictionary describing valid config fields and provider-specific api parameters for the
+            current provider (if applicable).
 
         """
         config_fields = list(SearchAPIConfig.model_fields)

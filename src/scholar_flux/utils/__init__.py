@@ -40,7 +40,7 @@ Modules:
 
 """
 
-from scholar_flux.utils.logger import setup_logging, log_level_context
+from scholar_flux.utils.logger import setup_logging, log_level_context, resolve_log_stream, resolve_log_level
 from typing import Any
 from scholar_flux.utils.config_loader import ConfigLoader
 from scholar_flux.utils.initializer import config_settings, initialize_package
@@ -57,10 +57,14 @@ from scholar_flux.utils.helpers import (
     generate_response_hash,
     coerce_int,
     coerce_numeric,
+    coerce_bool,
     coerce_str,
+    coerce_bytes,
+    coerce_json_str,
     coerce_flattened_str,
     try_none,
     try_str,
+    try_bytes,
     try_int,
     try_dict,
     try_compile,
@@ -116,7 +120,12 @@ from scholar_flux.utils.repr_utils import (
     adjust_repr_padding,
 )
 
-from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.response_protocol import (
+    ResponseProtocol,
+    is_response_like,
+    ResponseSupportsJSONProtocol,
+    response_supports_json,
+)
 from scholar_flux.utils.lazy_loader import lazy_import_attr
 
 _lazy_imports = {("scholar_flux.utils.provider_utils", "ProviderUtils")}
@@ -134,6 +143,8 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     "setup_logging",
     "log_level_context",
+    "resolve_log_stream",
+    "resolve_log_level",
     "ConfigLoader",
     "config_settings",
     "CacheDataEncoder",
@@ -145,11 +156,15 @@ __all__ = [
     "get_first_available_key",
     "generate_response_hash",
     "coerce_str",
+    "coerce_bytes",
+    "coerce_json_str",
     "coerce_flattened_str",
     "coerce_int",
     "coerce_numeric",
+    "coerce_bool",
     "try_none",
     "try_str",
+    "try_bytes",
     "try_int",
     "try_dict",
     "try_compile",
@@ -188,6 +203,9 @@ __all__ = [
     "normalize_repr",
     "adjust_repr_padding",
     "ResponseProtocol",
+    "ResponseSupportsJSONProtocol",
+    "response_supports_json",
+    "is_response_like",
     "initialize_package",
     "extract_year",
     "generate_iso_timestamp",

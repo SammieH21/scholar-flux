@@ -46,7 +46,7 @@ def metadata() -> dict[str, Any]:
 def success_response(
     mock_successful_response, extracted_records, metadata, processed_records, normalized_records
 ) -> ProcessedResponse:
-    """Fixture used to mock an `SuccessResponse` to be later encapsulated in a SearchResult."""
+    """Fixture used to mock a `ProcessedResponse` to be later encapsulated in a SearchResult."""
     success_response = ProcessedResponse(
         cache_key="test-cache-key",
         response=mock_successful_response,
@@ -192,6 +192,9 @@ def test_search_result_success(success_response, extracted_records, metadata, pr
 
     assert search_result_success.cache_key == "test-cache-key"
 
+    # The `SearchResult` object should use `repr` under the hood when displaying a string representation of the data
+    assert repr(search_result_success) == str(search_result_success)
+
 
 @pytest.mark.parametrize(
     "provider_name",
@@ -218,7 +221,7 @@ def test_invalid_search_list_elements():
 
 
 def test_default_with_search_fields():
-    """Verifies that the behavior of `with_search_fields depends on the received type."""
+    """Verifies that the behavior of the `with_search_fields()` method depends on the received type."""
     # Attempting to append the search result list's search fields should return None.
     search_result = SearchResult(query="q", page=1, provider_name="new")
 
@@ -404,8 +407,32 @@ def test_search_result_addition():
     assert search_result_list_concat == search_result_list_concat2
 
 
+def test_search_result_list_slice_assignment(mock_search_result_list):
+    """Verifies that iterables of search results can be assigned as slices to a SearchResultList."""
+    search_result_list = SearchResultList()
+    search_result_list[:3] = mock_search_result_list[:3]
+    assert len(search_result_list) == 3 and search_result_list == mock_search_result_list[:3]
+
+    new_search_result_list = SearchResultList()
+    invalid_search_results = list(search_result_list) + ["Not a search result"]
+    err = re.escape("Expected a SearchResult or Iterable of SearchResults, but at least one element is invalid.")
+
+    with pytest.raises(TypeError, match=err):
+        new_search_result_list[:4] = invalid_search_results[:4]  # type: ignore
+
+    # If the entire batch is invalid, nothing new is assigned
+    assert len(new_search_result_list) == 0
+
+    # Only the last element is invalid. Assignment should be possible
+    valid_search_results = invalid_search_results[:-1]
+
+    # testing re-assignment
+    new_search_result_list[0:3] = valid_search_results[::-1]  # type: ignore
+    assert new_search_result_list[::-1] == search_result_list
+
+
 def test_search_result_copy():
-    """Verifies that the `__copy__` method correctly creates a shallow copy of the current SearchResultList"""
+    """Verifies that the `__copy__` method correctly creates a shallow copy of the current SearchResultList."""
     pages = list(range(1, 5))  # 1 to 4
     mock_providers = ["Provider_one", "ProviderTwo", "ProviderThree"]
     search_result_list = SearchResultList(

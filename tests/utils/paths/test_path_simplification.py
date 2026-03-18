@@ -28,10 +28,10 @@ def test_path_uniqueness():
     path_node_index = PathNodeIndex.from_path_mappings(path_mappings)
     assert path_node_index
     simplified_data = path_node_index.simplify_to_rows(max_components=3)
-    assert [
+    assert simplified_data == [
         {"name": "Scholarly Works (1988)", "author.name": "Dr. Lena", "colleague.author.name": "Dr. Watts"},
         {"name": "Quantum Thoughts (2023)", "author.name": "Dr. Edgar"},
-    ] == simplified_data
+    ]
 
 
 def test_generate_base_name_valid():

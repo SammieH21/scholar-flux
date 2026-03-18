@@ -8,7 +8,7 @@ of the automatic sphinx documentation.
 """
 
 
-def set_public_api_module(module_name: str, public_names: list[str], namespace: dict):
+def set_public_api_module(module_name: str, public_names: list[str], namespace: dict) -> None:
     """Assigns the current module's name to the __module__ attribute of public API objects.
 
     This function is useful for several use cases including sphinx documentation, introspection, and

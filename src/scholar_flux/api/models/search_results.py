@@ -46,6 +46,8 @@ from scholar_flux.api.models import ResponseMetadataMap
 from scholar_flux.exceptions import RecordNormalizationException
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.data.data_extractor import DataExtractor
+from scholar_flux.utils.helpers import parse_iso_timestamp
+from scholar_flux.utils.logger import log_level_context
 from scholar_flux.utils.record_types import (
     RecordType,
     NormalizedRecordType,
@@ -54,16 +56,33 @@ from scholar_flux.utils.record_types import (
     NormalizedRecordList,
 )
 from scholar_flux.utils.helpers import coerce_str, as_tuple
-from typing import Optional, Any, MutableSequence, Iterable, Iterator, Literal, Sequence, overload, TYPE_CHECKING
+from typing import (
+    Optional,
+    Any,
+    MutableSequence,
+    Iterable,
+    Iterator,
+    Literal,
+    Sequence,
+    overload,
+    SupportsIndex,
+    TYPE_CHECKING,
+)
+from typing_extensions import TypeAliasType
 from requests import Response
 from pydantic import BaseModel, Field, AliasChoices, computed_field
 import logging
+from datetime import datetime  # noqa: TCH003
 
 if TYPE_CHECKING:
     from re import Pattern
 
 
 logger = logging.getLogger(__name__)
+
+SearchFields = TypeAliasType(
+    "SearchFields", set[Literal["query", "provider_name", "display_name", "page", "retrieval_timestamp", "cached"]]
+)
 
 
 class SearchResult(BaseModel):
@@ -114,15 +133,13 @@ class SearchResult(BaseModel):
     def response(self) -> Optional[Response | ResponseProtocol]:
         """Directly references the raw response or response-like object from the API Response if available.
 
-        If the received response is not available (None in the response_result), then this value will also be absent
-        (None).
+        Returns:
+            Optional[Response | ResponseProtocol]:
+                The `response` object (response-like or None) if a `ProcessedResponse` or `ErrorResponse` is available.
+                When either APIResponse subclass is not available, None is returned instead.
 
         """
-        return (
-            self.response_result.response
-            if self.response_result is not None and self.response_result.validate_response()
-            else None
-        )
+        return self.response_result.response if self.response_result is not None else None
 
     @property
     def parsed_response(self) -> Optional[Any]:
@@ -269,7 +286,7 @@ class SearchResult(BaseModel):
             else None
         )
 
-    @property
+    @computed_field
     def cached(self) -> Optional[bool]:
         """Identifies whether the current response was retrieved from the session cache.
 
@@ -316,10 +333,16 @@ class SearchResult(BaseModel):
             else None
         )
 
+    @computed_field
+    def retrieval_timestamp(self) -> Optional[datetime]:
+        """Indicates the ISO timestamp associated with the original response creation date and time."""
+        return parse_iso_timestamp(self.created_at) if self.created_at else None
+
     @property
     def url(self) -> Optional[str]:
         """Extracts the URL from the underlying response, if available."""
-        return self.response_result.url if self.response_result is not None else None
+        with log_level_context(log_level=logging.ERROR):
+            return self.response_result.url if self.response_result is not None else None
 
     @property
     def status_code(self) -> Optional[int]:
@@ -376,7 +399,7 @@ class SearchResult(BaseModel):
             metadata_map = getattr(provider_config, "metadata_map", None)
         return self.response_result.process_metadata(metadata_map, update_metadata=update_metadata)
 
-    def build_record_id_index(self, *args, **kwargs) -> dict[str, RecordType]:
+    def build_record_id_index(self, *args: Any, **kwargs: Any) -> dict[str, RecordType]:
         """Builds a lookup table mapping record IDs to their original extracted records.
 
         This method delegates to the underlying `ProcessedResponse` or `ErrorResponse` to build an index
@@ -399,7 +422,7 @@ class SearchResult(BaseModel):
         """
         return (self.response_result.build_record_id_index(*args, **kwargs) if self.response_result else None) or {}
 
-    def resolve_extracted_record(self, *args, **kwargs) -> Optional[RecordType]:
+    def resolve_extracted_record(self, *args: Any, **kwargs: Any) -> Optional[RecordType]:
         """Resolves a processed record back to its original extracted record.
 
         This method delegates to the underlying `ProcessedResponse` or `ErrorResponse` to resolve a single
@@ -429,7 +452,7 @@ class SearchResult(BaseModel):
         field_map: Optional[BaseFieldMap] = None,
         raise_on_error: bool = False,
         update_records: Optional[bool] = None,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         *,
         resolve_records: Optional[bool] = None,
         keep_api_specific_fields: Optional[bool | Sequence] = None,
@@ -543,14 +566,18 @@ class SearchResult(BaseModel):
             logger.warning(f"{msg} Returning an empty list.")
         return []
 
-    def __eq__(self, other: Any) -> bool:
+    def __str__(self) -> str:
+        """Returns a human-readable representation of the current SearchResult response object with metadata fields."""
+        return repr(self)
+
+    def __eq__(self, other: object) -> bool:
         """Helper method for determining whether two search results are equal.
 
         The equality check operates by determining whether the other object is, first, a SearchResult instance. If it
         is, the components are dumped into a dictionary and checked for equality.
 
         Args:
-            other (Any): An object to compare against the current search result
+            other (object): An object to compare against the current search result.
 
         Returns:
             bool: True if the class is the same and all components are equal, False otherwise.
@@ -564,7 +591,7 @@ class SearchResult(BaseModel):
     def with_search_fields(
         self,
         records: NormalizedRecordType,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         strip_annotations: Optional[bool] = None,
     ) -> NormalizedRecordType:
         """When a normalized record is received, the same record is returned with additional search fields."""
@@ -574,7 +601,7 @@ class SearchResult(BaseModel):
     def with_search_fields(
         self,
         records: NormalizedRecordList,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         strip_annotations: Optional[bool] = None,
     ) -> NormalizedRecordList:
         """When a normalized record list is received, the normalized list is returned with additional search fields."""
@@ -584,7 +611,7 @@ class SearchResult(BaseModel):
     def with_search_fields(
         self,
         records: RecordType,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         strip_annotations: Optional[bool] = None,
     ) -> RecordType:
         """When a parsed record is received, the record is returned with additional search fields."""
@@ -594,7 +621,7 @@ class SearchResult(BaseModel):
     def with_search_fields(
         self,
         records: RecordList | Iterator[RecordType],
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         strip_annotations: Optional[bool] = None,
     ) -> RecordList:
         """When a parsed records list is received, a parsed record list with additional search fields is returned."""
@@ -604,7 +631,7 @@ class SearchResult(BaseModel):
     def with_search_fields(
         self,
         records: None,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         strip_annotations: Optional[bool] = None,
     ) -> RecordType:
         """When called with None, a dictionary is returned containing the search fields indicating the request."""
@@ -615,7 +642,7 @@ class SearchResult(BaseModel):
         records: Optional[
             RecordType | Iterator[RecordType] | NormalizedRecordType | RecordList | NormalizedRecordList
         ] = None,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         strip_annotations: Optional[bool] = None,
     ) -> RecordType | NormalizedRecordType | RecordList | NormalizedRecordList:
         """Returns a record or list of record dictionaries merged with selected SearchResult fields.
@@ -663,7 +690,7 @@ class SearchResult(BaseModel):
 
 
 class SearchResultList(list[SearchResult]):
-    """A custom list that store the results of multiple `SearchResult` instances for enhanced type safety.
+    """A custom list that stores the results of multiple `SearchResult` instances for enhanced type safety.
 
     The `SearchResultList` class inherits from a list and extends its functionality to tailor its utility to
     `ProcessedResponse` and `ErrorResponse` objects received from `SearchCoordinators` and `MultiSearchCoordinators`.
@@ -679,25 +706,7 @@ class SearchResultList(list[SearchResult]):
 
     """
 
-    def __setitem__(self, index, item):
-        """Overrides the default `list.__setitem__` method to ensure that only `SearchResult` objects can be added.
-
-        This override ensures that only SearchResult objects can be added to the `SearchResultList`. For all other
-        types, a TypeError will be raised when attempting to insert a non `SearchResult` into the `SearchResultList`.
-
-        Args:
-            index (int):
-                The numeric index that defines where the SearchResult should be inserted within the `SearchResultList`.
-            item (SearchResult):
-                The response result containing the API response data, the provider name, and page associated
-                with the response.
-
-        """
-        if not isinstance(item, SearchResult):
-            raise TypeError(f"Expected a SearchResult, received an item of type {type(item)}")
-        super().__setitem__(index, item)
-
-    def append(self, item: SearchResult):
+    def append(self, item: SearchResult) -> None:
         """Overrides the default `list.append` method for type-checking compatibility.
 
         This override ensures that only SearchResult objects can be appended to the `SearchResultList`. For all other
@@ -716,7 +725,7 @@ class SearchResultList(list[SearchResult]):
             raise TypeError(f"Expected a SearchResult, received an item of type {type(item)}")
         super().append(item)
 
-    def extend(self, other: SearchResultList | MutableSequence[SearchResult] | Iterable[SearchResult]):
+    def extend(self, other: SearchResultList | MutableSequence[SearchResult] | Iterable[SearchResult]) -> None:
         """Overrides the default `list.extend` method for type-checking compatibility.
 
         This override ensures that only an iterable of SearchResult objects can be appended to the SearchResultList. For
@@ -771,6 +780,48 @@ class SearchResultList(list[SearchResult]):
             ) from e
         return search_result_list
 
+    @overload
+    def __setitem__(self, index: SupportsIndex, item: SearchResult, /) -> None:
+        """When a supported index is passed, the `SearchResultList` expects to assign a single SearchResult."""
+        ...
+
+    @overload
+    def __setitem__(self, index: slice[Any, Any, Any], item: Iterable[SearchResult], /) -> None:
+        """When slice is passed, the `SearchResultList` expects to assign an iterable of SearchResults."""
+        ...
+
+    def __setitem__(
+        self, index: slice[Any, Any, Any] | SupportsIndex, item: SearchResult | Iterable[SearchResult]
+    ) -> None:
+        """Overrides the default `list.__setitem__` method to ensure that only `SearchResult` objects can be added.
+
+         This override ensures that only `SearchResult` objects can be added to the `SearchResultList`. For all other
+         types, a TypeError will be raised when attempting to insert data types that are neither `SearchResult` or
+         `SearchResult` iterables.
+
+        Args:
+            index (slice[Any, Any, Any] | SupportsIndex):
+                The numeric index or slice that defines where SearchResults should be inserted.
+            item (SearchResult | Iterable[SearchResult]):
+                 The response result or iterable of response results that each contain the API response data,
+                 the provider name, and page associated with the response.
+
+        Raises:
+            TypeError: When items are not SearchResult instances.
+
+        """
+        if isinstance(index, slice):
+            search_result_tuple = as_tuple(item)
+            if not all(isinstance(result, SearchResult) for result in search_result_tuple):
+                raise TypeError(
+                    "Expected a SearchResult or Iterable of SearchResults, but at least one element is invalid."
+                )
+            super().__setitem__(index, search_result_tuple)
+        else:
+            if not isinstance(item, SearchResult):
+                raise TypeError(f"Expected a SearchResult, but received an item of type {type(item)}")
+            super().__setitem__(index, item)
+
     def copy(self) -> SearchResultList:
         """Overrides the default `list.copy` to return a shallow copy as a SearchResultList.
 
@@ -782,7 +833,7 @@ class SearchResultList(list[SearchResult]):
 
     def join(
         self,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
         strip_annotations: Optional[bool] = None,
     ) -> RecordList:
         """Combines all successfully processed API responses into a single list of dictionary records across all pages.
@@ -816,7 +867,7 @@ class SearchResultList(list[SearchResult]):
     def process_metadata(
         self,
         update_metadata: Optional[bool] = None,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
+        include: Optional[SearchFields] = None,
     ) -> list[MetadataType]:
         """Processes the `ProcessedResponse.metadata` field to map metadata fields to provider-agnostic field names.
 
@@ -857,8 +908,8 @@ class SearchResultList(list[SearchResult]):
         self,
         raise_on_error: bool = False,
         update_records: Optional[bool] = None,
-        include: Optional[set[Literal["query", "provider_name", "display_name", "page"]]] = None,
-        **kwargs,
+        include: Optional[SearchFields] = None,
+        **kwargs: Any,
     ) -> NormalizedRecordList:
         """Convenience method allowing the batch normalization of all SearchResults in a SearchResultList.
 

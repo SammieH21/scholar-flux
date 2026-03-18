@@ -17,8 +17,8 @@ help:
 install:
 	@echo "Installing project dependencies..."
 	poetry install --all-extras --with dev,testing,docs
-	poetry run mypy --install-types --non-interactive src tests
 	poetry run pip install types-requests types-xmltodict types-PyYAML
+	poetry run mypy --install-types --non-interactive src tests
 
 # Runs tests using `poetry run` to execute commands within the virtual environment
 test:

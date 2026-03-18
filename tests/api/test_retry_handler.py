@@ -6,6 +6,7 @@ from unittest.mock import patch
 from requests import Response
 from scholar_flux.api import RetryHandler
 from scholar_flux.exceptions import RequestFailedException, InvalidResponseException
+from tests.testing_utilities import raise_error
 
 
 def response_factory(
@@ -50,7 +51,7 @@ def test_execute_with_retry_retry_then_success():
 
 
 def test_execute_with_retry_max_retries_exceeded():
-    """Tests whether the response is returned as is at `max_retries=503`"""
+    """Tests whether a valid `Response` object is returned as is at `status_code=503`"""
     handler = RetryHandler(max_retries=1)
     response = response_factory(503)
     request_func = lambda: response
@@ -92,9 +93,8 @@ def test_execute_with_retry_non_retryable_status(caplog):
     assert f"Returning a request of type {type(response)}, status_code={status_code}" in caplog.text
 
 
-def test_invalid_response_exception_non_json():
-    """Tests and verifies that the InvalidResponseException is retrieves the error details as intended when
-    available."""
+def test_invalid_response_exception_non_json(monkeypatch):
+    """Verifies that the `InvalidResponseException` extracts the response error details when available."""
     from scholar_flux.exceptions import InvalidResponseException
 
     response = response_factory(400, text="Not JSON")
@@ -106,6 +106,12 @@ def test_invalid_response_exception_non_json():
     assert exc.error_details == ""
 
     response = response_factory(400, json_data={"error": [1, 2, 3]})
+    exc = InvalidResponseException(response)
+    assert exc.error_details == ""
+
+    message = "Cannot process the current request with your credentials"
+    response = response_factory(400, json_data={"error": {"message": message}})
+    monkeypatch.setattr(response, "json", raise_error(ValueError, "An otherwise unavoidable parsing error"))
     exc = InvalidResponseException(response)
     assert exc.error_details == ""
 
@@ -257,7 +263,7 @@ def test_get_retry_after_date(retry_header):
 
 
 def test_get_retry_after_invalid_parameter():
-    """Verifies that timezone-aware response headers can be retrieved and parsed as intended with case-insensitivity."""
+    """Verifies that `retry-after` response headers of unknown types and formats are coerced into `None`."""
     invalid_str = "invalid date parameter"
     response = response_factory(headers={"retry-after": invalid_str})
 

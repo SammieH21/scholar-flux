@@ -121,7 +121,7 @@ Retrieve records from multiple providers and convert to a pandas DataFrame:
    
    # Create and configure multi-coordinator
    multi_search_coordinator = MultiSearchCoordinator.from_coordinators([
-       SearchCoordinator(query="machine learning", provider_name=provider)
+       SearchCoordinator(query="machine learning", provider_name=provider, use_cache=True)
        for provider in ['plos', 'arxiv', 'openalex', 'crossref']
    ])
    
@@ -150,6 +150,33 @@ Retrieve records from multiple providers and convert to a pandas DataFrame:
 - OpenAlex: 25 records/page × 10 pages = 250 records
 - Crossref: 25 records/page × 10 pages = 250 records
 - **Total: 1,250 records**
+
+**Record Count-Based Retrieval:**
+
+To instead retrieve a minimum of 250 records per provider:
+
+.. code-block:: python
+
+   import pandas as pd
+   from scholar_flux import SearchCoordinator, MultiSearchCoordinator
+   
+   # Create and configure multi-coordinator
+   multi_search_coordinator = MultiSearchCoordinator.from_coordinators([
+       SearchCoordinator(query="machine learning", provider_name=provider, use_cache=True)
+       for provider in ['plos', 'arxiv', 'openalex', 'crossref']
+   ])
+
+   # Retrieve a minimum of 250 records per provider
+   results = multi_search_coordinator.search_records(min_records=250)
+   
+   # Filter successful responses and normalize using the same steps as before:
+   normalized_records = results.filter().normalize()
+   df = pd.DataFrame(normalized_records)
+
+   # Preview a sample of all retrieved records
+   print(f"Preview:") 
+   print(df[['provider_name', 'url', 'title', 'abstract']].sample(10))
+   print(f"Total records: {df.shape[0]}")
 
 Understanding Multi-Provider Architecture
 ==========================================
@@ -337,7 +364,7 @@ ScholarFlux implements conservative rate limits for each provider:
 +------------------+------------------------+
 | Crossref         | 1.0 seconds            |
 +------------------+------------------------+
-| CORE             | 6.0 seconds            |
+| CORE             | 10.0 seconds           |
 +------------------+------------------------+
 | Springer Nature  | 2.0 seconds            |
 +------------------+------------------------+

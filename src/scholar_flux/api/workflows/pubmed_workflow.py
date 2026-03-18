@@ -19,7 +19,7 @@ workflows are enabled in the SearchCoordinator.
 """
 from __future__ import annotations
 from pydantic import Field
-from typing import Optional, List
+from typing import Any, Optional
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, SearchAPIConfig
 from scholar_flux.api.workflows.search_workflow import StepContext, WorkflowStep, SearchWorkflow, WorkflowResult
 from scholar_flux.exceptions import NoRecordsAvailableException
@@ -161,13 +161,13 @@ class PubMedSearchWorkflow(SearchWorkflow):
 
     """
 
-    steps: List[WorkflowStep] = Field(default_factory=lambda: [PubMedSearchStep(), PubMedFetchStep()])
+    steps: list[WorkflowStep] = Field(default_factory=lambda: [PubMedSearchStep(), PubMedFetchStep()])
 
     def _run(
         self,
         search_coordinator: BaseCoordinator,
         verbose: bool = True,
-        **keyword_parameters,
+        **keyword_parameters: Any,
     ) -> WorkflowResult:
         """Executes the PubMed workflow and catches edge-cases where successful eSearches return no records for a
         query."""

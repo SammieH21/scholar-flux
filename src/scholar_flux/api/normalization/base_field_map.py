@@ -146,7 +146,7 @@ class BaseFieldMap(BaseModel):
         if not record.get("provider_name"):
             filtered_defaults["provider_name"] = default_field_values.get("provider_name") or self.provider_name or None
 
-        return {field: None for field in self.fields} | record | filtered_defaults
+        return dict.fromkeys(self.fields) | record | filtered_defaults
 
     def filter_api_specific_fields(
         self, record: NormalizedRecordType, keep_api_specific_fields: Optional[bool | Sequence[str] | set[str]] = None
@@ -158,6 +158,7 @@ class BaseFieldMap(BaseModel):
             keep_api_specific_fields (Optional[bool | Sequence[str] | set[str]]):
                 Either a boolean indicating whether to keep all API-specific fields (True/None) or to remove them after
                 the completion of normalization (False). This parameter can also be a sequence/set of specific field names to keep.
+
         """
         if keep_api_specific_fields is True or keep_api_specific_fields is None or not record:
             return record
@@ -214,17 +215,17 @@ class BaseFieldMap(BaseModel):
         return self.structure()
 
     @overload
-    def __call__(self, records: RecordType, *args, **kwargs) -> NormalizedRecordType:
+    def __call__(self, records: RecordType, *args: Any, **kwargs: Any) -> NormalizedRecordType:
         """When __call__ operates on a record dictionary, a normalized record dictionary is returned."""
         ...
 
     @overload
-    def __call__(self, records: RecordList, *args, **kwargs) -> NormalizedRecordList:
+    def __call__(self, records: RecordList, *args: Any, **kwargs: Any) -> NormalizedRecordList:
         """When __call__ operates on a list of records, a list of normalized record dictionaries is returned."""
         ...
 
     def __call__(
-        self, records: RecordType | RecordList, *args, **kwargs
+        self, records: RecordType | RecordList, *args: Any, **kwargs: Any
     ) -> NormalizedRecordType | NormalizedRecordList:
         """Helper method that enables the current map to be used as a callable to normalize API-specific fields.
 

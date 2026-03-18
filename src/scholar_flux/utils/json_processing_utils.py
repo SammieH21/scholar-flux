@@ -44,6 +44,7 @@ Example Use:
 
 """
 from typing import Dict, List, Tuple, Any, Optional
+from typing_extensions import Self
 from itertools import chain
 from dataclasses import dataclass
 import re
@@ -436,7 +437,7 @@ class RecursiveJsonProcessor:
             return current_data[0]
         return current_data
 
-    def process_dictionary(self, obj: Optional[Dict] = None):
+    def process_dictionary(self, obj: Optional[Dict] = None) -> Self:
         """Create a new json dictionary that contains information about the relative paths of each field that can be
         found within the current JSON dict."""
         self.json_dict = obj or self.json_dict
@@ -484,7 +485,7 @@ class RecursiveJsonProcessor:
         paths: List[str] | List[List[str]] | List[List[str | int]],
         obj: Optional[Dict] = None,
         traverse_lists: bool = False,
-    ):
+    ) -> Self:
         """Create a new json dictionary by traversing '.' delimited paths for json data found from a JSON Dict."""
         self.json_dict = obj or self.json_dict
         if not self.json_dict:
@@ -578,7 +579,7 @@ class RecursiveJsonProcessor:
             self.extracted_record_data_list.append(obj_info)
         return [obj_info]
 
-    def filter_extracted(self, exclude_keys: Optional[List[str]] = None):
+    def filter_extracted(self, exclude_keys: Optional[List[str]] = None) -> Self:
         """Filter the extracted JSON dictionaries to exclude specified keys.
 
         Args:
@@ -662,9 +663,8 @@ class JsonNormalizer:
         """Initialize the JsonNormalizer with extracted JSON data and a delimiter.
 
         Args:
-            extracted_record_data_list (List[JsonRecordData]): The list of extracted JSON data.
-            delimiter (str): The delimiter used to join elements in lists.
-            use_full_path (str): Indicates whether to use the full nested json path or the smallest unique path available
+            json_record_data_list (List[JsonRecordData]): The list of extracted JSON data.
+            use_full_path (bool): Indicates whether to use the full nested json path or the smallest unique path available
 
         """
 

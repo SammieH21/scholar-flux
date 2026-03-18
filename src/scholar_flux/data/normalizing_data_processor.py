@@ -147,7 +147,7 @@ class NormalizingDataProcessor(DataProcessor):
             if not flattened_record:
                 logger.debug("Flattening returned no results")
                 # Return dict with None values for all expected keys
-                return self.collapse_fields({key: None for key in self.record_keys})
+                return self.collapse_fields(dict.fromkeys(self.record_keys))
 
         processed_record_dict = {}
         for output_key, path in self.record_keys.items():

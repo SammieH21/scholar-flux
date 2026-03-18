@@ -2,7 +2,7 @@
 
 This file provides Claude Code (claude.ai/code) with quick-reference context for ScholarFlux development. For complete information, consult the linked documentation which serves as the authoritative source.
 
-### Last updated 1/22/2026 (**v0.4.0**)
+### Last updated 3/18/2026 (**v0.5.0**)
 
 > **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.
 > For complete, authoritative information, consult:
@@ -13,7 +13,7 @@ This file provides Claude Code (claude.ai/code) with quick-reference context for
 
 ## Project Overview
 
-ScholarFlux is a production-grade orchestration infrastructure for academic APIs enabling concurrent multi-provider search with automatic rate limiting and schema normalization across 7+ scholarly databases.
+ScholarFlux is a production-grade orchestration infrastructure for academic APIs enabling concurrent multi-provider search with automatic rate limiting and schema normalization across 7+ scholarly databases (Python 3.10+ required).
 
 **Full details**: [README.md](README.md)
 
@@ -57,7 +57,11 @@ print(coordinator.api.rate_limiter.history.structure())
 print(coordinator.retry_handler.history.structure())
 ```
 
-**Multi-page retrieval:** `coordinator.search_pages(pages=range(1, 5))`
+**Search Methods:**
+- `coordinator.search_pages(pages=range(1, 3))` — Multi-page Retrieval
+- `coordinator.iter_pages(pages=range(1, 3))` — Generator based multi-page retrieval
+- `coordinator.parameter_search(endpoint="/", **params)` — Non-paginated endpoint queries 
+- `coordinator.search_records(min_records=50)` — Auto-calculates pages required
 
 **Multi-provider:** Use `MultiSearchCoordinator` with concurrent threading
 
@@ -128,8 +132,10 @@ Three response types with truthiness semantics for safe error checking. For most
 
 | Field                | ProcessedResponse                        | ErrorResponse / NonResponse               |
 | -------------------- | ---------------------------------------- | ----------------------------------------- |
-| `response`           | Attribute (Response[-like] Object)       | Attribute (Response[-like] Object) / None |
+| `response`           | Attribute (Response[-like] Object)       | Attribute (Response[-like] Object / None) |
 | `metadata`           | Attribute (Extracted response metadata)  | Property (None)                           |
+| `cached`             | Property (boolean / None)                | Property (boolean / None)                 |
+| `retrieval_timestamp`| Property (datetime / None)               | Property (datetime / None)                |
 | `extracted_records`  | Attribute (Records before processing)    | Property (None)                           |
 | `processed_records`  | Attribute (Records after processing)     | Property (None)                           |
 | `data`               | Property (Alias for `processed_records`) | Property (None)                           |
@@ -138,11 +144,13 @@ Three response types with truthiness semantics for safe error checking. For most
 | `error`              | Property (None)                          | Error type/exception                      |
 | `message`            | Optional context                         | Error description                         |
 
-**Note**: For raw responses without processing, use `SearchAPI.search()` directly. `SearchCoordinator` is for the full pipeline: parse → extract → process → optionally normalize.
+**Note**: When calling `SearchCoordinator.search_page()`, these three response types are nested in a `SearchResult` container that additionally include search metadata annotations (i.e., `query`, `page`, and `provider_name`, `display_name`, `retrieval_timestamp`, `cached`) and references each of the above components through properties or methods. Normalized records can additionally include search metadata annotations via the `include` parameter (i.e., `result.normalize(include={'query', 'page', 'display_name'})`).
+
+The `SearchCoordinator` is designed to orchestrate the full pipeline: parse → extract → process → optionally normalize. To retrieve raw responses without processing, use `SearchCoordinator.fetch()` or `SearchAPI.search()` directly instead. 
 
 ## Code Standards
 
-- **Type hints**: Required on all functions except `*args`/`**kwargs` parameters and functions returning `None`
+- **Type hints**: Required on all functions and parameters with restrictions loosened for testing. Verified with `mypy` (`strict=True`)
 - **Docstrings**: Required, Google style, 100% coverage via docstr-coverage
 - **Line length**: 120 characters max
 - **Testing**: `requests-mock` for API mocking, fixtures in `tests/fixtures/` and `tests/conftest.py`
@@ -163,11 +171,13 @@ Rate limits are enforced automatically per provider and are used alongside dynam
 
 **Detailed guide**: [Custom Providers Tutorial](https://SammieH21.github.io/scholar-flux/custom_providers.html)
 
-## Environment Variables
+## Core Environment Variables
 
 ```bash
-# Optional API keys (tests use mocks by default)
-PUBMED_API_KEY, SPRINGER_NATURE_API_KEY, CORE_API_KEY
+# API keys 
+PUBMED_API_KEY, CORE_API_KEY (Optional)
+# Required
+SPRINGER_NATURE_API_KEY 
 
 # Logging
 SCHOLAR_FLUX_ENABLE_LOGGING=TRUE

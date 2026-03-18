@@ -14,16 +14,18 @@ import requests
 import datetime
 import logging
 from scholar_flux.exceptions import RequestFailedException, InvalidResponseException, RetryAfterDelayExceededException
-from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.response_protocol import ResponseProtocol, is_response_like
 from scholar_flux.utils.helpers import get_first_available_key, parse_iso_timestamp
 from scholar_flux.utils.repr_utils import generate_repr
 from scholar_flux.api.rate_limiting.history import (
     HistoryDeque,
     RetryAttempt,
 )
-from typing import Any, Optional, Callable, Mapping
+from typing import Any, Optional, Callable, Mapping, TypeVar
 
 logger = logging.getLogger(__name__)
+
+ResponseLike = TypeVar("ResponseLike", requests.Response, ResponseProtocol)
 
 
 class RetryHandler:
@@ -91,7 +93,7 @@ class RetryHandler:
         retry_statuses: Optional[set[int] | list[int]] = None,
         raise_on_error: Optional[bool] = None,
         min_retry_delay: Optional[int | float] = None,
-    ):
+    ) -> None:
         """Initializes the `RetryHandler` with configurable parameters for dynamically throttling successive requests.
 
         Args:
@@ -127,15 +129,15 @@ class RetryHandler:
 
     def execute_with_retry(
         self,
-        request_func: Callable,
+        request_func: Callable[..., ResponseLike],
         validator_func: Optional[Callable] = None,
         sleep_func: Optional[Callable[[float], None]] = None,
-        *args,
+        *args: Any,
         backoff_factor: Optional[int | float] = None,
         max_backoff: Optional[int | float] = None,
         min_retry_delay: Optional[int | float] = None,
-        **kwargs,
-    ) -> Optional[requests.Response | ResponseProtocol]:
+        **kwargs: Any,
+    ) -> Optional[ResponseLike]:
         """Sends a request and retries on failure based on predefined criteria and validation function.
 
         Args:
@@ -158,7 +160,7 @@ class RetryHandler:
 
         Returns:
             Optional[requests.Response | ResponseProtocol]:
-                The response received, or None if no valid response was obtained.
+                The returned response-like object, when successful, or None if no valid response was obtained.
 
         Raises:
             RequestFailedException: When a request raises an exception for whatever reason.
@@ -180,7 +182,7 @@ class RetryHandler:
             >>> import requests
             >>> retry_handler = RetryHandler(raise_on_error=True)
             >>> try:
-            ...     response = retry_handler.execute_with_retry(requests.get, url= "https://httpbin.org/status/200")
+            ...     response = retry_handler.execute_with_retry(requests.get, url="https://httpbin.org/status/200")
             ... except (RetryAfterDelayExceededException, InvalidResponseException) as e:
             ...     response = e.response
             >>> print(response)
@@ -218,9 +220,7 @@ class RetryHandler:
                     )
                     break
 
-                if not (
-                    isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)
-                ) or not self.should_retry(response):
+                if not is_response_like(response) or not self.should_retry(response):
                     msg = "Received an invalid or non-retryable response."
                     self.log_retry_warning(msg)
                     self._record_attempt(
@@ -250,11 +250,7 @@ class RetryHandler:
                     self.delay_exceeds_max_backoff(delay, max_backoff=max_backoff, response=response)
                     self.log_retry_attempt(
                         delay,
-                        (
-                            response.status_code
-                            if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol))
-                            else None
-                        ),
+                        response.status_code if is_response_like(response) else None,
                     )
                     sleep_func(delay)
             else:
@@ -370,16 +366,14 @@ class RetryHandler:
     def _default_validator_func(cls, response: requests.Response | ResponseProtocol) -> bool:
         """Defines a basic default validator that verifies type and status code.
 
-        It evaluates:     1) Whether the `response` is a
-        requests.Response object or a (duck-typed) response-like object
-        based        on whether it evaluates as a ResponseProtocol.
-        2) Whether the response status code is in the list of valid
-        statuses: `RetryHandler.DEFAULT_VALID_STATUSES`
+        It evaluates:
+            1. Whether the `response` is a requests.Response object or a (duck-typed) response-like object
+               based on whether it evaluates as a ResponseProtocol.
+            2. Whether the response status code is in the list of valid statuses:
+               `RetryHandler.DEFAULT_VALID_STATUSES`
 
         """
-        return (
-            isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)
-        ) and response.status_code in cls.DEFAULT_VALID_STATUSES
+        return is_response_like(response) and response.status_code in cls.DEFAULT_VALID_STATUSES
 
     def should_retry(self, response: requests.Response | ResponseProtocol) -> bool:
         """Determine whether the request should be retried."""
@@ -434,7 +428,7 @@ class RetryHandler:
             Optional[str]: The unparsed `retry-after` header in seconds, or None if not present
 
         """
-        if isinstance(response, requests.Response) or isinstance(response, ResponseProtocol):
+        if is_response_like(response):
             return cls.extract_retry_after({k: v for k, v in (response.headers or {}).items() if v is not None})
         return None
 

@@ -1,4 +1,4 @@
-# /api/search_coordinator.py
+# /api/multisearch_coordinator.py
 """Defines the MultiSearchCoordinator that builds on the features implemented by the SearchCoordinator to create
 multiple queries to different providers either sequentially or by using multithreading.
 
@@ -6,7 +6,7 @@ This implementation uses shared rate limiting to ensure that rate limits to diff
 
 """
 from __future__ import annotations
-from typing import Optional, Generator, Sequence, Iterable
+from typing import Optional, Generator, Sequence, Iterable, Any
 from typing_extensions import Self
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
@@ -24,7 +24,7 @@ from scholar_flux.exceptions import InvalidCoordinatorParameterException
 logger = logging.getLogger(__name__)
 
 
-class MultiSearchCoordinator(UserDict):
+class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
     """The MultiSearchCoordinator is a utility class for orchestrating searches across multiple providers, pages, and
     queries sequentially or using multithreading. This coordinator builds on the SearchCoordinator's core structure to
     ensure consistent, rate-limited API requests.
@@ -77,7 +77,7 @@ class MultiSearchCoordinator(UserDict):
 
     DEFAULT_THREADED_REQUEST_DELAY: float | int = 6.0
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initializes the MultiSearchCoordinator, allowing positional and keyword arguments to be specified when
         creating the MultiSearchCoordinator.
 
@@ -107,7 +107,7 @@ class MultiSearchCoordinator(UserDict):
         super().__setitem__(key, value)
 
     @classmethod
-    def _verify_search_coordinator(cls, search_coordinator: SearchCoordinator):
+    def _verify_search_coordinator(cls, search_coordinator: SearchCoordinator) -> None:
         """Helper method that ensures that the current value is a SearchCoordinator.
 
         Raises:
@@ -124,7 +124,7 @@ class MultiSearchCoordinator(UserDict):
         """Utility property for quickly retrieving a list of all currently registered coordinators."""
         return list(self.data.values())
 
-    def add(self, search_coordinator: SearchCoordinator):
+    def add(self, search_coordinator: SearchCoordinator) -> None:
         """Adds a new SearchCoordinator to the MultiSearchCoordinator instance.
 
         Args:
@@ -137,7 +137,7 @@ class MultiSearchCoordinator(UserDict):
         search_coordinator = self._normalize_rate_limiter(search_coordinator)
         key = self._create_key(search_coordinator)
 
-        # skipping re-evaluation via __setitem___
+        # skipping re-evaluation via __setitem__
         super().__setitem__(key, search_coordinator)
 
     @classmethod
@@ -147,7 +147,7 @@ class MultiSearchCoordinator(UserDict):
         multi_search_coordinator.add_coordinators(search_coordinators)
         return multi_search_coordinator
 
-    def add_coordinators(self, search_coordinators: Iterable[SearchCoordinator]):
+    def add_coordinators(self, search_coordinators: Iterable[SearchCoordinator]) -> None:
         """Helper method for adding a sequence of coordinators at a time."""
 
         # ignore flagging singular coordinators as invalid by adding them to a list beforehand
@@ -169,7 +169,7 @@ class MultiSearchCoordinator(UserDict):
         iterate_by_group: bool = False,
         max_workers: Optional[int] = None,
         multithreading: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> SearchResultList:
         """Public method used to search for a single or multiple pages from multiple providers at once using a
         sequential or multithreading approach. This approach delegates the search to search_pages to retrieve a single
@@ -179,12 +179,12 @@ class MultiSearchCoordinator(UserDict):
         that APIs are not overwhelmed by the number of requests being sent within a specific time interval.
 
         Args:
-            pages (Sequence[int]): A sequence of page numbers to iteratively request from the API Provider.
+            page (int): The page number to iteratively request from each API Provider.
             iterate_by_group (bool):
                 Determines whether all searches should be performed by page or by group. Note that page-based
                 iteration is significantly faster due to API rate limits. This is set to `False` by default as a result.
             max_workers (Optional[int]):
-                Determines how many threads should operate at one time. Applies when only when `multithreading` is
+                Determines how many threads should operate at one time. Applies only when `multithreading` is
                 set to `True`. When `None`, as many threads are used as required.
             multithreading (bool):
                 Multithreading is used when this parameter is set to `True`. Otherwise, sequential iteration is
@@ -194,7 +194,7 @@ class MultiSearchCoordinator(UserDict):
             from_process_cache (bool):
                 This parameter determines whether to attempt to pull processed responses from the cache storage.
             use_workflow (bool):
-                Indicates whether to use a workflow if available Workflows are utilized by default.
+                Indicates whether to use a workflow if available. Workflows are utilized by default.
 
         Returns:
             SearchResultList:
@@ -214,7 +214,7 @@ class MultiSearchCoordinator(UserDict):
     def search_page(
         self,
         page: int = 1,
-        **kwargs,
+        **kwargs: Any,
     ) -> SearchResultList:
         """Retrieves a single page from all registered coordinators.
 
@@ -226,8 +226,7 @@ class MultiSearchCoordinator(UserDict):
                 The page number to retrieve from each provider.
             **kwargs:
                 Additional arguments to pass to `MultiSearchCoordinator.search_pages` or the `search_pages` method
-                for each individual coordinator
-                method otherwise.
+                for each individual coordinator.
 
         Returns:
             SearchResultList: Results from all coordinators for the specified page.
@@ -244,10 +243,12 @@ class MultiSearchCoordinator(UserDict):
         iterate_by_group: bool = False,
         max_workers: Optional[int] = None,
         multithreading: bool = True,
-        **kwargs,
+        *,
+        min_records: Optional[int] = None,
+        page_offset: int = 0,
+        **kwargs: Any,
     ) -> SearchResultList:
-        """Public method used to search articles from multiple providers at once using a sequential or multithreading
-        approach. This approach uses `iter_pages` under the.
+        """Searches for records from multiple providers using a sequential or multithreading approach.
 
         Note that the `MultiSearchCoordinator.search_pages` method uses shared rate limiters to ensure
         that APIs are not overwhelmed by the number of requests being sent within a specific time interval.
@@ -258,6 +259,12 @@ class MultiSearchCoordinator(UserDict):
                                        requests-cache storage.
             from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
                                        the cache storage.
+            min_records (int):
+                The total number of records to retrieve sequentially. If not provided as an integer, the `pages`
+                argument is validated immediately instead. No-Op when `pages` is a non-empty/non-zero value.
+            page_offset (int):
+                The page offset to begin record retrieval from (0 by default). This parameter is only relevant when a
+                `min_records` value is provided instead of a page number.
             use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
 
         Returns:
@@ -274,7 +281,7 @@ class MultiSearchCoordinator(UserDict):
                 f"Expected max_workers to be a positive integer, but received a value of type {type(max_workers)}"
             )
 
-        pages = SearchCoordinator._validate_page_list_input(pages)
+        pages = [] if not pages and isinstance(min_records, int) else SearchCoordinator._validate_page_list_input(pages)
 
         if not self.data:
             logger.warning(
@@ -285,10 +292,12 @@ class MultiSearchCoordinator(UserDict):
 
         if multithreading:
             search_iterator: Generator[SearchResult, None, None] = self.iter_pages_threaded(
-                pages, max_workers=max_workers, **kwargs
+                pages, max_workers=max_workers, min_records=min_records, page_offset=page_offset, **kwargs
             )
         else:
-            search_iterator = self.iter_pages(pages, iterate_by_group=iterate_by_group, **kwargs)
+            search_iterator = self.iter_pages(
+                pages, iterate_by_group=iterate_by_group, min_records=min_records, page_offset=page_offset, **kwargs
+            )
 
         for search_result in search_iterator:
             search_results.append(search_result)
@@ -297,8 +306,36 @@ class MultiSearchCoordinator(UserDict):
 
         return search_results
 
+    def search_records(self, min_records: int, page_offset: int = 0, **kwargs: Any) -> SearchResultList:
+        """Helper method for retrieving a minimum of `min_records` records across all API providers.
+
+        This method retrieves a minimum of `min_records` per provider unless no pages remain to be retrieved or a
+        non-retryable error occurs during processing. Note that this method uses shared rate limiters to ensure that
+        APIs are not overwhelmed by the number of requests being sent within a specific time interval.
+
+        Args:
+            min_records (int):
+                The total number of records to retrieve sequentially.
+            page_offset (int):
+                The page offset to begin record retrieval from (0 by default).
+            from_request_cache (bool): This parameter determines whether to try to retrieve the response from the
+                                       requests-cache storage.
+            from_process_cache (bool): This parameter determines whether to attempt to pull processed responses from
+                                       the cache storage.
+            use_workflow (bool): Indicates whether to use a workflow if available Workflows are utilized by default.
+
+        Returns:
+            SearchResultList:
+                The list containing all retrieved and processed pages from the API. If any non-stopping errors occur,
+                this will return an ErrorResponse instead with error and message attributes further explaining any
+                issues that occurred during processing.
+
+        """
+        kwargs["pages"] = []
+        return self.search_pages(min_records=min_records, page_offset=page_offset, **kwargs)
+
     def iter_pages(
-        self, pages: Sequence[int] | PageListInput, iterate_by_group: bool = False, **kwargs
+        self, pages: Sequence[int] | PageListInput, iterate_by_group: bool = False, **kwargs: Any
     ) -> Generator[SearchResult, None, None]:
         """Helper method that creates and joins a sequence of generator functions for retrieving and processing records
         from each combination of queries, pages, and providers in sequence. This implementation uses the
@@ -395,7 +432,10 @@ class MultiSearchCoordinator(UserDict):
                 provider_generator_dict.pop(provider_name)
 
     def iter_pages_threaded(
-        self, pages: Sequence[int] | PageListInput, max_workers: Optional[int] = None, **kwargs
+        self,
+        pages: Sequence[int] | PageListInput,
+        max_workers: Optional[int] = None,
+        **kwargs: Any,
     ) -> Generator[SearchResult, None, None]:
         """Threading by provider to respect rate limits Helper method that implements threading to simultaneously
         retrieve a sequence of generator functions for retrieving and processing records from each combination of
@@ -471,7 +511,13 @@ class MultiSearchCoordinator(UserDict):
             logger.error("Encountered an unexpected error during iteration for provider, " f"{provider_name}: {e}")
 
     def _process_provider_group(
-        self, provider_coordinators: dict[str, SearchCoordinator], pages: Sequence[int] | PageListInput, **kwargs
+        self,
+        provider_coordinators: dict[str, SearchCoordinator],
+        pages: Sequence[int] | PageListInput,
+        *,
+        min_records: Optional[int] = None,
+        page_offset: int = 0,
+        **kwargs: Any,
     ) -> Generator[SearchResult, None, None]:
         """Helper method used to process all queries and pages for a single provider under a common thread. This method
         is especially useful during multithreading given that API Providers often have hard limits on the total number
@@ -482,6 +528,10 @@ class MultiSearchCoordinator(UserDict):
                 A dictionary of all coordinators corresponding to a single provider.
             pages (Sequence[int] | PageListInput): A list, set, or other common sequence of integer page numbers
                                     corresponding to records/articles to iteratively request from the API Provider.
+            min_records (int):
+                The total number of records to retrieve sequentially.
+            page_offset (int):
+                The page offset to begin record retrieval from (0 by default).
             **kwargs: Keyword arguments to pass to the `iter_pages` method call to facilitate single or multithreaded
                       record page retrieval
 
@@ -516,14 +566,19 @@ class MultiSearchCoordinator(UserDict):
             default_request_delay = search_coordinator.api._rate_limiter.min_interval
             request_delay = kwargs.pop("request_delay", default_request_delay)
 
+            current_pages = (
+                PageListInput.from_record_count(min_records, search_coordinator.api.records_per_page, page_offset)
+                if not pages and min_records is not None
+                else pages
+            )
             # iterate over the current coordinator given its session, query, and settings
-            for page in search_coordinator.iter_pages(pages, **kwargs, request_delay=request_delay):
+            for page in search_coordinator.iter_pages(current_pages, **kwargs, request_delay=request_delay):
                 if isinstance(page, SearchResult):
                     last_response = page.response_result
                 yield page
 
     def current_providers(self) -> set[str]:
-        """Extracts a set of names corresponding to the each API provider assigned to the MultiSearchCoordinator."""
+        """Extracts a set of names corresponding to each API provider assigned to the MultiSearchCoordinator."""
         return {ProviderConfig._normalize_name(coordinator.provider_name) for coordinator in self.data.values()}
 
     def group_by_provider(self) -> dict[str, dict[str, SearchCoordinator]]:
@@ -545,7 +600,7 @@ class MultiSearchCoordinator(UserDict):
             provider_search_dict[provider_name][key] = coordinator
         return dict(provider_search_dict)
 
-    def _normalize_rate_limiter(self, search_coordinator: SearchCoordinator):
+    def _normalize_rate_limiter(self, search_coordinator: SearchCoordinator) -> SearchCoordinator:
         """Helper method that retrieves the threaded rate_limiter for the coordinator's provider and normalizes the rate
         limiter used for searches."""
         provider_name = ProviderConfig._normalize_name(search_coordinator.provider_name)
@@ -561,7 +616,7 @@ class MultiSearchCoordinator(UserDict):
         return search_coordinator
 
     @classmethod
-    def _create_key(cls, search_coordinator: SearchCoordinator):
+    def _create_key(cls, search_coordinator: SearchCoordinator) -> str:
         """Create a hashed key from a coordinator using the provider name, query, and structure of the
         SearchCoordinator."""
         hash_value = hash(repr(search_coordinator))

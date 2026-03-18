@@ -46,7 +46,7 @@ class BaseWorkflowStep(BaseModel):
         description="Optional keyword parameters to specify for this step.",
     )
 
-    def pre_transform(self, ctx: Any, *args, **kwargs) -> Self:
+    def pre_transform(self, ctx: Any, *args: Any, **kwargs: Any) -> Self:
         """Defines the optional transformation to the BaseWorkflowStep that can occur before executing the workflow step
         to generate and modify its behavior.
 
@@ -61,7 +61,7 @@ class BaseWorkflowStep(BaseModel):
         """
         return self.model_copy()
 
-    def _run(self, *args, **kwargs) -> Any:
+    def _run(self, *args: Any, **kwargs: Any) -> Any:
         """Basic method that executes the current step of the workflow. This step is to be overridden in subclasses.
 
         Args:
@@ -71,7 +71,7 @@ class BaseWorkflowStep(BaseModel):
         """
         raise NotImplementedError()
 
-    def __call__(self, *args, **kwargs) -> Any:
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """Enables the current workflow step instance to be executed like a function.
 
         This method calls the `BaseWorkflowStep._run()` private method under the hood to run the current step.
@@ -83,7 +83,7 @@ class BaseWorkflowStep(BaseModel):
         """
         return self._run(*args, **kwargs)
 
-    def post_transform(self, ctx: Any, *args, **kwargs) -> Any:
+    def post_transform(self, ctx: Any, *args: Any, **kwargs: Any) -> Any:
         """Defines the optional transformation to the results that are retrieved after executing the workflow step to
         modify its output.
 
@@ -117,7 +117,7 @@ class BaseWorkflowStep(BaseModel):
             raise TypeError(msg)
 
     @contextmanager
-    def with_context(self, *args, **kwargs) -> Generator[Self, None, None]:
+    def with_context(self, *args: Any, **kwargs: Any) -> Generator[Self, None, None]:
         """Helper method to be overridden by subclasses to customize the behavior of the workflow step.
 
         Base classes implementing `with_context` should ideally use a context manager to be fully compatible
@@ -137,7 +137,7 @@ class BaseWorkflowResult(BaseModel):
 class BaseWorkflow(BaseModel, ABC):
     """Base class for defining and fully executing a workflow."""
 
-    def _run(self, *positional_parameters, **keyword_parameters) -> BaseWorkflowResult:
+    def _run(self, *positional_parameters: Any, **keyword_parameters: Any) -> BaseWorkflowResult:
         """Internal method that is implemented to run all workflow steps.
 
         Args:
@@ -153,7 +153,7 @@ class BaseWorkflow(BaseModel, ABC):
         """
         raise NotImplementedError
 
-    def __call__(self, *args, **kwargs) -> BaseWorkflowResult:
+    def __call__(self, *args: Any, **kwargs: Any) -> BaseWorkflowResult:
         """Enables the current workflow instance to executed like a function. This method calls the `_run` private
         method under the hood to initiate the workflow.
 

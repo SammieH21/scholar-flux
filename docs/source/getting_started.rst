@@ -91,7 +91,7 @@ For contributing or running tests:
 
    git clone https://github.com/SammieH21/scholar-flux.git
    cd scholar-flux
-   poetry install --with dev,tests --all-extras
+   poetry install --with dev,testing --all-extras
 
 Verifying Installation
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -102,7 +102,7 @@ Test your installation:
 
    import scholar_flux
    print(scholar_flux.__version__)
-   # Output: 0.4.0
+   # Output: 0.5.0
 
 .. code-block:: python
 

@@ -63,7 +63,7 @@ Default Providers:
         - website: https://pubmed.ncbi.nlm.nih.gov
         - purpose: A freely accessible database hosted by the United States National Library of Medicine
                    that enables access to a vast range of medical research papers, references, and abstracts.
-        - access:  The PubMed database is available to those with an API Key. an API key is free and usage
+        - access:  The PubMed database is available to those with an API key. An API key is free and usage
                    is permitted within the terms of service.
 
     **Springer Nature**:

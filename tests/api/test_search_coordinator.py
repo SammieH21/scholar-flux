@@ -4,13 +4,14 @@ import re
 import requests_mock
 
 from requests import Response
-from requests_cache import CachedResponse
+from requests_cache.models.response import CachedResponse
 from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator
 import datetime
 from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep, StepContext
 from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse
+from scholar_flux.data_storage import DataCacheManager
 from scholar_flux.utils import format_iso_timestamp, parse_iso_timestamp
 from tests.testing_utilities import raise_error
 
@@ -18,6 +19,7 @@ from scholar_flux.exceptions import (
     InvalidCoordinatorParameterException,
     RequestFailedException,
     RetryAfterDelayExceededException,
+    PageUnavailableFromCacheException,
 )
 from scholar_flux.api import ReconstructedResponse
 from scholar_flux import logger
@@ -144,11 +146,7 @@ def test_search_exception(monkeypatch, caplog):
     search_coordinator = SearchCoordinator(query="test_query", base_url="https://thisisatesturl.com")
 
     e = "Directly raised exception"
-    monkeypatch.setattr(
-        search_coordinator,
-        "_search",
-        lambda *args, **kwargs: (_ for _ in ()).throw(Exception(e)),
-    )
+    monkeypatch.setattr(search_coordinator, "_search", raise_error(Exception, e))
 
     msg = f"An unexpected error occurred when processing the response: {e}"
     response = search_coordinator.search(page=1)
@@ -165,11 +163,7 @@ def test_search_exception(monkeypatch, caplog):
 
     caplog.clear()
 
-    monkeypatch.setattr(
-        search_coordinator,
-        "search",
-        lambda *args, **kwargs: (_ for _ in ()).throw(Exception(e)),
-    )
+    monkeypatch.setattr(search_coordinator, "search", raise_error(Exception, e))
 
     response_data = search_coordinator.search_data(page=1)
     assert response_data is None
@@ -303,11 +297,7 @@ def test_with_workflow_error(monkeypatch, caplog):
     )
 
     search_coordinator = SearchCoordinator(api)
-    monkeypatch.setattr(
-        search_coordinator,
-        "_search",
-        lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Directly raised exception")),
-    )
+    monkeypatch.setattr(search_coordinator, "_search", raise_error(Exception, "Directly raised exception"))
 
     with pytest.raises(RuntimeError):
         basic_workflow(search_coordinator, page=1)
@@ -369,9 +359,7 @@ def test_request_failed_exception(monkeypatch, caplog):
     """Verifies that when a request fails to generate a response and instead throws an error, the error is logged and
     the response result is a `NonResponse`."""
     coordinator = SearchCoordinator(query="Computer Science Testing", request_delay=0)
-    monkeypatch.setattr(
-        coordinator, "robust_request", lambda *a, **kw: (_ for _ in ()).throw(RequestFailedException("fail"))
-    )
+    monkeypatch.setattr(coordinator, "robust_request", raise_error(RequestFailedException, "fail"))
     res = coordinator.search(page=3)
     assert isinstance(res, NonResponse)
     assert "Failed to fetch page 3" in caplog.text
@@ -381,8 +369,7 @@ def test_request_failed_exception(monkeypatch, caplog):
 
 
 def test_none_type_fetch(monkeypatch, caplog):
-    """Tests to verify that a NonResponse is returned when a retry_handler receives None in the request retrieval
-    step."""
+    """Verifies that a NonResponse is returned when a retry_handler receives None during the retrieval step."""
     search_coordinator = SearchCoordinator(
         query="new query", base_url="https://example-example-example-url.com", request_delay=0
     )
@@ -394,15 +381,38 @@ def test_none_type_fetch(monkeypatch, caplog):
         lambda *args, **kwargs: None,
     )
 
+    msg = f"Expected to receive a valid response or response-like object, but received type: {type(None)}"
     with pytest.raises(RequestFailedException) as excinfo:
         _ = search_coordinator.robust_request(page=1)
-        assert ("Expected to receive a valid response or response-like object, but received type: {type(None)}") in str(
-            excinfo.value
-        )
+        assert msg in str(excinfo.value)
 
     response = search_coordinator._fetch_api_response(page=1)
     assert isinstance(response, NonResponse)
-    assert "NonResponse" in repr(response)
+    assert response.error == "RequestFailedException"
+
+
+def test_none_type_fetch_api_response(monkeypatch, caplog):
+    """Verifies that `SearchCoordinator._fetch_api_response` returns a NonResponse when `.fetch()` returns None"""
+    search_coordinator = SearchCoordinator(
+        query="new query", base_url="https://example-example-example-url.com", request_delay=0
+    )
+    search_coordinator.retry_handler.max_backoff = 0
+
+    # Edge case for the unlikely scenario where `fetch` returns None
+    monkeypatch.setattr(
+        search_coordinator,
+        "fetch",
+        lambda *args, **kwargs: None,
+    )
+
+    response = search_coordinator._fetch_api_response(page=1)
+    cache_key = search_coordinator._create_cache_key(page=1)
+    msg = f"Response retrieval for cache key {cache_key} was unsuccessful"
+
+    assert msg in caplog.text
+    assert isinstance(response, NonResponse)
+    assert f"{msg}: Check the logs for more information." == response.message
+    assert response.error is None  # The exact error in this scenario wouldn't be known at this point.
 
 
 def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, caplog):
@@ -424,13 +434,19 @@ def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, capl
     monkeypatch.setattr(
         search_coordinator.search_api.cache,
         "create_key",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AttributeError("Directly raised exception")),
+        raise_error(AttributeError, "Directly raised exception"),
     )
 
     monkeypatch.setattr(
         search_coordinator.response_coordinator.cache_manager,
-        "retrieve",
-        lambda *args, **kwargs: (_ for _ in ()).throw(StorageCacheException("Directly raised exception")),
+        "cache_is_valid",
+        lambda *args, **kwargs: True,
+    )
+
+    monkeypatch.setattr(
+        search_coordinator.response_coordinator,
+        "handle_response",
+        raise_error(StorageCacheException, "Directly raised exception"),
     )
 
     assert search_coordinator.get_cached_request(page=1) is None
@@ -439,9 +455,34 @@ def test_cache_retrieval_failure(monkeypatch, default_memory_cache_session, capl
     assert search_coordinator.get_cached_response(page=1) is None
     assert "Error retrieving cached response: Directly raised exception" in caplog.text
 
-    monkeypatch.setattr(search_coordinator, "_get_request_key", lambda *args, **kwargs: None)
+    monkeypatch.setattr(search_coordinator, "_get_request_cache_key", lambda *args, **kwargs: None)
 
     assert search_coordinator.get_cached_request(page=1) is None
+
+
+def test_cached_response_retrieval_failure(default_memory_cache_session, monkeypatch, caplog):
+    """Verifies the `get_cached_search_result` cached response error handling process."""
+    search_coordinator = SearchCoordinator(
+        query="new query", session=default_memory_cache_session, base_url="https://non-existent-http-url.com"
+    )
+
+    monkeypatch.setattr(
+        search_coordinator.response_coordinator.cache_manager,
+        "cache_is_valid",
+        lambda *args, **kwargs: True,
+    )
+    monkeypatch.setattr(
+        search_coordinator.response_coordinator,
+        "handle_response",
+        raise_error(StorageCacheException, "Directly raised exception"),
+    )
+    no_result = search_coordinator.get_cached_search_result(page=1)
+    assert no_result is None
+    assert "Error retrieving cached response: Directly raised exception" in caplog.text
+
+    no_result = search_coordinator.get_cached_search_result(page=None)  # type: ignore
+    assert no_result is None
+    assert "A valid page number is required to create a SearchResult from a cached response." in caplog.text
 
 
 def test_no_result_caching(caplog):
@@ -456,7 +497,8 @@ def test_no_result_caching(caplog):
     # operates as if the cache were never initialized to begin with and was None
     assert search_coordinator.get_cached_response(page=1) is None
     assert search_coordinator.get_cached_request(page=1) is None
-    assert search_coordinator._get_request_key(page=1) is None
+    assert search_coordinator._get_request_cache_key(page=1) is None
+    assert not search_coordinator.get_cached_response_keys()
     assert not caplog.text
 
 
@@ -468,22 +510,18 @@ def test_cache_deletions(monkeypatch, caplog):
         "A cached response for the current request does not exist: 'Key [a-zA-Z0-9]+ not found", caplog.text
     )
 
-    monkeypatch.setattr(search_coordinator, "_get_request_key", lambda *args, **kwargs: None)
+    monkeypatch.setattr(search_coordinator, "_get_request_cache_key", lambda *args, **kwargs: None)
 
     search_coordinator._delete_cached_request(page=1)  # type: ignore
     assert "A cached response for the current request does not exist: 'Request key is None or empty'" in caplog.text
     monkeypatch.setattr(
-        search_coordinator,
-        "_get_request_key",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RequestCacheException("Directly raised exception")),
+        search_coordinator, "_get_request_cache_key", raise_error(RequestCacheException, "Directly raised exception")
     )
     search_coordinator._delete_cached_request(page=1)  # type: ignore
     assert "Error deleting cached request: Directly raised exception" in caplog.text
 
     monkeypatch.setattr(
-        search_coordinator,
-        "_create_cache_key",
-        lambda *args, **kwargs: (_ for _ in ()).throw(StorageCacheException("Directly raised exception")),
+        search_coordinator, "_create_cache_key", raise_error(StorageCacheException, "Directly raised exception")
     )
 
     search_coordinator._delete_cached_response(page=1)  # type: ignore
@@ -494,9 +532,9 @@ def test_cache_deletions(monkeypatch, caplog):
 def test_parameter_building(page, zero_indexed_parameter_config, default_correct_zero_index_config):
     """Integration test to determine whether parameters are built correctly to always start at page 1.
 
-    With APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = True, the first page should always be page 1,
-    despite whether an API is zero indexed or not. The building and preparation of parameter values happens
-    prior to the preparation of the URL string and before the request is sent.
+    With APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = True, the first page should always be page 1, despite whether
+    an API is zero indexed or not. The building and preparation of parameter values happens prior to the preparation of
+    the URL string and before the request is sent.
 
     """
 
@@ -518,9 +556,9 @@ def test_parameter_building(page, zero_indexed_parameter_config, default_correct
 def test_parameter_building_with_zero_indexing(page, zero_indexed_parameter_config, default_zero_indexed_config):
     """Integration test to determine whether the page start varies based on zero indexed pagination.
 
-    With APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = False, the first page for zero indexed APIs will be 0, and
-    1 for non-zero indexed APIs. The building and preparation of parameter values happens
-    prior to the preparation of the URL string and before the request is sent.
+    With APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = False, the first page for zero indexed APIs will be 0, and 1
+    for non-zero indexed APIs. The building and preparation of parameter values happens prior to the preparation of the
+    URL string and before the request is sent.
 
     """
 
@@ -587,28 +625,23 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
     )
     coordinator = SearchCoordinator(api)
     coordinator.retry_handler.max_retries = 0
-    prepared_request = api.prepare_search(page=1)
-
+    cache_key = coordinator._create_cache_key(page=1)
+    headers: dict[str, str] = {"Content-Type": "application/json"}
     assert coordinator.get_cached_request(page=1) is None
     assert coordinator.get_cached_response(page=1) is None
+    assert cache_key not in coordinator.get_cached_response_keys()
 
-    with requests_mock.Mocker() as m:
-        m.get(
-            prepared_request.url,
-            status_code=200,
-            content=academic_json_response.content,
-            headers={"Content-Type": "application/json"},
-        )
+    with search_coordinator_mocking_context(coordinator, page=1, json=academic_json_response.json(), headers=headers):
         result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
         assert isinstance(result, ProcessedResponse)
         assert result.data and len(result.data) == 3
 
     assert coordinator.get_cached_request(page=1) is not None
     assert coordinator.get_cached_response(page=1) is not None
+    assert cache_key in coordinator.get_cached_response_keys()
 
     caplog.clear()
-    with requests_mock.Mocker() as m:
-        m.get(prepared_request.url, status_code=429, headers={"Content-Type": "application/json"})
+    with search_coordinator_mocking_context(coordinator, page=1, status_code=429, headers=headers):
         result = coordinator.search(page=1, from_request_cache=True, from_process_cache=False)
         assert isinstance(result, ProcessedResponse)
 
@@ -618,8 +651,7 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
         assert response == coordinator.get_cached_request(page=1)
 
     caplog.clear()
-    with requests_mock.Mocker() as m:
-        m.get(prepared_request.url, status_code=429, headers={"Content-Type": "application/json"})
+    with search_coordinator_mocking_context(coordinator, page=1, status_code=429, headers=headers):
         result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
         assert isinstance(result, ErrorResponse)
 
@@ -628,9 +660,34 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
             _ = coordinator.robust_request(page=1)
         assert f"Failed to get a valid response from {coordinator.display_name}"
 
-    with requests_mock.Mocker() as m:
+    with requests_mock.Mocker(real_http=False):
         non_response = coordinator.search(page=1)
         assert isinstance(non_response, NonResponse)
+
+
+def test_get_cached_response_key_with_namespace(academic_json_response):
+    """Test for whether the response can still be retrieved from the processing cache when a namespace is used."""
+    cache_manager = DataCacheManager.with_storage("inmemory", namespace="Testing namespace")
+    coordinator = SearchCoordinator(
+        cache_manager=cache_manager,
+        provider_name="plos",
+        query="test",
+        base_url="https://api.example.com",
+        records_per_page=10,
+        request_delay=0,
+    )
+    coordinator.retry_handler.max_retries = 0
+    cache_key = coordinator._create_cache_key(page=1)
+    prefixed_cache_key = cache_manager.cache_storage._prefix(cache_key)
+    assert cache_manager.namespace and prefixed_cache_key.startswith(cache_manager.namespace)
+
+    with search_coordinator_mocking_context(coordinator, page=1, json=academic_json_response.json()):
+        result = coordinator.search(page=1, from_request_cache=False, from_process_cache=False)
+
+    assert result and result.data
+
+    retrieved_cache_keys = coordinator.get_cached_response_keys()
+    assert retrieved_cache_keys and retrieved_cache_keys[0] == prefixed_cache_key
 
 
 @pytest.mark.parametrize("Coordinator", (BaseCoordinator, SearchCoordinator))
@@ -795,7 +852,7 @@ def test_respect_retry_after_date_sleep_called():
 
 
 def test_cached_response_identification():
-    """Verifies that ProcessedResponses can successfully indicate whether a response originated from session cache."""
+    """Verifies that ProcessedResponses can correctly indicate whether a response originated from the session cache."""
     api = SearchAPI.from_defaults(
         provider_name="plos", query="test", base_url="https://example-base-url.com", request_delay=0.01
     )
@@ -806,6 +863,115 @@ def test_cached_response_identification():
 
     assert uncached_result.cached is False
     assert cached_result.cached is True
+
+
+def test_cache_only_response_retrieval_with_search(caplog):
+    """Verifies that `cache_only=True` successfully prevents requests from being sent if not already cached."""
+    coordinator = SearchCoordinator(
+        use_cache=True, provider_name="plos", query="test", base_url="https://example-base-url.com", request_delay=0.01
+    )
+
+    # Preventing actual requests in-case the PageUnavailableFromCacheException isn't raised internally
+    with requests_mock.Mocker(real_http=False):
+        non_response_result = coordinator.search_page(page=1, cache_only=True)
+        err = f"Failed to retrieve page 1 from the session cache for the provider, {coordinator.display_name}."
+        assert isinstance(non_response_result.response_result, NonResponse)
+        assert non_response_result.cached is None
+        assert non_response_result.error == "PageUnavailableFromCacheException"
+        assert err in caplog.text
+
+    with search_coordinator_mocking_context(coordinator, page=1, json={"success": True}):
+        result = coordinator.search_page(page=1)
+        assert isinstance(result.response_result, ProcessedResponse) and result.cached is False
+        cached_result = coordinator.search_page(page=1, cache_only=True)
+        assert cached_result.response_result and cached_result.cached is True
+        assert f"Retrieved a cached response for cache key: {cached_result.cache_key}" in caplog.text
+        assert (
+            isinstance(cached_result.response_result, ProcessedResponse)
+            and cached_result.response_result.content == result.response_result.content
+        )
+
+
+def test_cache_only_response_retrieval_with_fetch(caplog):
+    """Verifies that `cache_only=True` with `fetch` raises a PageUnavailableFromCacheException when required."""
+    coordinator = SearchCoordinator(
+        provider_name="plos", query="test", base_url="https://example-base-url.com", request_delay=0.01
+    )
+    err = (
+        f"Failed to retrieve page 1 from the session cache for the provider, {coordinator.display_name}: The session "
+        "cache has not been enabled."
+    )
+
+    with requests_mock.Mocker():
+        # Retrieval should return None here:
+        response = coordinator.fetch(page=1, cache_only=True, raise_on_error=False)
+
+    assert response is None
+    assert err in caplog.text
+    caplog.clear()
+
+    with requests_mock.Mocker(), pytest.raises(PageUnavailableFromCacheException) as excinfo:
+        # raises an error: (raise_on_error=True is the default behavior for `fetch`)
+        _ = coordinator.fetch(page=1, cache_only=True, raise_on_error=True)
+
+    assert isinstance(excinfo.value, PageUnavailableFromCacheException)
+
+    # if an error is raised, the warning is skipped
+    assert err not in caplog.text
+    assert err == excinfo.value.message
+
+    # For interface compatibility - response is always None and response error details an empty string:
+    assert excinfo.value.response is None and excinfo.value.error_details == ""
+
+
+def test_cached_response_cached_search_result_equality():
+    """Verifies that `get_cached_search_result` builds on `get_cached_response` to create the final SearchResult."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos", query="test", base_url="https://example-base-url.com", request_delay=0.01
+    )
+    coordinator = SearchCoordinator(api, use_cache=True)
+
+    # Both should be `None`: the `get_cached_search_result` also returns None when the response cache is empty
+    assert coordinator.get_cached_response(page=1) is None
+    assert coordinator.get_cached_search_result(page=1) is None
+
+    with search_coordinator_mocking_context(coordinator, page=1, json={"success": True}):
+        result = coordinator.search_page(page=1)
+        assert result
+
+    # Both should be not `None`: the `get_cached_search_result` returns a valid result when the response exists in cache
+    cached_response = coordinator.get_cached_response(page=1)
+    cached_search_result = coordinator.get_cached_search_result(page=1)
+
+    # Both should be retrieved as intended, and `SearchResult.response_result` should match `get_cached_response()`
+    assert cached_response and cached_search_result
+    assert cached_search_result.response_result == cached_response
+
+
+def test_cached_search_result_retrieval_from_response_processing_cache(
+    plos_page_1_data, plos_headers, plos_coordinator
+):
+    """Verifies that `get_cached_search_result` uses `ReconstructedResponse` when a session cache is unavailable."""
+
+    with search_coordinator_mocking_context(
+        plos_coordinator, page=1, json=plos_page_1_data, headers=plos_headers, status_code=200
+    ):
+        result = plos_coordinator.search_page(page=1)
+        assert result and result.response
+
+    cached_search_result = plos_coordinator.get_cached_search_result(page=1)
+    assert cached_search_result and isinstance(cached_search_result.response, ReconstructedResponse)
+
+    # ReconstructedResponse classes are verified as valid as a prereq for `cached=True`.
+    assert cached_search_result.cached is True
+    assert cached_search_result.data
+
+    # Basic headers, content, status codes should carry over at the minimum
+    assert cached_search_result.data == result.data
+    assert cached_search_result.metadata == result.metadata
+    assert cached_search_result.response.content == result.response.content
+    assert cached_search_result.response.headers == result.response.headers
+    assert cached_search_result.response.status_code == result.response.status_code
 
 
 def test_respect_retry_after_wait_called(caplog):

@@ -90,7 +90,7 @@ def test_mongo_update_error(mongo_test_storage, caplog):
 
 
 def test_mongo_delete_error(mongo_test_storage, caplog):
-    """Tests single-record deletion edge cases with in MongoDB."""
+    """Tests single-record deletion edge cases in MongoDB."""
     e = "DB error"
     key = "some_key"
     msg = f"Error during attempted deletion of key {key} (namespace = '{mongo_test_storage.namespace}'): {e}"
@@ -109,7 +109,7 @@ def test_mongo_delete_error(mongo_test_storage, caplog):
 
 
 def test_mongo_delete_all_error(mongo_test_storage, caplog):
-    """Tests full-record deletion edge cases with in MongoDB."""
+    """Tests full-record deletion edge cases in MongoDB."""
     e = "DB error"
     msg = f"Error during attempted deletion of all records from namespace '{mongo_test_storage.namespace}': {e}"
     with patch.object(mongo_test_storage, "collection") as mock_collection:
@@ -144,7 +144,7 @@ def test_mongo_verify_cache_error(mongo_test_storage, monkeypatch, caplog):
 
 @pytest.mark.parametrize("invalid_cache_key", ([], None, ""))
 def test_mongo_falsy_invalid_cache_key(mongo_test_storage, invalid_cache_key):
-    """Verifies that a `ValueError is raised if falsy cache key is passed to `verify_cache`."""
+    """Verifies that a `ValueError` is raised if falsy cache key is passed to `verify_cache`."""
     err = f"Key invalid. Received {invalid_cache_key} (namespace = '{mongo_test_storage.namespace}')"
     with pytest.raises(ValueError, match=re.escape(err)):
         _ = mongo_test_storage.verify_cache(invalid_cache_key)

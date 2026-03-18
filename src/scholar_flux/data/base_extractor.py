@@ -133,15 +133,16 @@ class BaseDataExtractor:
         cls,
         record_path: Optional[list] = None,
         metadata_path: Optional[list[list] | dict[str, list]] = None,
-    ):
-        """
-        Method used to validate the path inputs provided to the DataExtractor prior to its later use
-        In extracting metadata and records
+    ) -> None:
+        """Method used to validate the path inputs provided to the DataExtractor prior to its later use in extracting
+        metadata and records.
+
         Args:
             record_path (Optional[List[str | None]]): The path where a list of records are located
             metadata_path (Optional[List[str | None]]): The list or dictionary of paths where metadata records are located
         Raises:
             DataExtractionException: Indicates an error in the DataExtractor and identifies where the inputs take on an invalid value
+
         """
         try:
             if record_path is not None:
@@ -318,16 +319,17 @@ class BaseDataExtractor:
         return self.structure()
 
     @classmethod
-    def update(cls, data_extractor: Self, **data_extractor_kwargs) -> Self:
+    def update(cls, data_extractor: Self, **data_extractor_kwargs: Any) -> Self:
         """Helper method for creating a new BaseDataExtractor instance, replacing only the specified components.
 
         Args:
             data_extractor (Self): A previously created BaseDataExtractor instance
             **data_extractor_kwargs:
-                Keyword arguments used to replace components of the BaseDataExtractor. Unspecified fields are assigned
-                their the value from the previous BaseDataExtractor.
+                Keyword arguments used to replace components of the BaseDataExtractor. Unspecified fields from the
+                previous `BaseDataExtractor` remain unchanged.
         Returns:
             BaseDataExtractor: A new data extractor instance with the specified parameter updates
+
         """
         if not isinstance(data_extractor, BaseDataExtractor):
             raise TypeError(

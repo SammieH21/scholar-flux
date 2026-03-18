@@ -9,7 +9,7 @@ operations.
 """
 from __future__ import annotations
 
-from typing import Optional, Union, Generator, Sequence, Mapping
+from typing import Any, Optional, Union, Generator, Sequence, Mapping
 from collections import UserDict
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
@@ -151,7 +151,7 @@ class RecordPathNodeMap(PathNodeMap):
         record_index, nodes = cls._prepare_inputs(mapping)
         return cls(*nodes, record_index=record_index, use_cache=use_cache)
 
-    def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None):
+    def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None) -> None:
         """Validate constraints on the node to be inserted into the PathNodeMap.
 
         Args:
@@ -343,7 +343,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         return mapping is not None and mapping.get(node) is not None
 
     @classmethod
-    def _resolve_record_maps(cls, *args, use_cache: Optional[bool] = None) -> dict[int, RecordPathNodeMap]:
+    def _resolve_record_maps(cls, *args: Any, use_cache: Optional[bool] = None) -> dict[int, RecordPathNodeMap]:
         """Helper method for resolving groups of nodes and record maps into an integrated structure."""
 
         mapped_groups: dict[int, RecordPathNodeMap] = {}
@@ -390,7 +390,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
 
     def update(
         self,
-        *args,
+        *args: Any,
         overwrite: Optional[bool] = None,
         **kwargs: dict[str, PathNode] | dict[Union[str, ProcessingPath], RecordPathNodeMap],
     ) -> None:
@@ -436,7 +436,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
 
         return self.data.get(record_index, default)
 
-    def add(self, node: PathNode | RecordPathNodeMap, overwrite: Optional[bool] = None):
+    def add(self, node: PathNode | RecordPathNodeMap, overwrite: Optional[bool] = None) -> None:
         """Add a node to the PathNodeMap instance.
 
         Args:
@@ -453,7 +453,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         except Exception as e:
             raise PathNodeMapError(f"Error adding nodes to RecordPathChainMap: {e}") from e
 
-    def remove(self, node: Union[ProcessingPath, "PathNode", str]):
+    def remove(self, node: Union[ProcessingPath, "PathNode", str]) -> None:
         """
         Remove the specified path or node from the PathNodeMap instance.
         Args:

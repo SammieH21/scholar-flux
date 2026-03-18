@@ -1,4 +1,4 @@
-import scholar_flux.sessions.session_manager as sm
+from scholar_flux.sessions.session_manager import CachedSessionManager
 from scholar_flux.sessions import EncryptionPipelineFactory
 import pytest
 from pathlib import Path
@@ -48,7 +48,7 @@ def default_cache_session_manager(
     - default_backend:  Indicates the backend to use for caching - SQLite by default
     """
 
-    return sm.CachedSessionManager(
+    return CachedSessionManager(
         user_agent="test_session",
         cache_name=default_cache_filename,
         cache_directory=default_cache_directory,
@@ -160,7 +160,7 @@ def default_encryption_cache_session_manager(
         pytest.skip()
 
     create_serializer = default_encryption_serializer_pipeline(secret_key=default_secret_key, salt=default_secret_salt)
-    return sm.CachedSessionManager(
+    return CachedSessionManager(
         user_agent="test_session",
         cache_name=default_encryption_cache_filename,
         cache_directory=default_cache_directory,
@@ -172,7 +172,7 @@ def default_encryption_cache_session_manager(
 @pytest.fixture(scope="session")
 def default_memory_cache_session_manager():
     """Creates a minimal cached session manager factory instance that can be used to create an in-memory cache."""
-    return sm.CachedSessionManager(
+    return CachedSessionManager(
         user_agent="test_session",
         backend="memory",
     )
@@ -209,7 +209,7 @@ def incorrect_secret_salt_encryption_cache_session_manager(
     create_serializer = default_encryption_serializer_pipeline(
         secret_key=incorrect_secret_key, salt=incorrect_secret_salt
     )
-    return sm.CachedSessionManager(
+    return CachedSessionManager(
         user_agent="test_session",
         cache_name=default_encryption_cache_filename,
         cache_directory=default_cache_directory,

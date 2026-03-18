@@ -1,4 +1,4 @@
-from scholar_flux.utils.logger import setup_logging
+from scholar_flux.utils.logger import setup_logging, resolve_log_stream, resolve_log_level
 from scholar_flux.exceptions import LogDirectoryError, PackageInitializationError
 from scholar_flux import initialize_package
 from unittest.mock import MagicMock
@@ -9,6 +9,7 @@ import logging
 import pytest
 from scholar_flux import log_level_context
 from scholar_flux import logger
+from sys import stdout, stderr, stdin
 
 
 def test_initialization_env_path_fallback(restore_config_settings, recwarn, caplog):
@@ -56,6 +57,61 @@ def test_logging_setup_without_directory(caplog):
     """Tests whether a logger can be successfully set up without rotary file logging (console logging only)."""
     setup_logging(log_file=None)
     assert "Logging setup complete (console_only)" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "env_log_level,should_warn,resolved,expected",
+    (
+        (logging.DEBUG, False, logging.DEBUG, logging.DEBUG),
+        (0, False, 0, 0),
+        (45, False, 45, 45),
+        ("", False, None, logging.WARNING),
+        ([1, 2, 3], True, None, logging.WARNING),
+        ("None", False, None, logging.WARNING),
+        ("Unknown Log Level", True, None, logging.WARNING),
+        ("DEBUG", False, logging.DEBUG, logging.DEBUG),
+        ("info", False, logging.INFO, logging.INFO),
+    ),
+)
+def test_log_level_resolved_from_env(env_log_level, should_warn, resolved, expected, restore_config_settings, caplog):
+    """Tests whether `initialize_package` gracefully handles log level resolution from the environment when possible."""
+    assert resolve_log_level(env_log_level) == resolved  # Either resolves correctly or returns None
+
+    logger = logging.getLogger("test_logger")
+    config_settings.set("SCHOLAR_FLUX_LOG_LEVEL", env_log_level)
+    _ = initialize_package(logging_params=dict(logger=logger))
+    assert logger.level == expected
+    warned = f"'{env_log_level}' is not a valid log level. defaulted to log level WARNING instead." in caplog.text
+    assert warned ^ (not should_warn)
+
+
+@pytest.mark.parametrize(
+    "stream,expected",
+    (
+        (stdout, stdout),  # The default
+        (stderr, stderr),  # Allow for a little grace
+        (None, stderr),  # The default
+        ("STDERR", stderr),
+        ("STDOUT", stdout),  # STDOUT should be resolvable despite caps
+        ("STD Out", stdout),  # Allow for a little grace
+        ("stdout", stdout),
+        (True, stderr),
+        ("Incorrect stream value", stderr),  # default to stderr when invalid
+        (stdin, stderr),  # Not quite the expected value for a logger
+        (False, False),  # Turns off logging
+        ("False", False),  # Also turns off logging after resolving "False" to `False`
+        ("FALSE", False),  # Case insensitive
+    ),
+)
+def test_log_stream_resolution(stream, expected, restore_config_settings, caplog):
+    """Tests whether `resolve_log_stream` gracefully handles stream resolution when possible."""
+    assert resolve_log_stream(stream) == expected
+
+    logger = logging.getLogger("test_logger")
+    config_settings.set("SCHOLAR_FLUX_LOG_STREAM", stream)
+    initialize_package(logging_params=dict(logger=logger))
+    logger_stream = getattr(logger.handlers[0], "stream", None)
+    assert (expected is False and isinstance(logger.handlers[0], logging.NullHandler)) or logger_stream == expected
 
 
 def test_initializer_logger_creation_without_modification(caplog):
@@ -145,17 +201,18 @@ def test_initializer_with_env(restore_config_settings, cleanup, tmp_path, monkey
         f.writelines("SCHOLAR_FLUX_LOG_LEVEL=ERROR\n")
         f.writelines(f"SCHOLAR_FLUX_DEFAULT_PROVIDER={provider}")
 
-    monkeypatch.setenv(crossref_api_key_env_var, mocked_crossref_api_key)
+    with monkeypatch.context() as m:
+        m.setenv(crossref_api_key_env_var, mocked_crossref_api_key)
 
-    config, _, _ = initialize_package(
-        env_path=env_path, config_params=dict(reload_os_env=True), logging_params=dict(logger=test_logger)
-    )
+        config, _, _ = initialize_package(
+            env_path=env_path, config_params=dict(reload_os_env=True), logging_params=dict(logger=test_logger)
+        )
 
-    assert test_logger.level == logging.ERROR
-    assert config_settings.get("SCHOLAR_FLUX_DEFAULT_PROVIDER") == provider
-    assert "Attempting to load updated settings from the system environment." in caplog.text
-    assert SecretStr(mocked_crossref_api_key) == config.get(crossref_api_key_env_var)
-    assert mocked_crossref_api_key not in caplog.text
+        assert test_logger.level == logging.ERROR
+        assert config_settings.get("SCHOLAR_FLUX_DEFAULT_PROVIDER") == provider
+        assert "Attempting to load updated settings from the system environment." in caplog.text
+        assert SecretStr(mocked_crossref_api_key) == config.get(crossref_api_key_env_var)
+        assert mocked_crossref_api_key not in caplog.text
 
 
 def test_config_with_missing_env(cleanup, tmp_path, caplog):
@@ -185,19 +242,39 @@ def test_initializer_propagation(caplog):
     assert message not in caplog.text
 
 
-def test_setup_logging_value_error(monkeypatch, recwarn):
+def test_setup_logging_value_error(monkeypatch):
     """Tests whether the initializer raises a PackageInitializationError when logging setup fails."""
     test_logger = logging.getLogger("test-logger-propagation")
     err = "Could not locate a writable logs directory for scholar_flux"
     monkeypatch.setattr("scholar_flux.utils.logger.get_default_writable_directory", raise_error(RuntimeError, err))
 
     with pytest.raises(PackageInitializationError) as excinfo:
-        _ = initialize_package(logging_params=dict(logger=test_logger, log_level=logging.ERROR))
+        _ = initialize_package(logging_params=dict(logger=test_logger, log_level=logging.ERROR, raise_on_error=True))
 
-    assert (
+    msg = (
         "Failed to initialize the logger for the scholar_flux package: Could not identify or create a log directory "
         f"due to an error: {err}"
-    ) in str(excinfo.value)
+    )
+    assert msg in str(excinfo.value)
+
+
+def test_setup_logging_directory_exception_warning(monkeypatch, recwarn):
+    """Tests whether the initializer gracefully warns when a directory selection issue is encountered during log setup.
+
+    When `raise_on_error=False`, this method should forego raising a `PackageInitializationError` and should instead use
+    the `warnings` library to indicate an issue during directory setup.
+
+    """
+    test_logger = logging.getLogger("test-logger-propagation")
+    err = "Could not locate a writable logs directory for scholar_flux"
+    monkeypatch.setattr("scholar_flux.utils.logger.get_default_writable_directory", raise_error(RuntimeError, err))
+
+    _, logger, _ = initialize_package(logging_params=dict(logger=test_logger, log_level=logging.ERROR))
+    assert logger.handlers and len(logger.handlers) == 1  # Should only include the console handler at this point
+
+    assert (
+        "Could not identify or create a log directory " f"due to an error: {err}. Disabling File-based logging..."
+    ) in str(recwarn[0].message)
 
 
 def test_configuration_loading_fallback(monkeypatch, recwarn):
@@ -211,7 +288,9 @@ def test_configuration_loading_fallback(monkeypatch, recwarn):
     config, returned_logger, _ = initialize_package(logging_params=dict(logger=test_logger, log_level=logging.ERROR))
 
     assert test_logger is returned_logger
-    assert config == ConfigLoader.DEFAULT_ENV
+
+    # Check only items that can be found within the config loader
+    assert {k: v for k, v in config.items() if k in ConfigLoader.DEFAULT_ENV} == ConfigLoader.DEFAULT_ENV
     assert test_logger.level == logging.ERROR
     warning_message = str(recwarn[0].message)
     assert (
@@ -220,7 +299,7 @@ def test_configuration_loading_fallback(monkeypatch, recwarn):
     )
 
 
-def test_logging_directory_setup_failure(monkeypatch, caplog):
+def test_logging_directory_setup_failure(monkeypatch):
     """Tests whether unsuccessfully setting up a logger will raise the required exception."""
     log_file = "app.log"
     monkeypatch.setattr(
@@ -232,4 +311,3 @@ def test_logging_directory_setup_failure(monkeypatch, caplog):
 
     err = "Could not identify or create a log directory due to an error"
     assert err in str(excinfo.value)
-    assert err in caplog.text

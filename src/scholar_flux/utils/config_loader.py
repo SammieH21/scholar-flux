@@ -1,4 +1,4 @@
-# /api/utils/config_loader.py
+# /utils/config_loader.py
 """The scholar_flux.api.utils.config_loader module defines the primary `ConfigLoader` for the scholar_flux package.
 
 The `ConfigLoader` is designed to ensure that user-specified package default settings are registered via the use of
@@ -58,6 +58,9 @@ class ConfigLoader:
               Defines the default cache storage backend that the `DataCacheManager` creates for response caching
               during orchestration of the response processing steps. Supported options are `redis`, `sql`,
               `mongodb`, `memory`, and `null`. Defaults to `memory` if not specified.
+        - SCHOLAR_FLUX_SESSION_CACHE_NAME:
+              Defines the name of the session cache db (mongodb/redis), table name (sqlite), or nested folder
+              (filename).
         - SCHOLAR_FLUX_CACHE_DIRECTORY:
               Defines the directory path where requests and response processing cache will be stored when using
               filesystem-based cache backends (e.g., `sqlite`).
@@ -78,6 +81,8 @@ class ConfigLoader:
         - SCHOLAR_FLUX_LOG_LEVEL:
             Defines the default log level used for package level logging during and after scholar_flux package
             initialization.
+        - SCHOLAR_FLUX_LOG_STREAM:
+            Defines the default stream that should be used when initializing the package-level logger.
         - SCHOLAR_FLUX_PROPAGATE_LOGS: Determines whether logs should be propagated or not. (True by default).
 
     Database Connections
@@ -86,6 +91,7 @@ class ConfigLoader:
         - SCHOLAR_FLUX_MONGODB_PORT: MongoDB port (default: 27017)
         - SCHOLAR_FLUX_REDIS_HOST: Redis host (default: "localhost")
         - SCHOLAR_FLUX_REDIS_PORT: Redis port (default: 6379)
+        - SCHOLAR_FLUX_SQLALCHEMY_URL: The default SQLAlchemy URL to use for the response processing cache.
         - SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL: Controls the time until expiration for cached responses (seconds)
         - SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL: Controls the time until expiration for processing cache (seconds)
 
@@ -116,8 +122,10 @@ class ConfigLoader:
         "CORE_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("CORE_API_KEY")),
         "PUBMED_API_KEY": SensitiveDataMasker.mask_secret(os.getenv("PUBMED_API_KEY")),
         "SCHOLAR_FLUX_CACHE_SECRET_KEY": SensitiveDataMasker.mask_secret(os.getenv("SCHOLAR_FLUX_CACHE_SECRET_KEY")),
+        "SCHOLAR_FLUX_SESSION_CACHE_NAME": os.getenv("SCHOLAR_FLUX_SESSION_CACHE_NAME"),
         "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY"),
         "SCHOLAR_FLUX_LOG_DIRECTORY": os.getenv("SCHOLAR_FLUX_LOG_DIRECTORY"),
+        "SCHOLAR_FLUX_LOG_FILE": os.getenv("SCHOLAR_FLUX_LOG_FILE", "application.log"),
         "SCHOLAR_FLUX_MONGODB_HOST": os.getenv(
             "SCHOLAR_FLUX_MONGODB_HOST", os.getenv("MONGODB_HOST", "mongodb://127.0.0.1")
         ),
@@ -125,9 +133,11 @@ class ConfigLoader:
         or 27017,
         "SCHOLAR_FLUX_REDIS_HOST": os.getenv("SCHOLAR_FLUX_REDIS_HOST", os.getenv("REDIS_HOST", "localhost")),
         "SCHOLAR_FLUX_REDIS_PORT": coerce_int(os.getenv("SCHOLAR_FLUX_REDIS_PORT", os.getenv("REDIS_PORT"))) or 6379,
-        "SCHOLAR_FLUX_ENABLE_LOGGING": os.getenv("SCHOLAR_FLUX_ENABLE_LOGGING", "").upper(),
-        "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL", "").upper(),
-        "SCHOLAR_FLUX_PROPAGATE_LOGS": os.getenv("SCHOLAR_FLUX_PROPAGATE_LOGS", "").upper(),
+        "SCHOLAR_FLUX_SQLALCHEMY_URL": os.getenv("SCHOLAR_FLUX_SQLALCHEMY_URL"),
+        "SCHOLAR_FLUX_ENABLE_LOGGING": os.getenv("SCHOLAR_FLUX_ENABLE_LOGGING"),
+        "SCHOLAR_FLUX_LOG_LEVEL": os.getenv("SCHOLAR_FLUX_LOG_LEVEL"),
+        "SCHOLAR_FLUX_LOG_STREAM": os.getenv("SCHOLAR_FLUX_LOG_STREAM"),
+        "SCHOLAR_FLUX_PROPAGATE_LOGS": os.getenv("SCHOLAR_FLUX_PROPAGATE_LOGS"),
         "SCHOLAR_FLUX_DEFAULT_PROVIDER": os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
         "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND": os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND"),
         "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL": os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL", 86400),
@@ -252,7 +262,7 @@ class ConfigLoader:
         return value
 
     @classmethod
-    def load_os_env_key(cls, key: str, **kwargs) -> Optional[str | SecretStr]:
+    def load_os_env_key(cls, key: str, **kwargs: Any) -> Optional[str | SecretStr]:
         """Loads the provided key from the global environment. Converts API_KEY variables to secret strings by default.
 
         Args:
@@ -341,7 +351,7 @@ class ConfigLoader:
 
         Args:
             env_dict (dict[str, Any]):
-                An dictionary containing environment variables that will be used to update the package-level config.
+                A dictionary containing environment variables that will be used to update the package-level config.
                 dictionary for the current session.
             verbose (bool):
                 Determines whether updates to the configuration should be logged when they occur.
@@ -467,7 +477,7 @@ class ConfigLoader:
 
         Note:
             Values set with the `.set()` method are prioritized over values from the environment when `.get()`
-            is called. To override this behavior and use environment variables instead,, either remove the
+            is called. To override this behavior and use environment variables instead, either remove the
             environment variable from the config dictionary, or set the value associated with the key to `None`.
 
         """

@@ -2,21 +2,21 @@ from unittest.mock import patch
 
 from scholar_flux.api import SearchAPI, SearchCoordinator
 import requests_mock
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse, SearchResult, SearchResultList
+from scholar_flux.api.models import (
+    ProcessedResponse,
+    ErrorResponse,
+    NonResponse,
+    SearchResult,
+    PageListInput,
+    SearchResultList,
+)
+import pytest
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
 def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exceeded_response, caplog):
     """Tests whether `SearchCoordinator.search_pages()` correctly handles both successful and unsuccessful responses."""
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
-    success_response = ProcessedResponse(response=mock_successful_response, extracted_records=extracted_records)
-    rate_limit_response = ErrorResponse(response=mock_rate_limit_exceeded_response, message="Rate limit exceeded")
-
-    page_results = [success_response, success_response, rate_limit_response]
-
-    page_list = [1, 2, 3]
-
-    mock_search.side_effect = page_results
 
     api = SearchAPI.from_defaults(
         provider_name="plos",
@@ -25,7 +25,17 @@ def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exce
         records_per_page=len(extracted_records),
         request_delay=0,
     )
+
     coordinator = SearchCoordinator(api)
+
+    success_response = ProcessedResponse(response=mock_successful_response, extracted_records=extracted_records)
+    rate_limit_response = ErrorResponse(response=mock_rate_limit_exceeded_response, message="Rate limit exceeded")
+
+    page_results = [success_response, success_response, rate_limit_response]
+
+    page_list = [1, 2, 3]
+
+    mock_search.side_effect = page_results
 
     pages = coordinator.search_pages(page_list)
     assert len(pages) == 3
@@ -36,6 +46,64 @@ def test_multisearch(mock_search, mock_successful_response, mock_rate_limit_exce
             and page.response_result.status_code == expected_response.status_code
         )
     caplog.text
+
+    mock_search.side_effect = page_results
+    assert coordinator.search_records(7) == pages
+
+
+@pytest.mark.parametrize(
+    "records_per_page,min_records,page_offset,expected_page_count",
+    [(5, 10, 0, 2), (6, 15, 1, 3), (3, 12, 0, 4), (3, 12, 5, 4), (0, 5, 0, 0), (3, 0, 5, 0)],
+)
+def test_coordinator_calculate_page_limit(records_per_page, min_records, page_offset, expected_page_count):
+    """Verifies that the pages to be queried as calculated from `PageListInput` equals the expected page count."""
+    coordinator = SearchCoordinator(query="q", records_per_page=records_per_page)
+    page_limit = PageListInput.from_record_count(min_records, coordinator.api.records_per_page, page_offset)
+    assert expected_page_count == len(page_limit.page_numbers)
+
+
+@pytest.mark.parametrize(
+    "page_offset",
+    (-1, None, "blue", ["r", "g", "b"]),
+)
+def test_coordinator_calculate_page_limit_with_invalid_offset(page_offset, caplog):
+    """Verifies that `page_offset` defaults to 0 when `PageListInput.from_record_count` receives an invalid value."""
+    coordinator = SearchCoordinator(query="q", records_per_page=10)
+    page_limit = PageListInput.from_record_count(40, coordinator.api.records_per_page, page_offset)
+    assert len(page_limit.page_numbers) == 4
+
+    err = (
+        f"Expected a valid, non-negative integer for `page_offset`, but received '{page_offset}'. Defaulting to 0 "
+        "instead..."
+    )
+    assert err in caplog.text
+
+
+def test_invalid_coordinator_value_retrieval(caplog):
+    """Verifies that the pages to be queried calculated from `_calculate_page_limit` equals the expected page count."""
+    coordinator = SearchCoordinator(query="q", provider_name="plos")
+    with requests_mock.Mocker():
+        # Should fail, min_records expects an integer
+        invalid_min_records = "puppy"
+        search_result_list = coordinator.search_records(min_records=invalid_min_records)  # type: ignore
+    e = f"Expected `min_records` to be a positive integer, but received value '{invalid_min_records}'"
+    assert f"An unexpected error occurred when processing the response: {e}" in caplog.text
+    assert isinstance(search_result_list, SearchResultList) and not search_result_list
+
+
+def test_search_records_returns_empty_list_with_no_record_count():
+    """Verifies that `search_records()` correctly returns an empty result list when `SearchAPI.records_per_page=0`."""
+    api = SearchAPI.from_defaults(
+        provider_name="plos",
+        query="test",
+        base_url="https://api.example.com",
+        records_per_page=0,
+    )
+    coordinator = SearchCoordinator(search_api=api)
+
+    with requests_mock.Mocker():
+        search_result_list = coordinator.search_records(min_records=5)  # Should return an empty list
+        assert isinstance(search_result_list, SearchResultList) and not search_result_list
 
 
 def test_plos_multisearch_integration(
@@ -71,6 +139,29 @@ def test_plos_multisearch_integration(
 
         record_list = search_result_list.join(strip_annotations=True, include={})
         assert record_list == plos_page_1_data["response"]["docs"] + plos_page_2_data["response"]["docs"]
+
+
+def test_cache_only_multipage_retrieval_without_halting(caplog):
+    """Verifies that `cache_only=True` does not halt retrieval when a page is not available."""
+    coordinator = SearchCoordinator(
+        provider_name="plos", query="test", base_url="https://example-base-url.com", request_delay=0.01, use_cache=True
+    )
+    pages = list(range(1, 4))
+    with requests_mock.Mocker(real_http=False):
+        # Retrieval should return None here:
+        results = coordinator.search_pages(pages=pages, cache_only=True)
+
+    assert len(results) == len(pages)
+
+    for result in results:
+        assert (
+            f"Failed to retrieve page {result.page} from the session cache for the provider, "
+            f"{coordinator.display_name}."
+        ) in caplog.text
+        assert (
+            f"Response retrieval from {coordinator.display_name} for page {result.page} was unsuccessful: "
+            f"{result.message}" in caplog.text
+        )
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")

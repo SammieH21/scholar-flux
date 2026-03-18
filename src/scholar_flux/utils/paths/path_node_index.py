@@ -101,7 +101,7 @@ class PathNodeIndex:
     )
     use_cache: Optional[bool] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Method automatically used after initialization, to validate and set the index and simplifier.
 
         The index represents the preprocessed json data that has been transformed into a dictionary of path-node
@@ -148,7 +148,7 @@ class PathNodeIndex:
         if isinstance(node_map, dict):
             return PathNodeMap(node_map, use_cache=use_cache)
         else:
-            raise PathNodeIndexError(f"The argument, node_map, expected a PathNodeMap. Recieved {type(node_map)}")
+            raise PathNodeIndexError(f"The argument, node_map, expected a PathNodeMap. Received {type(node_map)}")
 
     @classmethod
     def from_path_mappings(

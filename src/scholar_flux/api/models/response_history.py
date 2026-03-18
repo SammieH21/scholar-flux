@@ -6,9 +6,9 @@ calculation of accurate request delays.
 
 """
 from __future__ import annotations
-from typing import Optional
+from typing import Any, Optional
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
-from scholar_flux.utils.provider_utils import ProviderConfig
+from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse
 from scholar_flux.exceptions import APIParameterException
 from scholar_flux.api.providers import provider_registry
@@ -31,7 +31,7 @@ class ResponseHistoryRegistry(BaseProviderDict):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initializes the `ResponseHistoryRegistry` with a thread lock to enforce threaded dictionary operations."""
         self._lock = threading.Lock()
         super().__init__(*args, **kwargs)

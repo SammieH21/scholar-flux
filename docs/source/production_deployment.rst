@@ -17,7 +17,7 @@ ScholarFlux is designed for production-grade data collection from academic APIs.
 - **Essential patterns**: Caching, concurrency, and security basics
 
 .. note::
-   ScholarFlux is currently **beta (v0.4.0)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
+   ScholarFlux is currently **beta (v0.5.0)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
 
 Prerequisites
 -------------
@@ -115,20 +115,24 @@ With ``SCHOLAR_FLUX_HOME`` set, create a ``.env`` file at ``$SCHOLAR_FLUX_HOME/.
 Core Configuration
 ~~~~~~~~~~~~~~~~~~
 
-Based on ``scholar_flux.config.config_loader``:
+Based on ``scholar_flux.utils.config_loader``:
 
 .. code-block:: bash
 
    # Logging (auto-uses $SCHOLAR_FLUX_HOME/logs/ if SCHOLAR_FLUX_HOME is set)
    SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
-   SCHOLAR_FLUX_LOG_LEVEL=INFO              # DEBUG, INFO, WARNING, ERROR
+   SCHOLAR_FLUX_LOG_LEVEL=INFO              # DEBUG, INFO, WARNING, ERROR, or CRITICAL
    SCHOLAR_FLUX_PROPAGATE_LOGS=FALSE        # Set FALSE for production
+   SCHOLAR_FLUX_LOG_STREAM=STDERR              # Stream: STDERR, STDOUT, or FALSE (Turns off Log Streaming)
 
-   # Optional: Override log directory (otherwise uses $SCHOLAR_FLUX_HOME/logs/)
+   # Optional: Override the log directory (otherwise uses $SCHOLAR_FLUX_HOME/logs/)
    # SCHOLAR_FLUX_LOG_DIRECTORY=/var/log/scholar-flux
 
-   # Optional: Override cache directory (otherwise uses $SCHOLAR_FLUX_HOME/package_cache/)
+   # Optional: Override the cache directory (otherwise uses $SCHOLAR_FLUX_HOME/package_cache/)
    # SCHOLAR_FLUX_CACHE_DIRECTORY=/var/cache/scholar-flux
+
+   # Optional: Override the session cache name for specific backends (otherwise uses search_requests_cache)
+   SCHOLAR_FLUX_SESSION_CACHE_NAME=session_cache_storage
 
    # Cache encryption (generate secure random key)
    SCHOLAR_FLUX_CACHE_SECRET_KEY=your_secure_random_key_here
@@ -214,6 +218,9 @@ Configure default cache backends via environment variables. This eliminates the 
    # MongoDB connection (alternative)
    SCHOLAR_FLUX_MONGODB_HOST=mongodb://127.0.0.1   # or MONGODB_HOST
    SCHOLAR_FLUX_MONGODB_PORT=27017                 # or MONGODB_PORT
+
+   # Using SQLite, DuckDB, or another SQLAlchemy flavor:
+   SCHOLAR_FLUX_SQLALCHEMY_URL=None         # an optional file path or URI for caching processed response data
 
    # Default provider (optional)
    SCHOLAR_FLUX_DEFAULT_PROVIDER=plos

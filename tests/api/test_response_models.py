@@ -6,16 +6,25 @@ from scholar_flux.api.models.responses import (
     ReconstructedResponse,
 )
 from scholar_flux.api.models.search_results import SearchResult
+from scholar_flux.api.response_validator import ResponseValidator
 from scholar_flux.exceptions import InvalidResponseReconstructionException, InvalidResponseStructureException
 from collections import UserDict
-from scholar_flux.utils import quote_if_string, ResponseProtocol
-from scholar_flux.utils.helpers import generate_iso_timestamp, parse_iso_timestamp
+from scholar_flux.utils import (
+    quote_if_string,
+    ResponseProtocol,
+    is_response_like,
+    coerce_bytes,
+    generate_iso_timestamp,
+    parse_iso_timestamp,
+)
 from tests.testing_utilities import raise_error
 from requests import Response, RequestException
 from http.client import responses
 from unittest.mock import patch
 from datetime import datetime
 from copy import deepcopy
+from dataclasses import dataclass, asdict
+from typing import Any, MutableMapping
 import json
 import pytest
 import re
@@ -31,6 +40,148 @@ class DummyResponse(Response):
     def status_code(self) -> int:  # type: ignore
         """Used to automatically raise a ValueError for later testing with the ReconstructedResponse class."""
         raise ValueError
+
+
+@dataclass
+class URL:
+    """Helper for testing URL validation with specific objects."""
+
+    value: str
+
+    def __str__(self) -> str:
+        """Helper that returns the underlying url."""
+        return self.value
+
+
+@dataclass
+class ResponseLikeObject:
+    """Helper for validating response parsing for response-like objects."""
+
+    status_code: int
+    headers: MutableMapping[str, str]
+    content: bytes
+    url: URL | str
+
+    def raise_for_status(self) -> None:
+        """Dummy method for raising an exception for HTTP error status codes."""
+        ...
+
+    def validate(self) -> None:
+        """Helper for performing field validation via the `ResponseValidator`."""
+        ResponseValidator.validate_response_structure(self)
+
+
+def test_build_with_response_like():
+    """Verifies that response-like objects are coerced as ReconstructedResponse if possible when validation fails."""
+
+    response_like = ResponseLikeObject(
+        status_code="200",  # type: ignore
+        headers={"Content-Type": "application/json", "User-Agent": b"ExampleApp/1.0"},  # type: ignore
+        content="success",  # type: ignore
+        url=URL("https://httpbin.org/status/200"),
+    )
+    assert is_response_like(response_like) and isinstance(response_like, ResponseLikeObject)
+
+    with pytest.raises(InvalidResponseStructureException):
+        response_like.validate()
+
+    expected_headers = dict(response_like.headers)
+    expected_headers["User-Agent"] = expected_headers["User-Agent"].decode()
+    expected_content = coerce_bytes(response_like.content)
+
+    reconstructed_response = ReconstructedResponse.build(response_like)
+    reconstructed_response.validate()
+
+    # Coercion occurs within `ReconstructedResponse`
+    assert reconstructed_response.status_code == int(response_like.status_code)
+    assert reconstructed_response.reason == responses.get(int(response_like.status_code))
+    assert reconstructed_response.headers == expected_headers
+    assert reconstructed_response.content == expected_content
+    assert isinstance(response_like.url, URL) and reconstructed_response.url == response_like.url.value
+
+    # converted to `ReconstructedResponse` under the hood
+    api_response = APIResponse(response=response_like)
+    assert api_response.response == reconstructed_response
+
+
+def test_build_with_arbitrary_response_like_object():
+    """Verifies that `APIResponse` objects coerce response-like objects into `ReconstructedResponses` on creation."""
+    response_like = ResponseLikeObject(
+        status_code=400,
+        headers={"Content-Type": "application/json"},
+        content=b"Bad Request",
+        url="https://httpbin.org/status/400",
+    )
+
+    response = APIResponse(response=response_like)
+    assert isinstance(response.response, ReconstructedResponse)
+    assert response.validate_response()
+
+
+def test_build_with_response_like_raises_exception(monkeypatch, caplog):
+    """Validates the log message shared when the conversion of response-like objects fails from unexpected errors."""
+    response_like = ResponseLikeObject(
+        status_code=429,
+        headers={"Content-Type": "application/json"},
+        content=b"OK",
+        url="https://httpbin.org/status/429",
+    )
+
+    api_response = APIResponse(response=response_like)
+    assert api_response.response
+
+    message = "Directly raised exception"
+    monkeypatch.setattr(
+        ReconstructedResponse,
+        "build",
+        raise_error(InvalidResponseReconstructionException, message),
+    )
+
+    # The object has fields typically associated with a response-like object:
+    assert ResponseValidator.validate_response_like(response_like)
+
+    response_like_err = f"The object of type 'ResponseLikeObject' does not contain valid response fields: {message}"
+    with pytest.raises(InvalidResponseStructureException, match=response_like_err):
+        _ = APIResponse.as_reconstructed_response(response_like)
+
+    api_response_err = f"The object of type 'APIResponse' does not contain a valid raw response: {message}"
+    with pytest.raises(InvalidResponseStructureException, match=api_response_err):
+        _ = APIResponse.as_reconstructed_response(api_response)
+
+    new_api_response = APIResponse(response=response_like)
+    assert new_api_response.response is None
+    api_response_creation_err = (
+        f"A valid response could not be reconstructed from the object of type ResponseLikeObject: {response_like_err}"
+    )
+    assert api_response_creation_err in caplog.text
+
+
+def test_build_with_non_response_like_raises_exception():
+    """Verifies that `as_reconstructed_response` raises an exception when the received object is not a response."""
+    non_response_like = ["not", "a", "response", "like"]
+    err = f"The object of type 'list' does not contain valid response fields: The current class of type {type(non_response_like)} is not a response or response-like object."
+    with pytest.raises(InvalidResponseStructureException, match=re.escape(err)):
+        _ = APIResponse.as_reconstructed_response(non_response_like)
+
+
+def test_build_with_response_dict_with_invalid_fields_raises_exception(monkeypatch, caplog):
+    """Verifies that an `InvalidResponseReconstructionException` is raised when encountering a reconstruction error."""
+    response_like = ResponseLikeObject(
+        status_code=429,
+        headers={"Content-Type": "application/json"},
+        content=b"OK",
+        url="https://httpbin.org/status/429",
+    )
+
+    response_dict = asdict(response_like)
+    response_dict.pop("url")
+
+    err = (
+        r"The object of type 'dict' does not contain valid response fields: Missing the core required fields needed "
+        "to create a ReconstructedResponse: 'url'"
+    )
+    with pytest.raises(InvalidResponseStructureException, match=err):
+        _ = APIResponse.as_reconstructed_response(response_dict)
 
 
 @patch("scholar_flux.utils.helpers.try_int")
@@ -119,11 +270,18 @@ def test_api_response_serialize_and_deserialize(mock_successful_response):
     """Tests idempotence and the reliability of serializing and deserializing responses using ReconstructedResponses and
     the most important fields derived from response classes."""
     api_response = APIResponse.from_response(response=mock_successful_response, cache_key="foo", auto_created_at=True)
+
+    # Validates the response class on initialization
+    assert isinstance(api_response.response, Response)
+
     dumped = api_response.model_dump_json()
     loaded = APIResponse.model_validate_json(dumped)
     assert loaded.status_code == 200
     assert loaded.cache_key == "foo"
     assert loaded.status == "OK"
+
+    # Response classes are reloaded as reconstructed responses:
+    assert isinstance(loaded.response, ReconstructedResponse)
 
     redumped = loaded.model_dump_json()
     reloaded = APIResponse.model_validate_json(redumped)
@@ -151,10 +309,9 @@ def test_deserialize_response_dict(monkeypatch, caplog):
 
     response_dict = response.model_dump()
 
-    deserialized_response = response.transform_response(response_dict)
-    assert deserialized_response is deserialized_response  # cant serialize/process the response so returns as is
+    deserialized_response = response.transform_response(response_dict)  # type: ignore
+    assert deserialized_response is deserialized_response  # can't serialize/process the response, so returns as is
     assert f"Couldn't decode a valid response object: {exc}" in caplog.text
-    assert "Couldn't decode a valid response object. Returning the object as is" in caplog.text
 
     # desrialization for invalid values should return None
     assert APIResponse._deserialize_response_dict([]) is None  # type: ignore
@@ -177,26 +334,30 @@ def test_reconstructed_response_json():
 
 
 def test_reconstructed_response_equality():
-    """Verifies that reconstructed response objects only factor in data types and values instead of memory bytes when
-    determining whether two instances are equal."""
+    """Verifies that reconstructed response objects check underlying data to determine if two instances are equal."""
     rr1 = ReconstructedResponse(status_code=200, reason="OK", headers={}, content=b"abc", url="u")
-    rr2 = ReconstructedResponse(status_code=200, reason="OK", headers={}, content=b"abc", url="u")
+    rr2 = deepcopy(rr1)
     assert rr1 == rr2
+    rr2.headers["Content-Type"] = "application/json"
+    assert rr1 != rr2
 
 
 def test_validate_api_response(mock_successful_response):
+    """Verifies that successful Response objects are identified as such with `APIResponse.validate_response()`."""
     api_response = APIResponse.from_response(response=mock_successful_response)
-    assert api_response.validate_response()
+    assert api_response.validate_response(raise_on_error=True)
 
 
 def test_api_response_validate_response_like():
+    """Verifies that a bad URL is identified as such with `APIResponse.validate_response()`."""
     api_response = APIResponse.from_response(status_code=200, headers={}, content=b"", text="", url="u")
     assert not api_response.validate_response()
 
 
 def test_api_response_as_json_with_invalid_json():
+    """Verifies that non-json content, when converted into JSON format returns None instead."""
     api_response = APIResponse.from_response(status_code=200, headers={}, content=b"notjson", text="notjson", url="u")
-    assert api_response.response is not None and api_response.response.json() is None
+    assert isinstance(api_response.response, ReconstructedResponse) and api_response.response.json() is None
 
 
 def test_api_response_headers_warning(caplog):
@@ -299,13 +460,20 @@ def test_api_response_serialization():
 
 
 def test_failed_serialization():
-    api_response = APIResponse(cache_key=None, response=UserDict())
+    """Verifies that non-response-like objects (even if directly assigned) are not serialized."""
+
+    basic_dict: UserDict[str, Any] = UserDict()
+    api_response = APIResponse(cache_key=None, response=basic_dict)  # type: ignore
+    assert api_response.response is None
+    api_response.response = basic_dict  # type: ignore
+
     # a user dict isn't a response-like object, so it is not serialized
     json_data = api_response.model_dump_json()
     assert json.loads(json_data)["response"] is None
 
 
 def test_representation():
+    """Verifies that the representation of an APIResponse shows the correct fields in the expected format."""
     response = APIResponse.from_response(
         cache_key="test-key",
         status_code=200,
@@ -317,7 +485,7 @@ def test_representation():
 
 
 def test_api_response_timestamp_validation(caplog):
-
+    """Verifies that timestamps are automatically validated on APIResponse creation."""
     example_timestamp = generate_iso_timestamp()
     keywords = dict(
         cache_key="another-test-key", status=200, url="https://another-example.com", created_at=example_timestamp
@@ -358,18 +526,21 @@ def test_raise_for_status():
     # direct comparison with a reconstructed response
     api_response = APIResponse(response=valid_response)
     assert valid_response.ok
-    assert api_response.raise_for_status() is None
+
+    # If valid, an error is not raised.
+    api_response.raise_for_status()
 
     # ensuring that, as a dictionary, when reconstructed into a response, no error:
-    api_response.response = valid_response.asdict()
-    assert api_response.raise_for_status() is None
+    api_response.response = valid_response.asdict()  # type: ignore
+    api_response.raise_for_status()
 
     # changing it back for future dumping and direct checking against the response
     api_response.response = valid_response
 
     api_response_two = APIResponse(response=api_response.model_dump().get("response"))
 
-    api_response_two.raise_for_status()  # Should not raise an exception
+    # Should also not raise an exception
+    api_response_two.raise_for_status()
 
     invalid_response = ReconstructedResponse.build(
         status_code=500, url="https://example.com", content=b"error", headers={"Content-Type": "text/plain"}
@@ -379,7 +550,7 @@ def test_raise_for_status():
     invalid_api_response = APIResponse(response=invalid_response)
 
     with pytest.raises(RequestException) as excinfo:
-        _ = invalid_api_response.raise_for_status()
+        invalid_api_response.raise_for_status()
         assert (
             "Expected a 200 (ok) status_code for the ReconstructedResponse. Received: "
             f"{invalid_response.status_code} ({invalid_response.reason or invalid_response.status})"
@@ -395,7 +566,7 @@ def test_raise_for_status():
     invalid_api_response_two = APIResponse(response=invalid_response_two)
 
     with pytest.raises(RequestException) as excinfo:
-        _ = invalid_api_response_two.raise_for_status()
+        invalid_api_response_two.raise_for_status()
         assert (
             "Could not verify from the ReconstructedResponse to determine whether the "
             "original request was successful "
@@ -420,6 +591,7 @@ def test_blank_content():
 
 
 def test_properties(caplog):
+    """Verifies the APIResponse properties are correctly handled for both response-like objects and `None`."""
     api_response = APIResponse.from_response(
         status_code=200,
         reason=True,
@@ -433,12 +605,15 @@ def test_properties(caplog):
     assert api_response.reason is None  # a boolean reason is not a valid value
     assert api_response.content == b"not bytes"
     assert api_response.text == "not bytes"
-    api_response.response.content = False
+    api_response.response.content = False  # type: ignore
     assert api_response.content is None
     assert api_response.text is None
+    assert "The current APIResponse does not have a valid response content attribute" in caplog.text
+    assert "The current APIResponse does not have a valid response text attribute" in caplog.text
+    caplog.clear()
 
     api_response.response.content = "also not bytes"
-    assert api_response.content == b"also not bytes"
+    assert api_response.content is None
     assert "The current APIResponse does not have a valid response content attribute" in caplog.text
 
     assert api_response.headers and isinstance(api_response.headers, dict)
@@ -475,7 +650,7 @@ def test_reconstruction():
 
     # As long as a response-like object has the required fields as attributes/properties, this should be True:
     assert isinstance(api_response.response, ResponseProtocol) and isinstance(api_response, ResponseProtocol)
-    assert not ReconstructedResponse._identify_invalid_fields(api_response)
+    assert not ResponseValidator.identify_invalid_fields(api_response)
 
     reconstructed_response = ReconstructedResponse.build(
         status_code=200,
@@ -519,7 +694,7 @@ def test_missing_args_build():
         _ = ReconstructedResponse.build()
 
     assert "Missing the core required fields needed to create a ReconstructedResponse:" in str(excinfo.value)
-    assert "'status_code' and 'url'" in str(excinfo.value)
+    assert "'status_code', 'url'" in str(excinfo.value)
 
 
 @pytest.mark.parametrize(
@@ -538,7 +713,7 @@ def test_error_validation(override, caplog):
     assert not response.is_response()
 
     with pytest.raises(InvalidResponseStructureException):
-        _ = ReconstructedResponse._identify_invalid_fields("not a response")  # type: ignore
+        _ = ResponseValidator.identify_invalid_fields("not a response")  # type: ignore
 
     with pytest.raises(InvalidResponseReconstructionException):
         response.validate()

@@ -44,7 +44,7 @@ class MaskingFilter(logging.Filter):
         super().__init__()
         self.masker = masker or SensitiveDataMasker()
 
-    def filter(self, record) -> bool:
+    def filter(self, record: logging.LogRecord) -> bool:
         """Helper method used by the logging.Logger class when adding custom filters to the logging module.
 
         Masks string, dictionary, and list data in log records.

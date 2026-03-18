@@ -22,11 +22,12 @@ Aliases:
 """
 
 from typing import Any
+from typing_extensions import TypeAliasType
 
-RecordType = dict[str, Any] | dict[str | int, Any]
-RecordList = list[dict[str, Any]] | list[dict[str | int, Any]] | list[RecordType]
-NormalizedRecordType = dict[str, Any]
-NormalizedRecordList = list[NormalizedRecordType]
-MetadataType = dict[str, Any]
+RecordType = TypeAliasType("RecordType", dict[str, Any] | dict[str | int, Any])
+RecordList = TypeAliasType("RecordList", list[dict[str, Any]] | list[dict[str | int, Any]] | list[RecordType])
+NormalizedRecordType = TypeAliasType("NormalizedRecordType", dict[str, Any])
+NormalizedRecordList = TypeAliasType("NormalizedRecordList", list[NormalizedRecordType])
+MetadataType = TypeAliasType("MetadataType", dict[str, Any])
 
 __all__ = ["RecordType", "NormalizedRecordType", "RecordList", "NormalizedRecordList", "MetadataType"]

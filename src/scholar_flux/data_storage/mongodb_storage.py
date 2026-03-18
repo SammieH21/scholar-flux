@@ -9,7 +9,7 @@ within the database for later CRUD operations.
 
 """
 from __future__ import annotations
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from scholar_flux.exceptions import (
     MongoDBImportError,
@@ -84,7 +84,7 @@ class MongoDBStorage(ABCStorage):
 
     """
 
-    DEFAULT_CONFIG: Dict[str, Any] = {
+    DEFAULT_CONFIG: dict[str, Any] = {
         "host": config_settings.get("SCHOLAR_FLUX_MONGODB_HOST") or "mongodb://127.0.0.1",
         "port": config_settings.get("SCHOLAR_FLUX_MONGODB_PORT") or 27017,
         "ttl": config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
@@ -105,8 +105,8 @@ class MongoDBStorage(ABCStorage):
         ttl: Optional[float | int] = None,
         raise_on_error: Optional[bool] = None,
         verify_connection: bool = False,
-        **mongo_config,
-    ):
+        **mongo_config: Any,
+    ) -> None:
         """Initialize the Mongo DB storage backend and connect to the Mongo DB server.
 
         If no parameters are specified, the MongoDB storage will default to the parameters derived from the
@@ -159,7 +159,7 @@ class MongoDBStorage(ABCStorage):
         if ttl is not None:
             mongo_config["ttl"] = ttl  # -1 for infinite caching
 
-        config: dict = self._get_default_config() | mongo_config  # Overriding MongoDB defaults where available
+        config: dict[str, Any] = self.get_default_config() | mongo_config  # Overriding MongoDB defaults where available
 
         self.ttl = self._validate_ttl(config.pop("ttl"))  # Extracting TTL and MongoDB-specific settings
         self.config = config
@@ -201,7 +201,7 @@ class MongoDBStorage(ABCStorage):
                     self._index_created = True
 
     @classmethod
-    def _get_default_config(cls) -> dict[str, Any]:
+    def get_default_config(cls) -> dict[str, Any]:
         """Get default configuration with current config_settings values.
 
         Reads from environment variables in order of priority:
@@ -270,11 +270,11 @@ class MongoDBStorage(ABCStorage):
         logger.info(f"Record for key {key} (namespace = '{self.namespace}') not found...")
         return None
 
-    def retrieve_all(self) -> Dict[str, Any]:
+    def retrieve_all(self) -> dict[str, Any]:
         """Retrieve all records from cache that match the current namespace prefix.
 
         Returns:
-            dict: Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
+            dict[str, Any]: Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
 
         Raises:
             PyMongoError: If there is an error during the retrieval of records under the namespace.
@@ -299,7 +299,7 @@ class MongoDBStorage(ABCStorage):
 
         return cache
 
-    def retrieve_keys(self) -> List[str]:
+    def retrieve_keys(self) -> list[str]:
         """Retrieve all keys for records from cache.
 
         Returns:
@@ -324,7 +324,7 @@ class MongoDBStorage(ABCStorage):
             )
         return keys
 
-    def update(self, key: str, data: Any):
+    def update(self, key: str, data: Any) -> None:
         """Update the cache by storing associated value with provided key.
 
         Args:
@@ -335,7 +335,7 @@ class MongoDBStorage(ABCStorage):
                 data types such as strings, numbers, lists, dictionaries, etc.
 
         Raises:
-            PyMongoError: If an error occur when attempting to insert or update a record
+            PyMongoError: If an error occurs when attempting to insert or update a record
 
         """
         self._ensure_index()
@@ -389,7 +389,7 @@ class MongoDBStorage(ABCStorage):
             )
         return None
 
-    def delete_all(self):
+    def delete_all(self) -> None:
         """Delete all records from cache that match the current namespace prefix.
 
         Raises:
@@ -461,7 +461,7 @@ class MongoDBStorage(ABCStorage):
 
     @classmethod
     def is_available(
-        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs
+        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs: Any
     ) -> bool:
         """Helper method that indicates whether the MongoDB service is available or not.
 
@@ -482,7 +482,7 @@ class MongoDBStorage(ABCStorage):
 
         Returns:
             bool:
-                Indicating whether or not the service was be successfully accessed. The value returned is True
+                Indicating whether or not the service can be successfully accessed. The value returned is True
                 if successful and False otherwise.
 
         Raises:
@@ -494,7 +494,7 @@ class MongoDBStorage(ABCStorage):
             logger.warning("The pymongo module is not available")
             return False
 
-        default_config = cls._get_default_config()
+        default_config = cls.get_default_config()
 
         mongodb_host = host or default_config["host"]
         mongodb_port = port or default_config["port"]

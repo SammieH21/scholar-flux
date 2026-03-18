@@ -12,7 +12,8 @@ import logging
 import scholar_flux.security as security
 from pprint import pformat
 import warnings
-from scholar_flux.utils.logger import setup_logging
+from scholar_flux.utils.logger import setup_logging, resolve_log_stream, resolve_log_level
+from scholar_flux.utils.helpers import try_none, coerce_bool
 from scholar_flux.exceptions import PackageInitializationError
 from scholar_flux.utils.config_loader import ConfigLoader
 from pathlib import Path
@@ -80,7 +81,7 @@ def initialize_package(
     masking_filter = security.MaskingFilter(masker)
 
     # Attempt to load configuration parameters from the provided env file
-    config_params_dict: dict = {"reload_env": True}
+    config_params_dict: dict[str, Any] = {"reload_env": True}
     config_params_dict.update(config_params or {})
 
     if env_path:
@@ -94,32 +95,40 @@ def initialize_package(
     except Exception as e:
         warnings.warn(
             "Failed to load the configuration settings for the scholar_flux package. Falling back to the default "
-            f"configuration settings: {e}"
+            f"configuration settings: {e}",
+            stacklevel=2,
         )
 
     # turn off file rotation logging if not enabled
+    env_log_file = try_none(config_settings.get("SCHOLAR_FLUX_LOG_FILE"))
     log_file = (
-        config_settings.get("SCHOLAR_FLUX_LOG_FILE", "application.log")
-        if config_settings.get("SCHOLAR_FLUX_ENABLE_LOGGING") in ("T", "TRUE", "1")
-        else None
+        env_log_file if env_log_file and coerce_bool(config_settings.get("SCHOLAR_FLUX_ENABLE_LOGGING")) else None
     )
 
-    propagate_logs = config_settings.get("SCHOLAR_FLUX_PROPAGATE_LOGS") not in ("F", "FALSE", "0")
+    # Extracts the log propagation flag as a boolean, mapping None -> True
+    env_propagate_logs = coerce_bool(config_settings.get("SCHOLAR_FLUX_PROPAGATE_LOGS"))
+    propagate_logs = True if env_propagate_logs is None else env_propagate_logs
 
     # for logging resolution, fallback to WARNING
-    log_level = getattr(logging, config_settings.get("SCHOLAR_FLUX_LOG_LEVEL", ""), logging.WARNING)
+    env_log_level = try_none(config_settings.get("SCHOLAR_FLUX_LOG_LEVEL"))
+    log_level = resolve_log_level(env_log_level)
 
     # declares the default parameters from scholar_flux after loading configuration environment variables
-    logging_params_dict: dict = {
+    env_stream = config_settings.get("SCHOLAR_FLUX_LOG_STREAM")
+    stream = resolve_log_stream(env_stream)
+
+    logging_params_dict: dict[str, Any] = {
         "logger": logger,
         "log_directory": config_settings.get("SCHOLAR_FLUX_LOG_DIRECTORY"),
         "log_file": log_file,
-        "log_level": log_level,
+        "log_level": log_level if isinstance(log_level, int) else logging.WARNING,
+        "stream": stream,
         "logging_filter": masking_filter,
         "propagate_logs": propagate_logs,
     }
 
     logging_params_dict.update(logging_params or {})
+    logging_params_dict.setdefault("raise_on_error", False)
 
     try:
         if log:
@@ -131,6 +140,9 @@ def initialize_package(
             logger.addHandler(logging.NullHandler())
     except Exception as e:
         raise PackageInitializationError(f"Failed to initialize the logger for the scholar_flux package: {e}")
+
+    if env_log_level is not None and log_level is None:
+        logger.warning(f"'{env_log_level}' is not a valid log level. defaulted to log level WARNING instead.")
 
     logger.debug(
         "Loaded Scholar Flux with the following parameters:\n"

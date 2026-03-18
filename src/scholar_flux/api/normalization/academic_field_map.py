@@ -28,11 +28,11 @@ Design Philosophy:
     The base class provides common helpers, not enforced patterns.
 
 """
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 import datetime
 import re
 from scholar_flux.api.normalization.normalizing_field_map import NormalizingFieldMap
-from scholar_flux.api.validators import validate_url, validate_bool_str
+from scholar_flux.api.validators import validate_url
 from scholar_flux.utils.record_types import NormalizedRecordType
 from scholar_flux.utils.helpers import (
     unlist_1d,
@@ -40,6 +40,7 @@ from scholar_flux.utils.helpers import (
     try_none,
     try_compile,
     coerce_str,
+    coerce_bool,
     extract_year,
     parse_iso_timestamp,
     build_iso_date,
@@ -151,7 +152,7 @@ class AcademicFieldMap(NormalizingFieldMap):
             record (NormalizedRecordType): The record dictionary to extract the URL from.
             *paths:
                 Arbitrary positional path arguments leading to a single URL or list of URLs. Each path can be a string
-                or list of keys representing the path needed to find an URL in a nested record. Defaults to the tuple
+                or list of keys representing the path needed to find a URL in a nested record. Defaults to the tuple
                 ('url', ) if not provided, defaulting to a basic `url` lookup.
             pattern_delimiter (str | Pattern):
                 Regex pattern to split URL strings. Defaults to "; *". A positive lookahead `(?=http)` is automatically
@@ -162,7 +163,7 @@ class AcademicFieldMap(NormalizingFieldMap):
                 but can be used to identify URLs that directly follow a specific pattern.
             delimiter_suffix (str):
                 An option string appended as a suffix to each element within a pattern. This suffix is used to identify
-                http` schemes (Typically associated with URLs) that may directly follow string delimited by the suffix
+                `http` schemes (typically associated with URLs) that may directly follow a string delimited by the suffix
                 separator.
 
         Returns:
@@ -234,7 +235,7 @@ class AcademicFieldMap(NormalizingFieldMap):
         parsed_record_id = try_none(coerce_str(record_id) if isinstance(record_id, (str, int)) else None)
         prefix_pattern = try_compile(strip_prefix, prefix="^")
 
-        return re.sub(prefix_pattern, "", parsed_record_id) if prefix_pattern else parsed_record_id
+        return re.sub(prefix_pattern, "", parsed_record_id) if prefix_pattern and parsed_record_id else parsed_record_id
 
     @classmethod
     def extract_url_id(
@@ -421,7 +422,7 @@ class AcademicFieldMap(NormalizingFieldMap):
 
     @classmethod
     def extract_abstract(
-        cls, record: NormalizedRecordType, strip_html: bool = False, field: str = "abstract", **kwargs
+        cls, record: NormalizedRecordType, strip_html: bool = False, field: str = "abstract", **kwargs: Any
     ) -> Optional[str]:
         """Extracts and prepares the abstract for the current record.
 
@@ -502,18 +503,8 @@ class AcademicFieldMap(NormalizingFieldMap):
 
         """
         value = record.get(field)  # Maps `None` objects/strings and empty fields to None
-        value = coerce_str(try_none(value))
-
-        if value is None:
-            return None
-
-        if validate_bool_str(value, true_values):
-            return True
-
-        if validate_bool_str(value, false_values):
-            return False
-
-        return default
+        boolean_value = coerce_bool(value, true_values, false_values)
+        return boolean_value if boolean_value is not None else default
 
 
 __all__ = ["AcademicFieldMap"]

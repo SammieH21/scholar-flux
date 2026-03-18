@@ -339,7 +339,9 @@ def test_validate_inputs_with_invalid_types():
             value_delimiter=";",
         )
     with pytest.raises(DataProcessingException):
-        DataProcessor._validate_inputs(None, None, ".*", record_keys=[["a"]], value_delimiter=123)  # type:ignore
+        DataProcessor._validate_inputs(None, None, ".*", record_keys=[["a"]])  # type:ignore
+    with pytest.raises(DataProcessingException):
+        DataProcessor._validate_inputs(None, None, value_delimiter=123)  # type:ignore
     with pytest.raises(DataProcessingException):
         DataProcessor._validate_inputs(regex=".*")  # type:ignore
 
