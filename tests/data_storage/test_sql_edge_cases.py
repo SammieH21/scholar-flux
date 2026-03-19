@@ -1,5 +1,6 @@
 import pytest
 import re
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 from scholar_flux.data_storage.sql_storage import (
     SQLAlchemyStorage,
@@ -8,7 +9,7 @@ from scholar_flux.data_storage.sql_storage import (
     SQLAlchemyImportError,
     exc,
 )
-from tests.testing_utilities import raise_error
+from scholar_flux.utils import config_settings
 from scholar_flux.exceptions import (
     StorageCacheException,
     CacheRetrievalException,
@@ -17,6 +18,7 @@ from scholar_flux.exceptions import (
     CacheVerificationException,
     CacheParameterValidationException,
 )
+from tests.testing_utilities import raise_error
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -82,7 +84,7 @@ def test_sqlalchemy_retrieve_keys_error(sqlite_test_storage, caplog):
 
 
 def test_sqlalchemy_update_error(sqlite_test_storage, caplog):
-    """Tests update edge cases with data retrieval in SQLite."""
+    """Tests edge cases involving the `update` method for inserting and updating cached data in SQLite."""
     e = "DB error"
     with patch.object(sqlite_test_storage, "Session") as mock_session_factory:
         mock_session = MagicMock()
@@ -101,7 +103,7 @@ def test_sqlalchemy_update_error(sqlite_test_storage, caplog):
 
 
 def test_sqlalchemy_delete_error(sqlite_test_storage, caplog):
-    """Helper method to test deletion edge cases with data retrieval in SQLite."""
+    """Tests edge cases involving the `delete` method for removing cached records in SQLite."""
     e = "DB error"
     with patch.object(sqlite_test_storage, "Session") as mock_session_factory:
         mock_session = MagicMock()
@@ -119,7 +121,7 @@ def test_sqlalchemy_delete_error(sqlite_test_storage, caplog):
 
 
 def test_sqlalchemy_delete_all_error(sqlite_test_storage, caplog):
-    """Tests full-record deletion edge cases with in SQL Alchemy."""
+    """Tests full-record deletion edge cases within SQLAlchemy."""
     e = "DB error"
     msg = f"Error during attempted deletion of all records from namespace '{sqlite_test_storage.namespace}': {e}"
     with patch.object(sqlite_test_storage, "Session") as mock_session_factory:
@@ -136,7 +138,7 @@ def test_sqlalchemy_delete_all_error(sqlite_test_storage, caplog):
 
 
 def test_sqlalchemy_verify_cache_error(sqlite_test_storage, caplog):
-    """Tests cache verification edge cases in SQLite."""
+    """Verifies that `verify_cache` correctly handles edge cases, raising the correct exceptions when needed."""
     with pytest.raises(ValueError) as excinfo:
         _ = sqlite_test_storage.verify_cache(None)
     assert f"Key invalid. Received {None} (namespace = '{sqlite_test_storage.namespace}')" in str(excinfo.value)
@@ -231,8 +233,131 @@ def test_verify_connection_error_on_failed_connection(storage_class, monkeypatch
         _ = storage_class(verify_connection=True)
 
 
+def test_sqlalchemy_create_default_url(tmp_path, cleanup, monkeypatch):
+    """Verifies that SQLAlchemy can create a valid URL within the default writable package directory."""
+    with monkeypatch.context() as m:
+        m.setenv("SCHOLAR_FLUX_HOME", str(tmp_path))
+        default_sqlalchemy_url = SQLAlchemyStorage.create_default_url()
+        SQLAlchemyStorage.verify_url_string(default_sqlalchemy_url)
+        assert Path(default_sqlalchemy_url.replace("sqlite:///", "")).parent == tmp_path / "package_cache"
+        assert default_sqlalchemy_url.endswith(".sqlite")
+
+
+def test_duckdb_create_default_url(tmp_path, cleanup, monkeypatch):
+    """Verifies that the DuckDBStorage can create a valid URL within the default writable package directory."""
+    with monkeypatch.context() as m:
+        m.setenv("SCHOLAR_FLUX_HOME", str(tmp_path))
+        default_duckdb_url = DuckDBStorage.create_default_url()
+        # Should be compatible with both SQLAlchemyStorage and DuckDBStorage
+        SQLAlchemyStorage.verify_url_string(default_duckdb_url)
+        DuckDBStorage.verify_url_string(default_duckdb_url)
+        assert Path(default_duckdb_url.replace("duckdb:///", "")).parent == tmp_path / "package_cache"
+        assert default_duckdb_url.endswith(".duckdb")
+
+
+def test_sqlalchemy_get_config_url(tmp_path, cleanup, monkeypatch, restore_config_settings, caplog):
+    """Verifies that the SQLAlchemyStorage defaults to a valid user-configured URL when provided."""
+    db_url = "sqlite:///" + str(tmp_path / "custom_db_location.sqlite")
+    # raises an error if the configured URI is skipped
+    monkeypatch.setattr(
+        SQLAlchemyStorage,
+        "create_default_url",
+        raise_error(RuntimeError, "Directly raised exception"),
+    )
+
+    env_var = "SCHOLAR_FLUX_SQLALCHEMY_URL"
+    err = f"The environment variable, {env_var}, is not a valid SQLAlchemy URL. Returning the default..."
+
+    config_settings.set(env_var, "None")
+
+    with pytest.raises(RuntimeError):
+        _ = SQLAlchemyStorage.get_default_url()
+    assert err not in caplog.text
+
+    # Doesn't have a `sqlite:///` schema or any other schema
+    config_settings.set(env_var, "a_bad_sqlalchemy_url")
+    with pytest.raises(RuntimeError):
+        _ = SQLAlchemyStorage.get_default_url()
+    assert err in caplog.text
+
+    config_settings.set(env_var, db_url)
+    assert SQLAlchemyStorage.get_default_url() == db_url
+
+
+def test_duckdb_get_config_url(tmp_path, cleanup, monkeypatch, restore_config_settings, caplog):
+    """Verifies that the DuckDBStorage defaults to a valid user-configured URL when provided."""
+    # raises an error if the configured URI is skipped
+    monkeypatch.setattr(
+        DuckDBStorage,
+        "create_default_url",
+        raise_error(RuntimeError, "Directly raised exception"),
+    )
+
+    env_var = "SCHOLAR_FLUX_SQLALCHEMY_URL"
+    err = f"The environment variable, {env_var}, is not a valid DuckDB URL. Returning the default..."
+
+    config_settings.set(env_var, "None")
+    with pytest.raises(RuntimeError):
+        _ = DuckDBStorage.get_default_url()
+
+    assert err not in caplog.text
+
+    # duckdb URLs must have duckdb:/// schemas
+    bad_url = "sqlite:///an_url_with_a_bad_duckdb_schema"
+    config_settings.set(env_var, bad_url)
+    with pytest.raises(RuntimeError):
+        _ = DuckDBStorage.get_default_url()
+
+    assert err in caplog.text
+
+    db_url = "duckdb:///" + str(tmp_path / "custom_db_location.duckdb")
+    config_settings.set(env_var, db_url)
+    assert DuckDBStorage.get_default_url() == db_url
+
+
+def test_sqlalchemy_verify_url_string_invalid_inputs():
+    """Verifies that providing a bad URL to `verify_url_string` raises a CacheParameterValidationException."""
+    invalid_numeric_url = 46
+    err = re.escape(f"Expected a valid SQLAlchemy URI, but received type {type(invalid_numeric_url)}")
+    with pytest.raises(CacheParameterValidationException, match=err):
+        SQLAlchemyStorage.verify_url_string(invalid_numeric_url)  # type: ignore
+
+    invalid_url_scheme = "sqlite///a/valid/db/path"
+    err = (
+        "Only URIs with valid SQL protocols are supported (e.g., postgres://, sqlite:///, duckdb:///, etc.). "
+        f"Received: '{invalid_url_scheme}'"
+    )
+    with pytest.raises(CacheParameterValidationException, match=re.escape(err)):
+        SQLAlchemyStorage.verify_url_string(invalid_url_scheme)
+
+    invalid_url_path = "sqlite:///"
+    err = (
+        "Expected a path after the protocol in the SQLAlchemy URI. Only the scheme was received: " f"{invalid_url_path}"
+    )
+    with pytest.raises(CacheParameterValidationException, match=re.escape(err)):
+        SQLAlchemyStorage.verify_url_string(invalid_url_path)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "sqlite:////tmp/valid_db.sqlite",
+        "sqlite:///:memory:",
+        "postgresql://myuser:secretpass@localhost:5432/mydb",
+        "postgres+psycopg2://admin:pass@localhost/app",
+        "mysql://root:password123@localhost:3306/scholar_cache",
+        "duckdb:///path/to/analytics/db",
+        "mysql://user:pass@localhost/db",
+        "postgresql://user:secret@[::1]:5432/db",
+    ],
+)
+def test_sqlalchemy_url_validation(url):
+    """Verifies that the SQLAlchemyStorage.verify_url_string() class method correctly validates compatible URLs."""
+    SQLAlchemyStorage.verify_url_string(url)
+
+
 def test_duckdb_verify_url_string_invalid_inputs():
-    """Verifies that providing the wrong type to `verify_url_string` raises a CacheParameterValidationException."""
+    """Verifies that providing a bad DuckDB URL to `verify_url_string` raises a CacheParameterValidationException."""
     invalid_numeric_url = 23
     err = f"Expected a valid DuckDB URI, but received type {type(invalid_numeric_url)}"
     with pytest.raises(CacheParameterValidationException, match=err):

@@ -16,9 +16,8 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
 
     The caching mechanism is verified by determining whether the created_at date is created as intended and is not null
 
-    Because the structure and options of the response_coordinator can have an impact the final result,
-    schema validation should be performed to determine whether to pull from the processing cache
-    (as opposed to the requests_cache)
+    Because the structure and options of the response_coordinator can have an impact the final result, schema validation
+    should be performed to determine whether to pull from the processing cache (as opposed to the requests_cache)
 
     """
 
@@ -41,7 +40,7 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
             status_code=200,
         )
 
-        # process the code once, so it remains in cache
+        # process the response once so it remains in cache
         processed_response = plos_search_coordinator.search(page=1)
         assert isinstance(processed_response, ProcessedResponse) and processed_response.response is not None
         assert processed_response.created_at
@@ -163,7 +162,7 @@ def test_cache_without_response(
             cache_key=processed_response.cache_key, response=reconstructed_response  # type: ignore
         )
 
-        # idempotence with repeat pulling from  cache
+        # idempotence with repeat pulling from cache
         assert reconstructed_response == newly_reconstructed_response
 
         reconstructed_handled_response = plos_search_coordinator.responses.handle_response(

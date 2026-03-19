@@ -1,6 +1,5 @@
 # /data_storage/sql_storage.py
-"""The scholar_flux.data_storage.sql_storage module implements SQLAlchemy-based storage backends for the
-DataCacheManager.
+"""The scholar_flux.data_storage.sql_storage module implements SQLAlchemy-based storage devices for response caching.
 
 This module implements the SQLAlchemyStorage class and DuckDBStorage subclass, both of which implement the abstract
 methods required for compatibility with the scholar_flux.DataCacheManager. This module provides SQL database storage
@@ -27,7 +26,8 @@ import logging
 from typing import Any, List, Dict, Optional, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import JsonDataEncoder
-from scholar_flux.utils.helpers import coerce_str
+from scholar_flux.utils.helpers import coerce_str, try_none
+from scholar_flux.utils import config_settings  # global environment configuration
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.package_metadata import get_default_writable_directory
 from urllib.parse import urlparse
@@ -45,6 +45,7 @@ from scholar_flux.exceptions import (
 import cattrs
 import threading
 import importlib.util
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +65,11 @@ else:
         create_engine = None
 
         def Column(*args, **kwargs):
-            """Placeholder function that returned when the sqlalchemy package is not available."""
+            """Placeholder function that is returned when the sqlalchemy package is not available."""
             pass
 
         String = Integer = Sequence = JSON = exc = Engine = None
-        DeclarativeBase = object  # type: ignore
+        DeclarativeBase = object
         sessionmaker = None
         sqlalchemy = None
 
@@ -76,7 +77,7 @@ else:
 if TYPE_CHECKING or sqlalchemy is not None:
 
     class Base(DeclarativeBase):
-        """Helper class from which future SQL tables can be defined from."""
+        """Helper class that future SQLAlchemy-compatible tables inherit from."""
 
         pass
 
@@ -90,8 +91,10 @@ if TYPE_CHECKING or sqlalchemy is not None:
 
 else:
     # Runtime stubs so code can be parsed, but will error if actually used
-    Base = None  # type: ignore
-    CacheTable = None  # type: ignore
+    Base = None
+    CacheTable = None
+
+URI_SCHEMA_PATTERN: re.Pattern = re.compile(r"^[a-zA-Z0-9+]+:///?")
 
 
 class SQLAlchemyStorage(ABCStorage):
@@ -145,7 +148,7 @@ class SQLAlchemyStorage(ABCStorage):
 
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_CONFIG: Dict[str, Any] = {
-        "url": lambda: "sqlite:///" + str(get_default_writable_directory("package_cache") / "data_store.sqlite"),
+        "url": lambda: SQLAlchemyStorage.get_default_url(),
         "echo": False,
     }
     DEFAULT_RAISE_ON_ERROR: bool = False
@@ -158,7 +161,7 @@ class SQLAlchemyStorage(ABCStorage):
         ttl: None = None,
         raise_on_error: Optional[bool] = False,
         verify_connection: bool = False,
-        **sqlalchemy_config,
+        **sqlalchemy_config: Any,
     ) -> None:
         """Initialize the SQLAlchemy storage backend and connect to the server indicated via the `url` parameter.
 
@@ -170,7 +173,7 @@ class SQLAlchemyStorage(ABCStorage):
             namespace (Optional[str]):
                 The prefix associated with each cache key. By default, this is None.
             ttl (None):
-                Ignored. Included for interface compatibility; not implemented.
+                Ignored. Included for interface compatibility, but not implemented.
             raise_on_error (Optional[bool]):
                 Determines whether an error should be raised when encountering unexpected issues when interacting with
                 SQLAlchemy. If `None`, the `raise_on_error` attribute defaults to `SQLAlchemyStorage.DEFAULT_RAISE_ON_ERROR`.
@@ -189,13 +192,13 @@ class SQLAlchemyStorage(ABCStorage):
         if sqlalchemy is None:
             raise SQLAlchemyImportError
 
-        default_config = self._get_default_config()
-        sqlalchemy_config["url"] = url or default_config["url"]()  # lazy writeable path creation for defaults
+        default_config = self.get_default_config()
+        sqlalchemy_config["url"] = url or default_config["url"]()  # lazy writable path creation for defaults
         sqlalchemy_config["echo"] = (
             sqlalchemy_config.get("echo") if isinstance(sqlalchemy_config.get("echo"), bool) else default_config["echo"]
         )
 
-        self.config: dict = sqlalchemy_config
+        self.config: dict[str, Any] = sqlalchemy_config
         self.engine = create_engine(**self.config)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
@@ -277,7 +280,7 @@ class SQLAlchemyStorage(ABCStorage):
             return cache
 
     def retrieve_keys(self) -> List[str]:
-        """Retrieve all keys for records from cache .
+        """Retrieve all keys for records from cache.
 
         Returns:
             list: A list of all keys saved via SQL.
@@ -396,7 +399,7 @@ class SQLAlchemyStorage(ABCStorage):
         return serialized_data
 
     def _deserialize_data(self, record_data: Any) -> Any:
-        """Handles the serialization and deserialization of the SQLCacheStorage.
+        """Handles the deserialization of cached data for the SQLAlchemyStorage.
 
         This implementation only attempts to structure the data in the case where it is a dictionary or list, as the
         CacheTable's cache column implements the JSON column schema. All other types are decoded and returned as is.
@@ -445,8 +448,7 @@ class SQLAlchemyStorage(ABCStorage):
         return False
 
     def verify_connection(self) -> None:
-        """Verifies that the SQLAlchemyStorage is available for connection with initialized storage configuration
-        settings."""
+        """Verifies that the SQLAlchemyStorage is available for connection with initialized configuration settings."""
         try:
             self.ping(self.engine)
         except Exception as e:
@@ -458,14 +460,73 @@ class SQLAlchemyStorage(ABCStorage):
             )
 
     @classmethod
-    def _get_default_config(cls) -> dict[str, Any]:
+    def verify_url_string(cls, url: str) -> None:
+        """Helper method for verifying that the current URI has a valid SQLAlchemy resource identifier."""
+        if not isinstance(url, str):
+            raise CacheParameterValidationException(f"Expected a valid SQLAlchemy URI, but received type {type(url)}")
+
+        url_case = url.lower()
+        if (
+            URI_SCHEMA_PATTERN.search(url_case) is None
+            or (url_case.startswith("duckdb:") and not url_case.startswith("duckdb:///"))
+            or (url_case.startswith("sqlite:") and not url_case.startswith("sqlite:///"))
+        ):
+            raise CacheParameterValidationException(
+                "Only URIs with valid SQL protocols are supported (e.g., postgres://, sqlite:///, duckdb:///, etc.). "
+                f"Received: '{url}'"
+            )
+
+        result = urlparse(url)
+
+        # If the path is non-empty, then remove special characters after the scheme
+        if path := coerce_str(result.path):
+            path = path.strip(":/ ")
+        if not path:
+            raise CacheParameterValidationException(
+                f"Expected a path after the protocol in the SQLAlchemy URI. Only the scheme was received: {url}"
+            )
+
+    @classmethod
+    def create_default_url(cls) -> str:
+        """Creates a default URL within the writable directory for the current SQLAlchemyStorage class or subclass."""
+        return "sqlite:///" + str(get_default_writable_directory("package_cache") / "data_store.sqlite")
+
+    @classmethod
+    def get_default_url(cls) -> str:
+        """Retrieves the SQLAlchemy URL from the environment configuration, falling back to the default when invalid.
+
+        Returns:
+            str:
+                The validated URL from the environment configuration if valid. Otherwise the default URL generated via
+                `cls.create_default_url()`.
+
+        Note: This method first attempts to validate the URL string from the environment variable,
+        `SCHOLAR_FLUX_SQLALCHEMY_URL`, using the `cls.verify_url_string` class method. When validation fails, the
+        default for the current class is returned via `cls.create_default_url` instead.
+
+        """
+        config_url = try_none(config_settings.get("SCHOLAR_FLUX_SQLALCHEMY_URL"))
+        if config_url:
+            try:
+                cls.verify_url_string(config_url)
+                return config_url
+            except CacheParameterValidationException:
+                storage = "SQLAlchemy" if cls.STORAGE_TYPE == "SQL" else cls.STORAGE_TYPE
+                logger.info(
+                    f"The environment variable, SCHOLAR_FLUX_SQLALCHEMY_URL, is not a valid {storage} URL. "
+                    f"Returning the default..."
+                )
+
+        return cls.create_default_url()
+
+    @classmethod
+    def get_default_config(cls) -> dict[str, Any]:
         """Get default configuration with current config_settings values.
 
         Returns:
-            dict: Configuration dictionary with host and port.
+            dict: A dictionary configuration with the default URL and `echo` (for debugging SQL statements).
 
         """
-
         url = cls.DEFAULT_CONFIG.get("url")
         return {
             "url": url if callable(url) else lambda: url,
@@ -479,7 +540,7 @@ class SQLAlchemyStorage(ABCStorage):
             pass
 
     @classmethod
-    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs) -> bool:
+    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs: Any) -> bool:
         """Tests whether the SQL service can be accessed. If so, this function returns True, otherwise False.
 
         Args:
@@ -492,7 +553,7 @@ class SQLAlchemyStorage(ABCStorage):
             logger.warning("The sqlalchemy module is not available")
             return False
 
-        db_url: str = url or cls._get_default_config()["url"]()
+        db_url: str = url or cls.get_default_config()["url"]()
         try:
             engine = create_engine(url=db_url)
             cls.ping(engine)
@@ -516,7 +577,7 @@ class DuckDBStorage(SQLAlchemyStorage):
     """
 
     DEFAULT_CONFIG: Dict[str, Any] = {
-        "url": lambda: "duckdb:///" + str(get_default_writable_directory("package_cache") / "data_store.duckdb"),
+        "url": lambda: DuckDBStorage.get_default_url(),
         "echo": False,
     }
     STORAGE_TYPE: str = "DuckDB"
@@ -528,8 +589,8 @@ class DuckDBStorage(SQLAlchemyStorage):
         ttl: None = None,
         raise_on_error: Optional[bool] = False,
         verify_connection: bool = False,
-        **sqlalchemy_config,
-    ):
+        **sqlalchemy_config: Any,
+    ) -> None:
         """Initialize the DuckDBStorage storage backend and connect to the server indicated via the `url` parameter.
 
         This class extends the original SQLAlchemyStorage to provide basic helpers that aid in the creation of both
@@ -585,7 +646,12 @@ class DuckDBStorage(SQLAlchemyStorage):
             )
 
     @classmethod
-    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs) -> bool:
+    def create_default_url(cls) -> str:
+        """Creates a valid DuckDB URL within the default writable package cache directory."""
+        return "duckdb:///" + str(get_default_writable_directory("package_cache") / "data_store.duckdb")
+
+    @classmethod
+    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs: Any) -> bool:
         """Tests whether the SQL service can be accessed. If so, this function returns True, otherwise False.
 
         Args:
@@ -598,7 +664,7 @@ class DuckDBStorage(SQLAlchemyStorage):
             logger.warning("The sqlalchemy duckdb_engine is not available")
             return False
 
-        default_url_callable = cls._get_default_config()["url"]
+        default_url_callable = cls.get_default_config()["url"]
         duckdb_url = url or default_url_callable()
 
         try:

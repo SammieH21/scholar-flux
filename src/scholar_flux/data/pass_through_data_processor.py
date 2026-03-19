@@ -38,7 +38,6 @@ class PassThroughDataProcessor(ABCDataProcessor):
         Args:
             ignore_keys: List of keys to ignore during processing.
             keep_keys: List of keys that records should contain during processing.
-            value_delimiter: Delimiter for joining multiple values.
             regex: Whether to use regex for ignore filtering.
 
         """
@@ -50,7 +49,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
         self.regex: bool = regex if regex is not None else False
 
     def process_record(self, record_dict: RecordType) -> RecordType:
-        """A no-op method retained for to maintain a similar interface as other DataProcessor implementations.
+        """A no-op method retained to maintain a similar interface as other DataProcessor implementations.
 
         Args:
         - record_dict: The dictionary containing the record data.
@@ -81,8 +80,8 @@ class PassThroughDataProcessor(ABCDataProcessor):
             processed_record_dict_list = [
                 self.process_record(record_dict)
                 for record_dict in parsed_records
-                if self.record_filter(record_dict, keep_keys, regex) is not False
-                and self.record_filter(record_dict, ignore_keys, regex) is not True
+                if (not keep_keys or self.record_filter(record_dict, keep_keys, regex))
+                and not self.record_filter(record_dict, ignore_keys, regex)
             ]
 
             logger.info(f"total included records - {len(processed_record_dict_list)}")
@@ -92,15 +91,16 @@ class PassThroughDataProcessor(ABCDataProcessor):
         except Exception as e:
             raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
+    @classmethod
     def record_filter(
-        self, record_dict: RecordType, record_keys: Optional[list[str]] = None, regex: Optional[bool] = None
-    ) -> Optional[bool]:
+        cls, record_dict: RecordType, record_keys: Optional[list[str]] = None, regex: Optional[bool] = None
+    ) -> bool:
         """Helper method that filters records using regex pattern matching, checking if any of the keys provided in the
         function call exist."""
 
         # return true by default if no filters are provided
         if not record_keys:
-            return None
+            return False
 
         use_regex = regex if regex is not None else False
 

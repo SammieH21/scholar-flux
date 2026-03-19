@@ -41,9 +41,10 @@ from scholar_flux.utils.record_types import RecordList
 from scholar_flux.exceptions import StorageCacheException, MissingResponseException
 
 from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse, APIResponse
+from scholar_flux.api.response_validator import ResponseValidator
 
 from requests.exceptions import RequestException
-from typing import Optional, Dict, Any, cast
+from typing import Optional, Any, cast
 from requests import Response
 
 import logging
@@ -94,7 +95,7 @@ class ResponseCoordinator:
         >>> processed_response.content == new_processed_response.content
 
 
-    Args:
+    Core Attributes:
         parser (BaseDataParser): Parses raw API responses.
         extractor (BaseDataExtractor): Extracts records and metadata.
         processor (ABCDataProcessor): Processes extracted data.
@@ -111,8 +112,19 @@ class ResponseCoordinator:
         processor: ABCDataProcessor,
         cache_manager: DataCacheManager,
     ):
-        """Initializes the response coordinator using the core components used to parse, process, and cache response
-        data."""
+        """Initializes a ResponseCoordinator with specified components for response parsing, processing, and caching.
+
+        Args:
+            parser: (BaseDataParser):
+                First step of the response processing pipeline: parses response records into a dictionary.
+            extractor: (BaseDataExtractor):
+                Extracts both records and metadata from an API response separately for future processing steps.
+            processor: (ABCDataProcessor):
+                Processes the list of dictionary-based records that were previously extracted from the APIResponse.
+            cache_manager: (DataCacheManager):
+                Manages the processed record caching for faster response processing for identical responses.
+
+        """
 
         self.parser = parser
         self.extractor = extractor
@@ -133,16 +145,16 @@ class ResponseCoordinator:
 
         Args:
             parser: (BaseDataParser):
-                First step of the response processing pipeline - parses response records into a dictionary
+                First step of the response processing pipeline: parses response records into a dictionary.
             extractor: (Optional[BaseDataExtractor]):
-                Extracts both records and metadata from responses separately
+                Extracts both records and metadata from an API response separately for future processing steps.
             processor: (Optional[ABCDataProcessor]):
-                Processes API responses into list of dictionaries
+                Processes the list of dictionary-based records that were previously extracted from the APIResponse.
             cache_manager: (Optional[DataCacheManager]):
-                Manages the caching of processed records for faster retrieval
+                Manages the processed record caching for faster response processing for identical responses.
             cache_results: (Optional[bool]):
-                Determines whether or not to cache processed responses - on by default unless specified or if a cache
-                manager is already provided.
+                Determines whether or not to cache processed responses: Enabled by default unless specified or if a
+                cache manager is already provided.
             annotate_records (Optional[bool]):
                 When True, adds record-identifying linkage fields to each extracted record for resolution back to
                 original data after processing or flattening. Adds `_extraction_index` (position) and `_record_id`
@@ -337,13 +349,13 @@ class ResponseCoordinator:
         """Allows the direct modification of the DataCacheManager from the ResponseCoordinator."""
         if not isinstance(cache_manager, DataCacheManager):
             raise InvalidCoordinatorParameterException(
-                f"Expected a DataCacheManager or a sub-class of the ABCDataProcessor. "
+                f"Expected a DataCacheManager or a subclass of the DataCacheManager. "
                 f"Instead received type ({type(cache_manager)})"
             )
         self._cache_manager = cache_manager
 
     def handle_response_data(
-        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None, **kwargs
+        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None, **kwargs: Any
     ) -> Optional[RecordList]:
         """Retrieves the data from the processed response from cache if previously cached. Otherwise the data is
         retrieved after processing the response.
@@ -369,19 +381,21 @@ class ResponseCoordinator:
         validate_fingerprint: Optional[bool] = None,
         normalize_records: Optional[bool] = None,
     ) -> ErrorResponse | ProcessedResponse:
-        """Retrieves the data from the processed response from cache if previously cached. Otherwise the data is
-        retrieved after processing the response. The response data is subsequently transformed into a dataclass
-        containing the response content, processing info, and metadata.
+        """Handles response data extraction, processing, and caching, retrieving response data from cache if available.
+
+        Once processed, the response data is transformed into a pydantic `ProcessedResponse` or `ErrorResponse` model
+        that contains the response content, processing information, metadata, and/or error details when relevant.
 
         Args:
             response (Response): Raw API response.
             cache_key (Optional[str]): Cache key for storing/retrieving.
-            from_cache: (bool): Should we try to retrieve the processed response from the cache?
-            normalize_records (Optional[bool]): Determines whether records should be normalized after processing
+            from_cache: (bool): Indicates whether the response data should be retrieved from cache if available.
+            validate_fingerprint: (Optional[bool]):
+                Indicates whether cache should be invalidated if the `ResponseCoordinator` components are modified.
+            normalize_records (Optional[bool]): Determines whether records should be normalized after processing.
 
         Returns:
-            ProcessedResponse: A Dataclass Object that contains response data
-                               and detailed processing info.
+            ProcessedResponse: A pydantic model containing the response data and detailed processing info.
 
         """
         cached_response = None
@@ -414,12 +428,12 @@ class ResponseCoordinator:
                 return None
 
             # determine whether we're actually using a response object
-            response_obj = self._validate_response(response) if response is not None else None
+            response_obj = self._resolve_response(response, validate=True) if response is not None else None
 
             # ensure that we're either using a cache key from the defaults or creating one
             if not cache_key:
                 logger.debug("A cache key was not specified. Attempting to create a cache key from the response...")
-                cache_key = self.cache_manager.generate_fallback_cache_key(cast(ResponseProtocol, response_obj))
+                cache_key = self.cache_manager.generate_fallback_cache_key(cast("ResponseProtocol", response_obj))
 
             # determine if the cache key created manually or directly from the response hash exists
             if not self.cache_manager.verify_cache(cache_key):
@@ -439,7 +453,7 @@ class ResponseCoordinator:
             return self._rebuild_processed_response(
                 cache_key=cache_key,
                 response=response_obj,
-                cached_response=cached,
+                cached_response_dict=cached,
             )
         except (
             StorageCacheException,
@@ -447,7 +461,9 @@ class ResponseCoordinator:
             InvalidResponseReconstructionException,
             InvalidResponseStructureException,
         ) as e:
-            logger.warning(f"An exception occurred while attempting to retrieve '{cache_key}' from cache: {e}")
+            logger.warning(
+                f"An exception occurred while attempting to retrieve '{cache_key}' from cache: {e} Skipping Cache retrieval..."
+            )
             return None
 
     @classmethod
@@ -455,46 +471,46 @@ class ResponseCoordinator:
         cls,
         cache_key: str,
         response: Optional[Response | ResponseProtocol] = None,
-        cached_response: Optional[Dict[str, Any]] = None,
+        cached_response_dict: Optional[dict[str, Any]] = None,
     ) -> ProcessedResponse:
         """Helper method for creating a processed response containing fields needed for processing."""
-        if not isinstance(cached_response, dict):
+        if not isinstance(cached_response_dict, dict):
             logger.warning(
-                f"A non-dictionary cache of type {type(cached_response)} was encountered when rebuilding "
+                f"A non-dictionary cache of type {type(cached_response_dict)} was encountered when rebuilding "
                 "a ProcessedResponse from its components. Skipping retrieval of processed fields..."
             )
-            cached_response = {}
+            cached_response_dict = {}
 
         # if a response object is not passed, but cache is available and stored in a dictionary
         # creates a new response from the serialized response, returning None if an error is encountered
         response = response or APIResponse.from_serialized_response(
-            cached_response.get("serialized_response"),
-            status_code=cached_response.get("status_code"),
-            text=coerce_str(cached_response.get("content")),
+            cached_response_dict.get("serialized_response"),
+            status_code=cached_response_dict.get("status_code"),
+            text=coerce_str(cached_response_dict.get("content")),
         )
 
         return ProcessedResponse(
             response=response,
             cache_key=cache_key,
-            parsed_response=cached_response.get("parsed_response"),
-            extracted_records=cached_response.get("extracted_records"),
-            processed_records=cached_response.get("processed_records"),
-            normalized_records=cached_response.get("normalized_records"),
-            metadata=cached_response.get("metadata"),
-            created_at=cached_response.get("created_at"),  # will perform internal validation
+            parsed_response=cached_response_dict.get("parsed_response"),
+            extracted_records=cached_response_dict.get("extracted_records"),
+            processed_records=cached_response_dict.get("processed_records"),
+            normalized_records=cached_response_dict.get("normalized_records"),
+            metadata=cached_response_dict.get("metadata"),
+            created_at=cached_response_dict.get("created_at"),  # will perform internal validation
         )
 
     def _validate_cached_schema(
         self,
-        cached_response: dict[str, Any],
+        cached_response_dict: dict[str, Any],
         validate_fingerprint: Optional[bool] = None,
     ) -> Optional[bool]:
         """Helper method for validating the cache dictionary containing the processed data, metadata, and other
         information for the current response."""
-        if not cached_response:
+        if not cached_response_dict:
             return False
 
-        cached_schema = cached_response.get("schema")
+        cached_schema = cached_response_dict.get("schema")
         validate_fingerprint = (
             validate_fingerprint if validate_fingerprint is not None else self.DEFAULT_VALIDATE_FINGERPRINT
         )
@@ -515,58 +531,47 @@ class ResponseCoordinator:
     def _resolve_response(
         cls, response: Response | ResponseProtocol, validate: bool = False
     ) -> Response | ResponseProtocol:
-        """Helper method for ensuring that the underlying response is actually a response object or valid response-like
-        object. If the value is a valid response-like object, the reconstructed response is returned as is.
+        """Helper method for resolves and optionally validates the input as a response or response-like object.
+
+         When received, this method unwraps `APIResponse`, `ProcessedResponse`, and `ErrorResponse`/`NonResponse`
+         subclasses to resolve the raw response.
+
+         If the raw response is a valid requests.Response or response-like object, the reconstructed response is
+         returned as is. Otherwise, this method attempts to coerce the value into a `ReconstructedResponse`
+
+         When coercion or validation fails, this method raises an `InvalidResponseStructureException` or the subclassed
+         `InvalidResponseReconstructionException`.
 
         Args:
-            response (Response | APIResponse | ReconstructedResponse | ResponseProtocol): A response or response-like object to resolve
-            validate (bool): Indicates whether to directly throw an error if the response object is not valid
+            response (Response | ResponseProtocol):
+                A response or response-like object to resolve. response-like objects also include the
+                `ReconstructedResponse` and `APIResponse` subclasses.
+            validate (bool):
+                Indicates whether to directly raise an error if the fields of the `ReconstructedResponse` are determined
+                to be invalid.
 
         Returns:
-            Response | ReconstructedResponse: If the value is a valid response or response-like object
+            Response | ResponseProtocol: If the value is a valid response or response-like object
 
         Raises:
-            InvalidRequestReconstructionError: If the expected value is not a response or response like object and
-                                               validation is set to `True`.
+            InvalidResponseStructureException:
+                If the object or its nested response is not a response-like object.
+            InvalidResponseReconstructionException:
+                If the values of the response or response-like object contain invalid values and validate is set to True
 
         """
+        raw_response = response.response if isinstance(response, APIResponse) else response
 
-        response_obj = response.response if isinstance(response, APIResponse) else response
+        if isinstance(raw_response, Response) or ResponseValidator.is_valid_response_structure(raw_response):
+            return raw_response
 
-        if isinstance(response_obj, Response):
-            return response_obj
-
-        # can retrieve nested responses within APIResponse objects if needed
+        # Attempts to coerce the current object into a response
         reconstructed_response = APIResponse.as_reconstructed_response(response)
-
-        if not isinstance(reconstructed_response, ResponseProtocol):
-            raise InvalidCoordinatorParameterException(
-                "Expected a valid response or response-like object. "
-                f"The object of type {type(response)} is not a response."
-            )
 
         if validate:
             reconstructed_response.validate()
 
         return reconstructed_response
-
-    @classmethod
-    def _validate_response(cls, response: Response | ResponseProtocol) -> Response | ResponseProtocol:
-        """Helper method for returning the response or response-like object in case of errors. Otherwise returns an
-        error if the response type is not a valid response or response-like object.
-
-        Args:
-            response (requests.Response | ResponseProtocol): A response or response like object
-
-        Returns:
-            requests.Response | ResponseProtocol: The validated response or response-like object on success
-
-        Raises:
-            InvalidRequestReconstructionError: If the value entered is not a valid response object
-
-        """
-        response_obj = cls._resolve_response(response, validate=True)
-        return response_obj
 
     def _handle_response(
         self,
@@ -583,12 +588,10 @@ class ResponseCoordinator:
             normalize_records (Optional[bool]): Determines whether records should be normalized after processing
 
         Returns:
-            ErrorResponse | ProcessedResponse: A Dataclass Object that contains response data
-                                               and detailed processing info. Contains
-                                               parsing, extraction, and processing information on
-                                               success. Otherwise, on failure, an ErrorResponse is
-                                               returned, detailing the precipitating factors behind the
-                                               error.
+            ErrorResponse | ProcessedResponse:
+                A pydantic model that contains response data and detailed processing info. Contains parsing,
+                extraction, and processing information on success. Otherwise, on failure, an ErrorResponse is
+                returned, detailing the precipitating factors behind the error.
 
         """
 
@@ -598,7 +601,9 @@ class ResponseCoordinator:
             return self._process_response(resolved_response, cache_key, normalize_records=normalize_records)
 
         except (RequestException, InvalidResponseStructureException, InvalidResponseReconstructionException) as e:
-            error_response = self._process_error(response, f"Error retrieving response: {e}", e, cache_key=cache_key)
+            error_response = self._process_error(
+                response, f"Error retrieving a valid response: {e}", e, cache_key=cache_key
+            )
 
         except (
             DataParsingException,
@@ -606,7 +611,9 @@ class ResponseCoordinator:
             DataProcessingException,
             FieldNotFoundException,
         ) as e:
-            error_response = self._process_error(response, f"Error processing response: {e}", e, cache_key=cache_key)
+            error_response = self._process_error(
+                response, f"Error processing the response: {e}", e, cache_key=cache_key
+            )
 
         except Exception as e:
             error_response = self._process_error(
@@ -627,15 +634,14 @@ class ResponseCoordinator:
         """Parses, extracts, processes, and optionally caches response data.
 
         Args:
-            response (Response): Raw API response.
-            cache_key (Optional[str]): Cache key for storing results.
+            response (Response): A raw API response or response-like object.
+            cache_key (Optional[str]): The cache key used for storing results for future retrieval.
             normalize_records (Optional[bool]): Determines whether records should be normalized
 
         Returns:
-            ProcessedResponse: A Dataclass Object that contains response data
-                               and detailed processing info. Contains
-                               parsing, extraction, and processing information on
-                               success.
+            ProcessedResponse:
+                A pydantic model that contains response data and detailed processing info. Contains parsing,
+                extraction, and processing information on success.
 
         """
 
@@ -707,12 +713,15 @@ class ResponseCoordinator:
         """Creates and logs the processing error if one occurs during response processing.
 
         Args:
-            response (Response): Raw API response.
-            cache_key (Optional[str]): Cache key for storing results.
+            response (Response): The raw API response.
+            cache_key (Optional[str]): The cache key used for storing results.
+            error_message (str): The error message describing the failure.
+            error_type (Exception): The exception instance that was raised.
 
         Returns:
-            ErrorResponse: A Dataclass Object that contains the error response data
-                            and background information on what precipitated the error.
+            ErrorResponse:
+                A pydantic model containing the response, error data, and background information on what precipitated
+                the error.
 
         """
         logger.error(error_message)

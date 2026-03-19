@@ -395,7 +395,8 @@ def test_search_normalization_structure(default_search_coordinator, setup_mockin
 
 
 def test_search_normalization_contents(default_search_coordinator, setup_mocking):
-    """Verifies that the contents of each normalized record contain common fields with the assigned fallback defaults."""
+    """Verifies that the contents of each normalized record contain common fields with the assigned fallback
+    defaults."""
     provider_config = provider_registry[default_search_coordinator.api.provider_name]
     assert provider_config and provider_config.field_map
     field_map = provider_config.field_map

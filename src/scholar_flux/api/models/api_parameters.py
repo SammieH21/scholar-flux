@@ -96,7 +96,7 @@ class APIParameterMap(BaseAPIParameterMap):
         return values
 
     @classmethod
-    def from_defaults(cls, provider_name: str, **additional_parameters) -> APIParameterMap:
+    def from_defaults(cls, provider_name: str, **additional_parameters: Any) -> APIParameterMap:
         """Factory method that uses the `APIParameterMap.get_defaults` classmethod to retrieve the provider config.
 
         Raises an error if the provider does not exist.
@@ -121,7 +121,7 @@ class APIParameterMap(BaseAPIParameterMap):
         return parameter_map
 
     @classmethod
-    def get_defaults(cls, provider_name: str, **additional_parameters) -> Optional[APIParameterMap]:
+    def get_defaults(cls, provider_name: str, **additional_parameters: Any) -> Optional[APIParameterMap]:
         """Factory method to create APIParameterMap instances with sensible defaults for known APIs.
 
         This class method attempts to pull from the list of known providers defined in the
@@ -212,7 +212,7 @@ class APIParameterConfig:
         query: Optional[str],
         page: Optional[int],
         records_per_page: int,
-        **api_specific_parameters,
+        **api_specific_parameters: Any,
     ) -> Dict[str, Any]:
         """Builds the dictionary of request parameters using the current parameter map and provided values at runtime.
 
@@ -294,7 +294,7 @@ class APIParameterConfig:
 
         return start + (adjusted_page - start) * records_per_page
 
-    def _get_api_specific_parameters(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
+    def _get_api_specific_parameters(self, parameters: Optional[dict], **api_specific_parameters: Any) -> dict:
         """Helper method for extracting api specific parameters from additional keyword arguments.
 
         These additional parameters are retrieved from `**api_specific_parameters` when available and not already
@@ -357,20 +357,20 @@ class APIParameterConfig:
         validator: Optional[Callable[[Any], Any]] = None,
         default: Any = None,
         required: bool = False,
-        inplace=True,
+        inplace: bool = True,
     ) -> APIParameterConfig:
         """Passes keyword arguments to the current parameter map to add a new API-specific parameter to its config.
 
         Args:
             name (str):
-                The name of the parameter used when sending requests to APis.
+                The name of the parameter used when sending requests to APIs.
             description (str):
                 A description of the API-specific parameter.
             validator (Optional[Callable[[Any], Any]]):
                 An optional function/method for verifying and pre-processing parameter input based on required types,
                 constrained values, etc.
             default (Any):
-                An default value used for the parameter if not specified by the user
+                A default value used for the parameter if not specified by the user
             required (bool):
                 Indicates whether the current parameter is required for API calls.
             inplace (bool):
@@ -421,7 +421,7 @@ class APIParameterConfig:
         api_specific_parameters |= parameters.get("parameters", {})
         return api_specific_parameters
 
-    def _get_api_key(self, parameters: Optional[dict], **api_specific_parameters) -> dict:
+    def _get_api_key(self, parameters: Optional[dict], **api_specific_parameters: Any) -> dict:
         """Helper method for extracting the api key from a dictionary of parameters.
 
         This helper method attempts to retrieve the API key and add it as a parameter in the current dictionary if
@@ -464,7 +464,7 @@ class APIParameterConfig:
         return parameters
 
     @classmethod
-    def get_defaults(cls, provider_name: str, **additional_parameters) -> Optional[APIParameterConfig]:
+    def get_defaults(cls, provider_name: str, **additional_parameters: Any) -> Optional[APIParameterConfig]:
         """Factory method to create APIParameterConfig instances with sensible defaults for known APIs.
 
         Avoids throwing an error if the provider name does not already exist.
@@ -560,7 +560,7 @@ class APIParameterConfig:
         return duplicated_parameters
 
     @classmethod
-    def from_defaults(cls, provider_name: str, **additional_parameters) -> APIParameterConfig:
+    def from_defaults(cls, provider_name: str, **additional_parameters: Any) -> APIParameterConfig:
         """Factory method to create APIParameterConfig instances with sensible defaults for known APIs.
 
         If the provider_name does not exist, the code will raise an exception.

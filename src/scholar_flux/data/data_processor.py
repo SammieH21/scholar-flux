@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class DataProcessor(ABCDataProcessor):
     """Initialize the DataProcessor with explicit extraction paths and options. The DataProcessor performs the selective
-    extraction os specific fields from each record within a page (list) of JSON (dictionary) records and assumes that
+    extraction of specific fields from each record within a page (list) of JSON (dictionary) records and assumes that
     the paths to extract are known beforehand.
 
     Args:
@@ -147,7 +147,7 @@ class DataProcessor(ABCDataProcessor):
         path: Optional[list[str | int]] = None,
     ) -> Optional[list]:
         """Processes a specific key from a record by retrieving the value associated with the key at the nested path.
-        Depending on whether `value_delimiter` is set, the method will joining non-None values into a string using the
+        Depending on whether `value_delimiter` is set, the method will join non-None values into a string using the
         delimiter. Otherwise, keys with lists as values will contain the lists un-edited.
 
         Args:
@@ -193,7 +193,7 @@ class DataProcessor(ABCDataProcessor):
 
         # retrieve a dict containing the fields for the current record
         if not record_dict:
-            logger.debug("A record is empty: skipping,,,")
+            logger.debug("A record is empty: skipping...")
 
         # Record data processing using dictionary comprehension
         processed_record_dict = (
@@ -260,8 +260,8 @@ class DataProcessor(ABCDataProcessor):
             processed_record_dict_list = [
                 self.process_record(record_dict)
                 for record_dict in parsed_records
-                if self.record_filter(record_dict, keep_keys, regex) is not False
-                and self.record_filter(record_dict, ignore_keys, regex) is not True
+                if (not keep_keys or self.record_filter(record_dict, keep_keys, regex))
+                and not self.record_filter(record_dict, ignore_keys, regex)
             ]
 
             logger.debug(f"total included records - {len(processed_record_dict_list)}")
@@ -271,19 +271,19 @@ class DataProcessor(ABCDataProcessor):
         except Exception as e:
             raise DataProcessingException(f"An unexpected error occurred during data processing: {e}")
 
+    @classmethod
     def record_filter(
-        self,
+        cls,
         record_dict: RecordType,
         record_keys: Optional[list[str]] = None,
         regex: Optional[bool] = None,
-    ) -> Optional[bool]:
+    ) -> bool:
         """Helper method that filters records using regex pattern matching, checking if any of the keys provided in the
         function call exist."""
 
         # return true by default if no filters are provided
         if not record_keys:
-            return None
-
+            return False
         use_regex = regex if regex is not None else False
 
         # search for the presence or absence of a specific key segment in the code

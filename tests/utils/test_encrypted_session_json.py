@@ -1,10 +1,20 @@
 import pytest
 from unittest.mock import patch
-from requests_cache import CachedSession
+from requests_cache.session import CachedSession
 import requests_mock
-from scholar_flux.api import SearchAPI
+from contextlib import suppress
+import importlib
+from scholar_flux.sessions import CachedSessionManager
 import scholar_flux.sessions.encryption
-from scholar_flux.exceptions import ItsDangerousImportError, CryptographyImportError, SecretKeyError
+from scholar_flux.api import SearchAPI
+from scholar_flux.utils import config_settings
+from scholar_flux.exceptions import (
+    ItsDangerousImportError,
+    CryptographyImportError,
+    SecretKeyError,
+    CachedSessionValidationError,
+)
+from pydantic import SecretStr
 
 import logging
 
@@ -21,10 +31,11 @@ def skip_missing_encryption_dependency(session_encryption_dependency):
 
 
 def test_validate_key_error():
-    """Validates whether the a string secret key will raise an error: The EncryptionPipelineFactory expects a Fernet if
-    a key is provided.
+    """Verifies that a SecretKeyError is raised when provided with an invalid secret key.
 
-    Otherwise it should generate it automatically.
+    When initialized with an argument for the `key` parameter, the `EncryptionPipelineFactory` validates that the
+    object is a Fernet key. If the key is not a bytes object with a length of 44 characters, the `_validate_key`
+    method will raise a SecretKeyError.
 
     """
     with pytest.raises(SecretKeyError):
@@ -35,25 +46,25 @@ def test_validate_key_error():
 def test_generate_secret_key(skip_missing_encryption_dependency):
     """Tests the generation of a new Fernet key and verifies the type.
 
-    Fernet keys should be URL encoded bytes with a of a length `len(fernet) == 44`
+    Fernet keys should be URL encoded bytes with a length: `len(fernet) == 44`
 
     """
     fernet = EncryptionPipelineFactory.generate_secret_key()
     assert isinstance(fernet, bytes) and len(fernet) == 44
 
 
-def test_env_key_loader(skip_missing_encryption_dependency, caplog):
-    """Validates whether the use of a SCHOLAR_FLUX_CACHE_SECRET_KEY will be successfully when generating a new
-    encryption pipeline factory class."""
-    # generates the fernet key
+def test_env_key_loader(skip_missing_encryption_dependency, caplog, restore_config_settings):
+    """Validates whether the EncryptionPipelineFactory can load SCHOLAR_FLUX_CACHE_SECRET_KEY from the env settings."""
+    # generates the secret key used for Fernet encryption/decryption
     fernet = EncryptionPipelineFactory.generate_secret_key()
 
-    # simulates the fernet key being saved as a bytes object in the config
-    with patch.dict(scholar_flux.sessions.encryption.config_settings.config, {"SCHOLAR_FLUX_CACHE_SECRET_KEY": fernet}):
-        # verifies whether, when a fernet key is not provided, the secret key will be used by default
-        new_fernet = EncryptionPipelineFactory._prepare_key(None)
-        assert "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY" in caplog.text
-        assert fernet == new_fernet
+    # simulates the fernet key being saved as a secret key in the config
+    config_settings.set("SCHOLAR_FLUX_CACHE_SECRET_KEY", SecretStr(fernet.decode()))
+    # verifies whether, when a fernet key is not provided, the secret key will be used by default
+    factory = EncryptionPipelineFactory()
+    assert "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY" in caplog.text
+    # Verifies that _prepare_key is being called correctly on factory initialization
+    assert fernet == factory.secret_key == EncryptionPipelineFactory._prepare_key(key=None)
 
 
 def test_encryption_factory_secret_initialization(session_encryption_dependency):
@@ -89,6 +100,80 @@ def test_encryption_factory_secret_initialization(session_encryption_dependency)
     assert isinstance(factory_with_str.secret_key, bytes) and secret_key == b64decode(factory_with_str.secret_key)
 
 
+def test_encryption_factory_key_assignment(skip_missing_encryption_dependency):
+    """Verifies that encryption correctly handles the assignment of strings, bytes, and secret str objects."""
+    secret_key = EncryptionPipelineFactory.generate_secret_key()
+    secret_key_str = secret_key.decode(EncryptionPipelineFactory.ENCODING)
+
+    # SecretStrs, bytes, and strs should be coerced into a secret str
+    default_factory = EncryptionPipelineFactory(secret_key)
+    factory_from_str = EncryptionPipelineFactory(secret_key_str)
+
+    assert isinstance(default_factory._secret_key, SecretStr)
+    assert default_factory._secret_key == factory_from_str._secret_key
+
+    factory_from_secret = EncryptionPipelineFactory(SecretStr(secret_key_str))
+    assert factory_from_str._secret_key == factory_from_secret._secret_key
+
+    # Should recover the key exactly from the property getter
+    assert factory_from_str.secret_key == default_factory.secret_key == secret_key
+
+
+def test_encryption_cryptography_dependency_missing(skip_missing_encryption_dependency):
+    """Verifies the behavior of the sessions.encryption module when `cryptography` is missing."""
+    try:
+        with patch.dict("sys.modules", {"cryptography.fernet": None}):
+            importlib.reload(scholar_flux.sessions.encryption)
+            assert scholar_flux.sessions.encryption.Fernet is None
+            assert scholar_flux.sessions.encryption.Signer is not None
+            with pytest.raises(scholar_flux.sessions.encryption.CryptographyImportError):
+                _ = scholar_flux.sessions.encryption.EncryptionPipelineFactory()
+    finally:
+        importlib.reload(scholar_flux.sessions.encryption)
+
+
+def test_encryption_itsdangerous_dependencies_missing(skip_missing_encryption_dependency):
+    """Verifies the behavior of the sessions.encryption module when `itsdangerous` is missing."""
+    try:
+        with patch.dict("sys.modules", {"itsdangerous": None}):
+            importlib.reload(scholar_flux.sessions.encryption)
+            assert scholar_flux.sessions.encryption.Signer is None
+            assert scholar_flux.sessions.encryption.Fernet is not None
+            with pytest.raises(scholar_flux.sessions.encryption.ItsDangerousImportError):
+                _ = scholar_flux.sessions.encryption.EncryptionPipelineFactory()
+    finally:
+        importlib.reload(scholar_flux.sessions.encryption)
+
+
+def test_encryption_factory_key_reassignment(skip_missing_encryption_dependency):
+    """Verifies that encryption correctly handles the re-assignment of the `secret_key` property."""
+    # generating a new secret key entirely and coercing into strings and secret strings
+    secret_key = EncryptionPipelineFactory.generate_secret_key()
+    secret_key_str = secret_key.decode(EncryptionPipelineFactory.ENCODING)
+    masked_secret_key = SecretStr(secret_key_str)
+
+    # generates a new secret key or reads from env
+    pipeline = EncryptionPipelineFactory(secret_key)
+
+    # testing reassignment
+    new_pipeline = EncryptionPipelineFactory()
+
+    # storing a secret keys as a masked strings under-the-hood using Pydantic
+    new_pipeline.secret_key = masked_secret_key
+    assert isinstance(new_pipeline._secret_key, SecretStr)
+    assert new_pipeline.secret_key == pipeline.secret_key
+
+    # masking bytes as secret strings directly via the property setter
+    new_pipeline.secret_key = secret_key
+    assert isinstance(new_pipeline._secret_key, SecretStr)
+    assert new_pipeline.secret_key == pipeline.secret_key
+
+    # masking strings as secret strings
+    new_pipeline.secret_key = secret_key_str
+    assert isinstance(new_pipeline._secret_key, SecretStr)
+    assert new_pipeline.secret_key == pipeline.secret_key
+
+
 def test_missing_encryption(session_encryption_dependency):
     """Validates whether a missing package dependency will correctly raise an error once instantiated."""
     if not session_encryption_dependency:
@@ -104,6 +189,56 @@ def test_missing_encryption(session_encryption_dependency):
             from scholar_flux.sessions.encryption import EncryptionPipelineFactory
 
             _ = EncryptionPipelineFactory()
+
+
+def test_validate_encrypted_cached_session_raises_on_invalid_token(tmp_path, cleanup, caplog):
+    """Verifies that sessions using pipelines with bad keys will raise an error on cache retrieval and validation."""
+    # Ensure that any set env variables are overridden by explicitly generated secret keys:
+    encryption_factory = EncryptionPipelineFactory(secret_key=EncryptionPipelineFactory.generate_secret_key())
+    encryption_factory_two = EncryptionPipelineFactory(secret_key=EncryptionPipelineFactory.generate_secret_key())
+
+    cache_manager = CachedSessionManager(backend="sqlite", cache_directory=tmp_path, serializer=encryption_factory())
+
+    cached_session = cache_manager()
+
+    test_url = "https://httpbin.org/status/200"
+    with requests_mock.Mocker() as m:
+        m.get(url=test_url, json="ok")
+        assert cached_session.get(test_url)
+
+        cache_manager_two = CachedSessionManager(
+            backend="sqlite", cache_directory=tmp_path, serializer=encryption_factory_two()
+        )
+
+        msg = "CachedSession validation was unsuccessful due to the following: InvalidToken"
+        with pytest.raises(CachedSessionValidationError, match=msg):
+            _ = cache_manager_two(verify_connection=True)
+
+    assert msg in caplog.text
+
+
+def test_validate_encrypted_cached_session_does_not_raise_on_new_key_if_empty(tmp_path, cleanup):
+    """Verifies that `verify_connection=True` does not raise an InvalidToken with a new key if the cache is empty."""
+    # Ensure that any set env variables are overridden by explicitly generated secret keys:
+    encryption_factory = EncryptionPipelineFactory(secret_key=EncryptionPipelineFactory.generate_secret_key())
+    encryption_factory_two = EncryptionPipelineFactory(secret_key=EncryptionPipelineFactory.generate_secret_key())
+
+    cache_manager = CachedSessionManager(backend="sqlite", cache_directory=tmp_path, serializer=encryption_factory())
+
+    cached_session = cache_manager()
+
+    test_url = "https://httpbin.org/status/200"
+    with requests_mock.Mocker() as m:
+        m.get(url=test_url, json="ok")
+        assert cached_session.get(test_url)
+        cached_session.cache.clear()
+
+        cache_manager_two = CachedSessionManager(
+            backend="sqlite", cache_directory=tmp_path, serializer=encryption_factory_two()
+        )
+        cached_session_two = cache_manager_two(verify_connection=True)
+        assert cached_session_two.get(test_url)
+        cached_session_two.cache.clear()
 
 
 def test_encrypted_cached_session_initialization(
@@ -148,8 +283,6 @@ def test_encrypted_cached_session_initialization(
 
         assert response.content == response_two.content
 
-        from cryptography.fernet import InvalidToken
-
         assert api.cache
 
     api.cache.clear()
@@ -158,13 +291,11 @@ def test_encrypted_cached_session_initialization(
         query="darkness", provider_name="plos", session=incorrect_session, request_delay=0, base_url=URL
     )
 
-    with requests_mock.Mocker() as m:
-        m.get(prepared_request.url, status_code=200)
+    from cryptography.fernet import InvalidToken
 
+    with requests_mock.Mocker() as m:
         response_three = None
-        try:
-            m.get(prepared_request.url, status_code=200, json=params)
+        m.get(prepared_request.url, status_code=200, json=params)
+        with suppress(InvalidToken):
             response_three = api_two.search(page=1)
-        except InvalidToken:
-            pass
         assert not getattr(response_three, "from_cache", False)

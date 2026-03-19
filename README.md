@@ -25,6 +25,7 @@
 - [Core Features](#core-features)
 - [Supported Providers](#supported-providers)
 - [Comparison with Existing Tools](#comparison-with-existing-tools)
+- [What's New in v0.5.0](#whats-new-in-v050)
 - [What's New in v0.4.0](#whats-new-in-v040)
 - [Documentation](#-documentation)
 - [Contributing](#contributing)
@@ -83,7 +84,7 @@ ScholarFlux handles and abstracts away the complexity of retrieving and processi
 - **Response validation** - Verifies response structure before attempting to process data
 - **Concurrent orchestration** - Retrieves data from multiple APIs concurrently with multithreading
 - **Record processing** - Prepares, logs, and returns intermediate data steps and final processed results
-- **API-Aware Normalization** – Consolidates API-specific record structures into a unified, ML/analytics-ready schema
+- **API-Aware Normalization** - Consolidates API-specific record structures into a unified, ML/analytics-ready schema
 - **Two-layer caching** - Optionally caches successful requests and response processing to avoid redundant requests
 
 ## Focus
@@ -221,7 +222,7 @@ if response:
     JsonFileUtils.save_as(normalized_records, filename)
     print(f"Records written to '{filename}'!")
 else:
-    print(f"Oops, An error occurred during response retrieval for page {response.page}: ", response.error, response.message)
+    print(f"Oops, an error occurred during response retrieval for page {response.page}: ", response.error, response.message)
 ```
 
 ## Origin Story
@@ -235,10 +236,10 @@ Built and presented at CDC meetings as a solution for AI-assisted systematic lit
 After the fellowship, I recognized the broader need beyond public health research and open-sourced it, expanding from the initial Springer Nature integration to 7+ providers with comprehensive documentation and production-ready features.
 
 **Technical foundation:**
-- **~58,319 lines of code**: ~32,777 LOC source + ~25,542 LOC comprehensive tests
-- **97% test coverage**: Rigorous testing across all functionality and edge cases
+- **~61,647 lines of code**: ~34,385 LOC source + ~27,262 LOC comprehensive tests
+- **98% test coverage**: Rigorous testing across all functionality and edge cases
 - **Security-focused**: Automated CVE scanning, credential masking, encrypted caching
-- **Type-safe**: comprehensive mypy type checking all throughout the entire codebase
+- **Type-safe**: Comprehensive mypy type checking throughout the entire codebase
 - **Production-ready architecture**: Dependency injection, comprehensive error handling, horizontal scaling
 
 ## Architecture
@@ -261,7 +262,7 @@ SearchCoordinator
 │   ├── ResponseMetadataMap (pagination metadata extraction - v0.3.0)
 │   └── DataCacheManager (In-Memory, Redis, MongoDB, SQLAlchemy, or DuckDB Storage Cache Devices)
 ├────── RetryHandler (exponential backoff with configurable limits)
-├────── ResponseValidator (Defines the logic used to verify context integrity)
+├────── ResponseValidator (Defines the logic used to verify response type and structure)
 └────── SearchWorkflow (Optional provider-specific workflow for multi-step, paginated searches)
 ```
 
@@ -696,6 +697,147 @@ print(df.columns)
 
 For detailed comparison, see the [documentation](https://SammieH21.github.io/scholar-flux/).
 
+## What's New in v0.5.0
+
+The v0.5.0 release is designed to increase API maintainability and introduce improved **Cache Initialization and Retrieval Utilities**, **Record Count-Based Retrieval**, and **Search Result Metadata Observability**.
+
+### Session Cache Initialization Improvements
+
+With the aim of making the session setup utility for caching requests consistent with the API for caching processed responses, the `CachedSessionManager` implements a `with_session` helper that allows for the quick and efficient creation of a new `CachedSession`:
+
+The `CachedSessionManager` now also implements connection verification to ensure that Redis and MongoDB cached sessions with invalid connection specifications or unavailable servers fail fast instead of in production when connection verification is enabled on initialization.
+
+```python
+from scholar_flux import CachedSessionManager
+
+# For a simple sqlite CachedSession stored in a default `.scholar_flux` directory:
+user_agent = None # Your user agent. Example: 'MyResearchProject/1.0 (mailto:your.email@institution.edu)')
+session = CachedSessionManager.with_session("sqlite", user_agent = user_agent, cache_name = "project_session_cache.db")
+
+# Setting up a Redis session, calling `validate_cached_session` under-the-hood to verify the server connection:
+session = CachedSessionManager.with_session("redis", verify_connection=True)
+
+# Or simply validating an already created CachedSession:
+CachedSessionManager.validate_cached_session(session)
+```
+
+### Search by Record Count
+
+The `SearchCoordinator` and `MultiSearchCoordinator` classes now include a `search_records` method designed to translate the total number of records requested into a page-range specific to the SearchCoordinator configuration for a provider.
+
+Different providers may also have different requirements on the maximum number of records that can be retrieved in a single request that could otherwise make multi-page searches variable if not directly configured by the user.
+
+The `SearchCoordinator.search_records` method allows users to search for the minimum number of pages required to reach the desired minimum record count:
+
+```python
+from scholar_flux import CachedSessionManager, DataCacheManager, SearchCoordinator
+
+coordinator = SearchCoordinator(
+    provider_name="OpenAlex",
+    query="AI Literacy",
+    records_per_page=50,
+    session=CachedSessionManager.with_session("redis"),
+    cache_manager=DataCacheManager.with_storage("redis")
+    )
+
+# The equivalent of searching for page 1 and page 2 with 50 records per page
+results = coordinator.search_records(min_records=100, page_offset=0)
+
+# [SearchResult(query='AI Literacy', provider_name='openalex', page=1, response_result=ProcessedResponse(cache_key='openalex_ai literacy_1_50', ..., display_name='OpenAlex'),
+#  SearchResult(query='AI Literacy', provider_name='openalex', page=2, response_result=ProcessedResponse(cache_key='openalex_ai literacy_2_50', ..., display_name='OpenAlex')]
+
+# Pages 3 and 4
+results = coordinator.search_records(min_records=100, page_offset=2)
+# [SearchResult(query='AI Literacy', provider_name='openalex', page=3, response_result=ProcessedResponse(cache_key='openalex_ai literacy_3_50', ..., display_name='OpenAlex'),
+#  SearchResult(query='AI Literacy', provider_name='openalex', page=4, response_result=ProcessedResponse(cache_key='openalex_ai literacy_4_50', ..., display_name='OpenAlex')]
+```
+
+This addition is extensible to the `MultiSearchCoordinator`, aiding the retrieval of a consistent record total by provider:
+
+```python
+from scholar_flux import CachedSessionManager, DataCacheManager, MultiSearchCoordinator, SearchCoordinator
+
+session_manager = CachedSessionManager(backend="redis")
+data_cache_manager = DataCacheManager.with_storage('redis')
+coordinators = [SearchCoordinator(provider_name=provider, query="AI Literacy", session=session_manager(), cache_manager=data_cache_manager) for provider in ('OpenAlex', 'PLOS', 'arXiv', 'PubMed')]
+multi_search_coordinator = MultiSearchCoordinator.from_coordinators(coordinators)
+
+results = multi_search_coordinator.search_records(min_records=100)
+
+# [SearchResult(query='AI Literacy', provider_name='openalex', page=1, ...),
+#  SearchResult(query='AI Literacy', provider_name='openalex', page=2, ...),
+#  SearchResult(query='AI Literacy', provider_name='openalex', page=3, ...),
+#  SearchResult(query='AI Literacy', provider_name='openalex', page=4, ...),
+#  SearchResult(query='AI Literacy', provider_name='plos', page=1, ...),
+#  SearchResult(query='AI Literacy', provider_name='plos', page=2, ...),
+#  SearchResult(query='AI Literacy', provider_name='arxiv', page=1, ...),
+#  SearchResult(query='AI Literacy', provider_name='arxiv', page=2, ...),
+#  SearchResult(query='AI Literacy', provider_name='arxiv', page=3, ...),
+#  SearchResult(query='AI Literacy', provider_name='arxiv', page=4, ...)]
+
+```
+
+### Response Processing Cache Retrieval Utilities
+
+The `SearchCoordinator` implements redesigned `get_cached_request` and `get_cached_response` methods with the aim of aligning return types with `ProcessedResponse` and `SearchResult` reconstruction functionality. The new `get_cached_search_result` method then uses the updated `get_cached_response` method for `SearchResult` reconstruction from the Layer 2 processing cache when a cached raw response is not directly available.
+
+```python
+from scholar_flux import CachedSessionManager, SearchCoordinator
+
+# Using the same persistent cache from the previous example:
+session_manager = CachedSessionManager(backend="redis")
+
+coordinator = SearchCoordinator(provider_name="OpenAlex", query="AI Literacy", records_per_page=50, session=session_manager())
+
+# show the cache keys of previously cached OpenAlex responses for `AI Literacy`.
+coordinator.get_cached_response_keys()
+
+# ['SFAPI:openalex_ai literacy_4_50',
+#  'SFAPI:openalex_ai literacy_2_50',
+#  'SFAPI:openalex_ai literacy_3_50',
+#  'SFAPI:openalex_ai literacy_1_50']
+
+result = coordinator.get_cached_search_result(page=1)
+# SearchResult(query='AI Literacy', provider_name='openalex', page=1, ..., retrieval_timestamp=datetime.datetime(2026, 2, 25, 3, 7, 51, 488000, tzinfo=datetime.timezone.utc), display_name='OpenAlex')
+
+if result:
+    print(f"Retrieved page {result.page} ('{result.cache_key}') for {result.display_name} with query '{result.query}'.")
+# Retrieved page 1 ('openalex_ai literacy_1_50') for OpenAlex with query 'AI Literacy'.
+
+```
+
+### Search Result Metadata Observability
+
+With the aim of increasing the ease of identification of cached responses and their retrieval time, the `SearchResult` model now promotes the `cached` property into a `pydantic.computed_field` while additionally adding the `retrieval_timestamp` as a `computed_field`. These fields are shown when printing `SearchResult` objects in consoles such as IPython and Jupyter Notebooks, indicating when and where the search result was retrieved. When serializing `SearchResult` objects and normalizing academic records, these fields can additionally be included to enrich results with additional search metadata to indicate the source and age of a record.
+
+```python
+from datetime import datetime
+from scholar_flux import CachedSessionManager, SearchCoordinator
+
+coordinator = SearchCoordinator(provider_name="arXiv",
+    query="AI Literacy",
+    session=CachedSessionManager.with_session('sqlite')
+)
+
+results = coordinator.search_records(90)
+
+print(results[0])
+# SearchResult(query='AI Literacy', provider_name='arxiv', page=1, response_result=ProcessedResponse(cache_key='arxiv_ai literacy_1_25', metadata='{'@xmlns:opensearch': 'http://a9.com...}', data='[{'id': 'http://arxiv.org/abs/2501.0...] (25 items)'), cached=False, retrieval_timestamp=datetime.datetime(2026, 3, 1, 1, 33, 54, 247000, tzinfo=datetime.timezone.utc), display_name='arXiv')
+
+normalized_records = results.normalize(include={"display_name", "page", "query", "cached", "retrieval_timestamp"})
+for record in normalized_records:
+    retrieved = record['retrieval_timestamp'].strftime("%Y-%m-%d %H:%M")
+    source = f"cache" if record['cached'] else f"{record['display_name']}"
+    print(f'Retrieved "{record["title"]}" (page {record["page"]}) from {source} (Retrieval time: {retrieved}).')
+# Retrieved "Foundations of GenIR" (page 1) from cache (Retrieval time: 2026-03-01 01:46).
+# Retrieved "Competing Visions of Ethical AI: A Case Study of OpenAI" (page 1) from cache (Retrieval time: 2026-03-01 01:46).
+# Retrieved "AI Literacy in Low-Resource Languages: Insights from creating AI in Yoruba videos" (page 1) from cache (Retrieval time: 2026-03-01 01:46).
+# Retrieved "DeBiasMe: De-biasing Human-AI Interactions with Metacognitive AIED (AI in Education) Interventions" (page 1) from cache (Retrieval time: 2026-03-01 01:46).
+# ...
+
+
+```
+
 ## What's New in v0.4.0
 
 v0.4.0 delivers **API-Aware Normalization Post-Processing Pipelines**, **Request Observability Infrastructure**, and **Production Hardening** for data engineering, research, and ML/AI use cases.
@@ -748,7 +890,7 @@ for article in response.normalize():
 
 ### Record Resolution for ML Pipelines
 
-When building ML pipelines, you often need to trace processed records back to their original nested structure. ScholarFlux now optionally annotates records with content-based hashes for bidirectional record linking. This happens internally during record normalization to reliable retrieve fields consistently across record types:
+When building ML pipelines, you often need to trace processed records back to their original nested structure. ScholarFlux now optionally annotates records with content-based hashes for bidirectional record linking. This happens internally during record normalization to reliably retrieve fields consistently across record types:
 
 ```python
 from scholar_flux import SearchCoordinator
@@ -856,7 +998,7 @@ Masking covers database URIs (PostgreSQL, MySQL, Redis, MongoDB, DuckDB), privat
 - **Connection verification**: `verify_connection=True` validates storage backend availability on initialization
 - **Namespace context manager**: `with cache.with_namespace('project_a'):` for scoped cache operations
 - **Lazy module loading**: Prevents import-time errors for optional dependencies
-- **Test coverage**: Now at 97% with comprehensive edge case coverage
+- **Test coverage**: Now at 98% with comprehensive edge case coverage
 
 See the [full changelog](https://github.com/SammieH21/scholar-flux/blob/main/CHANGELOG.md) for detailed technical changes.
 
@@ -911,7 +1053,7 @@ poetry install
 
 3. **Or to download development tools, testing packages, and all extras:**
 ```bash
-poetry install --with dev,tests,docs --all-extras
+poetry install --with dev,testing,docs --all-extras
 ```
 
 **Areas where contributions are especially valuable:**
@@ -952,7 +1094,7 @@ If you use ScholarFlux in your research, please cite it:
   title = {ScholarFlux: Production-Grade Orchestration for Academic APIs},
   year = {2026},
   url = {https://github.com/SammieH21/scholar-flux},
-  version = {0.4.0}
+  version = {0.5.0}
 }
 ```
 
@@ -967,15 +1109,15 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 
 ## 📊 Project Statistics
 
-- **~58,319 Lines of Code** - ~32,777 LOC source + ~25,542 LOC comprehensive tests
-- **97% Test Coverage** - Rigorous testing across all functionality and edge cases
+- **~61,647 Lines of Code** - ~34,385 LOC source + ~27,262 LOC comprehensive tests
+- **98% Test Coverage** - Rigorous testing across all functionality and edge cases
 - **7 Default Providers** - Pre-configured with schema normalization and metadata extraction
-- **Type-Safe Architecture** - comprehensive type hints throughout with mypy strict optional checking
+- **Type-Safe Architecture** - Comprehensive type hints throughout the codebase with mypy strict-mode type checking
 - **Security-Audited** - Automated CVE scanning via CodeQL and Safety CLI, credential masking
 - **Zero Known CVEs** - Continuous security monitoring in CI/CD pipeline
 - **8 Comprehensive Tutorials** - Detailed documentation from basics through production deployment
 - **3 AI/ML Example Pipelines** - Production-ready examples for embeddings, agents, and scheduled retrieval
-- **Stable Beta** (v0.4.0) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
+- **Stable Beta** (v0.5.0) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
 
 ---
 

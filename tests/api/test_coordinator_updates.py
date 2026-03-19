@@ -9,7 +9,7 @@ from scholar_flux.api import (
     ResponseValidator,
 )
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
-from requests_cache import CachedSession
+from requests_cache.session import CachedSession
 
 
 @pytest.fixture(scope="session")
@@ -33,7 +33,7 @@ def test_identical_update(default_coordinator):
 
 @pytest.mark.parametrize("coordinator_class", (BaseCoordinator, SearchCoordinator))
 def test_invalid_coordinator_parameter_exception(coordinator_class):
-    """Tests whether that an exception is raised when `SearchCoordinator.update()` receives the incorrect type."""
+    """Tests whether an exception is raised when `SearchCoordinator.update()` receives the incorrect type."""
     invalid_coordinator = "not a coordinator"
     err = f"Expected a {coordinator_class.__name__} to perform parameter updates. Received type {type(invalid_coordinator)}"
     with pytest.raises(InvalidCoordinatorParameterException, match=err):
@@ -93,8 +93,8 @@ def test_default_coordinator_with_config_parameters_context(default_coordinator)
 def test_base_coordinator_with_config_parameters_context(default_coordinator):
     """Verifies that the BaseCoordinator context selectively updates components only if their parameters change."""
     base_coordinator = BaseCoordinator.update(default_coordinator)
-    new_coordinator = SearchAPI.update(base_coordinator.api, query="new-query", use_cache=True)
-    with base_coordinator.with_components(new_coordinator) as new_coordinator:
+    search_api = SearchAPI.update(base_coordinator.api, query="new-query", use_cache=True)
+    with base_coordinator.with_components(search_api) as new_coordinator:
         assert base_coordinator.responses is new_coordinator.responses
         assert isinstance(new_coordinator.api.session, CachedSession) and not isinstance(
             base_coordinator.api.session, CachedSession

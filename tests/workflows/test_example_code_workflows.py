@@ -1,12 +1,12 @@
 """Test suite for workflow documentation examples: Ensures that the logic in advanced_workflows.rst work correctly."""
 
 from scholar_flux import SearchCoordinator
-from scholar_flux.api import ProcessedResponse, ErrorResponse
+from scholar_flux.api import ProcessedResponse, ErrorResponse, BaseCoordinator
 from scholar_flux.api.workflows import StepContext, SearchWorkflow, WorkflowStep, WorkflowResult
 from scholar_flux.utils import generate_iso_timestamp
 from typing import Optional
 from contextlib import contextmanager
-from typing import Generator
+from typing import Any, Iterator
 
 
 def test_merged_workflow():
@@ -47,7 +47,14 @@ def test_merged_workflow():
     class Step1(WorkflowStep):
         provider_name: Optional[str] = "plos"
 
-        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
+        def _run(
+            self,
+            step_number: int,
+            search_coordinator: BaseCoordinator,
+            ctx: Optional[StepContext] = None,
+            verbose: Optional[bool] = True,
+            **keyword_parameters: Any,
+        ) -> StepContext:
             response = ProcessedResponse(
                 response=None,
                 processed_records=[{"id": "1", "title": "Paper A"}],
@@ -59,7 +66,14 @@ def test_merged_workflow():
     class Step2(WorkflowStep):
         provider_name: Optional[str] = "plos"
 
-        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
+        def _run(
+            self,
+            step_number: int,
+            search_coordinator: BaseCoordinator,
+            ctx: Optional[StepContext] = None,
+            verbose: Optional[bool] = True,
+            **keyword_parameters: Any,
+        ) -> StepContext:
             response = ProcessedResponse(
                 response=None,
                 processed_records=[
@@ -104,8 +118,11 @@ def test_with_context_pattern():
 
         @contextmanager
         def with_context(
-            self, search_coordinator, *args, **kwargs  # Note: parameter name matches _run signature
-        ) -> Generator["CustomStep", None, None]:
+            self,
+            search_coordinator: BaseCoordinator,
+            *args: Any,
+            **kwargs: Any,  # Note: parameter name matches _run signature
+        ) -> Iterator["CustomStep"]:
             """Temporarily reduce rate limiting for this step."""
 
             # Save original delay
@@ -147,7 +164,14 @@ def test_workflow_history_inspection():
     class TestStep1(WorkflowStep):
         provider_name: Optional[str] = "plos"
 
-        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
+        def _run(
+            self,
+            step_number: int,
+            search_coordinator: BaseCoordinator,
+            ctx: Optional[StepContext] = None,
+            verbose: Optional[bool] = True,
+            **keyword_parameters: Any,
+        ) -> StepContext:
             response = ProcessedResponse(
                 response=None,
                 processed_records=[{"id": "1", "data": "test"}],
@@ -167,7 +191,14 @@ def test_workflow_history_inspection():
                 self.search_parameters = {"previous_data": ctx.result.data}
             return self
 
-        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
+        def _run(
+            self,
+            step_number: int,
+            search_coordinator: BaseCoordinator,
+            ctx: Optional[StepContext] = None,
+            verbose: Optional[bool] = True,
+            **keyword_parameters: Any,
+        ) -> StepContext:
             response = ProcessedResponse(
                 response=None,
                 processed_records=[{"id": "2", "data": "test2"}],
@@ -233,7 +264,14 @@ def test_pre_transform_error_handling():
 
             return self
 
-        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
+        def _run(
+            self,
+            step_number: int,
+            search_coordinator: BaseCoordinator,
+            ctx: Optional[StepContext] = None,
+            verbose: Optional[bool] = True,
+            **keyword_parameters: Any,
+        ) -> StepContext:
             response = ProcessedResponse(
                 response=None, processed_records=[{"id": "1"}], metadata={}, created_at=generate_iso_timestamp()
             )
@@ -311,7 +349,14 @@ def test_stop_on_error_configuration():
 
         provider_name: Optional[str] = "plos"
 
-        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
+        def _run(
+            self,
+            step_number: int,
+            search_coordinator: BaseCoordinator,
+            ctx: Optional[StepContext] = None,
+            verbose: Optional[bool] = True,
+            **keyword_parameters: Any,
+        ) -> StepContext:
             # Return an ErrorResponse
             from scholar_flux.api.models import ErrorResponse, ReconstructedResponse
 
@@ -330,7 +375,14 @@ def test_stop_on_error_configuration():
 
         provider_name: Optional[str] = "plos"
 
-        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
+        def _run(
+            self,
+            step_number: int,
+            search_coordinator: BaseCoordinator,
+            ctx: Optional[StepContext] = None,
+            verbose: Optional[bool] = True,
+            **keyword_parameters: Any,
+        ) -> StepContext:
             response = ProcessedResponse(
                 response=None, processed_records=[{"id": "1"}], metadata={}, created_at=generate_iso_timestamp()
             )

@@ -11,7 +11,8 @@ from pydantic import PrivateAttr
 from typing import Any, Mapping, Optional, Sequence
 from functools import cached_property
 from scholar_flux.api.normalization.base_field_map import BaseFieldMap
-from scholar_flux.data.normalizing_data_processor import DataProcessor, NormalizingDataProcessor
+from scholar_flux.data.data_processor import DataProcessor
+from scholar_flux.data.normalizing_data_processor import NormalizingDataProcessor
 from scholar_flux.exceptions import RecordNormalizationException, DataProcessingException
 from scholar_flux.utils.record_types import RecordType, RecordList, NormalizedRecordType, NormalizedRecordList
 import logging
@@ -84,7 +85,7 @@ class NormalizingFieldMap(BaseFieldMap):
         return self._processor
 
     @processor.setter
-    def processor(self, processor: NormalizingDataProcessor):
+    def processor(self, processor: NormalizingDataProcessor) -> None:
         """Generates a NormalizingDataProcessor using the current set of assigned field names."""
         if not isinstance(processor, DataProcessor):
             err = f"Expected a DataProcessor, but received a variable of {type(processor)}"

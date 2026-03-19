@@ -48,7 +48,7 @@ def test_provider_name_resolution(name, variation):
 
 def test_provider_additions_and_keys():
     """Tests that records can be added and whether each name can be found via the `__contains__` method."""
-    providers = BaseProviderDict({provider: 1 for provider in EXPECTED_PROVIDERS})
+    providers = BaseProviderDict(dict.fromkeys(EXPECTED_PROVIDERS, 1))
 
     assert all(provider in providers for provider in EXPECTED_PROVIDERS)
     assert all(value == 1 for value in providers.values())
@@ -96,7 +96,7 @@ def test_provider_registry_mappings(provider_name):
     ],
 )
 def test_provider_registry_find_provider_names(key, regex, expected):
-    """Verifies that the `find` method retrieves the expected set of (normalized)providers."""
+    """Verifies that the `find` method retrieves the expected set of (normalized) providers."""
     assert set(provider_registry.find(key, regex)) == expected
 
 
@@ -206,7 +206,7 @@ def test_empty_provider_additions():
 
 
 def test_rate_limiter_registry_expected_values():
-    """Tests whether the attempted addition of invalid types will raise the expected."""
+    """Tests whether the attempted addition of invalid types will raise the expected error."""
     valid_provider_name = "ValidProvider"
     invalid_value = "Not a Rate Limiter"
 

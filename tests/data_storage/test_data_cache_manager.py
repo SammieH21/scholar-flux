@@ -149,7 +149,7 @@ def test_create_storage_creates_correct_storage_device(storage_type, db_dependen
 
 
 def test_create_storage_raises_error_on_incorrect_type():
-    """Verifies that `DataCacheManager._create_storage` creates a new ABCStorage instance."""
+    """Verifies that `DataCacheManager._create_storage` raises a `StorageCacheException` for an invalid storage type."""
     invalid_cache_storage = 234
     err = "The chosen storage device for caching processed responses is not valid. Expected a valid string"
     with pytest.raises(StorageCacheException, match=err):
@@ -237,7 +237,7 @@ def test_ping_raises_error_on_verify_connection_with_url(
 def test_successful_connection_with_url(
     storage_type, tmp_path, cleanup, db_dependency_unavailable, restore_config_settings, monkeypatch
 ):
-    """Verifies unavailable SQL DBs raise exceptions on `raise_on_error=True` and `verify_connection=True`."""
+    """Verifies successful connection setup for SQL storage devices initialized with a URL."""
     # Note, the storage type is case sensitive and formatted match the
     if db_dependency_unavailable(storage_type):
         pytest.skip()

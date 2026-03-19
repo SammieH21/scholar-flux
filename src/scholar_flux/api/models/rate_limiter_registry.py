@@ -6,12 +6,14 @@ safe rate limiters for both default and new providers.
 
 """
 from __future__ import annotations
+
+from typing import Any, Optional
+from typing_extensions import Self
+
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 from scholar_flux.api.rate_limiting import RateLimiter, ThreadedRateLimiter
 from scholar_flux.exceptions import APIParameterException
 import scholar_flux.api.providers as api_providers
-from typing_extensions import Self
-from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,7 +31,7 @@ class RateLimiterRegistry(BaseProviderDict):
 
     """
 
-    def __init__(self, *args, threaded: bool = False, **kwargs):
+    def __init__(self, *args: Any, threaded: bool = False, **kwargs: Any) -> None:
         """Initializes the RateLimiterRegistry and enforces the use of ThreadedRateLimiters when `threaded=True`."""
         self.threaded = threaded
         super().__init__(*args, **kwargs)

@@ -1,10 +1,15 @@
 # /utils/helpers.py
-"""The scholar_flux.utils.helpers module contains several helper functions to aid in common data data manipulation
-scenarios including character conversions, date-time parsing and formatting, and nesting and unnesting common python
-data structures."""
+"""The scholar_flux.utils.helpers module contains several helper functions to aid in common data manipulation scenarios.
+
+This module includes helpers for character conversion, date-time parsing and formatting, and nesting and unnesting
+common python data structures.
+
+"""
+
 import re
 import hashlib
 import requests
+import json
 from datetime import datetime, timezone, date
 from scholar_flux.utils.response_protocol import ResponseProtocol
 from scholar_flux.utils.json_processing_utils import PathUtils
@@ -24,6 +29,7 @@ from typing import (
     Literal,
     overload,
 )
+from typing_extensions import TypeAliasType
 from collections.abc import Iterable
 import logging
 
@@ -37,10 +43,10 @@ else:
 
 logger = logging.getLogger(__name__)
 
-JSON_ELEMENT = dict | list | str | bytes | int | float | bool | None
-JSON_VALUE = str | bytes | int | float | bool | None
-JSON_MAPPING = dict[str, Any] | dict[str | int, Any]
-JSON_SEQUENCE = list[JSON_MAPPING] | list[JSON_VALUE] | list[JSON_MAPPING | JSON_VALUE]
+JSON_ELEMENT = TypeAliasType("JSON_ELEMENT", dict | list | str | bytes | int | float | bool | None)
+JSON_VALUE = TypeAliasType("JSON_VALUE", str | bytes | int | float | bool | None)
+JSON_MAPPING = TypeAliasType("JSON_MAPPING", dict[str, Any] | dict[str | int, Any])
+JSON_SEQUENCE = TypeAliasType("JSON_SEQUENCE", list[JSON_MAPPING] | list[JSON_VALUE] | list[JSON_MAPPING | JSON_VALUE])
 
 JSON_MAPPING_TYPE = TypeVar("JSON_MAPPING_TYPE", bound=JSON_MAPPING)
 JSON_SEQUENCE_TYPE = TypeVar("JSON_SEQUENCE_TYPE", bound=JSON_SEQUENCE)
@@ -52,17 +58,18 @@ JSON_DATA_TYPE = TypeVar("JSON_DATA_TYPE", bound=JSON_ELEMENT | JSON_MAPPING | J
 # Pattern for later compiling patterns with user-defined prefixes and/or suffixes via `try_compile`
 PIPE_DELIMITER_REGEX_PATTERN = re.compile(r"(?<![^\\]\\)\|")
 
-T = TypeVar("T", bound=Hashable)
+T = TypeVar("T", bound=object)
+H = TypeVar("H", bound=Hashable)
 P = TypeVar("P", bound=re.Pattern)
 V = TypeVar("V", bound=Any)
 D = TypeVar("D", bound=Any)
 
 
-def quote_if_string(value: Any) -> Any:
+def quote_if_string(value: object) -> object:
     """Attempt to quote string values to distinguish them from object text in class representations.
 
     Args:
-        value (Any): a value that is quoted only if it is a string
+        value (object): a value that is quoted only if it is a string
 
     Returns:
         Any: Returns a quoted string if successful. Otherwise returns the value unchanged
@@ -73,11 +80,11 @@ def quote_if_string(value: Any) -> Any:
     return value
 
 
-def try_quote_numeric(value: Any) -> Optional[str]:
+def try_quote_numeric(value: object) -> Optional[str]:
     """Attempt to quote numeric values to distinguish them from string values and integers.
 
     Args:
-        value (Any): a value that is quoted only if it is a numeric string or an integer
+        value (object): a value that is quoted only if it is a numeric string or an integer
 
     Returns:
         Optional[str]: Returns a quoted string if successful. Otherwise None
@@ -88,11 +95,11 @@ def try_quote_numeric(value: Any) -> Optional[str]:
     return None
 
 
-def quote_numeric(value: Any) -> str:
+def quote_numeric(value: object) -> str:
     """Attempts to quote as a numeric value and returns the quoted value if successful. Otherwise raises an error.
 
     Args:
-        value (Any): a value that is quoted only if it is a numeric string or an integer
+        value (object): a value that is quoted only if it is a numeric string or an integer
 
     Returns:
         str: Returns a quoted string if successful.
@@ -122,14 +129,14 @@ def flatten(current_data: Optional[Mapping | list]) -> Optional[Mapping | list]:
     return current_data
 
 
-def as_tuple(obj: Any) -> tuple:
+def as_tuple(obj: object) -> tuple:
     """Converts objects into tuples when possible and nests objects within a tuple otherwise.
 
     This function is useful as a preprocessing step for function calls that require tuples instead of lists, NoneTypes,
     and other data types.
 
     Args:
-        obj (Any): The object to nest as a tuple
+        obj (object): The object to nest as a tuple
 
     Returns:
         tuple: The original object converted into a tuple
@@ -236,11 +243,11 @@ def infer_text_pattern_search(
     return default
 
 
-def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
+def nested_key_exists(obj: object, key_to_find: str, regex: bool = False) -> bool:
     """Recursively checks if a specified key is present anywhere in a given JSON-like dictionary or list structure.
 
     Args:
-        obj (Any): The dictionary or list to search.
+        obj (object): The dictionary or list to search.
         key_to_find (str): The key to search for.
         regex (bool): Whether or not to search with regular expressions.
 
@@ -271,11 +278,11 @@ def nested_key_exists(obj: Any, key_to_find: str, regex: bool = False) -> bool:
     return False
 
 
-def get_nested_dictionary_data(data: Mapping[Any, Any], path: list[str]) -> Any:
+def get_nested_dictionary_data(data: Mapping[str, Any], path: list[str]) -> Any:
     """Retrieve data from a nested dictionary using a list of keys as the path.
 
     Args:
-        data (Mapping[Any, Any]): The nested dictionary to retrieve data from.
+        data (Mapping[str, Any]): The nested dictionary to retrieve data from.
         path (list[str]): A list of keys representing the path to the desired data.
 
     Returns:
@@ -358,15 +365,15 @@ def filter_record_key_prefixes(
 
 
 def get_first_available_key(
-    data: Mapping[T | str, Any], keys: Sequence[T | str], default: Any = None, case_sensitive: bool = True
-) -> Any:
+    data: Mapping[H | str, Any], keys: Sequence[H | str], default: Optional[T] = None, case_sensitive: bool = True
+) -> Any | T:
     """Extracts the first key from a sequence of keys that can be found within a dictionary.
 
     Args:
-        data (Mapping[T | str, Any]): A dictionary or dictionary-like object to extract an existing data element from.
-        keys (Sequence[T | str]):
+        data (Mapping[H | str, Any]): A dictionary or dictionary-like object to extract an existing data element from.
+        keys (Sequence[H | str]):
             A sequence or set of keys used for the extraction of the first available data element.
-        default (Any): The value to use if none of the checked keys are available in the dictionary.
+        default (T): The value to use if none of the checked keys are available in the dictionary.
         case_sensitive (bool): Defines whether data element retrieval should rely on case sensitivity (Default=True).
 
     Returns:
@@ -426,11 +433,11 @@ def compare_response_hashes(
     return hash1 is not None and hash2 is not None and hash1 == hash2
 
 
-def coerce_int(value: Any) -> int | None:
+def coerce_int(value: object) -> int | None:
     """Attempts to convert a value to an integer, returning None if the conversion fails.
 
     Args:
-        value (Any): The value to attempt to convert into a int.
+        value (object): The value to attempt to convert into a int.
 
     Returns:
         Optional[int]: The value converted into an integer if possible, otherwise None.
@@ -445,11 +452,11 @@ def coerce_int(value: Any) -> int | None:
         return None
 
 
-def coerce_numeric(value: Any) -> float | None:
+def coerce_numeric(value: object) -> float | None:
     """Attempts to convert a value to a float, returning None if the conversion fails.
 
     Args:
-        value (Any): The value to attempt to convert into a decimal value.
+        value (object): The value to attempt to convert into a decimal value.
 
     Returns:
         Optional[float]: The value converted into a float if possible, otherwise None.
@@ -467,31 +474,164 @@ def coerce_numeric(value: Any) -> float | None:
         return None
 
 
-def coerce_str(value: Any, encoding: Optional[str] = "utf-8") -> Optional[str]:
-    """Attempts to convert a value into a string, if possible, returning None if conversion fails.
+def coerce_bool(
+    value: object,
+    true_values: tuple[str, ...] = ("T", "true", "yes", "1"),
+    false_values: tuple[str, ...] = ("F", "false", "no", "0"),
+) -> bool | None:
+    """Attempts to convert a value to a boolean value, returning None if the conversion fails.
 
     Args:
-        value (Any): The value to attempt to convert into a string.
-        encoding (Optional[str]): An optional value used to decode byte strings. Not relevant for data of other types.
+        value (object): The value to attempt to convert into a boolean.
+        true_values (tuple[str, ...]): Values to be mapped to True when matched by the input value.
+        false_values (tuple[str, ...]): Values to be mapped to False when matched by the input value.
 
     Returns:
-        Optional[str]: The value converted into a string if possible, otherwise None
+        Optional[bool]: The value converted into a boolean if possible, otherwise None.
+
+    Examples:
+        >>> from scholar_flux.utils.helpers import coerce_bool
+        >>> coerce_bool("TRUE")
+        True
+        >>> coerce_bool(1)
+        True
+        >>> coerce_bool(True, true_values=())
+        True
+        >>> coerce_bool("maybe", true_values=("Maybe",))
+        True
+        >>> coerce_bool("NO")
+        False
+        >>> coerce_bool("0")
+        False
+        >>> coerce_bool("Unknown?")
+        None
+        >>> coerce_bool("0", false_values=None)
+        None
 
     """
-    if isinstance(value, str) or value is None:
+    if isinstance(value, bool):
+        return value
+
+    value_str = coerce_str(try_none(value))
+
+    if value_str is None:
+        return None
+
+    if value_str.lower() in {str(value).lower() for value in as_tuple(true_values)}:
+        return True
+    if value_str.lower() in {str(value).lower() for value in as_tuple(false_values)}:
+        return False
+
+    return None
+
+
+def as_str(value: object, *, encoding: Optional[str] = "utf-8", errors: Optional[str] = "strict") -> str:
+    """Converts an object into a string type, accounting for re.Pattern/bytes semantics when relevant.
+
+    Args:
+        value (object): The value to attempt to convert into a string.
+        encoding (Optional[str]):
+            An optional value used to decode byte strings. Not relevant for data of other types.
+        errors (Optional[str]):
+            An optional value for decoding errors with non-Unicode bytes characters. Not relevant for non-byte strings.
+
+    Returns:
+        str: The value converted into a string.
+
+    """
+    if isinstance(value, str):
         return value
 
     if isinstance(value, re.Pattern):
         return value.pattern
 
+    return (
+        value.decode(encoding=encoding or "utf-8", errors=errors or "strict")
+        if isinstance(value, bytes)
+        else str(value)
+    )
+
+
+def coerce_str(value: object, *, encoding: Optional[str] = "utf-8", errors: Optional[str] = "strict") -> Optional[str]:
+    """Attempts to convert a value into a string, if possible, returning None if conversion fails.
+
+    Args:
+        value (object): The value to attempt to convert into a string.
+        encoding (Optional[str]):
+            An optional value used to decode byte strings. Not relevant for data of other types.
+        errors (Optional[str]):
+            An optional value for decoding errors with non-Unicode bytes characters. Not relevant for non-byte strings.
+
+    Returns:
+        Optional[str]: The value converted into a string if possible, otherwise None.
+
+    """
+    if isinstance(value, str) or value is None:
+        return value
+
     try:
-        return value.decode(encoding or "utf-8") if isinstance(value, bytes) else str(value)
+        return as_str(value, encoding=encoding, errors=errors)
     except (ValueError, TypeError, UnicodeDecodeError):
         return None
 
 
+def coerce_bytes(value: object, encoding: Optional[str] = "utf-8") -> Optional[bytes]:
+    """Attempts to convert a value into bytes, if possible, returning None if conversion fails.
+
+    Args:
+        value (object): The value to attempt to convert into a bytes object.
+        encoding (Optional[str]): An optional value used to encode strings as bytes. Not relevant for other data types.
+
+    Returns:
+        Optional[bytes]: The value converted into a bytes object if possible, otherwise None
+
+    """
+    if isinstance(value, bytes) or value is None:
+        return value
+
+    try:
+        return value.encode(encoding or "utf-8") if isinstance(value, str) else None
+    except (ValueError, TypeError, UnicodeEncodeError, LookupError):
+        return None
+
+
+def coerce_json_str(data: object) -> Optional[str]:
+    """Attempts to convert a serializable list or mapping into a JSON string.
+
+    This method uses the `json.dumps()` function to serialize a JSON sequence or mapping, returning None if conversion fails.
+
+    Args:
+        data (object):
+            Attempts to coerce a JSON object as a string. This function attempts JSON string conversion and validation
+            for `Mapping`, `Sequence`, `str`, and `bytes` data types. For all other data types, `None` is returned.
+
+    Returns:
+        Optional[str]: The data coerced into a JSON string if possible, otherwise None.
+
+    Note:
+        If the data is a string or bytes object, this method verifies that, when loaded with `json.loads`, the string
+        is deserialized as a mapping or list. Otherwise, None is returned.
+
+    Examples:
+        >>> from scholar_flux.utils.helpers import coerce_json_str
+        >>> coerce_json_str('{"a": 1, "b": 2}')  # already a json string, returned as is
+        # OUTPUT: '"a": 1, "b": 2"'
+        >>> coerce_json_str({"a": 1, "b": 2})  # already a json string, returned as is
+        # OUTPUT: '""a": 1, "b": 2"'
+
+    """
+    try:
+        if isinstance(data, (str, bytes)):
+            data_str = as_str(data)
+            return data_str if isinstance(json.loads(data_str), (dict, list)) else None
+
+        return json.dumps(data) if isinstance(data, (Mapping, Sequence)) else None
+    except (TypeError, OverflowError, json.JSONDecodeError, ValueError):
+        return None
+
+
 def coerce_flattened_str(
-    value: Any,
+    value: object,
     delimiter: str = "; ",
 ) -> Optional[str]:
     """Coerces strings or sequences of strings into a single, flattened string.
@@ -502,7 +642,7 @@ def coerce_flattened_str(
     to a sequence of strings, None is returned instead.
 
     Args:
-        value (Any): A string, bytes, list/tuple of strings, or None
+        value (object): A string, bytes, list/tuple of strings, or None
         delimiter (str): The string used to join list elements with (default: "; ")
 
     Returns:
@@ -528,15 +668,29 @@ def coerce_flattened_str(
     )
 
 
-def try_none(value: Any, none_indicators: tuple[Any, ...] = ("none", "unspecified", "unknown", "n/a")) -> Any:
+@overload
+def try_none(value: None) -> None:
+    """When `None` is received, `None` is returned as is."""
+    ...
+
+
+@overload
+def try_none(value: T) -> None | T:
+    """When `T` is received, T is converted into None object when possible."""
+    ...
+
+
+def try_none(
+    value: object, none_indicators: tuple[Any, ...] = ("none", "unspecified", "unknown", "n/a")
+) -> object | None:
     """Converts empty strings, 'none', and empty data containers into None. Otherwise, the original value is returned.
 
     Args:
-        value (Any): The value to convert into None when possible
+        value (object): The value to convert into None when possible
         none_indicators (tuple[Any, ...]): Tuple of values that should be treated as None indicators.
 
     Returns:
-        Any: The original value if not converted, and None otherwise
+        object | None: The original value if not converted, and None otherwise
 
     """
 
@@ -545,44 +699,112 @@ def try_none(value: Any, none_indicators: tuple[Any, ...] = ("none", "unspecifie
     return value if (formatted_value or isinstance(value, int)) and formatted_value not in none_indicators else None
 
 
-def try_int(value: JSON_ELEMENT_TYPE | Any) -> JSON_ELEMENT_TYPE | int | Any:
+@overload
+def try_int(value: int) -> int:
+    """When a int object is received, the int object is returned as is."""
+    ...
+
+
+@overload
+def try_int(value: None) -> None:
+    """When `None` is received, `None` is returned as is."""
+    ...
+
+
+@overload
+def try_int(value: T) -> int | T:
+    """When `T` is received, T is converted into a int object when possible."""
+    ...
+
+
+def try_int(value: object) -> int | object:
     """Attempts to convert a value to an integer, returning the original value if the conversion fails.
 
     Args:
-        value (JSON_ELEMENT_TYPE | None): the value to attempt to coerce into an integer
+        value (object): the value to attempt to coerce into an integer
 
     Returns:
-        JSON_ELEMENT_TYPE | int | Any: The converted integer if successful, otherwise the original value.
+        int | object: The converted integer if successful, otherwise the original value.
 
     """
     converted_value = coerce_int(value)
     return converted_value if isinstance(converted_value, int) else value
 
 
-def try_str(value: Any) -> str | Any:
+@overload
+def try_str(value: str) -> str:
+    """When a str object is received, the str object is returned as is."""
+    ...
+
+
+@overload
+def try_str(value: None) -> None:
+    """When `None` is received, `None` is returned as is."""
+    ...
+
+
+@overload
+def try_str(value: T) -> str | T:
+    """When `T` is received, T is converted into a str object when possible."""
+    ...
+
+
+def try_str(value: object) -> str | object:
     """Attempts to convert a value to a string, returning the original value if the conversion fails.
 
     Args:
-        value (Any): the value to attempt to coerce into an string
+        value (object): the value to attempt to coerce into an string
 
     Returns:
-        str | Any: The converted string if successful, otherwise the original value.
+        str | object: The converted string if successful, otherwise the original value.
 
     """
     converted_value = coerce_str(value)
     return converted_value if isinstance(converted_value, str) else value
 
 
-def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
+@overload
+def try_bytes(value: bytes) -> bytes:
+    """When a bytes object is received, the bytes object is returned as is."""
+    ...
+
+
+@overload
+def try_bytes(value: None) -> None:
+    """When `None` is received, `None` is returned as is."""
+    ...
+
+
+@overload
+def try_bytes(value: T) -> bytes | T:
+    """When `T` is received, T is converted into a bytes object when possible."""
+    ...
+
+
+def try_bytes(value: object) -> bytes | object:
+    """Attempts to convert a value to a bytes object, returning the original value if the conversion fails.
+
+    Args:
+        value (object): the value to attempt to coerce into an bytes
+
+    Returns:
+        bytes | object: The converted bytes object if successful, otherwise the original value.
+
+    """
+    converted_value = coerce_bytes(value)
+    return converted_value if isinstance(converted_value, bytes) else value
+
+
+def try_pop(s: Set[H], item: H, default: Optional[H] = None) -> H | None:
     """Attempt to remove an item from a set and return the item if it exists.
 
     Args:
-        s (Set[T]): The set to remove the item from.
-        item (T): The item to try to remove from the set
-        default (Optional[T]): The object to return as a default if `item` is not found
+        s (Set[H]): The set to remove the item from.
+        item (H): The item to try to remove from the set
+        default (Optional[H]): The object to return as a default if `item` is not found
 
     Returns:
-        T | None: `item` if the value is in the set, otherwise returns the specified default
+        H | None: `item` if the value is in the set, otherwise returns the specified default
 
     """
     try:
@@ -592,12 +814,31 @@ def try_pop(s: Set[T], item: T, default: Optional[T] = None) -> T | None:
         return default
 
 
-def try_dict(value: list | tuple | dict) -> Optional[dict]:
-    """Attempts to convert a value into a dictionary, if possible. If it is not possible to convert the value into a
-    dictionary, the function will return None.
+@overload
+def try_dict(value: dict) -> dict:
+    """When a dictionary object is received, the dictionary is returned as is."""
+    ...
+
+
+@overload
+def try_dict(value: list | tuple) -> dict:
+    """When a list or tuple is received, a dictionary enumerated with integers as keys is returned."""
+    ...
+
+
+@overload
+def try_dict(value: object) -> Optional[dict]:
+    """When `T` is received, T is converted into a bytes object when possible."""
+    ...
+
+
+def try_dict(value: Any) -> Optional[dict]:
+    """Attempts to convert a value into a dictionary, if possible.
+
+    If it is not possible to convert the value into a dictionary, the function will return None.
 
     Args:
-        value (list | tuple | dict): The value to attempt to convert into a dict
+        value (Any): A value to attempt to convert into a dict.
 
     Returns:
         Optional[dict]: The value converted into a dictionary if possible, otherwise None
@@ -623,7 +864,7 @@ def try_compile(
     escape: bool = False,
     verbose: bool = False,
 ) -> P:
-    """When a Pattern is provided, the same pattern will be returned"""
+    """When a Pattern is provided, the same pattern will be returned."""
     ...
 
 
@@ -1044,7 +1285,7 @@ def build_iso_date(
 
 
 def strip_html_tags(
-    text: str, parser: Literal["html.parser", "lxml"] = "html.parser", verbose: bool = True, **kwargs
+    text: str, parser: Literal["html.parser", "lxml"] = "html.parser", verbose: bool = True, **kwargs: Any
 ) -> str:
     """Extracts the raw text from HTML while removing html elements such as paragraph tags and breaks.
 
@@ -1084,12 +1325,17 @@ __all__ = [
     "nested_key_exists",
     "get_first_available_key",
     "generate_response_hash",
+    "as_str",
     "coerce_int",
     "coerce_numeric",
     "coerce_str",
+    "coerce_bytes",
+    "coerce_json_str",
     "coerce_flattened_str",
+    "coerce_bool",
     "try_none",
     "try_str",
+    "try_bytes",
     "try_int",
     "try_dict",
     "try_compile",

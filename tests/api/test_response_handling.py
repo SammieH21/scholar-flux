@@ -24,7 +24,7 @@ def test_default_cache():
 
 
 def test_plos_handling(plos_page_1_response, monkeypatch, caplog):
-    """Tests whether, upon receiving a valid response object, the ResponseCoordinator wll process the result as
+    """Tests whether, upon receiving a valid response object, the ResponseCoordinator will process the result as
     intended. handle_response, when successful returns a ProcessedResponse while the handle_response_data method returns
     the underlying list of dictionary records from the response.
 
@@ -61,7 +61,7 @@ def test_error_handling(plos_page_1_response, monkeypatch):
     """Test whether errors in responses are handled as intended to aid the creation of an ErrorResponse when
     encountering errors at any point in the response handling process.
 
-    The _process_response function is parsed to throw an DataParsingException to simulate an error occurring in the
+    The _process_response function is patched to raise a `DataParsingException` to simulate an error occurring in the
     response handling process.
 
     """
@@ -165,10 +165,8 @@ def test_response_validator_representation():
 
 
 def test_invalid_response_validation(mock_unauthorized_response):
-    """
-    Tests that the response validator raises an error when `raise_on_error = True` and returns a boolean otherwise
-    when encountering invalid responses with level 400/500 status codes
-    """
+    """Tests that the response validator raises an error when `raise_on_error = True` and returns a boolean otherwise
+    when encountering invalid responses with level 400/500 status codes."""
     assert ResponseValidator.validate_response(mock_unauthorized_response, raise_on_error=False) is False
     with pytest.raises(InvalidResponseException):
         _ = ResponseValidator.validate_response(mock_unauthorized_response, raise_on_error=True)
@@ -205,8 +203,7 @@ def test_response_content_validation(plos_page_1_response, caplog):
 
 
 def test_response_coordinator_summary():
-    """Tests and Verifies that the summary of the structure of the ResponseCoordinator contains the required attribute
-    summaries."""
+    """Verifies that the representation of the ResponseCoordinator displays the required attribute summaries."""
     response_coordinator = ResponseCoordinator.build()
     representation = response_coordinator.summary()
 

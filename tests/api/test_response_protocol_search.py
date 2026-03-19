@@ -1,11 +1,31 @@
 from scholar_flux.api.models import ProcessedResponse, ReconstructedResponse, APIResponse
-from scholar_flux.api import SearchCoordinator, ResponseCoordinator
+from scholar_flux.api import SearchCoordinator, ResponseCoordinator, ResponseValidator
 from scholar_flux.utils.response_protocol import ResponseProtocol
-from scholar_flux.exceptions import InvalidResponseReconstructionException, InvalidCoordinatorParameterException
+from scholar_flux.utils.helpers import coerce_json_str
+from scholar_flux.exceptions import InvalidResponseReconstructionException
 from scholar_flux.data import DataParser
 import requests_mock
 from requests import Response
+from dataclasses import dataclass
 import pytest
+
+
+@dataclass
+class CustomResponseLike:
+    """Helper for testing functionality with an arbitrary response type."""
+
+    status_code: int
+    headers: dict[str, str]
+    content: bytes
+    url: str
+
+    def raise_for_status(self) -> None:
+        """Dummy method for raising an exception for HTTP error status codes."""
+        ReconstructedResponse.build(self).raise_for_status()
+
+    def validate(self) -> None:
+        """Helper for performing field validation via the `ResponseValidator`."""
+        ResponseValidator.validate_response_structure(self)  # type: ignore
 
 
 def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers):
@@ -54,6 +74,36 @@ def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, p
         # compare the processed response against the response that's been rehandled and processed twice
         assert re_rehandled_response == rehandled_response
         assert ProcessedResponse.model_validate_json(re_rehandled_response.model_dump_json()) == rehandled_response
+
+
+def test_arbitrary_response_protocol_processing(plos_page_1_url, plos_page_1_data, plos_headers, monkeypatch):
+    """Tests whether the retrieved ProcessedResponse, once reprocessed, will return the same result. This test verifies
+    idempotence of response processing when responses are not pulled from cache and are instead rehandled.
+
+    Both original and reconstructed responses should return identically processed records.
+
+    """
+    plos_json = coerce_json_str(plos_page_1_data)
+    assert isinstance(plos_json, str)
+
+    response = CustomResponseLike(
+        url=plos_page_1_url,
+        content=plos_json.encode(),
+        headers=plos_headers,
+        status_code=200,
+    )
+    monkeypatch.setattr("scholar_flux.api.search_api.SearchAPI.search", lambda *args, **kwargs: response)
+
+    coordinator = SearchCoordinator(query="social wealth equity")
+    coordinator.retry_handler.max_retries = 0
+
+    with requests_mock.Mocker(real_http=False):
+        result = coordinator.search_page(page=1)
+    assert (
+        isinstance(result.response, ReconstructedResponse)
+        and result.data
+        and response.content == result.response.content
+    )
 
 
 def test_response_coordinated_validation(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers):
@@ -132,7 +182,7 @@ def test_mocked_response_like_search(plos_search_api, plos_page_1_url, plos_page
     assert parsed_response == response.response.json()
 
 
-def test_response_like_exception(monkeypatch):
+def test_response_like_exception():
     """The test first creates and verifies that the response-like object is valid.
 
     The `validate` method is then patched to return None. As a result, the ResponseCoordinator should then raise the
@@ -146,12 +196,4 @@ def test_response_like_exception(monkeypatch):
     assert isinstance(response, APIResponse)
     assert isinstance(response.response, ReconstructedResponse)
     assert isinstance(response, ResponseProtocol)
-    assert response.response.validate() is None  # type: ignore
-
-    monkeypatch.setattr(APIResponse, "as_reconstructed_response", lambda *args, **kwargs: None)
-
-    with pytest.raises(InvalidCoordinatorParameterException) as excinfo:
-        _ = ResponseCoordinator._resolve_response(response, validate=False)
-    assert (
-        "Expected a valid response or response-like object. " f"The object of type {type(response)} is not a response."
-    ) in str(excinfo.value)
+    response.response.validate()

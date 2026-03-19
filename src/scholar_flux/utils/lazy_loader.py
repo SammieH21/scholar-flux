@@ -19,6 +19,7 @@ def lazy_import_attr(name: str, lazy_imports: set[tuple[str, str]], module_name:
 
     Raises:
         AttributeError: If the attribute cannot be found or imported
+
     """
     try:
         module, object_name = next(

@@ -745,7 +745,7 @@ class ProcessingPath:
         """
         return str(self)
 
-    def to_pattern(self, escape_all=False) -> Pattern:
+    def to_pattern(self, escape_all: bool = False) -> Pattern:
         """Convert the ProcessingPath to a regular expression pattern.
 
         Returns:
@@ -929,9 +929,9 @@ class ProcessingPath:
         """
         if self.component_types is None:
             if raise_on_error:
-                raise InvalidComponentTypeError("The ProcessingPath has no component type is available to filter on")
+                raise InvalidComponentTypeError("The ProcessingPath has no component type available to filter on")
             else:
-                logger.warning("The ProcessingPath has no component type is available to filter on. Skipping filtering")
+                logger.warning("The ProcessingPath has no component type available to filter on. Skipping filtering...")
                 return self.copy()
 
         filtered_indices = [index for index, comp in enumerate(self.component_types) if comp not in removal_list]

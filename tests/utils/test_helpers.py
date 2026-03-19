@@ -25,7 +25,10 @@ from scholar_flux.utils.helpers import (
     compare_response_hashes,
     coerce_int,
     coerce_str,
+    coerce_bytes,
+    coerce_json_str,
     coerce_numeric,
+    coerce_bool,
     try_int,
     try_str,
     try_pop,
@@ -328,12 +331,49 @@ def test_try_str(value, expected):
     ],
 )
 def test_coerce_str(value, expected):
-    """Tests if coercing types into strings returns a string when coercible and None otherwise.
-
-    This function will return an integer when the result is valid and None otherwise.
-
-    """
+    """Tests if coercing types into strings returns a string when coercible and None otherwise."""
     assert coerce_str(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("24", b"24"),
+        ("cba", b"cba"),
+        (None, None),
+        (3.14, None),
+        (["abc", "tev"], None),
+        (b"abc", b"abc"),
+    ],
+)
+def test_coerce_bytes(value, expected):
+    """Tests if `coerce_bytes` returns a bytes object when coercible and None otherwise."""
+    assert coerce_bytes(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("42", "42"),
+        ("abc", "abc"),
+        (None, None),
+        (3.14, "3.14"),
+        (["abc", "tev"], "['abc', 'tev']"),
+        (b"abc", "abc"),
+        (sum, "<built-in function sum>"),
+    ],
+)
+def test_coerce_bytes_string_round_trip(value, expected):
+    """Verifies that coercion from string to bytes and back to string returns consistent results roundtrip."""
+    as_string = coerce_str(value)
+    as_bytes = coerce_bytes(as_string)
+    assert as_string == expected and (isinstance(as_bytes, bytes) ^ (expected is None and as_bytes is None))
+    assert coerce_str(as_bytes) == expected
+
+
+def test_coerce_bytes_with_bad_encoding():
+    """Verifies that coercion from string to bytes raises when a bad encoding is passed."""
+    assert coerce_bytes("a valid string", encoding="An invalid encoding") is None
 
 
 def test_try_int_success():
@@ -706,6 +746,44 @@ def test_convert_month_as_integer(value, expected):
     assert convert_month_as_integer(value) == expected
 
 
+############################## Tests for coerce_json_str ################################
+
+
+def test_string_typed_json_coercion(mock_academic_json):
+    """Verifies that strings are returned only when they can be successfully loaded as a JSON dict/list."""
+    serialized_dict = coerce_json_str(mock_academic_json)
+    assert isinstance(serialized_dict, str)
+    # string returned when json.loads returns a dict or str
+    assert coerce_json_str(serialized_dict) == serialized_dict
+    serialized_list = f"[{serialized_dict}]"
+    assert serialized_list == coerce_json_str([mock_academic_json])
+
+    # re-serialization of strings that are JSON loadable as dicts/lists is returns the same input
+    assert serialized_list == coerce_json_str(coerce_json_str([mock_academic_json]))
+
+    # auto converts bytes (assuming utf-8)
+    assert coerce_json_str(serialized_dict.encode("utf-8")) == serialized_dict
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        # can't encode bytes
+        {b"a non-dumpable key": "a valid json value"},
+        [b"a non-dumpable key", "a valid json value"],
+        # only excepts sequences, mappings, and strings that can be loaded into a list/dicts
+        "a non-dict/list",
+        False,
+        0,
+        {1, 2, 3},
+        (1, 3, 5, b"7"),
+    ),
+)
+def test_json_string_coercion_failure(value: object):
+    """Verifies that errors are caught when an error occurs from calling `json.dumps()`."""
+    assert coerce_json_str(value) is None
+
+
 ############################## Tests for build_iso_date ################################
 
 
@@ -800,6 +878,57 @@ def test_validate_bool_str_custom_true_values():
 def test_validate_bool_str_parametrized(value, expected):
     """Verifies that `validate_bool_str` operates as intended for all possible intended validation cases."""
     assert validate_bool_str(value) == expected
+
+
+# #################### Tests for coerce_bool ####################
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (True, True),
+        ("true", True),
+        ("TRUE", True),
+        ("T", True),
+        ("yes", True),
+        (1, True),
+        (False, False),
+        ("false", False),
+        ("FALSE", False),
+        ("F", False),
+        ("0", False),
+        ("no", False),
+        ("random", None),
+        ("None", None),
+        ({}, None),
+        ((), None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_coerce_bool_parametrized(value, expected):
+    """Verifies that `coerce_bool` operates as intended for common values and edge cases."""
+    assert coerce_bool(value) == expected
+
+
+def test_coerce_bool_without_true_false_values():
+    """Verifies that only returns exact `True` and `False` boolean values when true/false value tuples are empty."""
+    assert coerce_bool(True, true_values=(), false_values=()) is True
+    assert coerce_bool(False, true_values=(), false_values=()) is False
+    assert coerce_bool("True", true_values=(), false_values=()) is None
+    assert coerce_bool("False", true_values=(), false_values=()) is None
+
+
+def test_coerce_bool_with_custom_true_false_values():
+    """Verifies that custom values can be mapped to True and False without case-sensitivity."""
+    is_blue = ("BLUE", "cyan", "ocean", "sky")
+    not_blue = ("Green", "wood", "GRASS", "Red")
+
+    assert all(coerce_bool(val.upper(), true_values=is_blue, false_values=not_blue) is True for val in is_blue)
+    assert all(coerce_bool(val.lower(), true_values=is_blue, false_values=not_blue) is False for val in not_blue)
+
+    assert coerce_bool("who", true_values=is_blue, false_values=not_blue) is None
+    assert coerce_bool("NONE", true_values=is_blue, false_values=not_blue) is None
 
 
 ##################### Tests for get_nested_data edge cases ####################

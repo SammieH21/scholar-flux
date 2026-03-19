@@ -7,7 +7,7 @@ sets.
 
 """
 from __future__ import annotations
-from typing import Union
+from typing import Union, Optional
 import logging
 import copy
 from typing import Any, ClassVar
@@ -40,7 +40,7 @@ class PathNode:
     value: Any
     DEFAULT_DELIMITER: ClassVar[str] = ProcessingPath.DEFAULT_DELIMITER
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """This step validates that path passed to the PathNode after initialization.
 
         Raises:
@@ -54,7 +54,10 @@ class PathNode:
 
     @classmethod
     def to_path_node(
-        cls, path: Union[ProcessingPath, str, int, list[str], list[int], list[str | int]], value: Any, **path_kwargs
+        cls,
+        path: Union[ProcessingPath, str, int, list[str], list[int], list[str | int]],
+        value: Any,
+        **path_kwargs: Any,
     ) -> Self:
         """Helper method for creating a path node from the components used to create paths in addition to value to
         assign the path node.
@@ -232,7 +235,7 @@ class PathNode:
         """Helper method for copying the current node."""
         return PathNode(path=self.path, value=copy.copy(self.value))
 
-    def __deepcopy__(self, memo) -> PathNode:
+    def __deepcopy__(self, memo: Optional[dict[int, Any]]) -> PathNode:
         """Helper method for deeply copying the current node."""
         return PathNode(path=self.path, value=copy.deepcopy(self.value, memo))
 

@@ -25,7 +25,7 @@ from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils.encoder import JsonDataEncoder
 from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
 from scholar_flux.utils.helpers import coerce_int, try_none
-from typing import Any, Dict, List, Optional, cast, TYPE_CHECKING
+from typing import Any, Optional, cast, TYPE_CHECKING
 
 import logging
 import threading
@@ -97,7 +97,7 @@ class RedisStorage(ABCStorage):
         ttl: Optional[int] = None,
         raise_on_error: Optional[bool] = None,
         verify_connection: bool = False,
-        **redis_config,
+        **redis_config: Any,
     ):
         """Initialize the Redis storage backend and connect to the Redis server.
 
@@ -148,7 +148,7 @@ class RedisStorage(ABCStorage):
         if ttl is not None:
             redis_config["ttl"] = ttl  # -1 for infinite caching
 
-        config: dict = self._get_default_config() | redis_config  # Overriding Redis defaults where available
+        config: dict[str, Any] = self.get_default_config() | redis_config  # Overriding Redis defaults where available
 
         # TTL recorded in a separate variable and converts strings/floats into integers. Redis only accepts integer TTLs
         self.ttl = coerce_int(self._validate_ttl(config.pop("ttl")))  # Extracting TTL and Redis-specific settings
@@ -172,7 +172,7 @@ class RedisStorage(ABCStorage):
         logger.info("RedisClient initialized and connected.")
 
     @classmethod
-    def _get_default_config(cls) -> dict[str, Any]:
+    def get_default_config(cls) -> dict[str, Any]:
         """Get default configuration with current config_settings values.
 
         Reads from environment variables in order of priority:
@@ -180,7 +180,7 @@ class RedisStorage(ABCStorage):
         - SCHOLAR_FLUX_REDIS_PORT > DEFAULT_CONFIG['port'] > REDIS_PORT  > 6379
 
         Returns:
-            dict: Configuration dictionary with host and port.
+            dict[str, Any]: Configuration dictionary with host and port.
 
         """
         # Converts "None" to None when needed
@@ -237,11 +237,11 @@ class RedisStorage(ABCStorage):
             )
         return None
 
-    def retrieve_all(self) -> Dict[str, Any]:
+    def retrieve_all(self) -> dict[str, Any]:
         """Retrieve all records from cache that match the current namespace prefix.
 
         Returns:
-            dict:
+            dict[str, Any]:
                 Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
 
         Raises:
@@ -260,11 +260,11 @@ class RedisStorage(ABCStorage):
             )
         return {}
 
-    def retrieve_keys(self) -> List[str]:
+    def retrieve_keys(self) -> list[str]:
         """Retrieve all keys for records from cache that match the current namespace prefix.
 
         Returns:
-            list: A list of all keys saved under the current namespace.
+            list[str]: A list of all keys saved under the current namespace.
 
         Raises:
             RedisError: If there is an error retrieving the record key
@@ -296,7 +296,7 @@ class RedisStorage(ABCStorage):
                 like strings, numbers, lists, dictionaries, etc.
 
         Raises:
-            Redis: If an error occur when attempting to insert or update a record
+            RedisError: If an error occurs when attempting to insert or update a record
 
         """
         try:
@@ -350,7 +350,7 @@ class RedisStorage(ABCStorage):
         """Delete all records from cache that match the current namespace prefix.
 
         Raises:
-            RedisError: If there an error occurred when deleting records from the collection
+            RedisError: If an error occurs when deleting records from the collection
 
         """
         # this function requires a namespace to avoid deleting unrelated data
@@ -409,7 +409,7 @@ class RedisStorage(ABCStorage):
         return False
 
     def verify_connection(self) -> None:
-        """Verifies that the RedisStorage is available for connection with initialized storage configuration settings."""
+        """Verifies that the RedisStorage is available for connection with the initialized configuration settings."""
         try:
             self.ping(self.client)
         except Exception as e:
@@ -427,7 +427,7 @@ class RedisStorage(ABCStorage):
 
     @classmethod
     def is_available(
-        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs
+        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs: Any
     ) -> bool:
         """Helper class method for testing whether the Redis service is available and can be accessed.
 
@@ -452,7 +452,7 @@ class RedisStorage(ABCStorage):
             logger.warning("The redis module is not available")
             return False
 
-        default_config = cls._get_default_config()
+        default_config = cls.get_default_config()
         redis_host = host or default_config["host"]
         redis_port = port or default_config["port"]
 

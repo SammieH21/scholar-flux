@@ -107,12 +107,13 @@ def test_normalization_not_implemented():
 
 
 @pytest.mark.parametrize("ResponseType", (ErrorResponse, NonResponse))
-def test_error_response_return_nonetype(ResponseType):
+def test_error_response_return_nonetype(ResponseType, caplog):
     """Verifies that ErrorResponse/NonResponse `normalize()` returns None."""
     response = ResponseType(message="Test error", error="TestException")
 
     # normalized_records should still remain a static property (always None)
     assert response.process_metadata() is None
+    assert f"Metadata processing is not implemented for responses of type, {ResponseType.__name__}" in caplog.text
     assert response.processed_metadata is None
 
 

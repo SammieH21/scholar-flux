@@ -331,10 +331,11 @@ def test_retrieval(all_path_nodes, default_mapping):
 
 
 def test_node_validation(all_path_nodes):
-    """
-    Verifies whether `update` validates the record node when the map is constrained to `record_index = 2`
-    (as opposed to `record_index = 1`). In this scenario, an error should be raised when encountering
-    the incorrect leading path component/record_index.
+    """Verifies whether `update` validates the record node when the map is constrained to `record_index = 2` (as opposed
+    to `record_index = 1`).
+
+    In this scenario, an error should be raised when encountering the incorrect leading path component/record_index.
+
     """
 
     record_map_two = RecordPathNodeMap(record_index=2)

@@ -1,4 +1,4 @@
-# tests/api/rate_limiting/test_history.py
+# tests/api/test_api_history.py
 """Tests for the history module used for rate limiting and retry observability."""
 import pytest
 from scholar_flux.api.rate_limiting.history import (
@@ -332,7 +332,7 @@ class TestRetryAttempt:
         assert attempt.message == (
             "Expected a 200 (ok) status_code for the ReconstructedResponse. Received: 429 (Too Many Requests)"
         )
-        assert attempt.error == "RequestException"
+        assert attempt.error == "HTTPError"
 
     def test_retry_attempt_from_no_response(self):
         """Verifies that `RetryAttempt.from_response` can correctly initialize a new instance without a response."""
@@ -372,7 +372,7 @@ class TestClassLevelHistory:
         assert {event.interval for event in RateLimiter.history} == {4, 5, 6}
 
     def test_retry_handler_resize_history(self):
-        """Verifies that `RetryAttempt.resize_history()` correctly resizes the number of stored retry attempts."""
+        """Verifies that `RetryHandler.resize_history()` correctly resizes the number of stored retry attempts."""
         for i in range(5):
             RetryHandler.history.append(
                 RetryAttempt(

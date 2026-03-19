@@ -6,7 +6,6 @@ from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import try_int, PathUtils
 from unittest.mock import patch
 from tests.testing_utilities import raise_error
-from typing import List
 import re
 import json
 import copy
@@ -405,7 +404,7 @@ def test_metadata_path_dict(mock_academic_json):
 
 
 @pytest.mark.parametrize("bad_path", ["data", 5])
-def test_invalid_metadata_path_type(bad_path: Any, mock_academic_json: List):
+def test_invalid_metadata_path_type(bad_path: Any, mock_academic_json: list):
     """Verifies that passing a non‑list/dict for metadata_path should raise an exception."""
 
     with pytest.raises(DataExtractionException):
@@ -428,7 +427,7 @@ def test_key_discovery(caplog):
     # no arguments to the extractor, extracts all records by default
     extractor = DataExtractor()
     extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
-    assert {"red": 1, "blue": 2} == extracted_metadata
+    assert extracted_metadata == {"red": 1, "blue": 2}
     assert extracted_records == json_records
 
     # identifying records from whether it contains the key, 'x'
@@ -436,19 +435,19 @@ def test_key_discovery(caplog):
     json_records = [{"x": 1, "y": 0}]
     json_data = {"a": {"red": 1}, "b": {"blue": 2}, "nested": {"data": json_records}}
     extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
-    assert {"red": 1, "blue": 2} == extracted_metadata
+    assert extracted_metadata == {"red": 1, "blue": 2}
     assert extracted_records == json_records
 
     # skips registration of the single record as a record without a heuristic, thinks it metadata
     extractor = DataExtractor(dynamic_record_identifiers=[])
     extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
-    assert {"red": 1, "blue": 2, "x": 1, "y": 0} == extracted_metadata
+    assert extracted_metadata == {"red": 1, "blue": 2, "x": 1, "y": 0}
     assert extracted_records == []
 
     json_records = []
     json_data = {"a": {"red": 1}, "b": {"blue": 2}, "nested": {"data": json_records}}
     extracted_records, extracted_metadata = extractor.dynamic_identification(json_data)
-    assert {"red": 1, "blue": 2} == extracted_metadata
+    assert extracted_metadata == {"red": 1, "blue": 2}
     assert extracted_records == json_records
     assert "Element at key: data is empty" in caplog.text
 
@@ -573,7 +572,7 @@ def test_strip_annotations():
     assert DataExtractor.strip_annotations(record_two) == stripped_record_two
     assert DataExtractor.strip_annotations(record_list) == stripped_record_list
 
-    # When an anotation is not available, return None instead to continue processing
+    # When an annotation is not available, return None instead to continue processing
     assert DataExtractor.strip_annotations(None) is None
 
     # `None` should ideally be handled and accounted for to ensure that a valid `RecordList` is returned.
@@ -636,7 +635,7 @@ def test_base_extractor_updates(extractor_manual_paths):
 
 @pytest.mark.parametrize("extractor_class", (BaseDataExtractor, DataExtractor))
 def test_invalid_data_extractor_update(extractor_class):
-    """Verifies that a TypeError is raised when encountering a non-extractor subclass"""
+    """Verifies that a TypeError is raised when encountering a non-extractor subclass."""
     invalid_extractor = "not a data extractor"
     err = (
         "Expected a BaseDataExtractor or subclass to perform parameter updates. Received type "

@@ -56,7 +56,7 @@ class WorkflowStep(BaseWorkflowStep):
     description: Optional[str] = None
 
     @field_validator("provider_name", mode="after")
-    def format_provider_name(cls, v) -> str:
+    def format_provider_name(cls, v: Optional[str]) -> Optional[str]:
         """Helper method used to format the inputted provider name using name normalization after type checking."""
         if isinstance(v, str):
             v = ProviderConfig._normalize_name(v)
@@ -142,7 +142,7 @@ class WorkflowStep(BaseWorkflowStep):
         search_coordinator: BaseCoordinator,
         ctx: Optional[StepContext] = None,
         verbose: Optional[bool] = True,
-        **keyword_parameters,
+        **keyword_parameters: Any,
     ) -> StepContext:
         """Executes the current workflow step using the provided search coordinator and the context from past searches.
 
@@ -183,7 +183,7 @@ class WorkflowStep(BaseWorkflowStep):
         with search_coordinator.api.with_config_parameters(**self.config_parameters):
             yield self
 
-    def post_transform(self, ctx: StepContext, *args, **kwargs) -> StepContext:
+    def post_transform(self, ctx: StepContext, *args: Any, **kwargs: Any) -> StepContext:
         """Helper method that validates whether the current `ctx` is a StepContext before returning the result.
 
         Args:
@@ -255,7 +255,7 @@ class SearchWorkflow(BaseWorkflow):
         self,
         search_coordinator: BaseCoordinator,
         verbose: bool = True,
-        **keyword_parameters,
+        **keyword_parameters: Any,
     ) -> WorkflowResult:
         """Executes the workflow using the provided search coordinator.
 
@@ -327,7 +327,7 @@ class SearchWorkflow(BaseWorkflow):
         result = self._history[-1].result if result is None and self._history else result
         return WorkflowResult(history=self._history, result=result)
 
-    def __call__(self, *args, **kwargs) -> WorkflowResult:
+    def __call__(self, *args: Any, **kwargs: Any) -> WorkflowResult:
         """Similarly enables the current workflow instance to executed like a function. This method calls the `_run`
         private method under the hood to initiate the workflow.
 

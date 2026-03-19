@@ -1,5 +1,4 @@
 # /api/models
-
 """The scholar_flux.api.models module includes all of the needed configuration classes that are needed to define the
 configuration needed to configure APIs for specific providers and to ensure that the process is orchestrated in a robust
 way.

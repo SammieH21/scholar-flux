@@ -274,13 +274,13 @@ class TestProviderValidators:
 
     @pytest.mark.parametrize("value", ["relevance", "lastUpdatedDate", "submittedDate"])
     def test_arxiv_sortby_valid(self, value):
-        """arXiv sortBy accepts valid sort fields."""
+        """ArXiv sortBy accepts valid sort fields."""
         validator = self._get_validator("arXiv", "sortBy")
         assert validator(value) == value
 
     @pytest.mark.parametrize("value", ["ascending", "descending"])
     def test_arxiv_sortorder_valid(self, value):
-        """arXiv sortOrder accepts valid directions."""
+        """ArXiv sortOrder accepts valid directions."""
         validator = self._get_validator("arXiv", "sortOrder")
         assert validator(value) == value
 

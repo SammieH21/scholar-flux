@@ -27,14 +27,14 @@ class APISpecificParameter:
 
     Args:
         name (str):
-            The name of the parameter used when sending requests to APis.
+            The name of the parameter used when sending requests to APIs.
         description (str):
             A description of the API-specific parameter.
         validator (Optional[Callable[[Any], Any]]):
             An optional function/method for verifying and pre-processing parameter input based on required types,
             constrained values, etc.
         default (Any):
-            An default value used for the parameter if not specified by the user
+            A default value used for the parameter if not specified by the user
         required (bool):
             Indicates whether the current parameter is required for API calls.
 
@@ -47,7 +47,7 @@ class APISpecificParameter:
     required: bool = False
 
     @property
-    def validator_name(self):
+    def validator_name(self) -> str:
         """Helper method for generating a human-readable string from the validator function, if used."""
         if self.validator is None:
             return "None"
@@ -165,20 +165,20 @@ class BaseAPIParameterMap(BaseModel):
         validator: Optional[Callable[[Any], Any]] = None,
         default: Any = None,
         required: bool = False,
-        inplace=True,
+        inplace: bool = True,
     ) -> Self:
         """Helper method that enables the efficient addition of parameters to the current parameter map.
 
         Args:
             name (str):
-                The name of the parameter used when sending requests to APis.
+                The name of the parameter used when sending requests to APIs.
             description (str):
                 A description of the API-specific parameter.
             validator (Optional[Callable[[Any], Any]]):
                 An optional function/method for verifying and pre-processing parameter input based on required types,
                 constrained values, etc.
             default (Any):
-                An default value used for the parameter if not specified by the user
+                A default value used for the parameter if not specified by the user
             required (bool):
                 Indicates whether the current parameter is required for API calls.
             inplace (bool):

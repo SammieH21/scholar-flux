@@ -7,7 +7,8 @@ accepted by each API provider given their respective configurations.
 """
 from typing import Optional, Dict, Any
 import requests
-from requests_cache import CachedSession, BaseCache
+from requests_cache.session import CachedSession
+from requests_cache.backends.base import BaseCache
 from urllib.parse import urljoin
 import logging
 from scholar_flux.exceptions import (
@@ -91,7 +92,7 @@ class BaseAPI:
 
     @staticmethod
     def _validate_timeout(timeout: int | float) -> int | float:
-        """Helper method used to ensure that timeout values received are non-negative numeric values."""
+        """Helper method used to ensure that timeout values received are positive numeric values."""
         if not isinstance(timeout, (int, float)) or timeout <= 0:
             raise APIParameterException(f"Invalid timeout value: {timeout}")
         return timeout
@@ -125,9 +126,10 @@ class BaseAPI:
         user_agent: Optional[str] = None,
         use_cache: Optional[bool] = None,
     ) -> requests.Session:
-        """
-        Creates a session object if one does not already exist. If use_cache = True, then a cached session
-        object will be used. A regular session that is not already cached will be overridden.
+        """Creates a new `Session` or `CachedSession` object for API requests if a session does not already exist.
+
+        If use_cache = True, then a cached session object will be used. A regular session that is not already cached
+        will be overridden.
 
         Args:
             session (Optional[requests.Session]): A pre-configured session or None to create a new session.
@@ -139,6 +141,7 @@ class BaseAPI:
 
         Returns:
             requests.Session: The configured session.
+
         """
         try:
 
@@ -187,10 +190,7 @@ class BaseAPI:
 
     @staticmethod
     def is_cached_session(session: CachedSession | requests.Session) -> bool:
-        """Checks whether a provided session object is a cached session.
-
-        To do so, this method first determines whether the current object has a 'cache' attribute and whether the cache
-        element, if existing, is a BaseCache.
+        """Checks whether a provided session object is a requests_cache.CachedSession object.
 
         Args:
             session (requests.Session): The session to check.
@@ -266,7 +266,7 @@ class BaseAPI:
             base_url (str): The base API to send the request to.
             endpoint (Optional[str]): The endpoint of the API to send the request to.
             parameters (Optional[Dict[str, Any]]): Optional query parameters for the request.
-            timeout (int): Timeout for the request in seconds.
+            timeout (Optional[int | float]): Timeout for the request in seconds.
 
         Returns:
             requests.Response: The response object.
@@ -289,8 +289,10 @@ class BaseAPI:
 
     @staticmethod
     def _validate_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
-        """Helper for validating parameters provided to the API at run-time: in the event that the parameters are valid,
-        the function returns them as is. If not provided, None is returned.
+        """Helper for validating the provided API parameter dictionary at runtime.
+
+        In the event that the parameters are valid, the function returns the original dictionary as is.
+        Otherwise, an `APIParameterException` is raised.
 
         Args:
             parameters (dict[str, Any]): A dictionary of parameters to validate

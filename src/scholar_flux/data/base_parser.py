@@ -5,10 +5,10 @@ This module implements the BaseDataParser that is used to prepare and parse JSON
 nested structures prior to record extraction and processing.
 
 """
-from typing import Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
 from scholar_flux.exceptions import DataParsingException
-from scholar_flux.utils.response_protocol import ResponseProtocol
+from scholar_flux.utils.response_protocol import ResponseProtocol, is_response_like
 from scholar_flux.utils.repr_utils import generate_repr_from_string
 import json
 import requests
@@ -35,7 +35,7 @@ class BaseDataParser:
     """Base class responsible for parsing typical formats seen in APIs that send news and academic articles in XML,
     JSON, and YAML formats."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """On initialization, the data parser is set to use built-in class methods to parse json, xml, and yaml-based
         response content by default and the parse helper class to determine which parser to use based on the Content-
         Type.
@@ -50,7 +50,7 @@ class BaseDataParser:
     @classmethod
     def detect_format(cls, response: requests.Response | ResponseProtocol) -> str | None:
         """Helper method for determining the format corresponding to a response object."""
-        if not isinstance(response, requests.Response) and not isinstance(response, ResponseProtocol):
+        if not is_response_like(response):
             raise DataParsingException(f"Expected a response or response-like object, received type {type(response)}")
 
         content_type = response.headers.get("Content-Type", "")
@@ -96,7 +96,7 @@ class BaseDataParser:
 
     @classmethod
     def parse_json(cls, content: bytes) -> dict | list[dict]:
-        """Uses the standard `json` library to parse XML content into a dictionary."""
+        """Uses the standard `json` library to parse JSON content into a dictionary."""
         return json.loads(content)
 
     @classmethod
@@ -131,8 +131,10 @@ class BaseDataParser:
         except Exception as e:
             raise DataParsingException(f"An error occurred during response content parsing: {e}") from e
 
-    def __call__(self, response: requests.Response | ResponseProtocol, *args, **kwargs) -> dict | list[dict] | None:
-        """Helper method for Parsing API response content into dictionary (json) structure.
+    def __call__(
+        self, response: requests.Response | ResponseProtocol, *args: Any, **kwargs: Any
+    ) -> dict | list[dict] | None:
+        """Helper method for parsing API response content into dictionary (json) structure.
 
         Args:
             response (response type): The response object from the API request.
@@ -163,7 +165,7 @@ class BaseDataParser:
             show_value_attributes=show_value_attributes,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Helper method for identifying the current implementation of the BaseDataParser and its configuration."""
         return self.structure()
 

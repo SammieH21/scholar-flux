@@ -7,7 +7,7 @@ from scholar_flux.data_storage.abc_storage import ABCStorage
 
 @pytest.fixture
 def patch_abc_storage(monkeypatch):
-    """Patch ABCStorage to allow direct instantiation for testing base class methods."""
+    """Patches ABCStorage to allow direct instantiation for testing base class methods."""
     monkeypatch.setattr(ABCStorage, "__abstractmethods__", set())
 
 
@@ -46,8 +46,8 @@ def test_not_implemented_functionality(abc_storage):
 
 
 def test_get_default_config():
-    """Test _get_default_config returns empty dict by default."""
-    config = ABCStorage._get_default_config()
+    """Test get_default_config returns empty dict by default."""
+    config = ABCStorage.get_default_config()
     assert isinstance(config, dict)
     assert config == {}
 
@@ -69,7 +69,7 @@ def test_prefix_without_namespace(abc_storage):
 
 
 def test_ping_no_error(abc_storage):
-    """Test _prefix method without namespace."""
+    """Test that ping does not raise an error on success."""
     abc_storage.ping()  # shouldn't raise an error on successes
     assert True
 

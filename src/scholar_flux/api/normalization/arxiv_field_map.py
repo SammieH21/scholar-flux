@@ -24,7 +24,7 @@ RECORD_TYPE_PATTERNS: dict[re.Pattern[str], str] = {
 
 
 class ArXivFieldMap(AcademicFieldMap):
-    """arXiv specific field mapping with custom transformations.
+    """ArXiv specific field mapping with custom transformations.
 
     The `ArXivFieldMap` implements a minimal set of methods for record normalization to finalize the structure of each
     extracted and normalized record during postprocessing.

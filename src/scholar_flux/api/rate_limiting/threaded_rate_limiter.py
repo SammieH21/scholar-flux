@@ -28,7 +28,7 @@ class ThreadedRateLimiter(RateLimiter):
 
     """
 
-    def __init__(self, min_interval: Optional[float | int] = None):
+    def __init__(self, min_interval: Optional[float | int] = None) -> None:
         """Initializes a new `ThreadedRateLimiter` with thread safety.
 
         Args:
@@ -45,6 +45,7 @@ class ThreadedRateLimiter(RateLimiter):
         Args:
             min_interval (Optional[float | int]): Minimum interval to wait. Uses default if None.
             metadata (Optional[Dict[str, Any]]): Optional metadata for observability (e.g., url, caller, reason).
+
         """
         min_interval = self._validate(min_interval if min_interval is not None else self.default_min_interval())
 

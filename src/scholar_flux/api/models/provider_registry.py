@@ -8,7 +8,7 @@ interaction and specification of APIs.
 
 """
 from __future__ import annotations
-from typing import Optional
+from typing import Any, Optional
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 from scholar_flux.api.validators import validate_and_process_url, normalize_url
@@ -70,7 +70,7 @@ class ProviderRegistry(BaseProviderDict):
         except (TypeError, ValueError) as e:
             raise APIParameterException(e) from e
 
-    def create(self, provider_name: str, **kwargs) -> ProviderConfig:
+    def create(self, provider_name: str, **kwargs: Any) -> ProviderConfig:
         """Helper method that creates and registers a new ProviderConfig with the current provider registry.
 
         Args:
@@ -78,6 +78,12 @@ class ProviderRegistry(BaseProviderDict):
                 The name of the provider to create a new provider_config for.
             `**kwargs`:
                 Additional keyword arguments to pass to `scholar_flux.api.models.ProviderConfig`
+
+        Returns:
+            ProviderConfig: The newly created provider configuration when possible.
+
+        Raises:
+            APIParameterException: If an unexpected error occurs during the creation of a new ProviderConfig.
 
         """
         try:
@@ -93,7 +99,7 @@ class ProviderRegistry(BaseProviderDict):
             raise APIParameterException(
                 "Encountered an error when creating a new ProviderConfig with the provider name, "
                 f"'{provider_name}': {e}"
-            )
+            ) from e
 
     def add(self, provider_config: ProviderConfig) -> None:
         """Helper method for adding a new provider to the provider registry."""
@@ -181,6 +187,7 @@ class ProviderRegistry(BaseProviderDict):
                 The prospective name of the provider associated with a provider configuration.
             verbose (bool):
                 Determines whether the origin of the configuration should be logged.
+
         Returns:
             Optional[ProviderConfig]:
                 A provider configuration resolved with priority given to the base URL or the provider name otherwise.
@@ -202,17 +209,18 @@ class ProviderRegistry(BaseProviderDict):
             )
         return None
 
-    def get_display_name(self, provider_name: str, default: Optional[str] = None) -> str | Optional[str]:
+    def get_display_name(self, provider_name: str, default: Optional[str] = None) -> Optional[str]:
         """Finds the human-readable name for a provider if it exists.
 
         If the provider doesn't exist within the registry, the result falls back to the default if available and None otherwise.
 
         Args:
-            provider_name: The provider identifier to look up
-            default: The name to fallback to. If not available, None is returned instead
+            provider_name (str): The provider identifier to look up.
+            default (Optional[str]): The name to fall back to. If not specified, None is returned instead.
 
         Returns:
-            The display name if the provider exists, otherwise the original provider_name
+            Optional[str]: The display name if the provider exists, otherwise the default is returned.
+
         """
         provider = self.get(provider_name)
         return provider.display_name if provider else default

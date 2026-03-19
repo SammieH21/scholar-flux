@@ -7,8 +7,12 @@ using the `SearchCoordinator.search_pages` method.
 """
 
 from typing import Sequence, Mapping, Iterable
+from typing_extensions import Self
 from pydantic import RootModel, field_validator
+from math import ceil
 import logging
+
+from scholar_flux.exceptions.api_exceptions import APIParameterException
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +69,7 @@ class PageListInput(RootModel[Sequence[int]]):
 
         Args:
             page_value (str | int): The value to be converted if it is not already an integer
+
         Returns:
             int: A validated integer if the page can be converted to an integer and is not a float
 
@@ -82,16 +87,78 @@ class PageListInput(RootModel[Sequence[int]]):
 
         return page_value
 
+    @classmethod
+    def from_record_count(cls, min_records: int, records_per_page: int, page_offset: int = 0) -> Self:
+        """Helper method for calculating the total number of pages required to retrieve at least `min_records` records.
+
+        Args:
+            min_records (int):
+                The total number of records to retrieve sequentially.
+            records_per_page (int):
+                The total number of records that are retrieved per page.
+            page_offset (int):
+                The total number of pages to skip before beginning record retrieval (0 by default). When the provided
+                value is not a non-negative integer, this parameter is coerced to 0 and a warning is triggered.
+
+        Returns:
+            PageListInput:
+                The calculated page range used to retrieve at least `min_records` records given `records_per_page`.
+
+        Examples:
+            >>> from scholar_flux.api.models import PageListInput
+            >>> PageListInput.from_record_count(20, 10, 0)
+            PageListInput(1, 2)
+
+            >>> PageListInput.from_record_count(20, 10, 2)
+            PageListInput(3, 4)
+
+            >>> PageListInput.from_record_count(15, 10, 1)
+            PageListInput(2, 3)
+
+            # triggers a warning for page_offset (non-integers are coerced to 0):
+            >>> PageListInput.from_record_count(20, 10, None)
+            PageListInput(1, 2)
+
+            >>> PageListInput.from_record_count(0, 10, 0)
+            PageListInput()
+
+        Note:
+            This method expects a positive integer for `min_records` from which to calculate the page range required to
+            retrieve at least `min_records`. Specifying 0 for `min_records` will result in an empty list of pages that
+            essentially functions as a no-op search returning an empty list from `SearchCoordinator.search_records`.
+
+        """
+        if not isinstance(min_records, int) or min_records < 0:
+            raise APIParameterException(
+                f"Expected `min_records` to be a positive integer, but received value '{min_records}'"
+            )
+
+        if not isinstance(page_offset, int) or page_offset < 0:
+            logger.warning(
+                f"Expected a valid, non-negative integer for `page_offset`, but received '{page_offset}'. Defaulting "
+                "to 0 instead..."
+            )
+            page_offset = 0
+        page_start = 1 + page_offset
+        total_pages = max(0, ceil(min_records / records_per_page)) if records_per_page else 0
+        page_stop = page_start + total_pages
+        pages = range(page_start, page_stop)
+        return cls(pages)
+
+    @property
+    def page_numbers(self) -> Sequence[int]:
+        """Returns the sequence of validated page numbers as a list."""
+        return list(self.root)
+
     def __repr__(self) -> str:
         """Provides a simple string representation of the current page list input."""
         class_name = self.__class__.__name__
         vals = ", ".join(str(v) for v in self.page_numbers)
         return f"{class_name}({vals})"
 
-    @property
-    def page_numbers(self) -> Sequence[int]:
-        """Returns the sequence of validated page numbers as a list."""
-        return list(self.root)
+    def __bool__(self) -> bool:
+        """Helper method that returns False if `PageListInput.page_numbers` is empty and True otherwise."""
+        return bool(self.root)
 
 
 __all__ = ["PageListInput"]

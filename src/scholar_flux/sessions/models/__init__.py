@@ -1,5 +1,5 @@
 # /sessions/models
-"""The scholar_flux.sessions.models module contains classes and form the basis for the creation and validation of
+"""The scholar_flux.sessions.models module contains classes that form the basis for the creation and validation of
 sessions and the parameters used to create them.
 
 This module also contains the underlying config that is necessary for the creation and validation of the
@@ -8,6 +8,7 @@ CachedSessionManager class.
 Classes:
     - The BaseSessionManager serves as a template for subclassing and orchestrating the creation of sessions
     - The CachedSessionConfig class is based on Pydantic and supports the validation of input parameters.
+    - The SessionCacheBackend enum gives a static depiction of all available backends supported by requests-cache.
 
 Usage:
     Neither classes are currently intended to be client facing.
@@ -22,6 +23,18 @@ For example, the BaseSessionManager is subclassed into the SessionManager to cre
     >>> session = session_manager() # In this case, the manager creates a standard requests.Session
 
 """
-from scholar_flux.sessions.models.session import BaseSessionManager, CachedSessionConfig
+from scholar_flux.sessions.models.session import (
+    BaseSessionManager,
+    SessionCacheBackend,
+    CachedSessionConfig,
+    SessionCacheBackendType,
+    SessionCacheSerializer,
+)
 
-__all__ = ["BaseSessionManager", "CachedSessionConfig"]
+__all__ = [
+    "BaseSessionManager",
+    "SessionCacheBackend",
+    "CachedSessionConfig",
+    "SessionCacheBackendType",
+    "SessionCacheSerializer",
+]

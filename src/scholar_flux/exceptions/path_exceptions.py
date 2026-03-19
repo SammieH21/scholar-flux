@@ -35,8 +35,7 @@ class InvalidPathDelimiterError(InvalidProcessingPathError):
 
 
 class PathIndexingError(InvalidProcessingPathError):
-    """Exception raised when attempting to retrieve the first element of attempting ProcessingPath as a record/page
-    index."""
+    """Exception raised when attempting to retrieve the first element of a ProcessingPath as a record/page index."""
 
     pass
 
@@ -60,26 +59,25 @@ class PathNodeIndexError(PathUtilsError):
 
 
 class PathCombinationError(PathUtilsError):
-    """Exception raised when performing an invalid operation during the combination of athNodes within a
-    PathNodeIndex."""
+    """Exception raised when an invalid operation occurs during the combination of PathNodes within a PathNodeIndex."""
 
     pass
 
 
 class PathCacheError(PathUtilsError):
-    """Exception raised when attempting to perform an invalid operation on path cache."""
+    """Exception raised when attempting to perform an invalid operation on the PathProcessingCache."""
 
     pass
 
 
 class PathNodeMapError(PathUtilsError):
-    """Exception raised when attempting to perform an invalid operation a PathNodeMap."""
+    """Exception raised when attempting to perform an invalid operation on a PathNodeMap."""
 
     pass
 
 
 class RecordPathNodeMapError(PathNodeMapError):
-    """Exception raised when attempting to perform an invalid operation a RecordPathNodeMap."""
+    """Exception raised when attempting to perform an invalid operation on a RecordPathNodeMap."""
 
     pass
 

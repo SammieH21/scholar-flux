@@ -4,7 +4,7 @@ convenience classes for interacting with the file system and JSON files."""
 from pathlib import Path
 import re
 import json
-from typing import Union, List, Dict, Any, Generator, Optional
+from typing import Union, Any, Generator, Optional
 
 import logging
 
@@ -59,7 +59,7 @@ class JsonFileUtils:
     @classmethod
     def save_as(
         cls,
-        obj: Union[List, Dict, str, float, int],
+        obj: Union[list, dict, str, float, int],
         filepath: Union[str, Path],
         ext: Optional[str] = None,
         dump: bool = True,
@@ -67,7 +67,7 @@ class JsonFileUtils:
         """Save an object in text format with the specified extension (if provided).
 
         Args:
-            obj (Union[List, Dict, str, float, int]): A value to save into a file
+            obj (Union[list, dict, str, float, int]): A value to save into a file
             filepath (Union[str, Path]): The file path to write the object to
             ext (Optional[str]): An optional extension to add to the file path
             dump (bool): If True, the object is serialized using json.dumps. Otherwise the str function is used
@@ -79,7 +79,7 @@ class JsonFileUtils:
             f.write(obj)
 
     @classmethod
-    def load_data(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> Union[Dict, List, str]:
+    def load_data(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> Union[dict, list, str]:
         """Attempts to load data from a filepath as a dictionary/list. If unsuccessful, the file's contents are instead
         loaded as a string.
 
@@ -87,7 +87,7 @@ class JsonFileUtils:
             filepath (Union[str, Path]): The file path to read the data from
 
         Returns:
-            Union[Dict, List, str]:
+            Union[dict, list, str]:
                 A dictionary or list if the data can be successfully loaded with `json`, and a string if loading with
                 JSON is not possible.
 
@@ -125,12 +125,12 @@ class JsonFileUtils:
 
     @classmethod
     def append_to_file(
-        cls, content: Union[str, List[str]], filepath: Union[str, Path], ext: Optional[str] = None
+        cls, content: Union[str, list[str]], filepath: Union[str, Path], ext: Optional[str] = None
     ) -> None:
         """Helper method used to append content to a file in a content-type aware manner.
 
         Args:
-            content (Union[str, List[str]]): The content to append to the file.
+            content (Union[str, list[str]]): The content to append to the file.
             filepath (Union[str, Path]): The file path to write to
             ext (Optional[str]): An optional extension to add to the file path
 

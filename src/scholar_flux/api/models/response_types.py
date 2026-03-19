@@ -9,8 +9,9 @@ The APIResponseType is a union of different possible response types that can be 
 """
 
 from typing import Union
+from typing_extensions import TypeAliasType
 from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse
 
-APIResponseType = Union[ProcessedResponse, ErrorResponse]
+APIResponseType = TypeAliasType("APIResponseType", Union[ProcessedResponse, ErrorResponse])
 
 __all__ = ["APIResponseType"]

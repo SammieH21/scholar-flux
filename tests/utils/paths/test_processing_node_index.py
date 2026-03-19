@@ -91,7 +91,7 @@ def test_map_method_equality(path_nodes):
 
 
 def test_path_node_index_from_path_mappings_and_search():
-    """validates whether the use of path node indices correctly retrieves and searches relevant nodes."""
+    """Validates whether the use of path node indices correctly retrieves and searches relevant nodes."""
     mappings = {ProcessingPath(["0", "data", "0", "title"]): "A"}
     path_node_index = PathNodeIndex.from_path_mappings(mappings)
     retrieved_index = path_node_index.get_node(ProcessingPath(["0", "data", "0", "title"]))

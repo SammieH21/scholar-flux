@@ -4,7 +4,7 @@ value combinations that enables more efficient mapping, retrieval, and updates t
 from __future__ import annotations
 
 import copy
-from typing import Optional, Union, Set, Generator, MutableMapping, Mapping, Sequence
+from typing import Any, Optional, Union, Set, Generator, MutableMapping, Mapping, Sequence
 from collections import UserDict
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
@@ -309,7 +309,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
         return self.data.get(node) is not None
 
-    def _validate_new_node_path(self, node: Union[PathNode, ProcessingPath], overwrite: Optional[bool] = None):
+    def _validate_new_node_path(self, node: Union[PathNode, ProcessingPath], overwrite: Optional[bool] = None) -> None:
         """Helper method to validate whether the current node already exists in the current map: Raises an error if the
         field does.
 
@@ -323,7 +323,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
             else:
                 logger.debug(f"The node at '{node}' will be overwritten")
 
-    def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None):
+    def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None) -> None:
         """Validate constraints on the node to be inserted into the PathNodeMap.
 
         Args:
@@ -429,7 +429,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         """
         if not isinstance(key, ProcessingPath):
             transformed_key = ProcessingPath.to_processing_path(key, component_types=None, delimiter=delimiter)
-            if key is not transformed_key:
+            if key != transformed_key:
                 logger.debug(f"converted {key} --> {transformed_key}")
             return transformed_key
         return key
@@ -488,7 +488,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         return filtered_dict
 
     @classmethod
-    def _format_nodes_as_dict(cls, *nodes, **path_nodes) -> Union[
+    def _format_nodes_as_dict(cls, *nodes: Any, **path_nodes: Any) -> Union[
         PathNodeMap,
         dict[ProcessingPath, PathNode],
     ]:
@@ -532,7 +532,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
 
     def update(  # type: ignore[override]
         self,
-        *args,
+        *args: Any,
         overwrite: Optional[bool] = None,
         **kwargs: Mapping[str | ProcessingPath, PathNode],
     ) -> None:

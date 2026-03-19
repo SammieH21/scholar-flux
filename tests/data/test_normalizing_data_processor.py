@@ -113,7 +113,7 @@ def test_unsuccessfully_extracted_keys(caplog):
     example_record = {"a": 2, "b": {"c": 3}}
     record_keys: list[str] = ["d.e.f"]
     normalizing_data_processor = NormalizingDataProcessor(record_keys=record_keys)
-    assert normalizing_data_processor.process_record(example_record) == {key: None for key in record_keys}
+    assert normalizing_data_processor.process_record(example_record) == dict.fromkeys(record_keys)
     assert "Flattening returned no results" in caplog.text
 
 

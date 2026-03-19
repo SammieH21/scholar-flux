@@ -4,11 +4,11 @@
 The SearchAPIConfig is used by the SearchAPI to interact with API providers via a unified interface for orchestrating
 response retrieval.
 
-This configuration defines settings such as rate limiting, the number of records retrieved per request, API keys,
-and the API provider/URL where requests will be sent.
+This configuration defines settings such as rate limiting, the number of records retrieved per request, API keys, and
+the API provider/URL where requests will be sent.
 
-Under the hood, the SearchAPIConfig can use both pre-created and custom defaults to create a new configuration
-with minimal code.
+Under the hood, the SearchAPIConfig can use both pre-created and custom defaults to create a new configuration with
+minimal code.
 
 """
 from __future__ import annotations
@@ -52,7 +52,7 @@ class SearchAPIConfig(BaseModel):
         api_key (Optional[str | SecretStr]):
             This is an API-specific parameter for validating the current user's identity.
             If a `str` type is provided, it is converted into a `SecretStr`.
-        api_specific_parameters (dict[str, APISpecificParameter]):
+        api_specific_parameters (dict[str, Any]):
             A dictionary containing all parameters specific to the current API. API-specific parameters
             include the following:
 
@@ -122,7 +122,7 @@ class SearchAPIConfig(BaseModel):
         return v.strip()
 
     @field_validator("base_url", mode="after")
-    def validate_url(cls, v: str):
+    def validate_url(cls, v: str) -> str:
         """Validates the `base_url` and triggers a validation error if it is not valid."""
         if v and not validate_url(v):
             logger.error(f"The URL provided to the SearchAPIConfig is invalid: {v}")
@@ -178,7 +178,7 @@ class SearchAPIConfig(BaseModel):
         return cls.DEFAULT_REQUEST_DELAY
 
     @field_validator("records_per_page", mode="before")
-    def set_records_per_page(cls, v: Optional[int]):
+    def set_records_per_page(cls, v: Optional[int]) -> int:
         """Sets the records_per_page parameter with the default if the supplied value is not valid:
 
         Triggers a validation error when records_per_page is an invalid type. Otherwise uses the
@@ -492,7 +492,7 @@ class SearchAPIConfig(BaseModel):
         return None
 
     @classmethod
-    def update(cls, current_config: SearchAPIConfig, **overrides) -> SearchAPIConfig:
+    def update(cls, current_config: SearchAPIConfig, **overrides: Any) -> SearchAPIConfig:
         """Create a new SearchAPIConfig by updating an existing config with new values and/or switching to a different
         provider. This method ensures that the new provider's base_url and defaults are used if provider_name is given,
         and that API-specific parameters are prioritized and merged as expected.
@@ -597,7 +597,7 @@ class SearchAPIConfig(BaseModel):
         return class_parameter_dict
 
     @classmethod
-    def from_defaults(cls, provider_name: str, **overrides) -> SearchAPIConfig:
+    def from_defaults(cls, provider_name: str, **overrides: Any) -> SearchAPIConfig:
         """Uses the default configuration for the chosen provider to create a SearchAPIConfig object containing
         configuration parameters. Note that additional parameters and field overrides can be added via the `**overrides`
         field.

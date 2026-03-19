@@ -39,7 +39,7 @@ class DataCacheManager:
     update cache with new data, and retrieve data from the cache storage.
 
     Args:
-        - cache_storage: Optional; A dictionary to store cached data. Defaults to using In-Memory Storage .
+        - cache_storage: Optional; A dictionary to store cached data. Defaults to using In-Memory Storage.
 
     Methods:
         - generate_fallback_cache_key(response): Generates a unique fallback cache key based on the response URL and status code.
@@ -69,7 +69,7 @@ class DataCacheManager:
 
     """
 
-    def __init__(self, cache_storage: Optional[ABCStorage] = None, **storage_kwargs) -> None:
+    def __init__(self, cache_storage: Optional[ABCStorage] = None, **storage_kwargs: Any) -> None:
         """Initializes the DataCacheManager with the selected cache storage.
 
         Args:
@@ -118,7 +118,18 @@ class DataCacheManager:
 
     @property
     def ttl(self) -> Optional[int | float]:
-        """The time to live associated with the current storage device. The implementation depends on the storage"""
+        """The time to live associated with the current storage device.
+
+        The implementation details depend on the device used to store the response processing cache:
+
+        - RedisStorage: measured in seconds (default=None)
+        - MongoDBStorage: measured in seconds (default=None)
+        - InMemoryStorage: No-Op (Always returns None)
+        - NullStorage: No-Op (Always returns None)
+        - SQLAlchemyStorage: No-Op (Always returns None)
+        - DuckDBStorage: No-Op (Always returns None)
+
+        """
         return self.cache_storage.ttl
 
     @property
@@ -132,7 +143,7 @@ class DataCacheManager:
         return self.cache_storage.config
 
     @classmethod
-    def from_defaults(cls, raise_on_error: bool = False, **storage_kwargs) -> Self:
+    def from_defaults(cls, raise_on_error: bool = False, **storage_kwargs: Any) -> Self:
         """Creates a cache from `SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE` or an In-memory cache otherwise.
 
         Args:
@@ -153,7 +164,7 @@ class DataCacheManager:
         return cls(cache_storage=storage)
 
     @classmethod
-    def default_cache_storage(cls, raise_on_error: bool = False, **storage_kwargs) -> ABCStorage:
+    def default_cache_storage(cls, raise_on_error: bool = False, **storage_kwargs: Any) -> ABCStorage:
         """Creates a storage device from `SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE` or an In-memory cache otherwise.
 
         This storage device, once created, defines the storage mechanism used by the `DataCacheManager` to cache
@@ -276,7 +287,7 @@ class DataCacheManager:
         metadata: Optional[Dict[str, Any]] = None,
         extracted_records: Optional[Any] = None,
         processed_records: Optional[Any] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Updates the cache storage with data from intermediate and final steps in response retrieval and processing.
 
@@ -490,8 +501,8 @@ class DataCacheManager:
         cache_storage: Optional[
             Literal["redis", "sql", "sqlalchemy", "duckdb", "mongodb", "pymongo", "inmemory", "memory", "null"]
         ],
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> ABCStorage:
         """Creates a new `ABCStorage` subclass used by the `DataCacheManager` to cache responses.
 
@@ -537,8 +548,8 @@ class DataCacheManager:
         cache_storage: Optional[
             Literal["redis", "sql", "sqlalchemy", "duckdb", "mongodb", "pymongo", "inmemory", "memory", "null"]
         ] = None,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> Self:
         """Creates a DataCacheManager using a known storage device.
 
@@ -546,8 +557,8 @@ class DataCacheManager:
         redis, sql, mongodb, or inmemory storage with default settings or through the use of
         optional positional and keyword parameters to initialize the storage as needed.
 
-        Note that sql is shorthand for the SQLAlchemy cache storage and uses `SQLite. Compatible implementations of
-        other storage devices can by used instead via SQLAlchemy as well (e.g. DuckDB).
+        Note that sql is shorthand for the SQLAlchemy cache storage and uses `SQLite`. Compatible implementations of
+        other storage devices can be used instead via SQLAlchemy as well (e.g. DuckDB).
 
         Args:
             cache_storage (Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"]):
@@ -611,7 +622,7 @@ class DataCacheManager:
             self, flatten=flatten, show_value_attributes=show_value_attributes, resolve_property_attributes=True
         )
 
-    def __copy__(self) -> DataCacheManager:
+    def __copy__(self) -> Self:
         """Helper method for creating a new instance of the current DataCacheManager."""
         cls = self.__class__
         storage = copy.copy(self.cache_storage)
@@ -623,7 +634,7 @@ class DataCacheManager:
         storage_cls = self.cache_storage
         return cls(storage_cls.clone())
 
-    def __deepcopy__(self, memo) -> Self:
+    def __deepcopy__(self, memo: Optional[dict[int, Any]]) -> Self:
         """Creates a new DataCacheManager with the same configuration as the original DataCacheManager.
 
         Note that many clients cannot be directly deep-copied, and as a result, this implementation uses `clone` instead

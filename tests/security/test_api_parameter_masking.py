@@ -265,7 +265,7 @@ def test_redis_config_masking(masker):
 
 
 def test_edge_case_config_processing(masker):
-    """Verifies that non-dictionary elements (empty dictionaries, wrong types) are ignored when masked"""
+    """Verifies that non-dictionary elements (empty dictionaries, wrong types) are ignored when masked."""
     assert masker.mask_dict(None) is None
     assert masker.mask_dict({}) == {}
     assert masker.mask_dict("not a dictionary") == "not a dictionary"
@@ -320,7 +320,7 @@ def test_api_config_with_multiple_credentials(masker, caplog):
 
 
 def test_api_config_with_non_string_keys(masker, caplog):
-    """Verifies that configurations with non-string keys will be successfully skipped where required"""
+    """Verifies that configurations with non-string keys will be successfully skipped where required."""
     config = {1: "ignored", "nested": {"api_key": "masked"}}
 
     masked_text = masker.mask_text(json.dumps(config))
@@ -346,7 +346,7 @@ def test_exception_traceback_masking(caplog):
         function_with_credential()
     except ValueError:
         # Log the exception with traceback
-        logger.error("An error occurred", exc_info=True)
+        logger.exception("An error occurred")
 
     # Verify that the credential is masked in the log output
     assert api_key not in caplog.text
@@ -361,5 +361,5 @@ def test_url_masking_with_failed_config(caplog):
         # will find a space in the URL and raise an error - api key should be logged:
         _ = validate_and_process_url(url)
 
-    logger.error(excinfo.value, exc_info=True)
+    logger.exception(excinfo.value)
     assert "***" in caplog.text and str(mock_value) not in caplog.text

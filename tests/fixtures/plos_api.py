@@ -3,19 +3,24 @@ from scholar_flux.utils import JsonFileUtils
 import requests_mock
 import pytest
 from pathlib import Path
+from requests import Response
 
 
 @pytest.fixture
 def plos_search_api() -> SearchAPI:
     """Defines a basic PLOS SearchAPI to use when simulating the retrieval of responses using requests_mock."""
     plos_search_api = SearchAPI.from_defaults(
-        query="social wealth equity", provider_name="plos", records_per_page=100, user_agent="scholar_flux"
+        query="social wealth equity",
+        provider_name="plos",
+        records_per_page=100,
+        user_agent="scholar_flux",
+        use_cache=False,
     )
     return plos_search_api
 
 
 @pytest.fixture
-def plos_coordinator(plos_search_api):
+def plos_coordinator(plos_search_api: SearchAPI) -> SearchCoordinator:
     """Defines a basic search API to use when simulating the retrieval, processing and caching of responses from the
     PLOS api using requests_mock."""
     coordinator = SearchCoordinator(search_api=plos_search_api)
@@ -23,12 +28,12 @@ def plos_coordinator(plos_search_api):
 
 
 @pytest.fixture
-def plos_page_1_url(plos_search_api):
+def plos_page_1_url(plos_search_api: SearchAPI) -> str:
     """The URL to mock when simulating the retrieval of page 1 from the PLOS API with the current query and
     requests_mock."""
     params = plos_search_api.build_parameters(page=1)
     request = plos_search_api.prepare_request(plos_search_api.base_url, parameters=params)
-    return request.url
+    return str(request.url)
 
 
 @pytest.fixture
@@ -42,12 +47,12 @@ def plos_page_1_data() -> list | dict:
 
 
 @pytest.fixture
-def plos_page_2_url(plos_search_api):
+def plos_page_2_url(plos_search_api: SearchAPI) -> str:
     """The URL to mock when simulating the retrieval of page 2 from the PLOS API with the current query and
     requests_mock."""
     params = plos_search_api.build_parameters(page=2)
     request = plos_search_api.prepare_request(plos_search_api.base_url, parameters=params)
-    return request.url
+    return str(request.url)
 
 
 @pytest.fixture
@@ -68,7 +73,9 @@ def plos_headers() -> dict:
 
 
 @pytest.fixture()
-def plos_page_1_response(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers):
+def plos_page_1_response(
+    plos_search_api: SearchAPI, plos_page_1_url: str, plos_page_1_data: list | dict, plos_headers: dict
+) -> Response:
     """A fixture that uses the requests_mock package to simulate the retrieval of a requests.Response instance for page
     1 of the PLOS API with the current query."""
     assert isinstance(plos_search_api, SearchAPI)
@@ -85,7 +92,9 @@ def plos_page_1_response(plos_search_api, plos_page_1_url, plos_page_1_data, plo
 
 
 @pytest.fixture()
-def plos_page_2_response(plos_search_api, plos_page_2_url, plos_page_2_data, plos_headers):
+def plos_page_2_response(
+    plos_search_api: SearchAPI, plos_page_2_url: str, plos_page_2_data: list | dict, plos_headers: dict
+):
     """A fixture that uses the requests_mock package to simulate the retrieval of a requests.Response instance for page
     2 of the PLOS API with the current query."""
     assert isinstance(plos_search_api, SearchAPI)

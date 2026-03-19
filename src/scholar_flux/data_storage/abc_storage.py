@@ -8,8 +8,9 @@ scholar_flux implements the ABCStorage with subclasses for SQLite (through SQLAl
 cache and can be further extended to duckdb and other abstractions supported by SQLAlchemy.
 
 """
-from typing import Any, List, Dict, Optional
-from typing_extensions import Self, Type
+from collections.abc import Iterator
+from typing import Any, Optional
+from typing_extensions import Self
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from scholar_flux.utils.repr_utils import generate_repr
@@ -31,23 +32,23 @@ class ABCStorage(ABC):
 
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initializes the current storage implementation."""
         self.namespace: Optional[str] = None
         self.raise_on_error: bool = False
-        self.config: dict = {}
+        self.config: dict[str, Any] = {}
         self.ttl: Any = None
 
-    def _initialize(self, *args, **kwargs) -> None:
+    def _initialize(self, *args: Any, **kwargs: Any) -> None:
         """Optional base method to implement for initializing/reinitializing connections."""
         pass
 
     @classmethod
-    def _get_default_config(cls) -> dict:
+    def get_default_config(cls) -> dict:
         """Get default configuration with current config_settings values."""
         return {}
 
-    def __deepcopy__(self, memo) -> Self:
+    def __deepcopy__(self, memo: Optional[dict[int, Any]]) -> Self:
         """Future implementations of ABCStorage devices are unlikely to be deep-copied.
 
         This method defines the error message that will be used by default upon failures.
@@ -60,43 +61,47 @@ class ABCStorage(ABC):
         )
 
     @abstractmethod
-    def retrieve(self, *args, **kwargs) -> Optional[Any]:
+    def retrieve(self, *args: Any, **kwargs: Any) -> Optional[Any]:
         """Core method for retrieving a page of records from the cache."""
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve_all(self, *args, **kwargs) -> Optional[Dict[str, Any]]:
+    def retrieve_all(self, *args: Any, **kwargs: Any) -> Optional[dict[str, Any]]:
         """Core method for retrieving all pages of records from the cache."""
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve_keys(self, *args, **kwargs) -> Optional[List[str]]:
+    def retrieve_keys(self, *args: Any, **kwargs: Any) -> Optional[list[str]]:
         """Core method for retrieving all keys from the cache."""
         raise NotImplementedError
 
     @abstractmethod
-    def update(self, *args, **kwargs) -> None:
+    def update(self, *args: Any, **kwargs: Any) -> None:
         """Core method for updating the cache with new records."""
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, *args, **kwargs) -> Optional[bool]:
-        """Core method for record deletion. Should return True when successful, False otherwise, and `None` on error."""
+    def delete(self, *args: Any, **kwargs: Any) -> Optional[bool]:
+        """Core method for record deletion.
+
+        Should return True when successful, False otherwise, and `None` on error.
+
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def delete_all(self, *args, **kwargs) -> None:
+    def delete_all(self, *args: Any, **kwargs: Any) -> None:
         """Core method for deleting all pages of records from the cache."""
         raise NotImplementedError
 
     @abstractmethod
-    def verify_cache(self, *args, **kwargs) -> bool:
+    def verify_cache(self, *args: Any, **kwargs: Any) -> bool:
         """Core method for verifying the cache based on the key."""
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
-    def is_available(cls, *args, **kwargs) -> bool:
+    def is_available(cls, *args: Any, **kwargs: Any) -> bool:
         """Core method for verifying whether a storage/service is available."""
         raise NotImplementedError
 
@@ -111,7 +116,7 @@ class ABCStorage(ABC):
         raise NotImplementedError()
 
     @classmethod
-    def ping(cls, *args, **kwargs) -> None:
+    def ping(cls, *args: Any, **kwargs: Any) -> None:
         """Verifies that a connection to the storage implementation can be established successfully.
 
         This is a no-op by default for storage backends that don't require external connections
@@ -129,14 +134,19 @@ class ABCStorage(ABC):
         pass
 
     def _prefix(self, key: str) -> str:
-        """prefixes a namespace to the given `key`:
+        """Prefixes a namespace to the given `key`:
 
         This method is useful for when you are using a single redis/mongodb server
             and also need to retrieve a subset of articles for a particular task.
+
         Args:
-            key (str) The key to prefix with a namespace (Ex. CORE_PUBLICATIONS)
+            key (str): The key to prefix with a namespace (Ex. CORE_PUBLICATIONS)
+
         Returns:
             str: The cache key prefixed with a namespace (Ex. f'CORE_PUBLICATIONS:{key}')
+
+        Raises:
+            KeyError: If the received key is not a valid, non-empty string
 
         """
         if not key:
@@ -198,7 +208,7 @@ class ABCStorage(ABC):
 
     @classmethod
     def _handle_storage_exception(
-        cls, exception: BaseException, operation_exception_type: Optional[Type[BaseException]] = None, msg: str = ""
+        cls, exception: BaseException, operation_exception_type: Optional[type[BaseException]] = None, msg: str = ""
     ) -> None:
         """Helper method for logging errors and raising a new exception if needed.
 
@@ -207,7 +217,7 @@ class ABCStorage(ABC):
 
         Args:
             exception (BaseException): The exception instance raised from the last storage cache operation
-            operation_exception_type (Type[BaseException]): The exception to raise
+            operation_exception_type (Optional[type[BaseException]]): The exception to raise
             msg (str): The error message to log and/or raise.
 
         """
@@ -217,7 +227,7 @@ class ABCStorage(ABC):
             raise operation_exception_type(error_message) from exception
 
     @contextmanager
-    def with_raise_on_error(self, value: bool = True):
+    def with_raise_on_error(self, value: bool = True) -> Iterator[None]:
         """Uses a context manager to temporarily modify the `raise_on_error` attribute for the context duration.
 
         All storage backends that inherit from the `ABCStorage` will also inherit the `with_raise_on_error` context
@@ -245,7 +255,7 @@ class ABCStorage(ABC):
             self.raise_on_error = original_value
 
     @contextmanager
-    def with_namespace(self, value: str):
+    def with_namespace(self, value: str) -> Iterator[None]:
         """Uses a context manager to temporarily modify the `namespace` attribute for the context duration."""
         original_value = self.namespace
         self.namespace = value
@@ -266,7 +276,7 @@ class ABCStorage(ABC):
                 preserve a multiline representation of the storage when False (default).
             show_value_attributes (bool):
                 Flag for hiding the internal attributes of nested attributes when True (arguments replaced with `...`)
-                and showing their default representation when True (default)
+                and showing their default representation when False.
             mask_values (bool):
                 Masks any potentially sensitive data shown in the representation when True (default) and shows the
                 representation without sensitive data masking when False.

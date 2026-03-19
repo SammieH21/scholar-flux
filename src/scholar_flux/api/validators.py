@@ -27,26 +27,30 @@ Functions:
 import re
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
-from typing import Optional, Callable, Any
+from typing import Any, Optional, Callable, ParamSpec, TypeVar
 from functools import wraps
 from scholar_flux.security.utils import SecretUtils
 from scholar_flux.utils import config_settings
+from scholar_flux.utils.helpers import coerce_bool, try_none
 from pydantic import SecretStr
 import logging
 
 logger = logging.getLogger(__name__)
 
+P = ParamSpec("P")
+R = TypeVar("R")
 
-def validate_api_specific_field(validator: Callable, provider_name: str, field: str) -> Callable:
+
+def validate_api_specific_field(validator: Callable[P, R], provider_name: str, field: str) -> Callable[P, R]:
     """Wrap a validator function with standardized error handling for API-specific parameters.
 
     Args:
-        validator: The validation function to wrap.
-        provider_name: Name of the API provider.
-        field: Name of the parameter being validated.
+        validator (Callable): The validation function to wrap.
+        provider_name: str: Name of the API provider.
+        field: str: Name of the parameter being validated.
 
     Returns:
-        A wrapped validator with enhanced error messages.
+        Callable: A wrapped validator with enhanced error messages.
 
     Raises:
         TypeError: If validator is not callable.
@@ -64,7 +68,7 @@ def validate_api_specific_field(validator: Callable, provider_name: str, field: 
         raise TypeError(f"Expected callable validator, got {type(validator).__name__}")
 
     @wraps(validator)
-    def wrapped_validator(*args, **kwargs) -> Any:
+    def wrapped_validator(*args: P.args, **kwargs: P.kwargs) -> R:
         """Internal wrapper that returns a validated value upon success and raises a `ValueError` otherwise."""
         try:
             return validator(*args, **kwargs)
@@ -140,7 +144,7 @@ def validate_and_process_email(
 
     """
     # read the email from the environment only if the passed value is None and `from_env`=True
-    env_email = config_settings.get("SCHOLAR_FLUX_DEFAULT_MAILTO") if email is None and from_env else None
+    env_email = try_none(config_settings.get("SCHOLAR_FLUX_DEFAULT_MAILTO")) if email is None and from_env else None
 
     if email is None and env_email is None:
         return None
@@ -238,7 +242,7 @@ def normalize_url(url: str, normalize_https: bool = True, remove_parameters: boo
     return url
 
 
-def validate_and_process_url(url: Optional[str], **kwargs) -> Optional[str]:
+def validate_and_process_url(url: Optional[str], **kwargs: Any) -> Optional[str]:
     """If a string value is provided, determine whether the url is valid.
 
     This function first uses the validate_url function for the validation of the url.
@@ -387,7 +391,7 @@ def validate_bool_str(
     if not isinstance(value, str):
         raise ValueError(f"Expected str, got {type(value).__name__}")
 
-    return True if value.lower() in true_values else default
+    return True if coerce_bool(value, true_values, false_values=()) else default
 
 
 __all__ = [

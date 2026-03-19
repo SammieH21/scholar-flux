@@ -140,10 +140,10 @@ class DataExtractor(BaseDataExtractor):
         cls,
         dynamic_record_identifiers: Optional[list | tuple] = None,
         dynamic_metadata_identifiers: Optional[list | tuple] = None,
-    ):
-        """
-        Method used to validate the dynamic record identifiers provided to the DataExtractor prior to its later use
-        In extracting metadata and records
+    ) -> None:
+        """Method used to validate the dynamic record identifiers provided to the DataExtractor prior to its later use
+        in extracting metadata and records.
+
         Args:
             dynamic_record_identifiers (Optional[List[str | None]]): Keyword identifier indicating when singular records in a dictionary
                                                                      can be identified as such in contrast to metadata
@@ -151,6 +151,7 @@ class DataExtractor(BaseDataExtractor):
                                                                         can be identified as such in contrast to metadata
         Raises:
             DataExtractionException: Indicates an error in the DataExtractor and identifies where the inputs take on an invalid value
+
         """
         try:
             if dynamic_record_identifiers is not None:
@@ -180,7 +181,7 @@ class DataExtractor(BaseDataExtractor):
         return None
 
     def _validate_inputs(self) -> None:
-        """Method used to validate the inputs provided to the DataExtractor prior to its later use In extracting
+        """Method used to validate the inputs provided to the DataExtractor prior to its later use in extracting
         metadata and records. This method operates by verifying the attributes associated with the current data
         extractor once the attributes are set.
 
@@ -259,10 +260,10 @@ class DataExtractor(BaseDataExtractor):
         then this method will return False by default.
         Args:
             record (Any):
-                The an element in a JSON object. if a dictionary, Is checked to determine
+                An element in a JSON object. If a dictionary, is checked to determine
                 whether any of the selected key identifiers exist within it.
             key_identifiers (list | tuple):
-                              contains keys to check for. if the key exists, we'll
+                Contains keys to check for. If any key exists in the record, returns True.
 
         """
         return all(
@@ -416,16 +417,17 @@ class DataExtractor(BaseDataExtractor):
         return filter_record_key_prefixes(records, prefix="_", invert=False)
 
     @classmethod
-    def update(cls, data_extractor: BaseDataExtractor, **data_extractor_kwargs) -> Self:
+    def update(cls, data_extractor: BaseDataExtractor, **data_extractor_kwargs: Any) -> Self:
         """Helper method for creating a new DataExtractor instance, replacing only the specified components.
 
         Args:
             data_extractor (Self): A previously created DataExtractor instance
             **data_extractor_kwargs:
-                Keyword arguments used to replace components of the DataExtractor. Unspecified fields are assigned their
-                the value from the previous DataExtractor.
+                Keyword arguments used to replace components of the DataExtractor. Unspecified fields from the previous
+                `DataExtractor` remain unchanged.
         Returns:
             DataExtractor: A new data extractor instance with the specified parameter updates
+
         """
         if not isinstance(data_extractor, BaseDataExtractor):
             raise TypeError(

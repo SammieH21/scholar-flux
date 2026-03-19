@@ -1,4 +1,4 @@
-# /exceptions/path_exceptions.py
+# /exceptions/util_exceptions.py
 """Implements exceptions for handling edge-cases when processing JSON files using custom path processing utilities."""
 
 
@@ -32,6 +32,12 @@ class SessionInitializationError(SessionCreationError):
     pass
 
 
+class CachedSessionValidationError(SessionInitializationError):
+    """Exception class raised when the validation of a CachedSession instance fails."""
+
+    pass
+
+
 class SessionCacheDirectoryError(SessionCreationError):
     """Exception class raised for errors related to the creation of the package cache directory used by SessionCache."""
 
@@ -50,6 +56,7 @@ __all__ = [
     "SessionCreationError",
     "SessionConfigurationError",
     "SessionInitializationError",
+    "CachedSessionValidationError",
     "SessionCacheDirectoryError",
     "SecretKeyError",
 ]

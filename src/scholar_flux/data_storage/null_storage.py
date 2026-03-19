@@ -2,7 +2,7 @@
 """The scholar_flux.data_storage.null_storage module implements a Null (No-Op) Storage that is used to ensure that
 responses are always reprocessed when implemented."""
 from __future__ import annotations
-from typing import Any, List, Dict, Optional
+from typing import Any, Optional
 from scholar_flux.data_storage.abc_storage import ABCStorage
 
 import logging
@@ -40,7 +40,7 @@ class NullStorage(ABCStorage):
         namespace: Optional[str] = None,
         ttl: None = None,
         raise_on_error: Optional[bool] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize a No-Op cache for compatibility with the `ABCStorage` base class.
 
@@ -61,7 +61,7 @@ class NullStorage(ABCStorage):
         self.ttl = None
         self.raise_on_error: bool = False
 
-    def _initialize(self, *args, **kwargs) -> None:
+    def _initialize(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
         pass
 
@@ -70,32 +70,32 @@ class NullStorage(ABCStorage):
         cls = self.__class__
         return cls()
 
-    def retrieve(self, *args, **kwargs) -> Optional[Any]:
+    def retrieve(self, *args: Any, **kwargs: Any) -> Optional[Any]:
         """Method added for abstract class consistency - no-op"""
         return None
 
-    def retrieve_all(self, *args, **kwargs) -> Optional[Dict[str, Any]]:
+    def retrieve_all(self, *args: Any, **kwargs: Any) -> Optional[dict[str, Any]]:
         """Method added for abstract class consistency - returns a dictionary for type consistency"""
         return {}
 
-    def retrieve_keys(self, *args, **kwargs) -> Optional[List[str]]:
+    def retrieve_keys(self, *args: Any, **kwargs: Any) -> Optional[list[str]]:
         """Method added for abstract class consistency - returns a list for type consistency"""
         return []
 
-    def update(self, *args, **kwargs) -> None:
+    def update(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
         pass
 
-    def delete(self, *args, **kwargs) -> None:
+    def delete(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
         pass
 
-    def delete_all(self, *args, **kwargs) -> None:
+    def delete_all(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
         pass
 
-    def verify_cache(self, *args, **kwargs) -> bool:
-        """Method added for abstract class consistency - returns None, indicating that no cache is ever stored"""
+    def verify_cache(self, *args: Any, **kwargs: Any) -> bool:
+        """Method added for abstract class consistency - returns False, indicating that no cache is ever stored"""
         return False
 
     def verify_connection(self) -> None:
@@ -103,14 +103,14 @@ class NullStorage(ABCStorage):
         pass
 
     @classmethod
-    def is_available(cls, *args, **kwargs) -> bool:
+    def is_available(cls, *args: Any, **kwargs: Any) -> bool:
         """
-        Method added for abstract class consistency - returns, True indicating that
+        Method added for abstract class consistency - returns True, indicating that
         the no-op storage is always available although no cache is ever stored.
         """
         return True
 
-    def __bool__(self, *args, **kwargs) -> bool:
+    def __bool__(self, *args: Any, **kwargs: Any) -> bool:
         """The NullStorage is Falsy, indicating that no cache is ever stored."""
         return False
 

@@ -6,7 +6,7 @@ from scholar_flux.exceptions.api_exceptions import APIParameterException
 
 
 def test_api_specific_parameter_model():
-    """Test the APISpecificParameter class to ensure that it accepts the intended classes."""
+    """Tests the APISpecificParameter class to ensure that it accepts the intended classes."""
     param = APISpecificParameter(
         name="mailto", description="Contact email", validator=lambda value: value, default=None, required=True
     )
@@ -312,7 +312,7 @@ def test_get_defaults_known_provider():
 
 
 def test_get_defaults_unknown_provider():
-    """Tests whether `get_defaults` returns None when supplied when an unknown provider."""
+    """Tests whether `get_defaults` returns None when supplied with an unknown provider."""
     result = APIParameterMap.get_defaults("unknown")
     assert result is None
 
@@ -414,8 +414,8 @@ def test_page_start_index_exception(page, zero_indexed, caplog):
 def test_zero_indexed_pagination(page, zero_indexed_parameter_config, default_zero_indexed_config, caplog):
     """Verifies that zero-indexed pagination accepts non-negative page numbers when correction is disabled.
 
-    This test temporarily sets `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = False` to verify that zero
-    is an acceptable page number when correction is disabled.
+    This test temporarily sets `APIParameterConfig.DEFAULT_CORRECT_ZERO_INDEX = False` to verify that zero is an
+    acceptable page number when correction is disabled.
 
     Other page numbers are checked with a default records per page to ensure that the calculated page number is correct.
 
@@ -495,9 +495,8 @@ def test_show_parameters(basic_parameter_config):
 
 
 def test_get_incorrect_api_key(default_api_parameter_config, caplog):
-    """Verifies that the `test_get_api_key` function appropriately raises errors as intended."""
-
-    # a list should be invalid:
+    """Verifies that the `_get_api_key` method appropriately raises an `APIParameterException` for invalid values."""
+    # A list should be an invalid input:
     with pytest.raises(APIParameterException) as excinfo:
         default_api_parameter_config._get_api_key([])  # type: ignore
     assert f"Expected `parameters` to be a dictionary, instead received {type([])}" in str(excinfo.value)

@@ -6,7 +6,7 @@ from scholar_flux.api import BaseAPI
 from scholar_flux.exceptions import RequestCreationException, SessionCreationError, APIParameterException
 from scholar_flux.sessions import SessionManager, CachedSessionManager
 from urllib.parse import urljoin
-from requests_cache import CachedSession
+from requests_cache.session import CachedSession
 import requests_mock
 
 
@@ -60,8 +60,8 @@ def test_default_session_override(caplog):
     assert "Removing session caching for the BaseAPI..." in caplog.text
 
 
-def test_cached_session_override(caplog):
-    """Ensure, that if caching is directly specified, that a cached session is created if not already specified."""
+def test_cached_session_default_when_use_cache_is_true(caplog):
+    """Tests that `BaseAPI` overrides non-cached sessions to initialize a new CachedSession when use_cache is True."""
     session_manager = SessionManager(user_agent="base_api_tester")
     session = session_manager()
     assert isinstance(session, requests.Session)
