@@ -489,7 +489,9 @@ class SQLAlchemyStorage(ABCStorage):
     @classmethod
     def create_default_url(cls) -> str:
         """Creates a default URL within the writable directory for the current SQLAlchemyStorage class or subclass."""
-        return "sqlite:///" + str(get_default_writable_directory("package_cache") / "data_store.sqlite")
+        default_dir = config_settings.get("SCHOLAR_FLUX_CACHE_DIRECTORY")
+        url_path = get_default_writable_directory("package_cache", default=default_dir) / "data_store.sqlite"
+        return f"sqlite:///{url_path}"
 
     @classmethod
     def get_default_url(cls) -> str:
@@ -648,7 +650,9 @@ class DuckDBStorage(SQLAlchemyStorage):
     @classmethod
     def create_default_url(cls) -> str:
         """Creates a valid DuckDB URL within the default writable package cache directory."""
-        return "duckdb:///" + str(get_default_writable_directory("package_cache") / "data_store.duckdb")
+        default_dir = config_settings.get("SCHOLAR_FLUX_CACHE_DIRECTORY")
+        url_path = get_default_writable_directory("package_cache", default=default_dir) / "data_store.duckdb"
+        return f"duckdb:///{url_path}"
 
     @classmethod
     def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs: Any) -> bool:

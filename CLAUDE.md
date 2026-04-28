@@ -2,7 +2,7 @@
 
 This file provides Claude Code (claude.ai/code) with quick-reference context for ScholarFlux development. For complete information, consult the linked documentation which serves as the authoritative source.
 
-### Last updated 3/18/2026 (**v0.5.0**)
+### Last updated 4/28/2026 (**v0.5.1**)
 
 > **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.
 > For complete, authoritative information, consult:
@@ -60,7 +60,7 @@ print(coordinator.retry_handler.history.structure())
 **Search Methods:**
 - `coordinator.search_pages(pages=range(1, 3))` — Multi-page Retrieval
 - `coordinator.iter_pages(pages=range(1, 3))` — Generator based multi-page retrieval
-- `coordinator.parameter_search(endpoint="/", **params)` — Non-paginated endpoint queries 
+- `coordinator.parameter_search(endpoint="/", **params)` — Non-paginated endpoint queries
 - `coordinator.search_records(min_records=50)` — Auto-calculates pages required
 
 **Multi-provider:** Use `MultiSearchCoordinator` with concurrent threading
@@ -146,16 +146,7 @@ Three response types with truthiness semantics for safe error checking. For most
 
 **Note**: When calling `SearchCoordinator.search_page()`, these three response types are nested in a `SearchResult` container that additionally include search metadata annotations (i.e., `query`, `page`, and `provider_name`, `display_name`, `retrieval_timestamp`, `cached`) and references each of the above components through properties or methods. Normalized records can additionally include search metadata annotations via the `include` parameter (i.e., `result.normalize(include={'query', 'page', 'display_name'})`).
 
-The `SearchCoordinator` is designed to orchestrate the full pipeline: parse → extract → process → optionally normalize. To retrieve raw responses without processing, use `SearchCoordinator.fetch()` or `SearchAPI.search()` directly instead. 
-
-## Code Standards
-
-- **Type hints**: Required on all functions and parameters with restrictions loosened for testing. Verified with `mypy` (`strict=True`)
-- **Docstrings**: Required, Google style, 100% coverage via docstr-coverage
-- **Line length**: 120 characters max
-- **Testing**: `requests-mock` for API mocking, fixtures in `tests/fixtures/` and `tests/conftest.py`
-
-**Full standards**: [CONTRIBUTING.md#code-style-guidelines](CONTRIBUTING.md#code-style-guidelines)
+The `SearchCoordinator` is designed to orchestrate the full pipeline: parse → extract → process → optionally normalize. To retrieve raw responses without processing, use `SearchCoordinator.fetch()` or `SearchAPI.search()` directly instead.
 
 ## Provider Rate Limits
 
@@ -174,10 +165,10 @@ Rate limits are enforced automatically per provider and are used alongside dynam
 ## Core Environment Variables
 
 ```bash
-# API keys 
+# API keys
 PUBMED_API_KEY, CORE_API_KEY (Optional)
 # Required
-SPRINGER_NATURE_API_KEY 
+SPRINGER_NATURE_API_KEY
 
 # Logging
 SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
@@ -215,3 +206,72 @@ Quick definitions for terms used throughout ScholarFlux documentation:
 | **Two-Tier Caching**       | Layer 1 (`session cache`) caches raw HTTP responses; Layer 2 (`Response processing cache`) caches records that are extracted/processed from raw responses. Cached searches are returned almost instantly.                                            |
 | **Workflow**               | A multi-step workflow used by the `SearchCoordinator` to customize how `search()` and `search_page()` retrieves and processes records. While optional for all other providers, this is required for PubMed's search → fetch pattern.                 |
 | **Backoff**                | Progressively increasing delays between retry attempts after failed requests.                                                                                                                                                                        |
+
+
+---
+
+## Code Standards
+
+- **Type hints**: Required on all functions. Verified with `mypy` strict mode
+- **Docstrings**: Required, Google style, coverage checked via `docstr-coverage`
+- **Line length**: 120 characters max
+- **Testing**: `pytest`: fixtures in `tests/fixtures/` and `tests/conftest.py`
+- **Formatting**: `ruff` + `black`
+- **Python**: 3.10+ required
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+**Full standards**: [CONTRIBUTING.md#code-style-guidelines](CONTRIBUTING.md#code-style-guidelines)
+

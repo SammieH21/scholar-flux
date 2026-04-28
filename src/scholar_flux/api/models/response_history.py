@@ -37,10 +37,10 @@ class ResponseHistoryRegistry(BaseProviderDict):
         super().__init__(*args, **kwargs)
 
     def __getitem__(self, key: str) -> ErrorResponse | ProcessedResponse:
-        """Attempt to retrieve a ProviderConfig instance for the given provider name.
+        """Attempt to retrieve an API response for the given provider name.
 
         Args:
-            provider_name (str): Name of the default provider
+            key (str): Name of the provider
 
         Returns:
             ErrorResponse | ProcessedResponse: an APIResponse for the provider if it exists.

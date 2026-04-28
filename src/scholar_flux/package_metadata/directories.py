@@ -46,7 +46,7 @@ class PackageDirectorySettings(BaseModel):
     def package_env_home(self) -> Optional[Path]:
         """Resolves the user-specified package `home_env` variable for storing logs, caching, and configuration."""
         env_home = os.getenv(self.home_env_var)
-        return Path(env_home) if env_home else None
+        return Path(env_home).expanduser() if env_home else None
 
     def _get_default_readable_directory_candidates(self) -> list[Path]:
         """Returns candidate parent directories in priority order for read operations."""
@@ -92,7 +92,7 @@ class PackageDirectorySettings(BaseModel):
             TypeError: If an incorrect type is passed to `Path` or `Path.mkdir`.
 
         """
-        current_path = Path(path) if not isinstance(path, Path) else path
+        current_path = Path(path).expanduser()
 
         current_path.mkdir(parents=create_parent_directories, exist_ok=True)
         return current_path
@@ -147,7 +147,7 @@ class PackageDirectorySettings(BaseModel):
                 continue
 
         if default:
-            return Path(default)
+            return Path(default).expanduser()
 
         raise RuntimeError(f"Could not locate a writable {directory_type} directory for {self.DEFAULT_PACKAGE_NAME}")
 

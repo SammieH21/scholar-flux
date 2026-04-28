@@ -7,7 +7,7 @@ ensure type-validated responses while also ensuring flexibility in how responses
 
 Classes:
     ProcessedResponse:
-        Indicates whether an API was successfully retrieved, parsed, and processed. This model is designed to
+        Indicates whether an API response was successfully retrieved, parsed, and processed. This model is designed to
         facilitate the inspection of intermediate results and retrieval of extracted response records.
     ErrorResponse:
         Indicates that an error occurred somewhere in the retrieval or processing of an API response. This
@@ -205,7 +205,7 @@ class APIResponse(BaseModel):
 
     @property
     def status(self) -> Optional[str]:
-        """Helper property for retrieving a human-readable status description APIResponse.
+        """Helper property for retrieving a human-readable status description from the APIResponse.
 
         Returns:
             Optional[str]: The status description associated with the response (if available).

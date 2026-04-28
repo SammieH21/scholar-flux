@@ -314,11 +314,17 @@ class CachedSessionManager(SessionManager):
 
         """
         if not cache_directory and (backend is None or backend in ("filesystem", "sqlite")):
-            cache_directory = config_settings.get("SCHOLAR_FLUX_CACHE_DIRECTORY") or cls._default_cache_directory()
+            env_session_cache_directory = config_settings.get("SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY")
+            env_default_cache_directory = config_settings.get("SCHOLAR_FLUX_CACHE_DIRECTORY")
+            cache_directory = (
+                env_session_cache_directory or env_default_cache_directory or cls._default_cache_directory()
+            )
 
         if isinstance(cache_directory, str):
             cache_directory = Path(cache_directory)
-        return cache_directory
+
+        # Further validation happens at the level of the CachedSessionConfig
+        return cache_directory.expanduser() if isinstance(cache_directory, Path) else cache_directory
 
     @classmethod
     def default_session_backend(

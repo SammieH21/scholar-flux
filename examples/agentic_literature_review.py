@@ -106,7 +106,7 @@ cached_session_manager = CachedSessionManager(backend=SESSION_CACHE_BACKEND)
 
 # The 2nd layer response cache uses the following variable by default to determine cache backend - change to use a different cache
 # Similarly, the type hints for the cache storage are directly supported by the data cache manager
-RESPONSE_CACHE_STORAGE: Literal["redis", "sql", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"] = (
+RESPONSE_CACHE_STORAGE: Literal["redis", "sql", "duckdb", "sqlalchemy", "mongodb", "pymongo", "inmemory", "memory", "null"] = (
     config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE") or "inmemory"
 )
 response_cache_manager = DataCacheManager.with_storage(RESPONSE_CACHE_STORAGE)

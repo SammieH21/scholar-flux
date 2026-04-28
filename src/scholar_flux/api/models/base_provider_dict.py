@@ -21,7 +21,7 @@ class BaseProviderDict(UserDict[str, Any]):
         current ProviderDict.
 
         Args:
-            key (str): Name of the default provider
+            key (str): Name of the provider
 
         Returns:
             bool: indicates the presence or absence of a key in the dictionary
@@ -37,7 +37,7 @@ class BaseProviderDict(UserDict[str, Any]):
         """Attempt to retrieve a value instance for the given provider name.
 
         Args:
-            provider_name (str): Name of the default provider
+            key (str): Name of the provider
 
         Returns:
             Any: The value associated with the current provider
@@ -79,7 +79,7 @@ class BaseProviderDict(UserDict[str, Any]):
         """Deletes an element from the ProviderDict for the given provider.
 
         Args:
-            key (str): Name of the default provider
+            key (str): Name of the provider
 
         Raises:
             KeyError: If the current key does not exist in the dictionary

@@ -88,8 +88,9 @@ class RateLimiterRegistry(BaseProviderDict):
     def get_from_url(self, provider_url: Optional[str]) -> Optional[RateLimiter | ThreadedRateLimiter]:
         """Attempts to retrieve a RateLimiter for the specified provider from a URL.
 
-        This method retrieves the rate limiter of the provider associated with the provided URL if the URL after normalization exists within
-        the `scholar_flux.api.provider_registry`. If a provider does not exist, a value of None will be returned instead.
+        This method retrieves the rate limiter of the provider associated with the provided URL if the URL after
+        normalization exists within the `scholar_flux.api.provider_registry`. If a provider does not exist, a value of
+        None will be returned instead.
 
         Args:
             provider_url (Optional[str]): URL of the provider to look up.

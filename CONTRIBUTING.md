@@ -52,6 +52,9 @@ As the IT, analytical, and scientific landscape changes, our aim is to ensure th
 ### Setup Steps
 
 1. **Fork and clone the repository**
+   First, fork the repository on GitHub by clicking the **Fork** button at the top right of the [repository page](https://github.com/SammieH21/scholar-flux).
+
+   Then clone your fork locally:
    ```bash
    git clone https://github.com/YOUR-USERNAME/scholar-flux.git
    cd scholar-flux
@@ -658,7 +661,7 @@ Find the code of conduct [**here**](https://github.com/SammieH21/scholar-flux/bl
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.5.0). This means:
+ScholarFlux is currently in **beta** (v0.5.1). This means:
 
 - APIs may change between versions
 - We're actively seeking feedback
