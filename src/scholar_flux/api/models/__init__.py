@@ -12,7 +12,7 @@ Core Models:
     - ProviderRegistry: A customized dictionary mapping provider names to their dynamically retrieved configuration.
     - ProcessedResponse: Indicates a successfully retrieved and processed response from an API provider.
     - ErrorResponse: Indicates that an exception occurred somewhere in the process of response retrieval and processing.
-    - NonResponse: Indicates a that a response of any status code could not be retrieved due to an exception.
+    - NonResponse: Indicates that a response of any status code could not be retrieved due to an exception.
 
 """
 

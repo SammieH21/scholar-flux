@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 4/28/2026
+### Added
+- **Session Cache Environment Variable Configuration**: For more granular session cache control, this version bump introduces support for the `SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY` environment variable as an optional override for cached session persistence. When selecting a session cache directory via environment variables on `CachedSession` initialization, the cache directory is assigned in the following priority order: `SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY` > `SCHOLAR_FLUX_CACHE_DIRECTORY` > `scholar_flux.package_metadata.get_default_writable_directory()`.
+
+### Security
+
+**Package Dependencies**
+- **Requests Minimum Version Dependency Update**: Updated the `requests` library dependency to require version `2.33.0`. This prevents vulnerability CVE-2026-25645 `Insecure File Reuse` when extracting data from zip files.
+- **Cryptography Minimum Version Dependency Update**: Updated the `cryptography` library dependency to require version `46.0.7`. This update ensures that downstream applications using the same cryptography version as `ScholarFlux` benefit from secure domain certificate validation.
+
+### Fixed
+- **Path Expansion**: Fixed potential path coercion issues across areas accepting user input. By default, `log`, `env`, and `cache` directories now expand paths to ensure that shorthand path notation using the tilde symbol works as expected (i.e., `SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY=~/your-project/session-cache` -> `/home/your-user-name/your-project/session-cache`).
+
+### Developer Notes:
+- Implemented minor updates to docstrings for correctness and ease of understanding.
+- Updated the [CLAUDE.md](CLAUDE.md) to reduce the likelihood of mistakes and erroneous hidden assumptions when reviewing and verifying functionality. The modification stems from the simple yet pivotal CLAUDE.md configuration originally conceived by [Andrej Karpathy](https://github.com/forrestchang/andrej-karpathy-skills/blob/main/CLAUDE.md).
+- Scheduling the release `ScholarFluxMCP` as an open source companion-package. This MCP server builds on the functionality of `ScholarFlux` to bring automated, validated research syntheses to MCP servers and agentic workflows. Coming soon!
+
 ## [0.5.0] - 3/18/2026
 **Note**: This release mainly introduces improvements to package initialization, quality-of-life updates to caching, and opt-in features for record searches. No major changes are necessary to migrate from version 0.4.0 to 0.5.0.
 
@@ -207,7 +225,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.2.0] - 11/19/2025
 ### Added
 - ScholarFlux now introduces an optional normalization method to prepare records across APIs despite provider-specific differences in response formats. Record normalization plays a pivotal role in cross-platform preparation for downstream tasks by extracting common academic fields (`title`, `doi`, `author`, `abstract`, etc.) consistently across all default providers.
-- When performing a search with the SearchCoordinator, set `normalize_records=True` to automatically normalize responses during processing. The normalized data can then be extracted through `ProcessedResponse.normalized_records` or `SearchResult.normalized_records`. 
+- When performing a search with the SearchCoordinator, set `normalize_records=True` to automatically normalize responses during processing. The normalized data can then be extracted through `ProcessedResponse.normalized_records` or `SearchResult.normalized_records`.
 - Added the optional `field_map` attribute to `ProviderConfig` and all default provider configs. This field map is directly used by default providers to normalize processed responses into universal dictionary structures for academic APIs with applications to machine learning.
 - Introduced `.normalize()` methods to `ProcessedResponse`, `SearchResult`, and `SearchResultList` for standardized record normalization.
 - Improved URL normalization and provider config resolution for URLs with parameters.
@@ -216,7 +234,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - Organized the current set of `scholar_flux.api` exports for easier discoverability of internal functionality.
-- Minor docstring and comment corrections. 
+- Minor docstring and comment corrections.
 - Enhanced type annotations and flexibility for record key handling in the `DataProcessor`. It now accepts string paths, lists, or mixed formats.
 - Updated the record/metadata path handling functionality in the `DataExtractor`. It can now handle and transform delimited string representations of paths.
 
@@ -243,8 +261,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - Refactored the `WorkflowStep.pre_transform` method to use the current provider name associated with the workflow by default. The previous context is used only if a provider name isn't specified for a workflow step.
-- Introduced a `stop_on_error` flag to the `SearchWorkflow` that halts workflows when a `None`, `ErrorResponse`, or `NonResponse` result from a previous step is encountered. 
-- The SearchWorkflow now prioritizes its current configuration over the result from the preceding workflow step.  This prevents potential issues such as API-specific parameter values that no longer apply when switching providers. This does not affect the way that the `PubMed` workflow operates, however. The behavior can be modified by inheriting and changing the `WorkflowStep.pre_transform` logic. 
+- Introduced a `stop_on_error` flag to the `SearchWorkflow` that halts workflows when a `None`, `ErrorResponse`, or `NonResponse` result from a previous step is encountered.
+- The SearchWorkflow now prioritizes its current configuration over the result from the preceding workflow step.  This prevents potential issues such as API-specific parameter values that no longer apply when switching providers. This does not affect the way that the `PubMed` workflow operates, however. The behavior can be modified by inheriting and changing the `WorkflowStep.pre_transform` logic.
 - Updated the package-level logger to be retrievable using the `logging` module. After importing scholar_flux or any submodule, it can be retrieved via `logging.getLogger("scholar_flux")`.
 - Modified the `BaseDataParser` test suite to simulate the unavailability of the `xmltodict` or `yaml` dependencies and their resulting error messages when not installed.
 - **Breaking**: Renamed the positional parameter, `storage` to `cache_storage`, for the constructor, `DataCacheManager.with_storage` for consistency with the rest of the implementation of the `DataCacheManager`.

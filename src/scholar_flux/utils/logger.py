@@ -1,6 +1,7 @@
 # utils/logger.py
 """The scholar_flux.utils.logger module implements a basic logger used to create an easy-to-re-initialize logger to be
 used for logging events and progress in the retrieval and processing of API responses."""
+
 import logging
 from pathlib import Path
 from typing import Iterator, Optional
@@ -87,7 +88,9 @@ def setup_logging(
         # Attempt to create the log directory within the package
         if log_file:
             current_log_directory: Path | None = (
-                Path(log_directory) if log_directory is not None else get_default_writable_directory("logs")
+                Path(log_directory).expanduser()
+                if log_directory is not None
+                else get_default_writable_directory("logs")
             )
             logger.info("Using the current directory for logging: %s", current_log_directory)
         else:

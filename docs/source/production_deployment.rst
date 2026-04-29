@@ -17,7 +17,7 @@ ScholarFlux is designed for production-grade data collection from academic APIs.
 - **Essential patterns**: Caching, concurrency, and security basics
 
 .. note::
-   ScholarFlux is currently **beta (v0.5.0)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
+   ScholarFlux is currently **beta (v0.5.1)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
 
 Prerequisites
 -------------
@@ -128,8 +128,11 @@ Based on ``scholar_flux.utils.config_loader``:
    # Optional: Override the log directory (otherwise uses $SCHOLAR_FLUX_HOME/logs/)
    # SCHOLAR_FLUX_LOG_DIRECTORY=/var/log/scholar-flux
 
-   # Optional: Override the cache directory (otherwise uses $SCHOLAR_FLUX_HOME/package_cache/)
+   # Optional: Override the cache directory for session and response cache backends (prioritized over $SCHOLAR_FLUX_HOME/package_cache/)
    # SCHOLAR_FLUX_CACHE_DIRECTORY=/var/cache/scholar-flux
+
+   # Optional: Override the cache directory for specific cached session backends (When set, this directory is prioritized over `SCHOLAR_FLUX_CACHE_DIRECTORY`)
+   # SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY=/var/cache/scholar-flux/session-cache/
 
    # Optional: Override the session cache name for specific backends (otherwise uses search_requests_cache)
    SCHOLAR_FLUX_SESSION_CACHE_NAME=session_cache_storage

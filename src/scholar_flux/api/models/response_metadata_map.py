@@ -11,9 +11,8 @@ class ResponseMetadataMap(BaseModel):
     """Maps API-specific response metadata field names to common names.
 
     This class enables extraction of metadata from API responses, primarily used for pagination decisions in multi-page
-    searches. This class extracts and processes metadata fields from metadata dictionaries and can be used for nested
-    path reversal by denoting fields with periods.
-    field retrieval.
+    searches. This class extracts and processes metadata fields from metadata dictionaries and supports nested field
+    retrieval by denoting paths with periods.
 
     Args:
         total_query_hits:
@@ -109,7 +108,7 @@ class ResponseMetadataMap(BaseModel):
             >>> metadata_map = ResponseMetadataMap(total_query_hits="totalHits", records_per_page="pageSize")
             >>> metadata = {"totalHits": "1500","pageSize": "20", "results": [...]}
             >>> metadata_map.process_metadata(metadata)
-            # OUTPUT: {"total_query_hits": 1500, "pageSize": "records_per_page", 20}
+            # OUTPUT: {"total_query_hits": 1500, "records_per_page": 20}
 
         """
         return {
@@ -124,7 +123,7 @@ class ResponseMetadataMap(BaseModel):
         records_per_page: Optional[int] = None,
         metadata: Optional[MetadataType] = None,
     ) -> Optional[int]:
-        """Calculating the total number of pages yet to be queried using either metadata or direct integer fields.
+        """Calculates the total number of pages yet to be queried using either metadata or direct integer fields.
 
         Args:
             total_query_hits (Optional[int]):

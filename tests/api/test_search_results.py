@@ -12,23 +12,23 @@ import pytest
 
 
 @pytest.fixture
-def extracted_records() -> list[dict[str, int]]:
+def extracted_records() -> list[dict[str, Any]]:
     """Mocks the `extracted_records` attribute with list of dictionaries, each representing a record in the response."""
     extracted_records = [dict(record=1, data=1), dict(record=2, data=2), dict(record=3, data=3)]
     return extracted_records
 
 
 @pytest.fixture
-def processed_records(extracted_records) -> list[dict[str, int]]:
+def processed_records(extracted_records) -> list[dict[str, Any]]:
     """Fixture for mocking the processed_records attribute in the creation of a ProcessedResponse."""
     processed_records = extracted_records.copy()
     return processed_records
 
 
 @pytest.fixture
-def normalized_records(processed_records) -> list[dict[str, int]]:
+def normalized_records(processed_records) -> list[dict[str, Any]]:
     """Fixture for mocking the normalized_records attribute in the creation of a ProcessedResponse."""
-    normalized_records = [
+    normalized_records: list[dict[str, Any]] = [
         {str(key): value for key, value in record.items()} | {"provider_name": "test"} for record in processed_records
     ]
 

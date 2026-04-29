@@ -27,10 +27,14 @@ class ProviderConfig(BaseModel):
     the scholar_flux.api.providers module.
 
     Args:
-        provider_name (str): The name of the provider to be associated with the config.
-        base_url (str): The URL of the provider to send requests with the specified parameters.
-        parameter_map (BaseAPIParameterMap): The parameter map indicating the specific semantics of the API.
-        metadata_map (MetadataMap): Defines the names of metadata fields used to distinguish response characteristics.
+        provider_name (str):
+            The name of the provider to be associated with the config.
+        base_url (str):
+            The URL of the provider to send requests with the specified parameters.
+        parameter_map (BaseAPIParameterMap):
+            The parameter map indicating the specific semantics of the API.
+        metadata_map (Optional[ResponseMetadataMap]):
+            Defines the names of metadata fields used to distinguish response characteristics.
         field_map (Optional[BaseFieldMap]):
             A provider-specific field map that normalizes processed response records into a universal record structure.
         records_per_page (int):

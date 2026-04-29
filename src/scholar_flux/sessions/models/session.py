@@ -169,16 +169,14 @@ class CachedSessionConfig(BaseModel):
     @field_validator("cache_directory", mode="before")
     def validate_cache_directory(cls, v: Optional[Path | str]) -> Optional[Path]:
         """Validates the cache_directory field to flag simple cases where the value is an empty string."""
-
-        if v is None or isinstance(v, Path):
+        if v is None:
             return v
 
-        if isinstance(v, str):
-            if len(v) == 0:
-                raise ValueError(
-                    f"The value provided to the cache_directory parameter ('{v}') must be a non-empty Path."
-                )
-            return Path(v)
+        if isinstance(v, str) and len(v) == 0:
+            raise ValueError(f"The value provided to the cache_directory parameter ('{v}') must be a non-empty Path.")
+
+        if isinstance(v, (Path, str)):
+            return Path(v).expanduser()
 
         raise ValueError(
             f"The cache_directory parameter expected a path, received a value of a different type ({type(v)})."

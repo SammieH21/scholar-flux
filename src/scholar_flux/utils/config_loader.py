@@ -49,7 +49,7 @@ class ConfigLoader:
               The default User-Agent to use when sending requests via `requests-cache`. If not specified,
               a default User-Agent will be generated automatically.
         - SCHOLAR_FLUX_DEFAULT_MAILTO:
-            Defines the default `mailto` address that is used when creating a new search coordinator.
+              Defines the default `mailto` address that is used when creating a new search coordinator.
         - SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND:
               Controls the default backend for CachedSession instances created when initializing SearchAPI or
               SearchCoordinator. Supported `requests_cache` backends include `sqlite`, `redis`, `mongodb`, and
@@ -58,12 +58,20 @@ class ConfigLoader:
               Defines the default cache storage backend that the `DataCacheManager` creates for response caching
               during orchestration of the response processing steps. Supported options are `redis`, `sql`,
               `mongodb`, `memory`, and `null`. Defaults to `memory` if not specified.
-        - SCHOLAR_FLUX_SESSION_CACHE_NAME:
-              Defines the name of the session cache db (mongodb/redis), table name (sqlite), or nested folder
-              (filename).
         - SCHOLAR_FLUX_CACHE_DIRECTORY:
-              Defines the directory path where requests and response processing cache will be stored when using
-              filesystem-based cache backends (e.g., `sqlite`).
+              Defines the default directory paths for filebased session and response cache backends when no other
+              directories are viable storage locations (response cache) or when `SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY`
+              is not populated (session cache.) At the moment, this option only impacts `SQLAlchemyStorage` and
+              `requests-cache` filesystem backends (e.g., `filesystem`, `sqlite`).
+              Note that, by default, the `sqlalchemy` response cache storage instead relies on
+              `SCHOLAR_FLUX_SQLALCHEMY_URL`, as URIs may not always include a directory path when connecting
+              to remote databases.
+        - SCHOLAR_FLUX_SESSION_CACHE_NAME:
+              Defines the name of the session cache database (mongodb/redis), table (sqlite), or folder (filename).
+        - SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY:
+              Defines the directory path where session cache will be stored when using filesystem-based cache
+              backends (e.g., `filesystem`, `sqlite`).
+
     API_KEYS
     ~~~~~~~~
         - ARXIV_API_KEY: API key used when retrieving academic data from arXiv.
@@ -74,6 +82,7 @@ class ConfigLoader:
         - PUBMED_API_KEY: API key used to retrieve publications from the NIH PubMed database.
         - SCHOLAR_FLUX_CACHE_SECRET_KEY:
             Defines the secret key used to create encrypted session cache for request retrieval.
+
     Logging
     ~~~~~~~~
         - SCHOLAR_FLUX_ENABLE_LOGGING: Defines whether logging should be enabled when `ScholarFlux` is initialized.
@@ -124,6 +133,7 @@ class ConfigLoader:
         "SCHOLAR_FLUX_CACHE_SECRET_KEY": SensitiveDataMasker.mask_secret(os.getenv("SCHOLAR_FLUX_CACHE_SECRET_KEY")),
         "SCHOLAR_FLUX_SESSION_CACHE_NAME": os.getenv("SCHOLAR_FLUX_SESSION_CACHE_NAME"),
         "SCHOLAR_FLUX_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_CACHE_DIRECTORY"),
+        "SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY": os.getenv("SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY"),
         "SCHOLAR_FLUX_LOG_DIRECTORY": os.getenv("SCHOLAR_FLUX_LOG_DIRECTORY"),
         "SCHOLAR_FLUX_LOG_FILE": os.getenv("SCHOLAR_FLUX_LOG_FILE", "application.log"),
         "SCHOLAR_FLUX_MONGODB_HOST": os.getenv(
@@ -206,7 +216,7 @@ class ConfigLoader:
                 Flag indicating whether logging should be shown in the output. This is set to False by default.
 
         Returns:
-            dict[str, Any]: A dictionary of key-value pairs corresponding to environment variables
+            dict[str, Any]: A dictionary of key-value pairs corresponding to environment variables.
 
         """
         if env_path is not None and not isinstance(env_path, (str, Path)):
@@ -236,7 +246,7 @@ class ConfigLoader:
     def _guard_secret(
         value: Any,
         key: Optional[str] = None,
-        matches: list[str] | tuple = ("API_KEY", "SECRET", "MAIL"),
+        matches: list[str] | tuple[str, ...] = ("API_KEY", "SECRET", "MAIL"),
     ) -> Any | SecretStr:
         """Guards the values of API keys, secrets, and likely email addresses by transforming them into secret strings.
 
@@ -244,13 +254,13 @@ class ConfigLoader:
         a `key` to apply masking when a specific keyword in `matches` matches a substring in the key.
 
         Args:
-            value (Any): The value to convert to a string if its key contains any match
+            value (Any): The value to convert to a string if its key contains any match.
             key (Optional[str]): The value to verify if it contains any match to keys containing API_KEY/SECRET/MAIL. If
                                  key is left blank, the value will be converted into a secret string by default.
-            matches (str): The substrings used to indicate whether a secret should be guarded
+            matches (list[str] | tuple[str, ...]): The substrings used to indicate whether a secret should be guarded.
 
         Returns:
-            Any | SecretStr: The original type if the value is likely not a secret. otherwise returns a SecretStr
+            Any | SecretStr: The original type if the value is likely not a secret. otherwise returns a SecretStr.
 
         """
         if isinstance(value, str) and matches is not None:
@@ -442,7 +452,7 @@ class ConfigLoader:
             return cls.DEFAULT_ENV_PATH
 
         raw_env_path_string = str(env_path)
-        raw_env_path = Path(raw_env_path_string)
+        raw_env_path = Path(raw_env_path_string).expanduser()
         raw_env_parent_path = raw_env_path.parent if raw_env_path_string.endswith(".env") else raw_env_path
         current_env_path = raw_env_path.resolve() if raw_env_parent_path.exists() else cls.DEFAULT_ENV_PATH
         return current_env_path / ".env" if not str(current_env_path).endswith(".env") else current_env_path

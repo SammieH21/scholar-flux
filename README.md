@@ -236,7 +236,7 @@ Built and presented at CDC meetings as a solution for AI-assisted systematic lit
 After the fellowship, I recognized the broader need beyond public health research and open-sourced it, expanding from the initial Springer Nature integration to 7+ providers with comprehensive documentation and production-ready features.
 
 **Technical foundation:**
-- **~61,647 lines of code**: ~34,385 LOC source + ~27,262 LOC comprehensive tests
+- **~61,674 lines of code**: ~34,410 LOC source + ~27,264 LOC comprehensive tests
 - **98% test coverage**: Rigorous testing across all functionality and edge cases
 - **Security-focused**: Automated CVE scanning, credential masking, encrypted caching
 - **Type-safe**: Comprehensive mypy type checking throughout the entire codebase
@@ -1094,7 +1094,7 @@ If you use ScholarFlux in your research, please cite it:
   title = {ScholarFlux: Production-Grade Orchestration for Academic APIs},
   year = {2026},
   url = {https://github.com/SammieH21/scholar-flux},
-  version = {0.5.0}
+  version = {0.5.1}
 }
 ```
 
@@ -1109,7 +1109,7 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 
 ## 📊 Project Statistics
 
-- **~61,647 Lines of Code** - ~34,385 LOC source + ~27,262 LOC comprehensive tests
+- **~61,674 Lines of Code** - ~34,410 LOC source + ~27,264 LOC comprehensive tests
 - **98% Test Coverage** - Rigorous testing across all functionality and edge cases
 - **7 Default Providers** - Pre-configured with schema normalization and metadata extraction
 - **Type-Safe Architecture** - Comprehensive type hints throughout the codebase with mypy strict-mode type checking
@@ -1117,7 +1117,7 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 - **Zero Known CVEs** - Continuous security monitoring in CI/CD pipeline
 - **8 Comprehensive Tutorials** - Detailed documentation from basics through production deployment
 - **3 AI/ML Example Pipelines** - Production-ready examples for embeddings, agents, and scheduled retrieval
-- **Stable Beta** (v0.5.0) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
+- **Stable Beta** (v0.5.1) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
 
 ---
 
