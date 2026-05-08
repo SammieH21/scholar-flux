@@ -77,7 +77,7 @@ def test_provider_config_base_url_provider_name_resolution(caplog):
     assert provider_registry.resolve_config(provider_url=bad_url, provider_name=crossref_name) == test_crossref_config
     assert "The configuration was resolved from the provider name." in caplog.text
 
-    # If no input can  be resolved, None is returned
+    # If no input can be resolved, None is returned
     assert provider_registry.resolve_config(provider_url=bad_url, provider_name=bad_name) is None
     assert (
         f"A configuration associated with the URL ({bad_url}) or provider name ({bad_name}) was not located."

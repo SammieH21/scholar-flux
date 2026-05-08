@@ -74,7 +74,7 @@ class CacheDataEncoder:
         Args:
             s (str | bytes): The string to check.
             hash_prefix (Optional[str]): The prefix to identify hash bytes. Uses the class default prefix <hashbytes>
-                                         but can be turned off if the CacheDataEncoder.DEFAULT_HASH_PREFIX  is modified
+                                         but can be turned off if the CacheDataEncoder.DEFAULT_HASH_PREFIX is modified
                                          or hash_prefix is set to ''.
 
         Returns:
@@ -170,7 +170,7 @@ class CacheDataEncoder:
                 * Mappings/Sequences/Sets/Tuples: Recursively encodes elements if they are bytes.
             hash_prefix (Optional[str]):
                 The prefix to identify hash bytes. Uses the class default prefix <hashbytes> but can be turned off if
-                the CacheDataEncoder.DEFAULT_HASH_PREFIX  is modified or hash_prefix is set to ''.
+                the CacheDataEncoder.DEFAULT_HASH_PREFIX is modified or hash_prefix is set to ''.
 
         Returns:
             object: Encoded string (for bytes) or a dictionary/list/tuple with recursively encoded elements.

@@ -193,7 +193,7 @@ def test_record_map_creation():
     record_map_single_three = RecordPathNodeMap([a1])
     assert record_map_single_three == record_map_single
 
-    # with a set containing  node
+    # with a set containing node
     record_map_single_four = RecordPathNodeMap({a1})
     assert record_map_single_four == record_map_single
 

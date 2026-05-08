@@ -7,15 +7,15 @@ This tutorial explains how ScholarFlux workflows enable multi-step data retrieva
    :class: tip
 
    **New to ScholarFlux?** Complete :doc:`getting_started` first, then return here.
-   
+
    **Quick start (5 min)**: Read "Overview" and "Built-in Workflows" to understand PubMed's automatic workflow, then start querying.
-   
+
    **Building custom workflows (20 min)**: Read through "Creating Custom Workflows" and one real-world example to learn the workflow pattern.
-   
+
    **Advanced customization (15 min)**: Jump to "Best Practices" or "Advanced Customization" for extension points and production patterns.
-   
+
    **Debugging workflow issues**: See "Workflow Error Handling" and "Troubleshooting" sections.
-   
+
    **Production deployment**: After reading, see :doc:`caching_strategies` for workflow caching patterns and :doc:`production_deployment` for deployment configuration.
 
 .. contents:: Table of Contents
@@ -60,7 +60,7 @@ Why Use Workflows?
        params={'term': 'neuroscience', 'retmax': 20}
    )
    ids = parse_xml(search_response)['IdList']['Id']
-   
+
    # Step 2: Fetch records using IDs
    fetch_response = requests.get(
        'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi',
@@ -135,13 +135,13 @@ Components Explained
        provider_name: str = "my_provider"
        search_parameters: dict = {}   # kwargs for _search()
        config_parameters: dict = {}   # overrides for SearchAPIConfig
-       
+
        def pre_transform(self, ctx: StepContext) -> "WorkflowStep":
            """Modify step based on previous results (optional)"""
-           
+
        def _run(self, step_number: int, coordinator, ctx: StepContext) -> StepContext:
            """Execute the step (required)"""
-           
+
        def post_transform(self, ctx: StepContext) -> StepContext:
            """Modify results after execution (optional)"""
 
@@ -162,7 +162,7 @@ Components Explained
    class SearchWorkflow(BaseModel):
        steps: List[WorkflowStep]     # Steps to execute in order
        stop_on_error: bool = True    # Halt workflow on step failure?
-       
+
        def _run(self, coordinator) -> WorkflowResult:
            """Execute all steps sequentially"""
 
@@ -208,16 +208,16 @@ PubMed requires two API calls: eSearch (get IDs) → eFetch (get records).
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    # PubMed workflow is automatically configured
    coordinator = SearchCoordinator(
        query="gene therapy",
        provider_name="pubmed"
    )
-   
+
    # Single call executes two-step workflow transparently
    result = coordinator.search(page=1)
-   
+
    if result:
        print(f"Retrieved {len(result.data)} records")
        for record in result.data[:3]:
@@ -227,8 +227,8 @@ PubMed requires two API calls: eSearch (get IDs) → eFetch (get records).
 
 **What happens behind the scenes:**
 
-1. **Step 1 (eSearch)**: 
-   - Provider: ``pubmed`` 
+1. **Step 1 (eSearch)**:
+   - Provider: ``pubmed``
    - Retrieves list of PubMed IDs matching query
    - Returns ProcessedResponse with IDs in ``metadata['IdList']['Id']``
    - **Cached** ✓
@@ -278,17 +278,17 @@ Build custom workflows by subclassing :class:`~scholar_flux.api.workflows.Workfl
    from scholar_flux.api.models import ProcessedResponse
    from scholar_flux.utils import generate_iso_timestamp
    from typing import Optional
-   
+
    class MySearchStep(WorkflowStep):
        """Step 1: Search for records"""
-       
+
        provider_name: Optional[str] = "my_provider"
-   
+
    class MyFetchStep(WorkflowStep):
        """Step 2: Fetch detailed data"""
-       
+
        provider_name: Optional[str] = "my_provider"
-       
+
        def pre_transform(
            self,
            ctx: Optional[StepContext] = None,
@@ -296,22 +296,22 @@ Build custom workflows by subclassing :class:`~scholar_flux.api.workflows.Workfl
            **kwargs
        ) -> "MyFetchStep":
            """Extract data from previous step to configure this step"""
-           
+
            # Validate context type
            self._verify_context(ctx)
-           
+
            # Extract data from Step 1
            if ctx and ctx.result:
                previous_results = ctx.result.data or []
-               
+
                # Extract IDs for Step 2
                ids = [r['id'] for r in previous_results if r.get('id')]
-               
+
                # Configure this step to use those IDs
                self.config_parameters = {'ids': ids}
-           
+
            return self
-       
+
        def _run(
            self,
            step_number: int,
@@ -321,23 +321,23 @@ Build custom workflows by subclassing :class:`~scholar_flux.api.workflows.Workfl
            **kwargs
        ) -> StepContext:
            """Execute Step 2 using IDs from Step 1"""
-           
+
            # Get IDs configured in pre_transform
            ids = self.config_parameters.get('ids', [])
-           
+
            # Fetch records using IDs
            responses = [
                search_coordinator.parameter_search(id=id_value)
                for id_value in ids
            ]
-           
+
            # Combine results
            combined_data = [
                record
                for response in responses if response
                for record in (response.data or [])
            ]
-           
+
            # Create final response
            final_response = ProcessedResponse(
                response=responses[0].response if responses else None,
@@ -345,7 +345,7 @@ Build custom workflows by subclassing :class:`~scholar_flux.api.workflows.Workfl
                metadata={'count': len(combined_data)},
                created_at=generate_iso_timestamp()
            )
-           
+
            # Return as StepContext
            return StepContext(
                step_number=step_number,
@@ -360,7 +360,7 @@ Build custom workflows by subclassing :class:`~scholar_flux.api.workflows.Workfl
        provider_name="my_provider",
        workflow=workflow
    )
-   
+
    result = coordinator.search(page=1)
 
 **Key Customization Points:**
@@ -386,25 +386,25 @@ Complete Implementation
    from scholar_flux.utils.helpers import generate_iso_timestamp
    from typing import Optional
    from pydantic import Field
-   
-   
+
+
    class PreprocessStep(WorkflowStep):
        """Step 1: Search Crossref for articles"""
-       
+
        provider_name: Optional[str] = Field(
            default="crossref",
            description="Provider for initial search"
        )
-   
-   
+
+
    class EnrichmentStep(WorkflowStep):
        """Step 2: Fetch detailed metadata using DOIs from Step 1"""
-       
+
        provider_name: Optional[str] = Field(
            default="crossref",
            description="Provider for DOI-based retrieval"
        )
-       
+
        def pre_transform(
            self,
            ctx: Optional[StepContext] = None,
@@ -415,27 +415,27 @@ Complete Implementation
            **kwargs
        ) -> "EnrichmentStep":
            """Extract DOIs from Step 1 results"""
-           
+
            # Validate we have context
            self._verify_context(ctx)
-           
+
            # Get results from preprocessing step
            preprocessed_result = ctx.result.data or [] if ctx and ctx.result else []
-           
+
            if not preprocessed_result:
                raise TypeError(
                    f"Step 1 produced no records. Cannot continue."
                )
-           
+
            # Extract DOIs
            dois = [r['DOI'] for r in preprocessed_result if r.get('DOI')]
-           
+
            # Configure for DOI-based retrieval
            # Note: Using config_parameters to override SearchAPIConfig
            self.search_parameters = {"parameters": {"dois": dois}}
-           
+
            return self
-       
+
        def _run(
            self,
            step_number: int,
@@ -446,10 +446,10 @@ Complete Implementation
            **kwargs
        ) -> StepContext:
            """Fetch detailed metadata for each DOI"""
-           
+
            # Get DOI list from pre_transform
            doi_list = self.search_parameters["parameters"]["dois"]
-           
+
            # Fetch each DOI individually
            # Note: parameter_search() allows custom endpoint paths
            processed_responses = [
@@ -459,7 +459,7 @@ Complete Implementation
                )
                for doi in doi_list if doi
            ]
-           
+
            # Combine all records
            combined_records = [
                record
@@ -467,7 +467,7 @@ Complete Implementation
                if response and response.data
                for record in response.data
            ]
-           
+
            # Create final response
            final_response = ProcessedResponse(
                response=processed_responses[0].response if processed_responses else None,
@@ -478,7 +478,7 @@ Complete Implementation
                },
                created_at=generate_iso_timestamp()
            )
-           
+
            return StepContext(
                step_number=step_number,
                step=self.model_copy(),
@@ -492,28 +492,28 @@ Usage Example
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.sessions import CachedSessionManager
-   
+
    # Create enrichment workflow
    enrichment_workflow = SearchWorkflow(
        steps=[PreprocessStep(), EnrichmentStep()]
    )
-   
+
    # Configure coordinator
    session_manager = CachedSessionManager(
        backend="redis",
        user_agent="Research/1.0 (mailto:user@institution.edu)"
    )
-   
+
    coordinator = SearchCoordinator(
        query="machine learning healthcare",
        provider_name="crossref",
        workflow=enrichment_workflow,
        session=session_manager()
    )
-   
+
    # Execute workflow
    result = coordinator.search(page=1)
-   
+
    if result:
        print(f"✅ Enriched {len(result.data)} records")
        print(f"Metadata: {result.metadata}")
@@ -541,17 +541,17 @@ Complete Implementation
    from scholar_flux.utils.helpers import generate_iso_timestamp
    from typing import Optional
    from pydantic import Field
-   
-   
+
+
    class SeedPaperStep(WorkflowStep):
        """Step 1: Find seed papers matching the query"""
-       
+
        provider_name: Optional[str] = "openalex"
-   
-   
+
+
    class CitationStep(WorkflowStep):
        """Step 2 (and 3): Fetch citation network data"""
-       
+
        provider_name: Optional[str] = "openalex"
        citation_parameter: str = Field(
            default="cited_by",
@@ -561,7 +561,7 @@ Complete Implementation
            default=None,
            description="Max records to fetch per seed paper"
        )
-       
+
        def pre_transform(
            self,
            ctx: Optional[StepContext] = None,
@@ -569,24 +569,24 @@ Complete Implementation
            **kwargs
        ) -> "CitationStep":
            """Extract OpenAlex IDs from previous results"""
-           
+
            self._verify_context(ctx)
-           
+
            # Get seed papers from previous step
            if ctx and ctx.result:
                seed_papers = ctx.result.data or []
-               
+
                # Extract OpenAlex IDs
                openalex_ids = [
-                   p.get('id') for p in seed_papers 
+                   p.get('id') for p in seed_papers
                    if p.get('id')
                ]
-               
+
                # Store for _run()
                self.search_parameters = {'openalex_ids': openalex_ids}
-           
+
            return self
-       
+
        def _run(
            self,
            step_number: int,
@@ -596,25 +596,25 @@ Complete Implementation
            **kwargs
        ) -> StepContext:
            """Fetch citations for each seed paper"""
-           
+
            openalex_ids = self.search_parameters.get('openalex_ids', [])
-           
+
            all_citations = []
-           
+
            for oa_id in openalex_ids:
                # Build filter for this paper's citations
                filter_param = f"{self.citation_parameter}:{oa_id}"
-               
+
                # Fetch citations
                response = search_coordinator.parameter_search(
                    filter=filter_param,
                    per_page=self.record_limit or 25,
                    **kwargs
                )
-               
+
                if response and response.data:
                    all_citations.extend(response.data[:self.record_limit] if self.record_limit else response.data)
-           
+
            # Deduplicate by OpenAlex ID
            seen_ids = set()
            unique_citations = []
@@ -623,7 +623,7 @@ Complete Implementation
                if citation_id and citation_id not in seen_ids:
                    seen_ids.add(citation_id)
                    unique_citations.append(citation)
-           
+
            # Create final response
            final_response = ProcessedResponse(
                response=None,  # Multiple API calls, no single response
@@ -636,36 +636,36 @@ Complete Implementation
                },
                created_at=generate_iso_timestamp()
            )
-           
+
            return StepContext(
                step_number=step_number,
                step=self.model_copy(),
                result=final_response
            )
-   
-   
+
+
    class OpenAlexCitationWorkflow(SearchWorkflow):
        """Three-step workflow for building citation networks"""
-       
+
        def _create_workflow_result(
-           self, 
+           self,
            result: Optional[ProcessedResponse] = None
        ) -> WorkflowResult:
            """Merge results from all citation steps"""
-           
+
            # Use base implementation
            workflow_result = super()._create_workflow_result(result)
-           
+
            # Optionally merge data from all steps
            if len(self._history) >= 3:
                seed_step = self._history[0]
                cited_by_step = self._history[1]
                cites_step = self._history[2]
-               
+
                # Combine all unique papers
                all_papers = []
                seen_ids = set()
-               
+
                for step_ctx in [seed_step, cited_by_step, cites_step]:
                    if step_ctx.result and step_ctx.result.data:
                        for paper in step_ctx.result.data:
@@ -673,7 +673,7 @@ Complete Implementation
                            if paper_id and paper_id not in seen_ids:
                                seen_ids.add(paper_id)
                                all_papers.append(paper)
-               
+
                # Create merged response
                merged_response = ProcessedResponse(
                    response=None,
@@ -686,9 +686,9 @@ Complete Implementation
                    },
                    created_at=generate_iso_timestamp()
                )
-               
+
                workflow_result.result = merged_response
-           
+
            return workflow_result
 
 Usage Example
@@ -697,7 +697,7 @@ Usage Example
 .. code-block:: python
 
    from scholar_flux import CachedSessionManager
-   
+
    # Create citation network workflow
    citation_workflow = OpenAlexCitationWorkflow(
        steps=[
@@ -706,13 +706,13 @@ Usage Example
            CitationStep(citation_parameter="cites", record_limit=5)  # Papers cited by seeds
        ]
    )
-   
+
    # Configure coordinator
    session_manager = CachedSessionManager(
        backend="redis",
        user_agent="Research/1.0 (mailto:user@institution.edu)"
    )
-   
+
    coordinator = SearchCoordinator(
        query="machine learning",
        provider_name="openalex",
@@ -720,14 +720,14 @@ Usage Example
        session=session_manager(),
        records_per_page=10
    )
-   
+
    # Execute workflow
    result = coordinator.search(page=1)
-   
+
    if result and result.data:
        print(f"Built citation network with {len(result.data)} unique papers")
        print(f"Metadata: {result.metadata}")
-       
+
        # Analyze citation network
        import pandas as pd
        df = pd.DataFrame(result.data)
@@ -750,14 +750,14 @@ When a workflow step fails, ScholarFlux returns an error response immediately:
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.api import ErrorResponse, NonResponse
-   
+
    coordinator = SearchCoordinator(
        query="test",
        provider_name="pubmed"
    )
-   
+
    result = coordinator.search(page=1)
-   
+
    # Check if workflow succeeded
    if result:
        print(f"✅ Workflow succeeded: {len(result.data)} records")
@@ -784,22 +784,22 @@ For debugging, you can inspect what steps succeeded before failure:
        query="test",
        provider_name="pubmed"
    )
-   
+
    result = coordinator.search(page=1)
-   
+
    # Check workflow history
    if coordinator.workflow and coordinator.workflow._history:
        print(f"Executed {len(coordinator.workflow._history)} steps:")
-       
+
        for step_ctx in coordinator.workflow._history:
            step_name = step_ctx.step.__class__.__name__
            success = bool(step_ctx.result)
            record_count = len(step_ctx.result.data or []) if step_ctx.result else 0
-           
+
            print(f"  Step {step_ctx.step_number} ({step_name}):")
            print(f"    Success: {success}")
            print(f"    Records: {record_count}")
-           
+
            if isinstance(step_ctx.result, ErrorResponse):
                print(f"    Error: {step_ctx.result.message}")
 
@@ -827,13 +827,13 @@ Control whether workflows halt on first error:
 .. code-block:: python
 
    from scholar_flux.api.workflows import SearchWorkflow
-   
+
    # Stop on first error (default)
    workflow = SearchWorkflow(
        steps=[Step1(), Step2(), Step3()],
        stop_on_error=True
    )
-   
+
    # Continue through all steps even if some fail
    workflow = SearchWorkflow(
        steps=[Step1(), Step2(), Step3()],
@@ -851,14 +851,14 @@ When testing workflows, you may need to create ``ErrorResponse`` objects. Schola
 .. code-block:: python
 
    from scholar_flux.api.models import ErrorResponse, ReconstructedResponse
-   
+
    # Create a mock response for testing
    test_response = ReconstructedResponse.build(
        url="https://api.example.com/test",
        status_code=500,
        json={"status": "failure", "message": "Test error"}
    )
-   
+
    # Create ErrorResponse with the mock response
    error = ErrorResponse(
        response=test_response,
@@ -899,29 +899,29 @@ Use type annotations for better code quality and IDE support:
    from typing import Optional
    from scholar_flux.api.workflows import WorkflowStep, StepContext
    from scholar_flux.api.models import ProcessedResponse
-   
+
    class TypedStep(WorkflowStep):
        provider_name: Optional[str] = "plos"
-       
+
        def pre_transform(
-           self, 
+           self,
            ctx: Optional[StepContext] = None,
            *args,
            **kwargs
        ) -> "TypedStep":
            """Validate context with type checking"""
            self._verify_context(ctx)
-           
+
            # Type-safe context checking
            if not isinstance(ctx, StepContext):
                raise RuntimeError(f"Expected StepContext, got {type(ctx)}")
-           
+
            # Type-safe data checking
            if not (ctx.result and ctx.result.data):
                raise RuntimeError("No data from previous step")
-           
+
            return self
-       
+
        def _run(
            self,
            step_number: int,
@@ -931,19 +931,19 @@ Use type annotations for better code quality and IDE support:
            **kwargs
        ) -> StepContext:
            """Execute with explicit return type"""
-           
+
            # Use type annotations for collections
            records: list[dict] = []
-           
+
            # ... step logic
-           
+
            response = ProcessedResponse(
                response=None,
                processed_records=records,
                metadata={},
                created_at=generate_iso_timestamp()
            )
-           
+
            return StepContext(
                step_number=step_number,
                step=self.model_copy(),
@@ -991,23 +991,23 @@ Enable caching for expensive workflows to avoid re-executing all steps:
 .. code-block:: python
 
    from scholar_flux import CachedSessionManager, DataCacheManager
-   
+
    # HTTP caching (request-level)
    session = CachedSessionManager(backend='redis')
-   
+
    # Result caching (processing-level)
    cache = DataCacheManager.with_storage('redis', namespace='my_workflow')
-   
+
    coordinator = SearchCoordinator(
        query="test",
        workflow=my_workflow,
        session=session(),       # Each step's HTTP request cached
        cache_manager=cache      # Each step's processed result cached
    )
-   
+
    # First run: executes all workflow steps
    result = coordinator.search(page=1)
-   
+
    # Second run: all steps retrieved from cache (instant)
    result = coordinator.search(page=1)
 
@@ -1030,30 +1030,30 @@ Test each step independently before testing the full workflow:
 
    from scholar_flux.api.workflows import StepContext
    from scholar_flux.api import SearchCoordinator, ProcessedResponse
-   
+
    # Test Step 1 independently
    step1 = MySearchStep()
    mock_coordinator = SearchCoordinator(
        provider_name='my_provider',
        query='test'
    )
-   
+
    # Execute Step 1
    result = step1._run(
        step_number=1,
        search_coordinator=mock_coordinator,
        ctx=None
    )
-   
+
    # Verify Step 1 output
    assert isinstance(result, StepContext)
    assert result.result
    assert len(result.result.data or []) > 0
-   
+
    # Test Step 2 with Step 1's output
    step2 = MyFetchStep()
    step2 = step2.pre_transform(ctx=result)
-   
+
    # Use with_context for scoped execution (if step implements it)
    with step2.with_context(mock_coordinator):
        step2_result = step2._run(
@@ -1061,7 +1061,7 @@ Test each step independently before testing the full workflow:
            search_coordinator=mock_coordinator,
            ctx=result
        )
-   
+
    # Verify Step 2 output
    assert isinstance(step2_result, StepContext)
    assert step2_result.result
@@ -1083,25 +1083,25 @@ Use ``with_context()`` to temporarily modify coordinator settings for a step's s
    from contextlib import contextmanager
    from typing import Generator
    from scholar_flux.api.workflows import WorkflowStep
-   
+
    class CustomStep(WorkflowStep):
        """Step with temporary configuration changes"""
-       
+
        provider_name: str = "plos"
        temp_delay: float = 0.1
-       
+
        @contextmanager
        def with_context(
-           self, 
+           self,
            search_coordinator,
            *args,
            **kwargs
        ) -> Generator["CustomStep", None, None]:
            """Temporarily reduce rate limiting for this step"""
-           
+
            # Save original delay
            original_delay = search_coordinator.api.config.request_delay
-           
+
            try:
                # Apply temporary delay
                search_coordinator.api.config.request_delay = self.temp_delay
@@ -1129,22 +1129,22 @@ Override this method to customize how final results are assembled:
 
    from scholar_flux.api.workflows import SearchWorkflow, WorkflowResult
    from scholar_flux.api.models import ProcessedResponse
-   
+
    class MergedWorkflow(SearchWorkflow):
        """Workflow that merges results from all steps"""
-       
+
        def _create_workflow_result(
            self,
            result: Optional[ProcessedResponse] = None
        ) -> WorkflowResult:
            """Merge data from all steps into final result"""
-           
+
            # Collect all records from all steps
            all_records: list[dict] = []
            for step_ctx in self._history:
                if step_ctx.result and step_ctx.result.data:
                    all_records.extend(step_ctx.result.data)
-           
+
            # Deduplicate
            seen_ids = set()
            unique_records = []
@@ -1153,7 +1153,7 @@ Override this method to customize how final results are assembled:
                if record_id and record_id not in seen_ids:
                    seen_ids.add(record_id)
                    unique_records.append(record)
-           
+
            # Create merged response
            merged_response = ProcessedResponse(
                response=None,
@@ -1164,15 +1164,15 @@ Override this method to customize how final results are assembled:
                },
                created_at=generate_iso_timestamp()
            )
-           
+
            return WorkflowResult(
                history=self._history,
                result=merged_response
            )
-   
+
    class Step1(WorkflowStep):
        provider_name: str = "plos"
-       
+
        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
            response = ProcessedResponse(
                response=None,
@@ -1181,10 +1181,10 @@ Override this method to customize how final results are assembled:
                created_at=generate_iso_timestamp()
            )
            return StepContext(step_number=step_number, step=self.model_copy(), result=response)
-   
+
    class Step2(WorkflowStep):
        provider_name: str = "plos"
-       
+
        def _run(self, step_number, search_coordinator, ctx=None, *args, **kwargs):
            response = ProcessedResponse(
                response=None,
@@ -1211,23 +1211,23 @@ Common Issues
 
 **Cause**: A step returned empty results, and the next step expected data.
 
-**Solution**: 
+**Solution**:
 
 .. code-block:: python
 
    def pre_transform(self, ctx: StepContext) -> "MyStep":
        self._verify_context(ctx)
-       
+
        if not isinstance(ctx, StepContext):
            raise RuntimeError(f"Expected `ctx` to be a StepContext, received {type(ctx)}")
-       
+
        # Check if previous step has data
        if not (ctx.result and ctx.result.data):
            raise RuntimeError(
                f"Step {ctx.step_number} returned no results. "
                f"Check query parameters or API availability."
            )
-       
+
        # ... rest of pre_transform
 
 **Issue**: Workflow runs but returns wrong data
@@ -1239,7 +1239,7 @@ Common Issues
 .. code-block:: python
 
    result = coordinator.search(page=1)
-   
+
    # Inspect what each step received and returned
    for i, step_ctx in enumerate(coordinator.workflow._history):
        print(f"\n=== Step {i} ===")

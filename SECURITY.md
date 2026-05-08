@@ -2,7 +2,7 @@
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.5.1). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
+ScholarFlux is currently in **beta** (v0.5.2). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
 
 - This is pre-release software under active development
 - APIs and interfaces may change between versions
@@ -69,7 +69,7 @@ Even if you accidentally log a config object, credentials stay masked:
 import logging
 from scholar_flux.utils import ConfigLoader
 
-logger = logging.getLogger('scholar_flux') 
+logger = logging.getLogger('scholar_flux')
 logger.setLevel(logging.DEBUG)
 
 config_settings = ConfigLoader()
@@ -125,7 +125,7 @@ from scholar_flux.sessions import EncryptionPipelineFactory, CachedSessionManage
 from scholar_flux.api import SearchAPI
 import os
 
-# Attempts to load encryption key from environment 
+# Attempts to load encryption key from environment
 # variable or keep track of it:
 key = os.environ.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
 
@@ -135,7 +135,7 @@ encryption_pipeline_factory = EncryptionPipelineFactory(key)
 if not key:
     # Save this key to the environment variable for future use
     # CRITICAL: Store this key securely - losing it means losing cached data
-    current_key = encryption_pipeline_factory.secret_key 
+    current_key = encryption_pipeline_factory.secret_key
 
 # Create a new encryption serializer
 serializer = encryption_pipeline_factory()
@@ -143,7 +143,7 @@ serializer = encryption_pipeline_factory()
 # Creates a cached session manager with encryption
 manager = CachedSessionManager(backend='sqlite', user_agent='scholar flux search', serializer=serializer)
 
-# uses the manager class to creates a new CachedSession 
+# uses the manager class to creates a new CachedSession
 session = manager()
 
 # creates a basic response retrieval session to use as a part of a final search coordinator or separately

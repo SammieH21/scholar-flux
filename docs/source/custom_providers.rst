@@ -14,7 +14,7 @@ Overview
 Why Add Custom Providers?
 --------------------------
 
-ScholarFlux ships with seven academic providers (PLOS, arXiv, PubMed, OpenAlex, Crossref, CORE, Springer Nature), but research needs vary:
+ScholarFlux ships with seven academic providers (PLOS, arXiv, PubMed, OpenAlex, Crossref, CORE, Springer Nature), but the research needs of end-users vary:
 
 - **Institution-specific databases**: University repositories, institutional archives
 - **Domain-specific resources**: Medical databases, patent databases, legal research platforms
@@ -48,19 +48,19 @@ An optional component that is used to map API-specific field names to universal 
 
 .. code-block:: python
 
-   # For academic APIs, use AcademicFieldMap
+   # For academic APIs, use or subclass the AcademicFieldMap
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    field_map = AcademicFieldMap(
        provider_name='my_provider',
        title='article_title',
        abstract='summary',
        doi='DOI'
    )
-   
+
    # For non-academic APIs, subclass NormalizingFieldMap
    from scholar_flux.api.normalization import NormalizingFieldMap
-   
+
    class ArticleFieldMap(NormalizingFieldMap):
        provider_name: str = ""
        title: str | list[str] | None = None
@@ -72,7 +72,7 @@ An optional component that is used to map API-specific field names to universal 
 
 **3. ResponseMetadataMap** - Response metadata extraction
 
-Extracts pagination info from API responses. This map is optional and mainly used when determining if there are more retrievable pages associated with a query when retrieving multiple pages in succession.
+Extracts pagination info from API responses. This map is optional and mainly used when determining if there are more retrievable pages associated with a query when retrieving multiple pages in succession. When not available, multi-page retrieval stops when all requested pages have been retrieved, the successful response contains 0 records, or an unsuccessful status code is returned.
 
 .. code-block:: python
 
@@ -84,16 +84,17 @@ Extracts pagination info from API responses. This map is optional and mainly use
 Minimal Provider Example
 ========================
 
-ScholarFlux offers a high degree of customization, the minimally viable provider-config only requires users to create an APIParameterMap and a ProviderConfig: 
+ScholarFlux offers a high degree of customization, the minimally viable provider-config only requires users to create an APIParameterMap and a ProviderConfig:
 
 .. code-block:: python
 
    from scholar_flux.api import ProviderConfig, APIParameterMap, provider_registry
    from scholar_flux import SearchCoordinator
-   
+
    # Minimal configuration - just parameter mapping
    minimal_config = ProviderConfig(
        provider_name='a_custom_api_provider',
+       display_name='A Human-Readable Name for the Custom Provider',
        base_url='https://api.a_custom_api_provider.com/search',
        parameter_map=APIParameterMap(
            query='query',
@@ -102,9 +103,9 @@ ScholarFlux offers a high degree of customization, the minimally viable provider
        ),
        records_per_page=20
    )
-   
+
    provider_registry.add(minimal_config)
-   
+
    # Use immediately - returns raw API response
    coordinator = SearchCoordinator(
        query="test",
@@ -116,24 +117,29 @@ ScholarFlux offers a high degree of customization, the minimally viable provider
    # OUTPUT: https://api.a_custom_api_provider.com/search?query=test&item-start-number=1&items-per-page=20
 
    result = coordinator.search_page(page=1) # response container with additional metadata
-   
+
    if result:
        # Records have raw API field names
        print(result.response)  # The raw API response
        print(result.metadata)  # Extracted metadata
        print(result.data)  # Processed records
-    else:
-        print(f"Error retrieving page {result.page}. {result.error}: {result.message}")
+   else:
+       print(f"Error retrieving page {result.page}. {result.error}: {result.message}")
 
 Complete Example: Guardian News API
 ====================================
 
 Let's add The Guardian's news API as a custom provider. This demonstrates a non-academic API with typical JSON responses.
 
+.. note::
+  An API key is required for The Guardian. As always, it is strongly recommended to store the API key as an environment variable (defined as `GUARDIAN_API_KEY` here) instead of directly passing the API key as a string.
+
 Full Configuration
 ------------------
 
 .. code-block:: python
+
+   from datetime import datetime
 
    from scholar_flux.api import (
        ProviderConfig,
@@ -143,8 +149,10 @@ Full Configuration
    )
    from scholar_flux import SearchCoordinator
    from scholar_flux.api.normalization import NormalizingFieldMap
+   from scholar_flux.utils.record_types import NormalizedRecordType  # dictionary with string fields
+   from scholar_flux.utils.helpers import parse_iso_timestamp
 
-   
+
    # Step 1: Configure API parameters
    parameters = APIParameterMap(
        query='q',                     # Guardian uses 'q' for queries
@@ -155,7 +163,7 @@ Full Configuration
        zero_indexed_pagination=False, # Pages start at 1, not 0
        api_key_required=True          # API key is mandatory
    )
-   
+
    # Step 2 (Optional - for field normalization): Define custom field map for news articles
    class ArticleFieldMap(NormalizingFieldMap):
        """Field map for journalism/news APIs."""
@@ -168,9 +176,29 @@ Full Configuration
        url: str | list[str] | None = None
        date_published: str | list[str] | None = None
 
-   
+   class GuardianFieldMap(ArticleFieldMap):
+       """Optionally subclass the field map for the Guardian API, adding API-specific post processing if needed."""
+
+       def _post_process(self, record: NormalizedRecordType) -> NormalizedRecordType:
+           """Optional post-processing example step for modifying records after field resolution for 'The Guardian'."""
+           record = super()._post_process(record) # Initial post-processing step after fields are resolved
+
+           # Converts the publication date into a datetime
+           record["date_published"] = self.extract_iso_timestamp(record)
+
+           # Returns the updated record after post-processing
+           return record
+
+       @classmethod
+       def extract_iso_timestamp(cls, record: NormalizedRecordType, field: str = "date_published") -> datetime | None:
+           """Extracts the date of the article's publication."""
+           date = record.get(field) # In case a valid `date field` could not be resolved
+           # Attempts to extract a timestamp, returning None if parsing fails
+           return parse_iso_timestamp(date) if date else None
+
+
    # Step 3 (Optional - for field normalization): Configure field mappings
-   field_map = ArticleFieldMap(
+   field_map = GuardianFieldMap(
        provider_name='guardian',
        title='webTitle',              # Guardian's title field
        record_id='id',                # Guardian's ID field
@@ -184,17 +212,18 @@ Full Configuration
            'pillar_name': 'pillarName'
        }
    )
-   
+
    # Step 4 (Optional): Configure metadata extraction
    metadata = ResponseMetadataMap(
        total_query_hits='total', # Path to total results
        records_per_page='pageSize' # path to page-size
    )
 
-   
+
    # Step 5: Create provider configuration
    guardian_config = ProviderConfig(
        provider_name='guardian',
+       display_name='The Guardian',
        base_url='https://content.guardianapis.com/search',
        parameter_map=parameters,
        metadata_map=metadata,
@@ -204,30 +233,31 @@ Full Configuration
        api_key_env_var='GUARDIAN_API_KEY',  # Environment variable
        docs_url='https://open-platform.theguardian.com/documentation/'
    )
-   
+
    # Step 6: Add to registry
    provider_registry.add(guardian_config)
-   
+
    # Step 7: Use immediately!
    coordinator = SearchCoordinator(
        query="artificial intelligence",
        provider_name="guardian"
    )
-   result = coordinator.search(page=1, normalize_records=True)
-   
-   if result:
-       print(f"Retrieved {len(result.data)} articles")
-       normalized = result.normalized_records or []
-       if normalized:
-           print(f"First article: {normalized[0]['title']}")
+
+   # Normalize records on the retrieval of page 1
+   result = coordinator.search_page(page=1, normalize_records=True)
+
+   if result.normalized_records:
+       print(f"Retrieved {result.record_count} articles")
+       first_record = result.normalized_records[0]
+       print(f"First article: {first_record['title']}")
 
 **What just happened:**
 
-✅ Configured parameter mapping (query → q, page → page)  
-✅ Created custom field map for news articles  
-✅ Configured field normalization (webTitle → title)  
-✅ Configured metadata extraction (total results)  
-✅ Added to registry—now works like built-in providers  
+✅ Configured parameter mapping (query → q, page → page)
+✅ Created custom field map for news articles
+✅ Configured field normalization (webTitle → title)
+✅ Configured metadata extraction (total results)
+✅ Added to registry—now works like built-in providers
 ✅ Full ScholarFlux integration (caching, rate limiting, multi-provider search)
 
 Understanding the Configuration
@@ -297,21 +327,21 @@ Use ``SearchAPI.describe()`` to see all accepted universal and API-specific para
 .. code-block:: python
 
    from scholar_flux import SearchAPI
-   
+
    # View parameters for a built-in provider
    api = SearchAPI.from_defaults(query="test", provider_name="crossref")
    api.describe()
-   
+
    # Output:
-   # {'config_fields': ['provider_name', 'base_url', 'records_per_page', 
+   # {'config_fields': ['provider_name', 'base_url', 'records_per_page',
    #                    'request_delay', 'api_key', 'api_specific_parameters'],
    #  'api_specific_parameters': {
-   #      'mailto': APISpecificParameter(name='mailto', 
-   #                    description='An optional contact email...', 
+   #      'mailto': APISpecificParameter(name='mailto',
+   #                    description='An optional contact email...',
    #                    validator='validate_and_process_email (function)', ...),
-   #      'sort': APISpecificParameter(name='sort', 
+   #      'sort': APISpecificParameter(name='sort',
    #                    description="Sort field (e.g., 'published', 'deposited')...", ...),
-   #      'order': APISpecificParameter(name='order', 
+   #      'order': APISpecificParameter(name='order',
    #                    description="Sort direction: 'asc' or 'desc'.", ...),
    #  }}
 
@@ -330,9 +360,9 @@ Extend parameter support without modifying provider configuration:
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.api.validators import validate_str
-   
+
    coordinator = SearchCoordinator(query="machine learning", provider_name="crossref")
-   
+
    # Add a custom API-specific parameter for the current session
    new_parameter_config = coordinator.api.parameter_config.add_parameter(
            name='select',           # Actual API parameter name
@@ -342,7 +372,7 @@ Extend parameter support without modifying provider configuration:
            inplace=False,              # Determines whether the global configuration settings should be modified
    )
    coordinator.api.parameter_config = new_parameter_config
-   
+
    # Now you can use the parameter
    result = coordinator.search(page=1, select="DOI,title,page")
 
@@ -362,10 +392,10 @@ For lower-level control, use ``BaseAPIParameterMap.add_parameter()``:
        if value is not None and not isinstance(value, str):
            raise TypeError(f"The received value ({value}) is not a string...")
        return value
-   
+
    # Get the provider's parameter map
    config = provider_registry.get(name)
-   
+
    # Add a single parameter efficiently
    config.parameter_map.api_specific_parameters['select'] = APISpecificParameter(
            name='select',           # Actual API parameter name
@@ -449,7 +479,7 @@ API Key Handling
        api_key_parameter='api-key',  # Parameter name
        api_key_required=True         # Raise error if missing
    )
-   
+
    config = ProviderConfig(
        provider_name='my_provider',
        parameter_map=parameters,
@@ -522,17 +552,21 @@ Before using a custom provider in production:
 1. **Test with real queries:**
 
    .. code-block:: python
-   
+
       coordinator = SearchCoordinator(
           query="test query",
           provider_name="my_provider"
       )
-      
+
+      # Check the URL to verify that the request URL appears correct. If not, revise the API's ProviderConfig
+      search_request = coordinator.api.prepare_search(page=1)  #  An individual requests.PreparedRequest
+      print(f"Search URL: {search_request.url}")  # Inspect the URL
+
       # Test basic retrieval with `search_page` (returns a `SearchResult` container with additional metadata)
       result = coordinator.search_page(page=1)
       assert result, f"Failed: {type(result.response_result)}: {result.error} - {result.message}"
-      print(f"✓ Retrieved {len(result.data)} records")
-      
+      print(f"✓ Retrieved {result.record_count} records")
+
       # Test multiple pages
       results = coordinator.search_pages(pages=range(1, 4))
       successful = results.filter()
@@ -541,7 +575,7 @@ Before using a custom provider in production:
 2. **Verify normalization:**
 
    .. code-block:: python
-   
+
       # Tests retrieval with the returned `ProcessedResponse`, `ErrorResponse`, or None
       result = coordinator.search(page=2, normalize_records=True)
       if result and result.normalized_records:
@@ -555,11 +589,11 @@ Before using a custom provider in production:
 3. **Test pagination:**
 
    .. code-block:: python
-   
+
       # Verify pages return different records
       page1 = coordinator.search(page=1)
       page2 = coordinator.search(page=2)
-      
+
       if page1 and page2:
           ids1 = [r['id'] for r in page1.data if 'id' in r]
           ids2 = [r['id'] for r in page2.data if 'id' in r]
@@ -569,7 +603,7 @@ Before using a custom provider in production:
 4. **Check metadata extraction:**
 
    .. code-block:: python
-   
+
       result = coordinator.search(page=1)
       if result:
           print(f"✓ Total results: {result.total_query_hits}")
@@ -606,9 +640,9 @@ Verify the mapped parameters from ``APIParameterMap`` against the API provider's
 
 .. code-block:: python
 
-   # If API uses page numbers (1, 2, 3):
+   # If the API uses page numbers (1, 2, 3):
    print(coordinator.api.parameter_config.map)
-   
+
 
 Best Practices
 ==============
@@ -619,21 +653,21 @@ Configuration Guidelines
 1. **Check API rate limiting requirements directly and start conservative with rate limits:**
 
    .. code-block:: python
-   
+
       # Start with a longer delay
       request_delay=5.0
-      
+
       # Monitor API response headers
       # Adjust based on documented limits
 
 2. **Use descriptive provider names:**
 
    .. code-block:: python
-   
+
       # Good
       provider_name='europepmc'
       provider_name='semantic_scholar'
-      
+
       # Avoid
       provider_name='api1'
       provider_name='custom'
@@ -641,14 +675,14 @@ Configuration Guidelines
 3. **Document your configuration:**
 
    .. code-block:: python
-   
+
       """
       Custom ScholarFlux Provider: Europe PMC
-      
+
       Requirements:
       - No API key required
       - Rate limit: 3 requests/second
-      
+
       Usage:
           >>> from my_providers import europepmc_config
           >>> provider_registry.add(europepmc_config)
@@ -656,7 +690,7 @@ Configuration Guidelines
           ...     query="cancer",
           ...     provider_name="europepmc"
           ... )
-      
+
       API Documentation:
       - https://europepmc.org/RestfulWebService
       """
@@ -664,14 +698,14 @@ Configuration Guidelines
 4. **Test with diverse queries:**
 
    .. code-block:: python
-   
+
       test_queries = [
           "simple query",
           "complex AND (query OR terms)",
           "phrase in quotes",
           "year:2024"
       ]
-      
+
       for query in test_queries:
           coordinator = SearchCoordinator(
               query=query,
@@ -689,25 +723,25 @@ ScholarFlux uses response types instead of exceptions:
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.api.models import NonResponse, ErrorResponse
-   
+
    def safe_search(query: str, provider_name: str):
        coordinator = SearchCoordinator(query=query, provider_name=provider_name)
        result = coordinator.search(page=1)
-       
+
        # ProcessedResponse (truthy) - success
        if result:
            return result.normalize()
-       
+
        # NonResponse - network error or API unreachable
        if isinstance(result.response_result, NonResponse):
            print(f"Network error: {result.message}")
            return []
-       
+
        # ErrorResponse - API returned error
        if isinstance(result.response_result, ErrorResponse):
            print(f"API error: {result.message}")
            return []
-       
+
        return []
 
 .. tip::

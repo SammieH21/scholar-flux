@@ -710,7 +710,7 @@ class PathNodeMap(UserDict[ProcessingPath, PathNode]):
         """Create a copy of the current path-node combinations and their contents.
 
         Returns:
-            SparsePathNodeMap: A new map of path-node combinations  with the same attributes
+            SparsePathNodeMap: A new map of path-node combinations with the same attributes
             and values as the current map.
 
         """

@@ -88,7 +88,7 @@ def test_redis_update_error(redis_test_storage, monkeypatch, caplog):
 
 
 def test_redis_delete_error(redis_test_storage, monkeypatch, caplog):
-    """Tests single-record deletion edge cases with  redis."""
+    """Tests single-record deletion edge cases with redis."""
     from redis import RedisError
 
     e = "Directly raised exception"

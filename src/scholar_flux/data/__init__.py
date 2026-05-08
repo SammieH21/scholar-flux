@@ -6,7 +6,7 @@ the response performs the following steps: Response Parsing --> Record Extractio
 Stages:
     **Response Parsing**:
         Extracts XML, JSON, or YAML-based responses from the response content. The response content is automatically
-        parsed  depending on the content type listed in the response header. This can be further customized to enable
+        parsed depending on the content type listed in the response header. This can be further customized to enable
         the processing of other content types in a streamlined way.
     **Record Extraction**:
         This phase involves the extraction of metadata and records from parsed API responses.

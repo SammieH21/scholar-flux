@@ -360,7 +360,7 @@ def test_api_key_build_parameter_overrides(caplog):
     # An api key can be swapped mid-parameter build, but not encouraged
     params = api.build_parameters(page=1, api_key=key)
 
-    # Gets the secret api key using the name of the API key parameter  specific to Springer Nature
+    # Gets the secret api key using the name of the API key parameter specific to Springer Nature
     secret_api_key = params.get(api.parameter_config.parameter_map.api_key_parameter or "")
 
     assert isinstance(secret_api_key, SecretStr) and secret_api_key == key

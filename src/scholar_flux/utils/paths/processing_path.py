@@ -412,7 +412,7 @@ class ProcessingPath:
 
     @property
     def record_index(self) -> int:
-        """Extract the first element of the current path to determine the record number if the current path  refers back
+        """Extract the first element of the current path to determine the record number if the current path refers back
         to a paginated structure.
 
         Returns:

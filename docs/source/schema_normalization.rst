@@ -22,17 +22,17 @@ Academic APIs return the same information using wildly different field names:
        'title_display': 'Machine Learning in Genomics',  # PLOS
        'author_display': ['Smith J', 'Jones K']
    }
-   
+
    arxiv_record = {
        'title': 'Machine Learning in Genomics',          # arXiv
        'author': [{'name': 'Smith J'}, {'name': 'Jones K'}]
    }
-   
+
    crossref_record = {
        'title': ['Machine Learning in Genomics'],         # Crossref
        'author': [{'family': 'Smith', 'given': 'J'}]
    }
-   
+
    openalex_record = {
        'display_name': 'Machine Learning in Genomics',    # OpenAlex
        'authorships': [{'author': {'display_name': 'Smith J'}}]
@@ -49,19 +49,19 @@ ScholarFlux normalizes provider-specific field names into universal academic fie
 
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
    import pandas as pd
-   
+
    # Query 4 providers
    multi_coordinator = MultiSearchCoordinator()
    multi_coordinator.add_coordinators([
        SearchCoordinator(query="machine learning", provider_name=provider)
        for provider in ['plos', 'arxiv', 'openalex', 'crossref']
    ])
-   
+
    results = multi_coordinator.search_pages(pages=range(1, 3))
-   
+
    # Filter successful responses and normalize
    normalized_records = results.filter().normalize()
-   
+
    # All records now have consistent field names
    df = pd.DataFrame(normalized_records)
    print(df.columns)
@@ -113,17 +113,17 @@ Normalize results from a single provider:
 
    from scholar_flux import SearchCoordinator
    import pandas as pd
-   
+
    # Search PLOS
    coordinator = SearchCoordinator(query="CRISPR", provider_name="plos")
    results = coordinator.search_pages(pages=range(1, 6))
-   
+
    # Filter successful responses and normalize
    normalized_records = results.filter().normalize()
-   
+
    # Convert to DataFrame
    df = pd.DataFrame(normalized_records)
-   
+
    # All records have consistent field names
    print(df[['provider_name', 'title', 'doi', 'authors', 'journal']].head())
 
@@ -150,7 +150,7 @@ The real power emerges with multiple providers:
 
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
    import pandas as pd
-   
+
    # Query 4 providers simultaneously
    multi_coordinator = MultiSearchCoordinator()
    multi_coordinator.add_coordinators([
@@ -159,16 +159,16 @@ The real power emerges with multiple providers:
        SearchCoordinator(query="machine learning", provider_name='openalex'),
        SearchCoordinator(query="machine learning", provider_name='crossref')
    ])
-   
+
    # Retrieve 10 pages per provider (40 total requests)
    results = multi_coordinator.search_pages(pages=range(1, 11))
-   
+
    # Normalize all 1,250+ records in one call
    normalized_records = results.filter().normalize()
-   
+
    # ML-ready DataFrame
    df = pd.DataFrame(normalized_records)
-   
+
    print(f"Total records: {len(df)}")
    print(f"Providers: {df['provider_name'].unique()}")
    print(f"Fields: {len(df.columns)}")
@@ -208,21 +208,21 @@ The :meth:`~scholar_flux.api.models.SearchResultList.normalize` method is availa
 1. **SearchResultList** (recommended for batch operations):
 
    .. code-block:: python
-   
+
       results = coordinator.search_pages(pages=range(1, 11))
       normalized = results.filter().normalize()  # List[dict]
 
 2. **SearchResult** (single page):
 
    .. code-block:: python
-   
+
       result = coordinator.search(page=1)
       normalized = result.normalize()  # List[dict]
 
 3. **ProcessedResponse** (lowest level):
 
    .. code-block:: python
-   
+
       result = coordinator.search(page=1)
       normalized = result.response_result.normalize()  # List[dict]
 
@@ -237,15 +237,15 @@ For convenience, normalize during search execution:
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    coordinator = SearchCoordinator(query="CRISPR", provider_name="plos")
-   
+
    # Normalize automatically during search
    result = coordinator.search(page=1, normalize_records=True)
-   
+
    # Access cached normalized records
    normalized = result.response_result.normalized_records
-   
+
    # Or call normalize() - returns cached results
    normalized = result.normalize()
 
@@ -262,17 +262,17 @@ The filter() Method
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    coordinator = SearchCoordinator(query="test", provider_name="plos")
    results = coordinator.search_pages(pages=range(1, 20))
-   
+
    # Without filter - may include ErrorResponse/NonResponse
    print(f"Total results: {len(results)}")
-   
+
    # With filter - only ProcessedResponse instances
    successful = results.filter()
    print(f"Successful: {len(successful)}")
-   
+
    # Normalize only successful responses
    normalized = successful.normalize()
 
@@ -295,7 +295,7 @@ ScholarFlux defines 18 universal academic fields through the ``AcademicFieldMap`
 .. code-block:: python
 
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # View all universal fields
    universal_fields = AcademicFieldMap.model_fields.keys()
    print(list(universal_fields))
@@ -342,11 +342,11 @@ Each provider has a custom field map defining how to extract universal fields:
 .. code-block:: python
 
    from scholar_flux.api.providers import provider_registry
-   
+
    # Get PLOS field map
    plos_config = provider_registry.get('plos')
    field_map = plos_config.field_map
-   
+
    # View field mappings
    print(field_map.fields)
    # {'provider_name': 'plos',
@@ -371,7 +371,7 @@ Field maps support dot notation for nested fields:
 .. code-block:: python
 
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # Define nested field paths
    field_map = AcademicFieldMap(
        provider_name="custom_api",
@@ -380,7 +380,7 @@ Field maps support dot notation for nested fields:
        doi="identifiers.doi",
        year="publication.year"
    )
-   
+
    # Sample nested record
    record = {
        'article': {
@@ -393,10 +393,10 @@ Field maps support dot notation for nested fields:
        'identifiers': {'doi': '10.1234/example'},
        'publication': {'year': 2024}
    }
-   
+
    # Normalize
    normalized = field_map.normalize_record(record)
-   
+
    print(normalized)
    # {'provider_name': 'custom_api',
    #  'title': 'Deep Learning',
@@ -419,7 +419,7 @@ Some providers store the same data in different locations. Use fallback paths:
 .. code-block:: python
 
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # Define fallback paths as a list
    field_map = AcademicFieldMap(
        provider_name="custom_api",
@@ -428,15 +428,15 @@ Some providers store the same data in different locations. Use fallback paths:
        # Try detailed abstract first, then summary
        abstract=["detailed_abstract", "summary"]
    )
-   
+
    # Record with fallback field
    record = {
        'fallback_title': 'Machine Learning Advances',
        'summary': 'A comprehensive review...'
    }
-   
+
    normalized = field_map.normalize_record(record)
-   
+
    print(normalized['title'])    # 'Machine Learning Advances'
    print(normalized['abstract']) # 'A comprehensive review...'
 
@@ -478,18 +478,18 @@ Include query/provider metadata alongside normalized records:
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    coordinator = SearchCoordinator(query="CRISPR", provider_name="plos")
    results = coordinator.search_pages(pages=range(1, 3))
-   
+
    # Default: includes provider_name and page
    normalized = results.filter().normalize()
    print(normalized[0].keys())
    # dict_keys(['provider_name', 'page', 'title', 'doi', ...])
-   
+
    # Include only provider_name
    normalized = results.filter().normalize(include={'provider_name'})
-   
+
    # Include all metadata
    normalized = results.filter().normalize(include={'query', 'provider_name', 'page'})
    print(normalized[0])
@@ -513,18 +513,18 @@ Control when normalized records are cached:
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    coordinator = SearchCoordinator(query="test", provider_name="plos")
    result = coordinator.search(page=1)
-   
+
    # First normalization - computes and caches
    normalized1 = result.normalize(update_records=True)
    assert result.response_result.normalized_records == normalized1
-   
+
    # Second normalization - uses cached results
    normalized2 = result.normalize()
    assert normalized1 is result.response_result.normalized_records
-   
+
    # Force recomputation without caching
    normalized3 = result.normalize(update_records=False)
    # Recomputes but doesn't update .normalized_records
@@ -543,14 +543,14 @@ Normalization handles errors gracefully:
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.exceptions import RecordNormalizationException
-   
+
    coordinator = SearchCoordinator(query="test", provider_name="unknown_provider")
    result = coordinator.search(page=1)
-   
+
    # Graceful failure - returns empty list
    normalized = result.normalize(raise_on_error=False)
    print(normalized)  # []
-   
+
    # Strict failure - raises exception
    try:
        normalized = result.normalize(raise_on_error=True)
@@ -576,7 +576,7 @@ Convert normalized records directly to pandas DataFrames:
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
    from scholar_flux.api.normalization import AcademicFieldMap
    import pandas as pd
-   
+
    # Multi-provider search
    multi_coordinator = MultiSearchCoordinator()
    multi_coordinator.add_coordinators([
@@ -584,19 +584,19 @@ Convert normalized records directly to pandas DataFrames:
        SearchCoordinator(query="machine learning", provider_name='crossref'),
        SearchCoordinator(query="machine learning", provider_name='openalex')
    ])
-   
+
    results = multi_coordinator.search_pages(pages=range(1, 11))
-   
+
    # Normalize with metadata
    normalized = results.filter().normalize(include={'provider_name', 'page'})
-   
+
    # Convert to DataFrame
    df = pd.DataFrame(normalized)
-   
+
    # Analyze field coverage
    universal_fields = list(AcademicFieldMap.model_fields.keys())
    coverage = df[universal_fields].notna().mean() * 100
-   
+
    print(coverage.sort_values(ascending=False))
    # provider_name    100.0
    # title            100.0
@@ -615,21 +615,21 @@ Compare which fields are available across providers:
 
    import pandas as pd
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # Assume df is a DataFrame from normalized multi-provider results
    universal_fields = list(AcademicFieldMap.model_fields.keys())
-   
+
    # Count records per provider with each field
    provider_field_counts = df.groupby('provider_name')[universal_fields].count()
-   
+
    # Find fields available in 3+ providers
    min_providers = 3
    common_fields = (provider_field_counts > 0).sum() >= min_providers
    common_field_list = common_fields[common_fields].index.tolist()
-   
+
    print("Fields common across providers:")
    print(common_field_list)
-   
+
    print("\nRecord counts per provider:")
    print(provider_field_counts[common_field_list])
 
@@ -638,10 +638,10 @@ Compare which fields are available across providers:
 .. code-block:: text
 
    Fields common across providers:
-   ['provider_name', 'doi', 'url', 'record_id', 'title', 'abstract', 
-    'authors', 'journal', 'publisher', 'year', 'date_published', 
+   ['provider_name', 'doi', 'url', 'record_id', 'title', 'abstract',
+    'authors', 'journal', 'publisher', 'year', 'date_published',
     'date_created', 'subjects', 'record_type']
-   
+
    Record counts per provider:
                       doi  url  record_id  title  abstract  ...
    provider_name                                             ...
@@ -661,7 +661,7 @@ Create a custom field map for a new provider:
 .. code-block:: python
 
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # Define mapping for custom provider
    custom_map = AcademicFieldMap(
        provider_name="custom_api",
@@ -680,7 +680,7 @@ Create a custom field map for a new provider:
            'access_level': 'availability_status'
        }
    )
-   
+
    # Test with sample record
    sample = {
        'article_title': 'Deep Learning Methods',
@@ -695,9 +695,9 @@ Create a custom field map for a new provider:
        'record_number': 12345,
        'classification_codes': ['CS.AI', 'STAT.ML']
    }
-   
+
    normalized = custom_map.normalize_record(sample)
-   
+
    print(normalized)
    # {'provider_name': 'custom_api',
    #  'title': 'Deep Learning Methods',
@@ -720,7 +720,7 @@ Add custom field maps to provider configurations:
    from scholar_flux.api import ProviderConfig, APIParameterMap, SearchCoordinator
    from scholar_flux.api.providers import provider_registry
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # Create custom field map
    field_map = AcademicFieldMap(
        provider_name="guardian",
@@ -734,7 +734,7 @@ Add custom field maps to provider configurations:
            'word_count': 'fields.wordcount'
        }
    )
-   
+
    # Create provider config with field map
    guardian_config = ProviderConfig(
        provider_name='guardian',
@@ -752,14 +752,14 @@ Add custom field maps to provider configurations:
        request_delay=6,
        api_key_env_var='GUARDIAN_API_KEY'
    )
-   
+
    # Add to registry
    provider_registry.add(guardian_config)
-   
+
    # Use with automatic normalization
    coordinator = SearchCoordinator(query="climate change", provider_name='guardian')
    result = coordinator.search(page=1, normalize_records=True)
-   
+
    # Access normalized records
    normalized = result.response_result.normalized_records
 
@@ -773,16 +773,16 @@ For complex nested structures, combine with data processors:
    from scholar_flux import SearchCoordinator
    from scholar_flux.data import RecursiveDataProcessor
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # RecursiveDataProcessor flattens nested structures
    processor = RecursiveDataProcessor()
-   
+
    coordinator = SearchCoordinator(
        query="test",
        provider_name="complex_api",
        processor=processor  # Flattens before normalization
    )
-   
+
    # Field map works on flattened structure
    field_map = AcademicFieldMap(
        provider_name="complex_api",
@@ -803,7 +803,7 @@ Performance Optimization
    # Good - normalizes once, caches result
    result = coordinator.search(page=1, normalize_records=True)
    normalized = result.response_result.normalized_records  # Uses cache
-   
+
    # Less efficient - recomputes each time
    result = coordinator.search(page=1)
    normalized1 = result.normalize()
@@ -816,7 +816,7 @@ Performance Optimization
    # Good - normalizes all at once
    results = coordinator.search_pages(pages=range(1, 100))
    normalized = results.filter().normalize()
-   
+
    # Less efficient - normalizes one at a time
    normalized = []
    for result in results.filter():
@@ -828,7 +828,7 @@ Performance Optimization
 
    # Good - only normalizes successful responses
    normalized = results.filter().normalize()
-   
+
    # Less efficient - tries to normalize errors
    normalized = results.normalize(raise_on_error=False)
 
@@ -841,9 +841,9 @@ For large datasets, process in chunks:
 
    import pandas as pd
    from scholar_flux import SearchCoordinator
-   
+
    coordinator = SearchCoordinator(query="machine learning", provider_name="plos")
-   
+
    # Process 100 pages in chunks of 10
    all_records = []
    for start in range(1, 101, 10):
@@ -851,11 +851,11 @@ For large datasets, process in chunks:
        results = coordinator.search_pages(pages=chunk_pages)
        normalized = results.filter().normalize()
        all_records.extend(normalized)
-       
+
        # Optional: Save intermediate results
        if start % 50 == 1:
            pd.DataFrame(all_records).to_parquet(f'checkpoint_{start}.parquet')
-   
+
    # Final DataFrame
    df = pd.DataFrame(all_records)
 
@@ -868,23 +868,23 @@ Validate normalized data before analysis:
 
    import pandas as pd
    from scholar_flux.api.normalization import AcademicFieldMap
-   
+
    # Get normalized records
    normalized = results.filter().normalize(include={'provider_name'})
    df = pd.DataFrame(normalized)
-   
+
    # Check for required fields
    required_fields = ['provider_name', 'title', 'doi']
    missing_required = df[required_fields].isna().sum()
    print("Missing required fields:")
    print(missing_required[missing_required > 0])
-   
+
    # Check universal field coverage
    universal_fields = list(AcademicFieldMap.model_fields.keys())
    coverage = df[universal_fields].notna().mean() * 100
    print("\nField coverage:")
    print(coverage[coverage > 0].sort_values(ascending=False))
-   
+
    # Check for duplicates by DOI
    duplicates = df[df.duplicated(subset=['doi'], keep=False)]
    print(f"\nDuplicate records: {len(duplicates)}")
@@ -914,19 +914,19 @@ Build evidence tables for systematic reviews:
    from scholar_flux.utils import JsonFileUtils, JsonDataEncoder
    from pathlib import Path
    import pandas as pd
-   
+
    # Search all major databases for a medical topic
    multi_coordinator = MultiSearchCoordinator.from_coordinators([
        SearchCoordinator(query="COVID-19 vaccine efficacy", provider_name=p, use_cache=True)
        for p in ['pubmed', 'plos', 'crossref']
    ])
-   
+
    results = multi_coordinator.search_pages(pages=range(1, 51))  # 150 pages
    search_fields = {'query', 'display_name', 'page'} # metadata fields to include in the result set
    df = pd.DataFrame(results.filter().normalize(include=search_fields))
 
    # Save location
-   documents_folder = Path.home() / "Documents" 
+   documents_folder = Path.home() / "Documents"
 
    # Create an audit trail, saving the raw records before normalization
    raw_evidence_records_path = documents_folder / "covid_vaccine_evidence_raw_records.json"
@@ -939,20 +939,20 @@ Build evidence tables for systematic reviews:
         Note: "Only elements in nested lists and dictionaries that can't be directly stored will be encoded, and
         everything else in the JSON will stay as is file will be stored as is.""")
         raw_evidence_records = JsonDataEncoder.encode(raw_evidence_records)
-   
+
    JsonFileUtils.save_as(raw_evidence_records, raw_evidence_records_path)
-   
+
    # Create evidence table
    evidence_records = df[[
        'title', 'authors', 'journal', 'year', 'doi', 'abstract', 'full_text'
    ]].copy()
-   
+
    # Add PRISMA screening columns
    evidence_records['include_abstract'] = evidence_records['abstract'].notna()
    evidence_records['include_fulltext'] = evidence_records['full_text'].notna()
    evidence_records['is_restricted'] = evidence_records['open_access'].fillna(False) == False
    evidence_records['exclusion_reason'] = None
-   
+
    # Export for manual review
    evidence_records_path = documents_folder / 'covid_vaccine_evidence.xlsx'
    evidence_records.to_excel(evidence_records_path, index=False)
@@ -969,25 +969,25 @@ Build citation graphs from normalized data:
    from scholar_flux import SearchCoordinator
    import pandas as pd
    import networkx as nx
-   
+
    # Retrieve papers with citation data
    coordinator = SearchCoordinator(query="neural networks", provider_name="openalex")
    results = coordinator.search_pages(pages=range(1, 101))
    df = pd.DataFrame(results.filter().normalize())
-   
+
    # Filter papers with citations
    cited = df[df['citation_count'] > 0].copy()
-   
+
    # Build citation network (simplified)
    G = nx.DiGraph()
-   
+
    for _, row in cited.iterrows():
        if pd.notna(row['doi']):
-           G.add_node(row['doi'], 
+           G.add_node(row['doi'],
                       title=row['title'],
                       year=row['year'],
                       citations=row['citation_count'])
-   
+
    # Analyze network
    print(f"Nodes: {G.number_of_nodes()}")
    if G.number_of_nodes() > 0:
@@ -1004,28 +1004,28 @@ Extract data for meta-analysis:
    from scholar_flux import SearchCoordinator
    import pandas as pd
    import re
-   
+
    # Search for clinical trials
    coordinator = SearchCoordinator(
        query="randomized controlled trial depression treatment",
        provider_name="pubmed"
    )
-   
+
    results = coordinator.search_pages(pages=range(1, 21))
    df = pd.DataFrame(results.filter().normalize())
-   
+
    # Extract sample sizes from abstracts (simplified)
    def extract_n(abstract):
        if pd.isna(abstract):
            return None
        match = re.search(r'[Nn]=(\d+)', str(abstract))
        return int(match.group(1)) if match else None
-   
+
    df['sample_size'] = df['abstract'].apply(extract_n)
-   
+
    # Filter for meta-analysis
    meta_data = df[df['sample_size'].notna()].copy()
-   
+
    # Export for RevMan or comprehensive meta-analysis
    meta_data[['title', 'authors', 'year', 'journal', 'sample_size', 'doi']].to_csv(
        'depression_rct_meta.csv',

@@ -25,22 +25,22 @@ Comprehensive literature reviews require querying multiple databases. The tradit
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    # Create coordinators
    plos = SearchCoordinator(query="machine learning", provider_name='plos')
    arxiv = SearchCoordinator(query="machine learning", provider_name='arxiv')
    crossref = SearchCoordinator(query="machine learning", provider_name='crossref')
-   
+
    # Sequential: query each provider one at a time
    # 6.1 second delay × 8 waits = 48.8 seconds
    plos_results = plos.search_pages(range(1, 10))
-   
+
    # 4 second delay × 8 waits = 32 seconds
    arxiv_results = arxiv.search_pages(range(1, 10))
-   
+
    # 1 second delay × 8 waits = 8 seconds
    crossref_results = crossref.search_pages(range(1, 10))
-   
+
    # Total time: ~89 seconds
 
 **ScholarFlux's concurrent approach:**
@@ -48,11 +48,11 @@ Comprehensive literature reviews require querying multiple databases. The tradit
 .. code-block:: python
 
    from scholar_flux import MultiSearchCoordinator
-   
+
    # Add all coordinators to multi-search
    multi_search_coordinator = MultiSearchCoordinator()
    multi_search_coordinator.add_coordinators([plos, arxiv, crossref])
-   
+
    # Concurrent: all providers query simultaneously
    results = multi_search_coordinator.search_pages(pages=range(1, 10))
    # Total time: ~49 seconds (limited by most rate-limited provider: PLOS)
@@ -78,7 +78,7 @@ Query four providers concurrently and retrieve results:
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
-   
+
    # Create multi-coordinator instance (calls .add_coordinators() under the hood)
    multi_search_coordinator = MultiSearchCoordinator.from_coordinators([
        SearchCoordinator(query="machine learning", provider_name='plos'),
@@ -86,10 +86,10 @@ Query four providers concurrently and retrieve results:
        SearchCoordinator(query="machine learning", provider_name='openalex'),
        SearchCoordinator(query="machine learning", provider_name='crossref')
    ])
-   
+
    # Execute concurrent search across 10 pages per provider
    results = multi_search_coordinator.search_pages(pages=range(1, 11))
-   
+
    # Check results
    print(f"Total results: {len(results)}")  # 40 (4 providers × 10 pages)
    print(f"Successful: {len(results.filter())}/{len(results)}")
@@ -118,19 +118,19 @@ Retrieve records from multiple providers and convert to a pandas DataFrame:
 
    import pandas as pd
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
-   
+
    # Create and configure multi-coordinator
    multi_search_coordinator = MultiSearchCoordinator.from_coordinators([
        SearchCoordinator(query="machine learning", provider_name=provider, use_cache=True)
        for provider in ['plos', 'arxiv', 'openalex', 'crossref']
    ])
-   
+
    # Retrieve 10 pages from each provider
    results = multi_search_coordinator.search_pages(pages=range(1, 11))
-   
+
    # Filter successful responses and normalize to universal schema
    normalized_records = results.filter().normalize()
-   
+
    # Convert to DataFrame for analysis
    df = pd.DataFrame(normalized_records)
    print(f"Total records: {df.shape[0]}")
@@ -146,7 +146,7 @@ Retrieve records from multiple providers and convert to a pandas DataFrame:
 **Record counts by provider:**
 
 - PLOS: 50 records/page × 10 pages = 500 records
-- arXiv: 25 records/page × 10 pages = 250 records  
+- arXiv: 25 records/page × 10 pages = 250 records
 - OpenAlex: 25 records/page × 10 pages = 250 records
 - Crossref: 25 records/page × 10 pages = 250 records
 - **Total: 1,250 records**
@@ -159,7 +159,7 @@ To instead retrieve a minimum of 250 records per provider:
 
    import pandas as pd
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
-   
+
    # Create and configure multi-coordinator
    multi_search_coordinator = MultiSearchCoordinator.from_coordinators([
        SearchCoordinator(query="machine learning", provider_name=provider, use_cache=True)
@@ -168,13 +168,13 @@ To instead retrieve a minimum of 250 records per provider:
 
    # Retrieve a minimum of 250 records per provider
    results = multi_search_coordinator.search_records(min_records=250)
-   
+
    # Filter successful responses and normalize using the same steps as before:
    normalized_records = results.filter().normalize()
    df = pd.DataFrame(normalized_records)
 
    # Preview a sample of all retrieved records
-   print(f"Preview:") 
+   print(f"Preview:")
    print(df[['provider_name', 'url', 'title', 'abstract']].sample(10))
    print(f"Total records: {df.shape[0]}")
 
@@ -221,9 +221,9 @@ When multiple queries target the same provider, they automatically share a rate 
        SearchCoordinator(query="CRISPR", provider_name='plos'),
        SearchCoordinator(query="immunotherapy", provider_name='plos')
    ])
-   
+
    # All three queries share PLOS's rate limiter (6.1s between requests)
-   # Requests are automatically coordinated: 
+   # Requests are automatically coordinated:
    #   Query 1, Page 1 at t=0
    #   Query 2, Page 1 at t=6.1
    #   Query 3, Page 1 at t=12.2
@@ -245,16 +245,16 @@ The `SearchResultList` class provides methods for filtering, aggregating, and no
 
    # After executing a multi-provider search
    results = multi_search_coordinator.search_pages(pages=range(1, 6))
-   
+
    # Check total results
    print(f"Total results: {len(results)}")
-   
+
    # Access individual SearchResult
    first_result = results[0]
    print(f"Provider: {first_result.provider_name}")
    print(f"Page: {first_result.page}")
    print(f"Record count: {first_result.record_count}")
-   
+
    # Check if result is successful
    if first_result:  # ProcessedResponse is truthy
        print(f"Success! Retrieved {len(first_result.data)} records")
@@ -271,7 +271,7 @@ Remove failed requests to work only with successful data:
    # Filter keeps only ProcessedResponse (successful) results
    successful_results = results.filter()
    print(f"Success rate: {len(successful_results)}/{len(results)}")
-   
+
    # Invert filter to get only failures
    failed_results = results.filter(invert=True)
    for failure in failed_results:
@@ -288,12 +288,12 @@ Combine all records from multiple providers into a single list:
    # Method 1: Use .join() to get all processed records
    all_records = results.filter().join()
    print(f"Total records: {len(all_records)}")
-   
+
    # Method 2: Include metadata fields (provider_name, page, query)
    records_with_metadata = results.filter().join(
        include={'provider_name', 'page'}
    )
-   
+
    # Each record now has provider_name and page
    print(records_with_metadata[0].keys())
    # dict_keys(['title', 'abstract', 'doi', ..., 'provider_name', 'page'])
@@ -309,7 +309,7 @@ ScholarFlux normalizes provider-specific fields to a universal schema. For detai
 
    # Normalize all records to universal field names
    normalized_records = results.filter().normalize()
-   
+
    # Each record now has standardized field names
    for record in normalized_records[:3]:
        print(f"Title: {record.get('title')}")
@@ -333,7 +333,7 @@ ScholarFlux normalizes provider-specific fields to a universal schema. For detai
 
    # Normalize records automatically during retrieval
    results = multi_search_coordinator.search_pages(pages=range(1, 3), normalize_records=True)
-   
+
    # Access normalized records directly
    for result in results.filter():
        if result.normalized_records:
@@ -379,7 +379,7 @@ View current rate limiter settings:
 .. code-block:: python
 
    from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
-   
+
    # View all provider rate limiters
    for provider, limiter in threaded_rate_limiter_registry.items():
        print(f"{provider}: {limiter.min_interval}s between requests")
@@ -396,10 +396,10 @@ This example demonstrates a comprehensive search across six providers for a syst
 
    import pandas as pd
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
-   
+
    # Configure search across all major providers
    providers = ['pubmed', 'plos', 'arxiv', 'crossref', 'openalex', 'core']
-   
+
    multi_search_coordinator = MultiSearchCoordinator.from_coordinators([
        SearchCoordinator(
            query="cancer immunotherapy clinical trials",
@@ -407,29 +407,29 @@ This example demonstrates a comprehensive search across six providers for a syst
        )
        for provider in providers
    ])
-   
+
    # Retrieve 20 pages per provider (120 total requests)
    print("Starting systematic search...")
    results = multi_search_coordinator.search_pages(pages=range(1, 21))
-   
+
    # Check success rate
    successful = results.filter()
    print(f"Retrieved: {len(successful)}/{len(results)} pages successfully")
-   
+
    # Normalize and deduplicate by DOI
    normalized_records = successful.normalize(include={'provider_name'})
    df = pd.DataFrame(normalized_records)
-   
+
    # Deduplicate by DOI (keep first occurrence)
    df_dedup = df.drop_duplicates(subset=['doi'], keep='first')
-   
+
    # Analysis
    print(f"\nResults Summary:")
    print(f"Total records: {len(df)}")
    print(f"Unique records (after deduplication): {len(df_dedup)}")
    print(f"\nCoverage by provider:")
    print(df.groupby('provider_name').size())
-   
+
    # Export for analysis
    df_dedup.to_csv('systematic_review_results.csv', index=False)
    print("\nExported to systematic_review_results.csv")
@@ -440,11 +440,11 @@ This example demonstrates a comprehensive search across six providers for a syst
 
    Starting systematic search...
    Retrieved: 118/120 pages successfully
-   
+
    Results Summary:
    Total records: 2,450
    Unique records (after deduplication): 1,823
-   
+
    Coverage by provider:
    provider_name
    arxiv         250
@@ -453,7 +453,7 @@ This example demonstrates a comprehensive search across six providers for a syst
    openalex      500
    plos          400
    pubmed        400
-   
+
    Exported to systematic_review_results.csv
 
 Best Practices
@@ -485,13 +485,13 @@ Enable caching to minimize redundant API calls:
 
    from scholar_flux import SearchCoordinator, DataCacheManager
    from scholar_flux.sessions import CachedSessionManager
-   
+
    # HTTP response caching (session-level)
    session_manager = CachedSessionManager(backend='redis')
-   
+
    # Result caching (processed data)
    cache_manager = DataCacheManager.with_storage('redis', 'localhost:6379')
-   
+
    # Apply to coordinators
    coordinators = [
        SearchCoordinator(
@@ -536,7 +536,7 @@ This occurs when searching before adding coordinators:
 
    multi_search_coordinator = MultiSearchCoordinator()
    results = multi_search_coordinator.search(page=1)  # Warning: returns empty list
-   
+
    # Fix: add 1 or more coordinators first
    multi_search_coordinator.add(SearchCoordinator(query="AI", provider_name='plos'))
    results = multi_search_coordinator.search(page=1)  # Now works
@@ -551,15 +551,15 @@ Process results in batches instead of all at once:
    # Instead of: pages=range(1, 200)
    batch_size = 20
    all_data = []
-   
+
    for batch_start in range(1, 200, batch_size):
        batch_end = min(batch_start + batch_size, 200)
        batch_pages = range(batch_start, batch_end)
-       
+
        results = multi_search_coordinator.search_pages(pages=batch_pages)
        batch_data = results.filter().join()
        all_data.extend(batch_data)
-       
+
        # Clear memory
        del results
        print(f"Processed pages {batch_start}-{batch_end-1}")
@@ -572,11 +572,11 @@ Investigate individual provider failures:
 .. code-block:: python
 
    results = multi_search_coordinator.search_pages(pages=range(1, 11))
-   
+
    # Separate successes and failures
    successful = results.filter()
    failed = results.filter(invert=True)
-   
+
    # Analyze failures
    if failed:
        print(f"{len(failed)} failures:")

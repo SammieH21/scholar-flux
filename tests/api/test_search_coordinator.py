@@ -1078,7 +1078,7 @@ def test_retry_after_does_not_raise_when_disabled(caplog, monkeypatch):
 
 
 def test_robust_request_reraises_retry_after_delay_exceeded():
-    """Verifies that `robust_request` re-raises  and propagates the `RetryAfterDelayExceededException` context."""
+    """Verifies that `robust_request` re-raises and propagates the `RetryAfterDelayExceededException` context."""
     api = SearchAPI.from_defaults(provider_name="crossref", query="test")
     coordinator = SearchCoordinator(api)
 

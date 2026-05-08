@@ -272,7 +272,7 @@ class CachedSessionManager(SessionManager):
 
         When `cache_name` is None, this method attempts to retrieve a valid cache name from the
         environment variable, `SCHOLAR_FLUX_SESSION_CACHE_NAME`, when available. Otherwise, this method will
-        falls back to using the default name: `search_requests_cache`.
+        fall back to using the default name: `search_requests_cache`.
 
         Args:
             cache_name (Optional[str]): The name to associate with the current session cache backend.

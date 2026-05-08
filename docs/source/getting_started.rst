@@ -102,7 +102,7 @@ Test your installation:
 
    import scholar_flux
    print(scholar_flux.__version__)
-   # Output: 0.5.1
+   # Output: 0.5.2
 
 .. code-block:: python
 
@@ -111,7 +111,7 @@ Test your installation:
    # Quick test with PLOS (no API key needed)
    coordinator = SearchCoordinator(query="computer science validation strategies", provider_name="plos")
    result = coordinator.search_page(page=1)
-   
+
    if result:
        print(f"✅ Installation successful! Retrieved {len(result.data)} records")
    else:
@@ -157,7 +157,7 @@ The default behavior for API requests across all providers can also be configure
 
 .. tip::
    **Polite Pool Access**: Setting ``SCHOLAR_FLUX_DEFAULT_MAILTO`` automatically enables higher rate limits for OpenAlex and Crossref:
-   
+
    - **OpenAlex**: 10 requests/second (vs 1 req/sec without)
    - **Crossref**: Priority access and faster responses
 
@@ -278,10 +278,10 @@ Similarly, the CORE API doesn't require an API key but having one can greatly in
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    coordinator = SearchCoordinator(query="human psychology", provider_name="pubmed")
    result = coordinator.search_page(page=1)
-   
+
    if coordinator.api.api_key and result:
        print(f"✅ PubMed API key working! Retrieved {result.record_count} records!")
 
@@ -309,7 +309,7 @@ Let's search PLOS for articles about machine learning:
    # Check if search was successful
    if result:
        print(f"Found {len(result.data)} records")
-       
+
        # Access the first record
        first_record = result.data[0]
        print(f"\nTitle: {first_record.get('title_display')}")
@@ -338,7 +338,7 @@ SearchResult is truthy when the search succeeds and falsy when it fails, making 
 .. code-block:: python
 
    result = coordinator.search_page(page=1)
-   
+
    if result:
        # Success - access data safely
        print(f"Found {len(result.data)} records")
@@ -382,7 +382,7 @@ Retrieve multiple pages one at a time:
    # Retrieve pages 1-5
    for page_num in range(1, 6):
        result = coordinator.search_page(page=page_num)
-       
+
        if result:
            print(f"Page {page_num}: {len(result.data)} records")
        else:
@@ -530,71 +530,71 @@ Common Pitfalls
 ---------------
 
 1. **Forgetting to check response validity**
-   
+
    ❌ Bad:
-   
+
    .. code-block:: python
-   
+
       result = coordinator.search_page(page=1)
       for record in result.data:  # May crash if result.data is None (ErrorResponses and NonResponses)!
           print(record)
-   
+
    ✅ Good:
-   
+
    .. code-block:: python
-   
+
       result = coordinator.search_page(page=1)
       for record in result.data or []:
           print(record)
 
 2. **Using wrong provider names**
-   
+
    ❌ Bad:
-   
+
    .. code-block:: python
-   
+
       coordinator = SearchCoordinator(query="test", provider_name="pubmed_api")
       # No provider named "pubmed_api"!
-   
+
    ✅ Good:
-   
+
    .. code-block:: python
-   
+
       coordinator = SearchCoordinator(query="test", provider_name="pubmed")
 
 3. **Not installing extras required for specific providers**
-   
+
    ❌ Bad:
-   
+
    .. code-block:: python
-   
+
       # Basic install without [parsing] extra
       coordinator = SearchCoordinator(query="test", provider_name="arxiv")
       result = coordinator.search_page(page=1)  # Will fail - arXiv returns XML!
       # OUTPUT: ErrorResponse(...)
-   
+
    ✅ Good:
-   
+
    .. code-block:: bash
-   
+
       pip install scholar-flux[parsing]  # Installs xmltodict for XML parsing and beautifulsoup4 for html text parsing
 
 4. **Hardcoding API keys**
-   
+
    ❌ Bad:
-   
+
    .. code-block:: python
-   
+
       coordinator = SearchCoordinator(
           query="test",
           provider_name="pubmed",
           api_key="abc123xyz"  # Hardcoded - will be committed to git!
       )
-   
+
    ✅ Good:
-   
+
    .. code-block:: python
-   
+
       # Use .env file
       # PUBMED_API_KEY=abc123xyz
       coordinator = SearchCoordinator(query="test", provider_name="pubmed")

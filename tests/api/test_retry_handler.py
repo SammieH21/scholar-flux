@@ -184,7 +184,7 @@ def test_execute_with_retry_custom_validator(caplog):
 
 def test_default_validator_func():
     """Validates and verifies that the default validator successfully marks 200 status codes as valid and marks non-200
-    responses as  invalid status codes."""
+    responses as invalid status codes."""
     response = response_factory(200)
     assert RetryHandler._default_validator_func(response)
     resp2 = response_factory(404)

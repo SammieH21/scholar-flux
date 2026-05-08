@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.5.2] - 5/08/2026
+### Security
+
+**Package Dependencies**
+- **Pytest Minimum Version Dependency Update**: Updated pytest minimum dependencies from v8.4.1 to v9.0.3. Although UNIX based systems protect against similar vulnerabilities by default, this update mitigates the (mainly theoretical) risk of DOS or privilege escalation regarding symlinked temporary directory writes to attacker-controlled directories on UNIX-based systems (`CVE-2025-71176`).
+
+### Fixed
+- **SearchResult Computed Field Decorators**: Updated the `SearchResult.cached` and `SearchResult.retrieval_timestamp` decorators to ensure that mypy identifies these as both computed fields and properties in downstream applications (such as MCP servers relying on response metadata) rather than callable functions.
+
+### Improved
+- **Documentation Updates**: Revised front-facing documentation and updated docstring wording and type annotations within the `scholar_flux.api` module to better reflect core functionality. Removed stray double whitespaces between text prose and trailing (invisible) whitespace after each line across the codebase and documentation.
+
 ## [0.5.1] - 4/28/2026
 ### Added
 - **Session Cache Environment Variable Configuration**: For more granular session cache control, this version bump introduces support for the `SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY` environment variable as an optional override for cached session persistence. When selecting a session cache directory via environment variables on `CachedSession` initialization, the cache directory is assigned in the following priority order: `SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY` > `SCHOLAR_FLUX_CACHE_DIRECTORY` > `scholar_flux.package_metadata.get_default_writable_directory()`.
