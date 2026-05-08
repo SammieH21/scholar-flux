@@ -54,15 +54,14 @@ logger = logging.getLogger(__name__)
 class SearchCoordinator(BaseCoordinator):
     """High-level coordinator for requesting and retrieving records and metadata from APIs.
 
-    This class uses dependency injection to orchestrate the process of constructing requests,
-    validating responses, and processing scientific works and articles. This class is designed
-    to abstract away the complexity of using APIs while providing a consistent and
-    robust interface for retrieving record data and metadata from request and storage cache
-    if valid to help avoid exceeding limits in API requests.
+    This class uses dependency injection to orchestrate the process of constructing requests, validating responses, and
+    processing scientific works and articles. This class is designed to abstract away the complexity of using APIs while
+    providing a consistent and robust interface for record data and metadata retrieval. The `SearchCoordinator`
+    integrates rate limiting in addition to request and processing caching when valid to avoid exceeding limits in API
+    requests.
 
-    If no search_api is provided, the coordinator will create a Search API that uses the default
-    provider if the environment variable, `SCHOLAR_FLUX_DEFAULT_PROVIDER`, is not provided.
-    Otherwise PLOS is used on the backend.
+    If no search_api is provided, the coordinator will create a Search API that uses the default provider if the
+    environment variable, `SCHOLAR_FLUX_DEFAULT_PROVIDER`, is not provided. Otherwise PLOS is used on the backend.
 
     """
 
@@ -140,8 +139,10 @@ class SearchCoordinator(BaseCoordinator):
             annotate_records (Optional[bool]):
                 Indicates whether the DataExtractor should add unique, record-identifying fields to each extracted
                 record. These fields aid in record-linkage and the hashed identification of duplicates in later steps.
-            retry_handler (Optional[RetryHandler]): Class used to retry failed requests-cache.
-            validator (Optional[ResponseValidator]): Class used to verify and validate responses returned from APIs.
+            retry_handler (Optional[RetryHandler]):
+                RetryHandler implementing the mechanism used to dynamically retry individual requests when a search fails.
+            validator (Optional[ResponseValidator]):
+                A ResponseValidator used to verify and validate response structures and contents received from APIs.
             workflow (Optional[SearchWorkflow]):
                 An optional workflow used to customize how records are retrieved from APIs. Uses the default workflow
                 for the current provider when a workflow is not directly specified.
@@ -197,8 +198,10 @@ class SearchCoordinator(BaseCoordinator):
             search_api (SearchAPI): The SearchAPI to use for the retrieval of response records from APIs
             response_coordinator (ResponseCoordinator):
                 Core class used to coordinate the handling and processing of all responses received from APIs.
-            retry_handler (Optional[RetryHandler]): Class used to retry failed requests-cache
-            validator (Optional[ResponseValidator]): Class used to verify and validate responses returned from APIs.
+            retry_handler (Optional[RetryHandler]):
+                RetryHandler implementing the mechanism used to dynamically retry individual requests when a search fails.
+            validator (Optional[ResponseValidator]):
+                A ResponseValidator used to verify and validate response structures and contents received from APIs.
             workflow (Optional[SearchWorkflow]):
                 An optional workflow used to customize how records are retrieved from APIs. Uses the default workflow
                 for the current provider when a workflow is not directly specified.
@@ -221,14 +224,15 @@ class SearchCoordinator(BaseCoordinator):
         cache_requests: Optional[bool] = None,
         **kwargs: Any,
     ) -> SearchAPI:
-        """Helper method for creating a new Search API from its components or an existing SearchAPI.
+        """Helper method for creating a new SearchAPI from its components or an existing SearchAPI.
 
         This method is useful for when a `SearchAPI` instance needs to be created and used from scratch rather than
         directly copied given constraints on copying session and cached session objects.
 
         Args:
             search_api (Optional[SearchAPI]):
-                The search API to use for the retrieval of response records from APIs.
+                The search API to use for the retrieval of response records from APIs. If not provided, it is created
+                from the other received parameters.
             provider_name (Optional[str]):
                 The name of the API provider where requests will be sent. If a `provider_name` and `base_url` are both
                 given, the `SearchAPIConfig` will prioritize the `base_url` over the `provider_name`.
@@ -241,7 +245,8 @@ class SearchCoordinator(BaseCoordinator):
             **kwargs: Keyword arguments to be passed to the SearchAPIConfig if a SearchAPI doesn't already exist.
 
         Returns:
-            SearchAPI: A new search API either based on the original search api with modified components or created
+            SearchAPI:
+                A new SearchAPI, either based on the original SearchAPI with modified components or created
                 entirely anew.
 
         """
@@ -369,9 +374,9 @@ class SearchCoordinator(BaseCoordinator):
             response_coordinator (Optional[ResponseCoordinator]):
                 Core class used to handle the processing and core handling of all responses from APIs
             retry_handler (Optional[RetryHandler]):
-                Class used to retry failed requests-cache
+                RetryHandler implementing the mechanism used to dynamically retry individual requests when a search fails.
             validator (Optional[ResponseValidator]):
-                Class used to verify and validate responses returned from APIs
+                A ResponseValidator used to verify and validate response structures and contents received from APIs.
             workflow (Optional[SearchWorkflow]):
                 An optional workflow used to customize how records are retrieved from APIs. Uses the default workflow
                 for the current provider when a workflow is not directly specified and does not directly carry over in
@@ -771,7 +776,7 @@ class SearchCoordinator(BaseCoordinator):
         The `SearchResult.response_result` attribute can hold three different types of responses:
 
         1. ProcessedResponse - indicates the successful retrieval and processing of the data
-        2. ErrorResponse/Nonresponse - indicates that a response was successfully received, but that an error
+        2. ErrorResponse/NonResponse - indicates that a response was successfully received, but that an error
                                        occurred during request building, response retrieval or response processing
         3. None - indicates an issue in the retrieval of the response or formatting/preparation of the request
 

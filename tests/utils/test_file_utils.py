@@ -1,3 +1,5 @@
+"""Tests verifying that the `JsonFileUtils` implementation correctly reads, writes, and formats JSON data structures."""
+
 from scholar_flux.utils import JsonFileUtils
 from types import GeneratorType
 from pathlib import Path
@@ -6,8 +8,7 @@ import pytest
 
 
 def test_get_filepath(cleanup, tmp_path):
-    """Verifies that the home directory of the user is expanded with the `~/` symbol when defining Paths with
-    JsonFileUtils."""
+    """Tests that the user's home directory is expanded with the `~/` symbol when defining Paths with JsonFileUtils."""
     # Test with ~
     filepath = "~/test.txt"
     ext = ".txt"
@@ -79,7 +80,7 @@ def test_read_lines(cleanup, tmp_path):
 
 
 def test_append_to_file(cleanup, tmp_path):
-    """Verifies that the `append_to_file function works as intended to append text to files."""
+    """Verifies that the `append_to_file` function works as intended to append text to files."""
     file_path = tmp_path / "append.txt"
     JsonFileUtils.save_as("start\n", file_path, dump=False)
     JsonFileUtils.append_to_file("middle\n", file_path)

@@ -454,7 +454,7 @@ def run_all_tests():
     if passed == total:
         print("\n🎉 All tests passed! Documentation examples are ready for production.")
     else:
-        print("\n⚠️  Some tests failed. Review errors above.")
+        print("\n⚠️ Some tests failed. Review errors above.")
 
     return passed == total
 

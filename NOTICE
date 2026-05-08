@@ -4,7 +4,7 @@
 Some providers may require API keys to retrieve papers, articles, and other forms of data. Known providers requiring keys include:
 
 - ***: For scientific articles
-- **Springer Nature**: For scientific content  
+- **Springer Nature**: For scientific content
 - **PubMed**: For biomedical literature from the PubMed database
 
 Others may require the use of a `User Agent`, including:
@@ -15,7 +15,7 @@ Others may require the use of a `User Agent`, including:
 
 ## ⚠️ Data Usage and Legal Compliance
 
-**Important**: This software is licensed under Apache 2.0, but this license **only covers the code itself**. 
+**Important**: This software is licensed under Apache 2.0, but this license **only covers the code itself**.
 
 ### Your Responsibilities
 

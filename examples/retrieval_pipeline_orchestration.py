@@ -26,7 +26,7 @@ Workflow Overview
 -----------------
 1. **Configure**: Set global defaults via ``config_settings`` (user agent, cache backends)
 2. **Search**: Query provider APIs with date filters to retrieve recent publications
-3. **Process**: Use the internal processing pipeline to parse responses and process records 
+3. **Process**: Use the internal processing pipeline to parse responses and process records
 4. **Normalize**: Combine ScholarFlux's normalized schema with provider-specific fields
 5. **Encode**: Use ``JsonDataEncoder`` to convert nested structures to JSON encoded records
 6. **Deduplicate**: Merge with the existing dataset, removing duplicates by article ID
@@ -344,12 +344,12 @@ def postprocess_papers(search_results: SearchResultList) -> pd.DataFrame:
         err = dedent(
             """
             No records returned from search.
-            
+
             Possible causes:
             - The API may be temporarily unavailable
             - Query returned no matches for the specified filters
             - Date range filter excluded all results
-            
+
             Check the query parameters and try again.
             """
         )
@@ -368,7 +368,7 @@ def postprocess_papers(search_results: SearchResultList) -> pd.DataFrame:
 
     combined_df = pd.DataFrame(combined_records)
 
-    # Stringify and encode lists and dictionaries when required: 
+    # Stringify and encode lists and dictionaries when required:
     for key in combined_df.columns:
         if any(isinstance(x, (list, dict)) for x in combined_df[key].values):
             combined_df[key] = combined_df[key].apply(JsonDataEncoder.dumps)

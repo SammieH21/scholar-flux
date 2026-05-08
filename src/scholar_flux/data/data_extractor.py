@@ -399,7 +399,7 @@ class DataExtractor(BaseDataExtractor):
 
         Note:
             The original records are not modified. This method instead return a new dictionary or a new list of
-            dictionaries  with only non-annotation fields preserved.
+            dictionaries with only non-annotation fields preserved.
 
         """
         if records is None:

@@ -26,7 +26,7 @@ Modules:
                              consistency and faster retrieval of nodes associated with particular records in a JSON data
                              set. Operates as a drop-in replacement when used in a PathNodeIndex.
     - path_node_index:       Implements a PathNodeIndex data structure used to orchestrate the processing path-based
-                             sparse trie data structures that take a JSON  and extract, flatten, and simplify the
+                             sparse trie data structures that take a JSON and extract, flatten, and simplify the
                              original data structure to create an easy to process flattened dictionary.
     - path_simplifier        Implements the PathSimplifier utility class that takes a PathNodeIndex as input, identifies
                              unique paths (ignoring index) and simplifying the path into a flattened list that outputs

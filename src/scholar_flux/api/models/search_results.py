@@ -59,6 +59,7 @@ from scholar_flux.utils.helpers import coerce_str, as_tuple
 from typing import (
     Optional,
     Any,
+    Callable,
     MutableSequence,
     Iterable,
     Iterator,
@@ -66,6 +67,7 @@ from typing import (
     Sequence,
     overload,
     SupportsIndex,
+    TypeVar,
     TYPE_CHECKING,
 )
 from typing_extensions import TypeAliasType
@@ -83,6 +85,13 @@ logger = logging.getLogger(__name__)
 SearchFields = TypeAliasType(
     "SearchFields", set[Literal["query", "provider_name", "display_name", "page", "retrieval_timestamp", "cached"]]
 )
+
+SelfT = TypeVar("SelfT", bound=object)
+
+
+def computed_property(func: Callable[[SelfT], Any], **kwargs: Any) -> property:
+    """Helper method for defining pydantic computed fields as properties in a type-safe manner compatible with mypy."""
+    return computed_field(property(func), **kwargs)
 
 
 class SearchResult(BaseModel):
@@ -286,7 +295,7 @@ class SearchResult(BaseModel):
             else None
         )
 
-    @computed_field
+    @computed_property
     def cached(self) -> Optional[bool]:
         """Identifies whether the current response was retrieved from the session cache.
 
@@ -333,7 +342,7 @@ class SearchResult(BaseModel):
             else None
         )
 
-    @computed_field
+    @computed_property
     def retrieval_timestamp(self) -> Optional[datetime]:
         """Indicates the ISO timestamp associated with the original response creation date and time."""
         return parse_iso_timestamp(self.created_at) if self.created_at else None
@@ -354,7 +363,7 @@ class SearchResult(BaseModel):
         """Extracts the human-readable status description from the underlying response, if available."""
         return self.response_result.status if self.response_result is not None else None
 
-    @computed_field
+    @computed_property
     def display_name(self) -> str:
         """Returns a human-readable provider name for the current provider when available."""
         return provider_registry.get_display_name(self.provider_name) or self.provider_name

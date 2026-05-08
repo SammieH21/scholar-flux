@@ -469,13 +469,13 @@ class MongoDBStorage(ABCStorage):
         connection was successful.
 
         Note that if the input to the `host` is a URI (e.g. mongodb://localhost:27017), any input provided to the
-        `port` variable  will be ignored when `MongoClient` initializes the connection and use the URI exclusively.
+        `port` variable will be ignored when `MongoClient` initializes the connection and use the URI exclusively.
 
         Args:
             host (Optional[str]): The IP of the host of the MongoDB service. If None or an empty string,
                                   Defaults to localhost (the local computer) or the "host" entry from the class variable,
                                   DEFAULT_CONFIG.
-            port (Optional[int]): The port where the service is hosted. If None or 0, defaults to port, 27017  or the
+            port (Optional[int]): The port where the service is hosted. If None or 0, defaults to port, 27017 or the
                                   "port" entry from the DEFAULT_CONFIG class variable.
             verbose (bool): Indicates whether to log status messages. Defaults to True
             **kwargs: No-Op keyword arguments for compatibility with config connection availability checks

@@ -118,7 +118,7 @@ class BaseProviderDict(UserDict[str, Any]):
         """Returns a list containing the names of all (keys) in the current registry.
 
         Returns:
-            A complete list of all keys shown in the current registry
+            list[str]: A complete list of all keys shown in the current registry
 
         """
         return list(self.data)

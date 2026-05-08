@@ -476,7 +476,7 @@ def test_roundtrip_deserialization(data, sqlite_test_storage):
     """Verifies that roundtrip encoding and decoding JSON with the `SQLAlchemyStorage` produces the original data.
 
     The `_serialize_data` and `_deserialize_data`  methods of the `SQLAlchemyStorage` both use the `JsonDataEncoder` to
-    recursively encode and decode raw json data in preparation for JSON data storage and retrieval  in SQL.
+    recursively encode and decode raw json data in preparation for JSON data storage and retrieval in SQL.
 
     This test verifies that, with unexpected data types, the `SQLAlchemyStorage` will still serialize and deserialize
     the inputted JSON data to produce the original value.

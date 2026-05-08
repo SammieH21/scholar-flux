@@ -661,7 +661,7 @@ Find the code of conduct [**here**](https://github.com/SammieH21/scholar-flux/bl
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.5.1). This means:
+ScholarFlux is currently in **beta** (v0.5.2). This means:
 
 - APIs may change between versions
 - We're actively seeking feedback

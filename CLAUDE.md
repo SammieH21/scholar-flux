@@ -2,7 +2,7 @@
 
 This file provides Claude Code (claude.ai/code) with quick-reference context for ScholarFlux development. For complete information, consult the linked documentation which serves as the authoritative source.
 
-### Last updated 4/28/2026 (**v0.5.1**)
+### Last updated 5/08/2026 (**v0.5.2**)
 
 > **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.
 > For complete, authoritative information, consult:

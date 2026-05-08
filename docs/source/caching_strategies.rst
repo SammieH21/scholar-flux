@@ -21,14 +21,14 @@ ScholarFlux has two independent caches that work together:
 
 **Session Cache (HTTP Responses)**
    Caches raw API responses to avoid redundant network requests. Uses ``requests-cache``.
-   
+
    - **Status**: Disabled by default
    - **Thread-safe**: ❌ No (create one session per thread)
    - **Best for**: Repeated analysis of same data
 
 **Processing Cache (Parsed Data)**
    Caches processed results after parsing and extraction.
-   
+
    - **Status**: Enabled by default (in-memory)
    - **Thread-safe**: ✅ Yes (safe to share)
    - **Best for**: Avoiding re-processing of API responses
@@ -47,15 +47,15 @@ By default, processed results are cached in memory:
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    coordinator = SearchCoordinator(
        query="machine learning applications",
        provider_name="pubmed"
    )
-   
+
    # First search: fetches from API and caches processed results
    results = coordinator.search(page=1)
-   
+
    # Second search: retrieves from processing cache (no re-parsing)
    results_cached = coordinator.search(page=1)
 
@@ -68,19 +68,19 @@ Add HTTP response caching to reduce network requests (and avoid potential rate-l
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.sessions import CachedSessionManager
-   
+
    # Create session manager (factory for thread-safe sessions)
    session_manager = CachedSessionManager(
        cache_name="my_cache",
        backend="memory"
    )
-   
+
    coordinator = SearchCoordinator(
        query="deep learning",
        provider_name="crossref",
        session=session_manager.configure_session()  # Creates new session instance
    )
-   
+
    results = coordinator.search(page=1)
 
 Disable All Caching
@@ -91,17 +91,17 @@ For testing or when you always need fresh data:
 .. code-block:: python
 
    from scholar_flux import SearchCoordinator
-   
+
    # Disable processing cache
    coordinator = SearchCoordinator(
        query="quantum computing",
        provider_name="plos",
        cache_results=False
    )
-   
+
    # Every search reprocesses results
    results = coordinator.search(page=1)
-   
+
    # Or temporarily disable for one request:
    results = coordinator.search(
        page=1,
@@ -137,9 +137,9 @@ Fast but data is lost when your program ends:
 
    from scholar_flux import SearchCoordinator
    from scholar_flux.data_storage import DataCacheManager
-   
+
    cache = DataCacheManager.with_storage("memory")
-   
+
    coordinator = SearchCoordinator(
        query="climate change",
        provider_name="core",
@@ -155,20 +155,20 @@ Best for local projects where you want cache to persist. This implementation use
 
    from scholar_flux.data_storage import DataCacheManager
    from scholar_flux import SearchCoordinator
-   
+
    # Uses ~/.scholar-flux/package_cache/data_store.sqlite by default
    cache = DataCacheManager.with_storage(
        "sql",
        namespace="literature_review"
    )
-   
+
    # Or specify custom location:
    cache = DataCacheManager.with_storage(
        "sql",
        namespace="literature_review",
        url="sqlite:///./my_cache/data.db"
    )
-   
+
    coordinator = SearchCoordinator(
        query="renewable energy",
        provider_name="springernature",
@@ -178,26 +178,26 @@ Best for local projects where you want cache to persist. This implementation use
 DuckDB (Persistent)
 ~~~~~~~~~~~~~~~~~~~
 
-Best for workflows requiring analytical databases where you want cache to persist. This implementation builds off of the SQLAlchemyStorage backend to tailor workflows with the DuckDB backend. 
+Best for workflows requiring analytical databases where you want cache to persist. This implementation builds off of the SQLAlchemyStorage backend to tailor workflows with the DuckDB backend.
 
 .. code-block:: python
 
    from scholar_flux.data_storage import DataCacheManager
    from scholar_flux import SearchCoordinator
-   
+
    # Uses ~/.scholar-flux/package_cache/data_store.duckdb by default
    cache = DataCacheManager.with_storage(
        "duckdb",
        namespace="literature_review"
    )
-   
+
    # Or specify custom location:
    cache = DataCacheManager.with_storage(
        "duckdb",
        namespace="literature_review",
        url="duckdb:///./my_cache/data.db"
    )
-   
+
    coordinator = SearchCoordinator(
        query="Herbecology",
        provider_name="springernature",
@@ -212,7 +212,7 @@ High-performance with automatic expiration (TTL):
 .. code-block:: python
 
    from scholar_flux.data_storage import DataCacheManager
-   
+
    cache = DataCacheManager.with_storage(
        "redis",
        namespace="production_search",
@@ -229,7 +229,7 @@ Similar to Redis but with document-oriented storage:
 .. code-block:: python
 
    from scholar_flux.data_storage import DataCacheManager
-   
+
    cache = DataCacheManager.with_storage(
        "mongodb",
        namespace="research_project",
@@ -302,25 +302,25 @@ Namespaces let you organize cache by project, environment, or data source, even 
 
    from scholar_flux.data_storage import DataCacheManager
    from scholar_flux import SearchCoordinator
-   
+
    # Separate cache for different projects
    cancer_cache = DataCacheManager.with_storage(
        "sql",
        namespace="cancer_research"
    )
-   
+
    climate_cache = DataCacheManager.with_storage(
        "sql",
        namespace="climate_science"
    )
-   
+
    # Each uses separate cache space
    cancer_coord = SearchCoordinator(
        query="immunotherapy",
        provider_name="pubmed",
        cache_manager=cancer_cache
    )
-   
+
    climate_coord = SearchCoordinator(
        query="ocean acidification",
        provider_name="plos",
@@ -334,7 +334,7 @@ Namespaces let you organize cache by project, environment, or data source, even 
    # Organize by environment
    dev_cache = DataCacheManager.with_storage("memory", namespace="dev")
    prod_cache = DataCacheManager.with_storage("redis", namespace="prod")
-   
+
    # Organize hierarchically if needed
    cache = DataCacheManager.with_storage(
        "redis",
@@ -355,27 +355,27 @@ For sensitive queries, use encrypted session cache:
    from scholar_flux.sessions import EncryptionPipelineFactory, CachedSessionManager
    from scholar_flux.utils import config_settings
    import os
-   
+
    # Load or create encryption key
    key = os.environ.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
    encryption_factory = EncryptionPipelineFactory(key)
-   
+
    if not key:
        # Save this key securely - losing it means losing cached data
        new_key = encryption_factory.secret_key
        print(f"Saving the secret key...")
 
-       
+
        # next reload of scholar_flux should hold the following variable after it is saved
        config_settings.write_key(
            "SCHOLAR_FLUX_CACHE_SECRET_KEY", # the name of the key
            new_key.decode(), # the value of the key bytes to write
            env_path=config_settings.env_path # the current `env_path` is actually the default
        )
-   
+
    # Create encrypted serializer
    serializer = encryption_factory()
-   
+
    # Create cached session with encryption
    session_manager = CachedSessionManager(
        cache_name="encrypted_cache",
@@ -383,13 +383,13 @@ For sensitive queries, use encrypted session cache:
        cache_directory=None,  # Uses default scholar-flux directory
        serializer=serializer
    )
-   
+
    coordinator = SearchCoordinator(
        query="sensitive research query",
        provider_name="pubmed",
        session=session_manager()
    )
-   
+
    # Responses are encrypted in cache
    results = coordinator.search(page=1)
 
@@ -408,7 +408,7 @@ Enable logging to see what's being cached:
 .. code-block:: python
 
    import logging
-   
+
    # Enable ScholarFlux logging (console output is enabled by default)
    logger = logging.getLogger('scholar_flux')
    logger.setLevel(logging.INFO)
@@ -421,19 +421,19 @@ Enable logging to see what's being cached:
 .. code-block:: python
 
    from scholar_flux.data_storage import DataCacheManager
-   
+
    cache = DataCacheManager.with_storage("memory")
    storage_backend = cache.cache_storage
-   
+
    # Perform searches...
    # coordinator.search(page=1)
    # coordinator.search(page=2)
-   
+
    # Check what's cached
    all_keys = storage_backend.retrieve_keys()
    print(f"Cached pages: {len(all_keys)}")
    print(f"Keys: {all_keys}")
-   
+
    # Get all cached data
    all_data = storage_backend.retrieve_all()
    for key, value in all_data.items():
@@ -485,20 +485,20 @@ Collect training data with persistent caching:
    from scholar_flux.data_storage import DataCacheManager
    from pathlib import Path
    import pandas as pd
-   
+
    # Setup persistent cache with the default SQL-storage
    cache = DataCacheManager.with_storage(
        "sql",
        namespace="ml_training_data", # limit the record scope
    )
-   
+
    # Collect papers on different topics
    topics = {
        "machine learning algorithms":"machine_learning",
        "deep learning neural networks": "deep_learning",
-       "reinforcement learning": "reinforcement" 
+       "reinforcement learning": "reinforcement"
    }
-   
+
    # Create coordinators for threaded searches by provider (sequential in this case)
    multicoordinator = MultiSearchCoordinator()
    multicoordinator.add_coordinators(
@@ -521,7 +521,7 @@ Collect training data with persistent caching:
    normalized_records = search_result_list.filter().normalize(include={'provider_name', 'query', 'page'})
    df = pd.DataFrame(normalized_records)
    df['label'] = df['query'].apply(lambda q: topics[q])
-   
+
    print(f"Cached pages: {len(cache.cache_storage.retrieve_keys())}")
 
 Multi-Provider Parallel Searches
@@ -534,23 +534,23 @@ For concurrent searches across providers, use ``MultiSearchCoordinator``:
    from scholar_flux import SearchCoordinator, MultiSearchCoordinator
    from scholar_flux.data_storage import DataCacheManager
    from scholar_flux.sessions import CachedSessionManager
-   
+
    user_agent="Research/1.0 (mailto:user@institution.edu)" # Change this
    # Each provider needs a separate session factory, independent of backend (request-cache sessions are not thread-safe)
    session_manager = CachedSessionManager(backend="redis", user_agent = user_agent)
 
    # The data cache manager uses a shared cache (thread-safe)
    cache_manager = DataCacheManager.with_storage("redis", namespace="multi_search")
-   
+
    # Create coordinators for each provider
    plos = SearchCoordinator(query="neural networks", provider_name="plos", cache_manager = cache_manager, session=session_manager())
    arxiv = SearchCoordinator(query="neural networks", provider_name="arxiv", cache_manager = cache_manager, session=session_manager())
    crossref = SearchCoordinator(query="neural networks", provider_name="crossref", cache_manager = cache_manager, session=session_manager())
-   
+
    # Search all concurrently
    multicoordinator = MultiSearchCoordinator()
    multicoordinator.add_coordinators([plos, arxiv, crossref])
-   
+
    # All providers search in parallel (thread-safe)
    results = multicoordinator.search_pages(pages=range(1, 11))
 
@@ -574,22 +574,22 @@ The processing cache automatically invalidates when:
 
    from scholar_flux.data_storage import DataCacheManager
    from scholar_flux import SearchCoordinator
-   
+
    cache_manager = DataCacheManager.with_storage("sql", namespace="temp")
-   
+
    coordinator = SearchCoordinator(
        query="test query",
        provider_name="pubmed",
        cache_manager=cache_manager
    )
-   
+
    # Cache results
    results = coordinator.search(page=1)
-   
+
    # Clear specific page (will re-cache on next search)
    cache_key = coordinator._create_cache_key(page=1)
    cache_manager.delete(cache_key)
-   
+
    # Clear entire namespace
    cache_manager.cache_storage.delete_all()
 
@@ -601,21 +601,21 @@ Redis and MongoDB support automatic cache expiration:
 .. code-block:: python
 
    from scholar_flux.data_storage import DataCacheManager
-   
+
    # Short TTL for frequently-changing data (1 hour)
    news_cache = DataCacheManager.with_storage(
        "redis",
        namespace="news",
        ttl=3600
    )
-   
+
    # Medium TTL for general searches (1 day)
    research_cache = DataCacheManager.with_storage(
        "redis",
        namespace="research",
        ttl=86400
    )
-   
+
    # Long TTL for stable data (30 days)
    archive_cache = DataCacheManager.with_storage(
        "mongodb",
@@ -635,7 +635,7 @@ Cache Not Persisting
 
    # Problem: Data lost when program ends
    cache = DataCacheManager.with_storage("memory")
-   
+
    # Solution: Use persistent backend
    cache = DataCacheManager.with_storage("sql")
 
@@ -649,7 +649,7 @@ Thread Safety Errors
    # ❌ Wrong: Single session shared across threads
    session = CachedSessionManager(backend="memory").configure_session()
    # Used in multiple threads - NOT SAFE
-   
+
    # ✅ Correct: Create session per thread
    session_manager = CachedSessionManager(backend="memory")
    # Call session_manager() to create new instance per thread
@@ -668,7 +668,7 @@ Redis Connection Failed
 
    # import the RedisStorage directly
    from scholar_flux.data_storage.redis_storage import RedisStorage
-   
+
    if RedisStorage.is_available():
        cache = DataCacheManager.with_storage("redis")
    else:

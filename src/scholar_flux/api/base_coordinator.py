@@ -152,7 +152,7 @@ class BaseCoordinator:
         """Property method for accessing the provider name in the current SearchAPI instance.
 
         Returns:
-            The name corresponding to the API Provider.
+            str: The name of the current API provider.
 
         """
         return self.search_api.provider_name
@@ -184,7 +184,7 @@ class BaseCoordinator:
 
     @property
     def search_api(self) -> SearchAPI:
-        """Allows the search_api to be used as a property while also allowing for verification."""
+        """Allows the SearchAPI to be used as a property while also allowing for assignment verification."""
         return self._search_api
 
     @search_api.setter
@@ -228,8 +228,7 @@ class BaseCoordinator:
 
     @property
     def responses(self) -> ResponseCoordinator:
-        """An alias for the response_coordinator property that is used for orchestrating the processing of retrieved API
-        responses.
+        """Alias for the response_coordinator property used for orchestrating the processing of retrieved API responses.
 
         Handles response orchestration, including response content parsing, the extraction of records/metadata, record
         processing, and cache operations.
@@ -264,8 +263,18 @@ class BaseCoordinator:
     def search(self, **kwargs: Any) -> Optional[ProcessedResponse | ErrorResponse]:
         """Public Search Method coordinating the retrieval and processing of an API response.
 
-        This method serves as the base and will primarily handle the "How" of searching (e.g. Workflows, Single page
-        search, etc.)
+        This method serves as the base for retrieving processed responses from APIs and will primarily handle the "How"
+        of record retrieval and processing (e.g. Workflows, Single page search, etc.).
+
+        **kwargs:
+            Keyword arguments used to modify how retrieval and processing steps are performed. To be further defined by
+            subclasses.
+
+        Returns:
+            Optional[ProcessedResponse | ErrorResponse]:
+                The processed response or error response resulting from the current search. Unless overridden, this
+                method attempts to first retrieve a single response from the `SearchAPI` (returning a `Response`) and
+                is further processed via the `ResponseCoordinator` as a `ProcessedResponse` or `ErrorResponse`.
 
         """
         return self._search(**kwargs)
@@ -279,6 +288,14 @@ class BaseCoordinator:
         This method is designed as a direct entrypoint to performing searches without the addition of otherwise
         automatically populated, pagination-related fields such as `query`, `records_per_page`, etc. while still taking
         advantage of the orchestration features of the current coordinator.
+
+        **kwargs:
+            Keyword arguments used to modify how the parameter search is orchestrated. To be further defined by
+            subclasses.
+
+        Returns:
+            Optional[ProcessedResponse | ErrorResponse]:
+                The processed response or error response resulting from the current parameter-based search.
 
         """
         # remove the `page` parameter to prevent potential errors
@@ -316,9 +333,9 @@ class BaseCoordinator:
         blocks of a SearchCoordinator.
 
         Args:
-            search_api (Optional[SearchAPI]):
+            search_api (SearchAPI):
                 The search API to use for the retrieval of response records from APIs.
-            response_coordinator (Optional[ResponseCoordinator]):
+            response_coordinator (ResponseCoordinator):
                 Core class used to handle the processing and core handling of all responses from APIs.
 
         Returns:
@@ -365,6 +382,9 @@ class BaseCoordinator:
         """Method for identifying the current implementation and subclasses of the BaseCoordinator.
 
         Useful for showing the options being used to coordinate requests.
+
+        Returns:
+            str: A human-readable string representation of the current `BaseCoordinator`.
 
         """
         return self.structure()

@@ -80,7 +80,7 @@ def test_generated_representation(DummyClass):
     # retrieves the name of the class
     class_name = dummy.__class__.__name__
 
-    # representations operate by adding enough padding that each attribute is located  inline with the class parentheses
+    # representations operate by adding enough padding that each attribute is located inline with the class parentheses
     spacing_length = len(class_name) + 1
     pad = spacing_length * " "
 

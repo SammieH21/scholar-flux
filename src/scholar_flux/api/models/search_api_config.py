@@ -80,7 +80,7 @@ class SearchAPIConfig(BaseModel):
         # Update a provider and automatically retrieve its API key - the previous API key will no longer apply.
         >>> updated_config = SearchAPIConfig.update(config, provider_name = 'core')
         # The API key should have been overwritten to use core. Looks for a `CORE_API_KEY` env variable by default.
-        >>> assert updated_config.provider_name  == 'core' and  updated_config.api_key != config.api_key
+        >>> assert updated_config.provider_name  == 'core' and updated_config.api_key != config.api_key
 
     """
 
