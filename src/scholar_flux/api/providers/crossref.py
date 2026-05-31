@@ -1,19 +1,18 @@
 # /api/providers/crossref.py
 """Defines the core configuration necessary to interact with the Crossref API using the scholar_flux package.
 
-Note that Crossref has a plus tier for increased API support/features and does not accept an API key directly.
-
-Crossref Plus users instead use a session header.
+Note that Crossref has a plus tier for increased API support/features and supports API keys via a
+`CROSSREF-PLUS-API-TOKEN` header, prefixed with `Bearer [API Key]`. To use header-based authentication with
+Crossref, ensure that `CROSSREF_API_KEY` (aliased as `CROSSREF-PLUS-API-TOKEN`) is stored either as an environment
+variable or directly within `scholar_flux.config_settings`. The token will be automatically read and formatted on
+`SearchAPI`/`SearchCoordinator` instantiation.
 
 Example:
-    >>> from scholar_flux import SearchAPI
-    >>> import os
-    >>>
-    >>> token = os.environ.get("CROSSREF_PLUS_API_TOKEN")
-    >>> crossref_search_api = SearchAPI(query='example_query', provider_name = "crossref")
-    >>> crossref_search_api.session.headers['Crossref-Plus-API-Token'] = f"Bearer {token}"
-
-Direct addition for auth headers may be added in the future when needed.
+    >>> from scholar_flux import SearchAPI, config_settings
+    >>> crossref_api_key = config_settings.get("CROSSREF_API_KEY")  # Read as a `SecretStr` if exists, None otherwise
+    >>> crossref_search_api = SearchAPI(query='example_query', provider_name = "crossref", api_key=crossref_api_key)
+    # Check whether the token is available. Should return an `AuthHeader(SecretKey)` if the API key exists.
+    >>> crossref_search_api.build_auth()
 
 """
 from functools import partial
@@ -35,8 +34,10 @@ provider = ProviderConfig(
         query="query",
         start="offset",
         records_per_page="rows",
-        api_key_parameter=None,
+        api_key_parameter="CROSSREF-PLUS-API-TOKEN",
         api_key_required=False,
+        api_key_scheme="Bearer",
+        api_key_in_headers=True,
         auto_calculate_page=True,
         api_specific_parameters=dict(
             mailto=APISpecificParameter(

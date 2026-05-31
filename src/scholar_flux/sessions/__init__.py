@@ -1,9 +1,13 @@
 # sessions/
-"""The scholar_flux.sessions module contains helper classes to set up HTTP sessions, both cached and uncached, with
-relatively straightforward configurations and a unified interface. The SessionManager and CachedSessionManager are
-designed as factory classes that return a constructed session object with the parameters provided.
+"""The scholar_flux.sessions module contains helper classes to set up both cached and uncached HTTP sessions.
 
-Classes:
+Session managers are designed to initialize with relatively straightforward configurations and a unified interface while
+also allowing for advanced configurations that include session encryption, authentication, and fail-fast validation. The
+`SessionManager` and `CachedSessionManager` are designed as factory classes that validate core parameters on
+initialization and return constructed session objects with the provided parameters when the `.configure_session()`
+method is called.
+
+Core Classes:
     - SessionManager:
         Creates a standard requests.Session that simply takes a user-agent parameter.
     - CachedSessionManager:
@@ -35,6 +39,15 @@ Cached Sessions:
     >>> cached_response = api_with_cache.search(page=1) # is now cached
     >>> isinstance(cached_response, CachedResponse)
     # OUTPUT: True
+
+Sessions With Custom Authorization:
+    # Provided for demonstration purposes. In nearly all cases, you won't need to configure your own auth directly.
+    >>> from scholar_flux.api import SearchAPI
+    >>> api = SearchAPI(query="test query", provider_name='crossref')
+    # Uses a AuthAPIKeyHeader/AuthAPIKeyParameter configuration based on whether the provider accepts keys in headers.
+    >>> auth = api.build_auth()
+    # AuthAPIKeyHeader(api_key=**********, parameter_name='CROSSREF-PLUS-API-TOKEN', scheme='Bearer')
+    >>> result = api.search(page=1, auth=auth)  # Or configure your own auth if absolutely necessary
 
 Encrypted Cached Sessions
     >>> from scholar_flux.api import SearchAPI
@@ -79,12 +92,17 @@ See Also:
     - https://requests-cache.readthedocs.io/
 
 """
-from scholar_flux.sessions.models import BaseSessionManager, CachedSessionConfig, SessionCacheBackend
-from scholar_flux.sessions.session_manager import SessionManager, CachedSessionManager
+from scholar_flux.sessions.auth import AuthAPIKeyBase, AuthAPIKeyHeader, AuthAPIKeyParameter, AuthAPIKeyNoOp
 from scholar_flux.sessions.encryption import EncryptionPipelineFactory
+from scholar_flux.sessions.models import BaseSessionManager, CachedSessionConfig, SessionCacheBackend
+from scholar_flux.sessions.session_manager import CachedSessionManager, SessionManager
 
 
 __all__ = [
+    "AuthAPIKeyBase",
+    "AuthAPIKeyHeader",
+    "AuthAPIKeyParameter",
+    "AuthAPIKeyNoOp",
     "SessionManager",
     "CachedSessionManager",
     "EncryptionPipelineFactory",

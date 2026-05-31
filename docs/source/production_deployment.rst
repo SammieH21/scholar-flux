@@ -17,7 +17,7 @@ ScholarFlux is designed for production-grade data collection from academic APIs.
 - **Essential patterns**: Caching, concurrency, and security basics
 
 .. note::
-   ScholarFlux is currently **beta (v0.5.2)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
+   ScholarFlux is currently **beta (v0.6.0)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
 
 Prerequisites
 -------------
@@ -217,10 +217,18 @@ Configure default cache backends via environment variables. This eliminates the 
    # Redis connection (used by both layers when redis backend is selected)
    SCHOLAR_FLUX_REDIS_HOST=localhost        # or REDIS_HOST
    SCHOLAR_FLUX_REDIS_PORT=6379             # or REDIS_PORT
+   SCHOLAR_FLUX_REDIS_USERNAME=             # If needed
+   SCHOLAR_FLUX_REDIS_PASSWORD=             # If needed
 
    # MongoDB connection (alternative)
    SCHOLAR_FLUX_MONGODB_HOST=mongodb://127.0.0.1   # or MONGODB_HOST
    SCHOLAR_FLUX_MONGODB_PORT=27017                 # or MONGODB_PORT
+   SCHOLAR_FLUX_MONGODB_USERNAME=                  # If needed
+   SCHOLAR_FLUX_MONGODB_PASSWORD=                  # If needed
+
+   # Optional parameters - ScholarFlux uses its own defaults for response cache storage otherwise
+   SCHOLAR_FLUX_MONGODB_DATABASE=
+   SCHOLAR_FLUX_MONGODB_COLLECTION=
 
    # Using SQLite, DuckDB, or another SQLAlchemy flavor:
    SCHOLAR_FLUX_SQLALCHEMY_URL=None         # an optional file path or URI for caching processed response data
@@ -856,18 +864,26 @@ For sensitive research data, use encrypted caching:
 .. code-block:: python
 
    from scholar_flux.sessions import EncryptionPipelineFactory, CachedSessionManager
-   import os
+   from scholar_flux import config_settings
 
-   # Load or generate encryption key
-   key = os.getenv('SCHOLAR_FLUX_CACHE_SECRET_KEY')
-   encryption_factory = EncryptionPipelineFactory(key)
+   # Load key from env or generate a new encryption key if it doesn't already exist
+   if not config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY"):
+       encryption_factory = EncryptionPipelineFactory()
+       # Save the key within the current session configuration
+       config_settings.set("SCHOLAR_FLUX_CACHE_SECRET_KEY", encryption_factory.secret_key)
+       # Write the key to the package-level env
+       config_settings.write_key("SCHOLAR_FLUX_CACHE_SECRET_KEY", raise_on_error=True)
+       print(f"Wrote key to {config_settings.env_path}")
 
    # Create encrypted session
-   serializer = encryption_factory()
-   session_manager = CachedSessionManager(
-       backend='redis',
-       serializer=serializer
-   )
+   session_manager = CachedSessionManager(backend='redis',use_encryption=True)
+
+   # Will raise an error if a different token was used for encryption. **Loss of a token equals data loss**
+   session = session_manager(verify_connection=True, raise_on_error=True)
+
+   ## If the token can't be recovered (deleted .env file, use a different cache name or delete the session cache)
+   # session = session_manager(verify_connection=False, raise_on_error=True)
+   # session.cache.clear()
 
 .. seealso::
    See `SECURITY <https://github.com/SammieH21/scholar-flux?tab=security-ov-file>`_ for comprehensive security guidelines including cache encryption, network security, and vulnerability reporting.

@@ -15,8 +15,14 @@ from scholar_flux.api.validators import validate_and_process_url, validate_url
 from scholar_flux.api import SearchAPI, APIParameterMap, SearchAPIConfig, APIParameterConfig, provider_registry
 from scholar_flux.security import SecretUtils
 from scholar_flux.utils import config_settings
+from scholar_flux.sessions.auth import AuthAPIKeyHeader, AuthAPIKeyNoOp
 
-from scholar_flux.exceptions import QueryValidationException, APIParameterException, RequestCreationException
+from scholar_flux.exceptions import (
+    QueryValidationException,
+    APIParameterException,
+    APIKeyValidationException,
+    RequestCreationException,
+)
 from urllib.parse import urljoin
 
 
@@ -98,8 +104,8 @@ def test_parameter_build_successful(provider_name, original_config_test_api_key)
     This method uses the pytest's `parametrize` feature to validate parameters generated automatically by
     `SearchAPI.build_parameters()` against the configuration and parameter map required by each provider.
 
-    This test ensures that all required parameters and api keys (when required) are present in the final
-    dictionary of parameter key-value pairs and does not send requests to the api provider.
+    This test ensures that all required parameters and API keys (when required) are present in the final
+    dictionary of parameter key-value pairs and does not send requests to the API provider.
 
     """
 
@@ -121,7 +127,7 @@ def test_parameter_build_successful(provider_name, original_config_test_api_key)
         ),
     }
 
-    if api_parameter_map.api_key_parameter:
+    if api_parameter_map.api_key_parameter and not api_parameter_map.api_key_in_headers:
         required_provider_parameters.add(api_parameter_map.api_key_parameter)
 
     # uses the default configuration under the hood for the current provider with a mocked API key to verify the result
@@ -158,7 +164,7 @@ def test_incorrect_config(param_overrides):
 
     1. If `records_per_page` is a non integer, an error should be raised.
     2. An API key must be provided for the springer API, and an empty string should trigger an error.
-    3. If an api key is more than 512 characters long, the api key is likely incorrect.
+    3. If an API key is more than 512 characters long, the api key is likely incorrect.
 
     """
     kwargs = {
@@ -197,6 +203,22 @@ def test_incorrect_base_url(caplog):
     assert "Invalid SearchAPIConfig: " in str(excinfo.value)
 
 
+def test_incorrect_api_key(caplog, default_api_parameter_config):
+    """Verifies that providing an invalid API key APIParameterException will raise an APIParameterException."""
+    api = SearchAPI(query="test", parameter_config=default_api_parameter_config)
+    invalid_api_key = ["an", "invalid", "api", "key"]
+    err = (
+        "SearchAPI auth initialization failed: Expected the extracted API key to be of type `str` or `SecretStr`, but instead received "
+        f"{type(invalid_api_key)}."
+    )
+    err_pattern = f".*{re.escape(err)}"
+
+    with requests_mock.Mocker(real_http=False), pytest.raises(APIKeyValidationException, match=err_pattern):
+        _ = api.search(page=1, parameters=dict(api_key=invalid_api_key))
+
+    assert re.search(err_pattern, caplog.text) is not None
+
+
 def test_incorrect_config_type():
     """Verifies that incorrect configurations will raise an APIParameterException when a dictionary is provided.
 
@@ -217,11 +239,11 @@ def test_incorrect_config_type():
 def test_default_params():
     """Test for whether the defaults are specified correctly:
 
-    1. api key stays null
-    2. session defaults to a requests.Session object
-    3. records per page defaults to 20
-    4. mailto defaults to None
-    5. timeout is correctly set to the default 20 seconds
+    1. API key stays null
+    2. Session defaults to a requests.Session object
+    3. Records per page defaults to 20
+    4. Mailto defaults to None
+    5. Timeout is correctly set to the default 20 seconds
 
     """
 
@@ -229,7 +251,7 @@ def test_default_params():
     api = SearchAPI(
         query="test",
         base_url="https://api.example.com",
-        parameter_config=parameter_config,
+        parameter_config=parameter_config.parameter_map,  # should also accept parameter mappings
         records_per_page=None,  # type:ignore
         session=None,
         api_key=None,
@@ -263,7 +285,7 @@ def test_api_specific_parameter_specification(caplog):
 
 
 def test_validate_url(caplog):
-    """Verifies that the underlying api validator for URLs correctly identifies missing schemas/protocols."""
+    """Verifies that the underlying API validator for URLs correctly identifies missing schemas/protocols."""
     crossref = provider_registry.get("crossref")
     assert crossref is not None
     crossref_url = crossref.base_url
@@ -271,7 +293,7 @@ def test_validate_url(caplog):
     assert validate_and_process_url(None) is None
     assert validate_url("https://") is False
     assert (
-        "Expected a domain in the URL after the http/https protocol. " "Only the scheme was received: https://"
+        "Expected a domain in the URL after the http/https protocol. Only the scheme was received: https://"
     ) in caplog.text
     assert validate_url("https:// not a valid url") is False
     assert (
@@ -325,6 +347,93 @@ def test_build_with_additional_parameters(caplog):
         "The following additional parameters are not associated with the current API config: {'new_parameter': 1}"
         in caplog.text
     )
+
+
+def test_api_key_in_header(mock_api_key, restore_config_settings, monkeypatch):
+    """Verifies that APIs that set `api_key_in_header=True` correctly assign API keys to headers."""
+
+    crossref_config = provider_registry["crossref"]
+    api_key_env_var = crossref_config.api_key_env_var
+    api_key_parameter = crossref_config.map.api_key_parameter
+    assert api_key_parameter and api_key_env_var
+
+    config_settings.set(api_key_env_var, mock_api_key)
+    api = SearchAPI(provider_name="crossref", query="test query")
+
+    # Both should be secret keys
+    assert api.api_key == config_settings.get(api_key_env_var)
+
+    # Crossref should use
+    prepared_request = api.prepare_search(page=1)
+    url = prepared_request.url
+    assert url
+    assert "token" not in url and "api_key" not in url
+    token = f"Bearer {SecretUtils.unmask_secret(mock_api_key)}"
+    assert prepared_request.headers and prepared_request.headers[api_key_parameter] == token
+
+    monkeypatch.setattr(api.config, "api_key", None)
+    prepared_request = api.prepare_search(page=1)
+    assert not prepared_request.headers or api_key_parameter not in prepared_request.headers
+
+
+def test_api_key_in_header_override(mock_api_key, monkeypatch):
+    """Verifies that APIs that set `api_key_in_header=True` correctly handle API keys header overrides."""
+    api_key_parameter = provider_registry["crossref"].map.api_key_parameter
+    assert api_key_parameter
+    api = SearchAPI(provider_name="crossref", query="test query")
+
+    # Ensures that SearchAPI.api_key is always None, regardless of the env config for this test
+    monkeypatch.setattr(api.config, "api_key", None)
+    prepared_request = api.prepare_search(page=1, parameters={"api_key": mock_api_key})
+    token = f"Bearer {SecretUtils.unmask_secret(mock_api_key)}"
+    assert prepared_request.headers and prepared_request.headers[api_key_parameter] == token
+
+    assert (url := prepared_request.url) and api_key_parameter not in url and "api_key" not in url
+
+    # Uses a mocker to avoid a real API call in case a failed patch would otherwise result in a real request
+    with requests_mock.Mocker(real_http=False):
+        mock_send = MagicMock()
+        monkeypatch.setattr(api.session, "send", mock_send)
+        _ = api.make_request(page=1, additional_parameters={"api_key": mock_api_key})
+
+    headers = mock_send.call_args[0][0].headers
+    assert isinstance(headers, requests.structures.CaseInsensitiveDict)
+    assert SecretStr(headers[api_key_parameter]) == SecretStr(f"Bearer {mock_api_key.get_secret_value()}")
+
+
+def test_prepare_search_api_key_warns_when_passed_directly(mock_api_key, default_api_parameter_config, caplog):
+    """Verifies that `SearchAPI.prepare_search` warns the user when an API key is passed directly."""
+    api = SearchAPI(
+        base_url="https://example-url.com",
+        query="test query",
+        parameter_config=default_api_parameter_config,
+    )
+    assert api.api_key is None
+
+    prepare_search = api.prepare_request(api_key=mock_api_key)
+    assert prepare_search.url and SecretUtils.unmask_secret(mock_api_key) in prepare_search.url
+    assert "The `api_key` keyword parameter is now deprecated on `SearchAPI.prepare_request`" in caplog.text
+
+
+def test_api_key_in_header_auth_override(mock_api_key, restore_config_settings, monkeypatch):
+    """Verifies that searches can directly use an `AuthBase` for API key processing overrides."""
+    crossref_config = provider_registry["crossref"]
+    api_key_env_var = crossref_config.api_key_env_var
+    api_key_parameter = crossref_config.map.api_key_parameter
+    assert api_key_parameter and api_key_env_var
+
+    with monkeypatch.context() as m:
+        m.delenv(api_key_env_var, raising=False)
+        config_settings.unset(api_key_env_var)
+        api = SearchAPI(provider_name="crossref", query="test query")
+        assert api.api_key is None
+
+        # the API key should only be available via `auth=`
+        auth = AuthAPIKeyHeader(api_key=mock_api_key, parameter_name=api_key_parameter, scheme="Bearer")
+        prepared_request = api.prepare_search(page=1, parameters={"api_key": mock_api_key}, auth=auth)
+        token = f"Bearer {SecretUtils.unmask_secret(mock_api_key)}"
+        assert prepared_request.headers and prepared_request.headers[api_key_parameter] == token
+        assert (url := prepared_request.url) and api_key_parameter not in url and "api_key" not in url
 
 
 def test_basic_parameter_overrides(caplog):
@@ -842,9 +951,7 @@ def test_request_preparation_parameter_exceptions(monkeypatch, mock_successful_r
     with pytest.raises(RequestCreationException) as excinfo:
         _ = api.prepare_request(parameters=[1, 2, 3])  # type: ignore
     assert (
-        "An unexpected error occurred: The request could "
-        f"not be prepared for base_url={api.base_url}, "
-        f"endpoint={None}"
+        f"An unexpected error occurred: The request could not be prepared for base_url={api.base_url}, endpoint={None}"
     ) in str(excinfo.value)
 
 
@@ -885,7 +992,7 @@ def test_search_with_endpoint_only(default_search_api):
         m.get(expected_url, status_code=200, json={"status": "success"})
 
         # retrieves a mocked response with the /works endpoint
-        response = default_search_api.search(page=None, endpoint="works")
+        response = default_search_api.search(page=None, endpoint="works", auth=AuthAPIKeyNoOp())
         assert response and str(expected_url) == response.url
         json_response = response.json()
         assert json_response["status"] == "success"

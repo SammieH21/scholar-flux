@@ -15,16 +15,19 @@ Classes:
 import datetime
 import requests
 import requests_cache
-from typing import Optional, Type, Literal, TYPE_CHECKING, Any
+from typing import Optional, Type, Literal, TYPE_CHECKING, overload
 from pathlib import Path
 import logging
 from scholar_flux.package_metadata import get_default_writable_directory
-from scholar_flux.exceptions.util_exceptions import (
+from scholar_flux.exceptions import (
     SessionCreationError,
     SessionConfigurationError,
     SessionInitializationError,
     CachedSessionValidationError,
     SessionCacheDirectoryError,
+    ItsDangerousImportError,
+    CryptographyImportError,
+    SecretKeyError,
 )
 from scholar_flux.sessions.models.session import (
     BaseSessionManager,
@@ -33,9 +36,12 @@ from scholar_flux.sessions.models.session import (
     SessionCacheSerializer,
     SessionCacheBackend,
 )
+from scholar_flux.sessions.encryption import EncryptionPipelineFactory
 from scholar_flux.utils import config_settings
-from scholar_flux.utils.helpers import try_none
+from scholar_flux.utils.helpers import try_none, coerce_bool, with_fallback
 from scholar_flux.utils.repr_utils import generate_repr_from_string
+from scholar_flux.utils.settings_utils import SettingsDictType
+from scholar_flux.security.utils import SecretUtils
 
 from pydantic import ValidationError
 
@@ -160,7 +166,9 @@ class CachedSessionManager(SessionManager):
         backend: Optional[SessionCacheBackendType] = None,
         serializer: Optional[SessionCacheSerializer] = None,
         expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
-        raise_on_error: bool = False,
+        raise_on_error: Optional[bool] = None,
+        *,
+        use_encryption: Optional[bool] = None,
     ) -> None:
         """Initializes the CachedSessionManager, defining and validating the options for `CachedSession` generation.
 
@@ -195,9 +203,16 @@ class CachedSessionManager(SessionManager):
             expire_after (Optional[int|float|str|datetime.datetime|datetime.timedelta]):
                 Sets the expiration time after which previously successfully cached responses expire. This can be
                 modified via `CachedSessionManager.DEFAULT_EXPIRE_AFTER` (default=86400) unless otherwise set.
-            raise_on_error (bool):
+            raise_on_error (Optional[bool]):
                 Whether to raise an error on instantiation if an error is encountered in the creation of a session.
-                If raise_on_error = False, the error is logged, and a requests.Session is created instead.
+                If raise_on_error = False, the error is logged, and a requests.Session is created instead. When None,
+                individual methods define error handling behavior themselves: Encryption serializer-related errors are
+                raised by default while the default cache backend defaults to `sqlite`.
+
+            use_encryption (Optional[bool]):
+                Determines whether session requests and their corresponding responses should be encrypted within session
+                cache. This setting instantiates a new serializer from the `EncryptionPipelineFactory` when
+                a session has not already been created.
 
         """
         try:
@@ -206,6 +221,7 @@ class CachedSessionManager(SessionManager):
             cache_backend = (
                 backend if backend is not None else self.default_session_backend(raise_on_error=raise_on_error)
             )
+            serializer = self.get_serializer(serializer, use_encryption=use_encryption, raise_on_error=raise_on_error)
             session_cache_name = self.get_cache_name(cache_name)
             cache_directory = self.get_cache_directory(cache_directory, cache_backend)
             expire_after = expire_after if expire_after is not None else self._default_expire_after()
@@ -218,7 +234,7 @@ class CachedSessionManager(SessionManager):
                 serializer=serializer,
                 expire_after=expire_after,
             )
-            self.raise_on_error = raise_on_error
+            self.raise_on_error = with_fallback(raise_on_error, False)
         except (ValidationError, SessionCacheDirectoryError) as e:
             raise SessionConfigurationError(
                 "Error configuring the cached session manager. "
@@ -239,7 +255,7 @@ class CachedSessionManager(SessionManager):
 
     @property
     def cache_path(self) -> str:
-        """Makes the config's cache directory accessible by the CachedSessionManager."""
+        """Path to the file-based session database, constructed from the cache directory and cache name."""
         return self.config.cache_path
 
     @property
@@ -248,7 +264,7 @@ class CachedSessionManager(SessionManager):
         return self.config.backend
 
     @property
-    def kwargs(self) -> dict[str, Any]:
+    def kwargs(self) -> SettingsDictType:
         """Additional keyword arguments that can be passed to `CachedSession` on the creation of the session."""
         return self.config.kwargs
 
@@ -265,6 +281,66 @@ class CachedSessionManager(SessionManager):
     ) -> Optional[int | float | str | datetime.datetime | datetime.timedelta]:
         """Makes the config's value used for response cache expiration accessible from the CachedSessionManager."""
         return self.config.expire_after
+
+    @classmethod
+    def get_serializer(
+        cls,
+        serializer: SessionCacheSerializer | None = None,
+        *,
+        use_encryption: Optional[bool] = None,
+        raise_on_error: Optional[bool] = None,
+    ) -> SessionCacheSerializer | None:
+        """Returns the received serializer if it exists and alternatively creates an encryption serializer if enabled.
+
+        Args:
+            serializer (SessionCacheSerializer | None):
+                The serializer to use for the `CachedSession`. If None and encryption is supported via the received
+                parameters and/or environment variables, a new encryption serializer is created.
+            use_encryption (Optional[bool]):
+                Determines whether encryption-based serialization should occur. If `None`, this method reads from
+                `SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION` to determine whether to initialize a new encryption
+                pipeline serializer.
+            raise_on_error (Optional[bool]):
+                Determines whether an error should be re-raised if encryption setup fails due to an error. When None or
+                True, an error is raised when serialization fails (default behavior). If False, the error is logged as
+                a warning and `None` is returned.
+
+        Returns:
+            SessionCacheSerializer: If initially received or encryption pipeline serialization setup was successful.
+            None: If a serializer isn't provided or encryption pipeline serialization setup gracefully fails.
+
+        """
+        use_encryption = (
+            coerce_bool(config_settings.get("SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION"))
+            if use_encryption is None
+            else use_encryption
+        )
+        if serializer is not None or not use_encryption:
+            return serializer
+
+        secret_key = config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
+
+        if not secret_key:
+            logger.warning(
+                "The environment variable, SCHOLAR_FLUX_CACHE_SECRET_KEY is empty. To use session encryption by "
+                "default, provide a valid 32-byte URL-safe base64 secret key via the environment or set it via "
+                "`scholar_flux.config_settings`."
+            )
+            return None
+
+        try:
+            encryption_factory = EncryptionPipelineFactory()
+            encryption_pipeline_serializer = encryption_factory()
+            logger.info("Successfully initialized an EncryptionPipeline...")
+            return encryption_pipeline_serializer
+
+        except (ItsDangerousImportError, CryptographyImportError, SecretKeyError) as e:
+            err = f"Encryption enabled but failed due to a `{e.__class__.__name__}`: {e}."
+            if raise_on_error is True or raise_on_error is None:
+                logger.exception(err)
+                raise SessionConfigurationError(err) from e
+            logger.warning(f"{err} Skipping encryption...")
+        return None
 
     @classmethod
     def get_cache_name(cls, cache_name: Optional[str] = None) -> str:
@@ -328,15 +404,15 @@ class CachedSessionManager(SessionManager):
 
     @classmethod
     def default_session_backend(
-        cls, raise_on_error: bool = False
+        cls, raise_on_error: Optional[bool] = None
     ) -> Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"]:
         """Reads a default backend from `SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND` or defaulting to sqlite otherwise.
 
         Args:
-            raise_on_error (bool):
-                If True, an exception is raised when the environment variable exists but attempts
-                to use an unknown requests_cache backend. If False, this method instead raises a warning
-                defaulting to `sqlite` instead.
+            raise_on_error (Optional[bool]):
+                If True, an exception is raised when the SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND environment variable
+                exists but attempts to use an unknown requests_cache backend. If False or None, this method instead
+                raises a warning, defaulting to `sqlite` instead.
 
         Returns:
             str: The name of the backend to use as the default session cache.
@@ -384,8 +460,22 @@ class CachedSessionManager(SessionManager):
         config_expire_after = try_none(config_settings.get("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL"))
         return config_expire_after if config_expire_after is not None else try_none(cls.DEFAULT_EXPIRE_AFTER)
 
+    @overload
     def configure_session(
-        self, verify_connection: bool = False
+        self, verify_connection: bool = False, *, raise_on_error: Literal[True] = True
+    ) -> requests_cache.session.CachedSession:
+        """When `raise_on_error=True`, session configuration will raise an error when cached session creation fails."""
+        ...
+
+    @overload
+    def configure_session(
+        self, verify_connection: bool = False, *, raise_on_error: Literal[False] | None = None
+    ) -> requests.Session | requests_cache.session.CachedSession:
+        """When `raise_on_error` is False or None, session configuration falls back to `requests.Session` on error."""
+        ...
+
+    def configure_session(
+        self, verify_connection: bool = False, *, raise_on_error: Optional[bool] = None
     ) -> requests.Session | requests_cache.session.CachedSession:
         """Creates and returns a new `CachedSession` using the same settings shown in the current `CachedSessionConfig`.
 
@@ -399,6 +489,10 @@ class CachedSessionManager(SessionManager):
                 Indicates whether CachedSession validation should occur by reading from cache. Useful for verifying
                 whether the cache for remote connections (redis, mongodb) is accessible and the deserialization
                 pipeline is operating as intended when a serializer is specified.
+            raise_on_error (bool):
+                Whether to raise an error on instantiation if an error is encountered in the creation of a session.
+                If `raise_on_error` is None, whether an error is raised instead depends on the value of the
+                `CachedSessionManager.raise_on_error` attribute.
 
         Returns:
             requests.Session | requests_cache.CachedSession:
@@ -407,14 +501,15 @@ class CachedSessionManager(SessionManager):
 
         """
         try:
+            config = self.config.build_cache()
             cached_session = requests_cache.session.CachedSession(
-                cache_name=self.cache_path,
-                backend=self.backend,
-                serializer=self.serializer,
-                expire_after=self.expire_after,
+                cache_name=config.cache_path,
+                backend=config.backend,
+                serializer=config.serializer,
+                expire_after=config.expire_after,
                 allowable_methods=("GET",),
                 allowable_codes=[200],
-                **self.kwargs,
+                **SecretUtils.unmask_parameters(config.kwargs),
             )
 
             if self.user_agent:
@@ -430,11 +525,48 @@ class CachedSessionManager(SessionManager):
         except (PermissionError, ConnectionError, OSError) as e:
             logger.error("Couldn't create cached session due to an error: %s.", e)
 
-            if self.raise_on_error:
+            raise_error = raise_on_error if raise_on_error is not None else self.raise_on_error
+
+            if raise_error:
                 raise SessionInitializationError(f"An error occurred during the creation of the CachedSession: {e}")
 
         logger.warning("Falling back to regular session.")
         return super().configure_session()
+
+    @classmethod
+    @overload
+    def with_session(
+        cls,
+        backend: Optional[SessionCacheBackendType] = None,
+        *,
+        user_agent: Optional[str] = None,
+        cache_name: Optional[str] = None,
+        cache_directory: Optional[Path | str] = None,
+        serializer: Optional[SessionCacheSerializer] = None,
+        expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
+        raise_on_error: Literal[True] = True,
+        verify_connection: bool = False,
+        use_encryption: Optional[bool] = None,
+    ) -> requests_cache.session.CachedSession:
+        """When `raise_on_error=True`, session configuration will raise an error when cached session creation fails."""
+        ...
+
+    @classmethod
+    @overload
+    def with_session(
+        cls,
+        backend: Optional[SessionCacheBackendType] = None,
+        *,
+        user_agent: Optional[str] = None,
+        cache_name: Optional[str] = None,
+        cache_directory: Optional[Path | str] = None,
+        serializer: Optional[SessionCacheSerializer] = None,
+        expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
+        raise_on_error: Literal[False] | None = None,
+        verify_connection: bool = False,
+        use_encryption: Optional[bool] = None,
+    ) -> requests.Session | requests_cache.session.CachedSession:
+        """When `raise_on_error` is False or None, session configuration falls back to `requests.Session` on error."""
 
     @classmethod
     def with_session(
@@ -446,8 +578,9 @@ class CachedSessionManager(SessionManager):
         cache_directory: Optional[Path | str] = None,
         serializer: Optional[SessionCacheSerializer] = None,
         expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
-        raise_on_error: bool = False,
+        raise_on_error: Optional[bool] = None,
         verify_connection: bool = False,
+        use_encryption: Optional[bool] = None,
     ) -> requests.Session | requests_cache.session.CachedSession:
         """Convenience factory method for creating and configuring a new CachedSession.
 
@@ -473,10 +606,14 @@ class CachedSessionManager(SessionManager):
             expire_after (Optional[int|float|str|datetime.datetime|datetime.timedelta]):
                 Sets the expiration time after which previously successfully cached responses expire. This can be
                 modified via `CachedSessionManager.DEFAULT_EXPIRE_AFTER` (default=86400) unless otherwise set.
-            raise_on_error (bool):
+            raise_on_error (Optional[bool]):
                 Whether to raise an error on instantiation if an error is encountered in the creation of a session.
             verify_connection (bool):
                 Indicates whether CachedSession validation should occur by reading from cache.
+            use_encryption (Optional[bool]):
+                Determines whether encryption-based serialization should occur. If `None`, this method reads from
+                `SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION` to determine whether to initialize a new encryption
+                pipeline serializer.
 
         Returns:
             requests.Session | requests_cache.CachedSession:
@@ -491,15 +628,17 @@ class CachedSessionManager(SessionManager):
             serializer=serializer,
             expire_after=expire_after,
             raise_on_error=raise_on_error,
+            use_encryption=use_encryption,
         )
-        return session_manager.configure_session(verify_connection=verify_connection)
+        # raise_on_error type-checking implemented via the attribute rather than the directly passed parameter
+        return session_manager.configure_session(verify_connection=verify_connection, raise_on_error=None)
 
     @classmethod
     def validate_cached_session(cls, session: requests_cache.session.CachedSession) -> None:
         """Verifies that created CachedSession objects can successfully retrieve from cache without error.
 
         Note: This method is useful for verifying that `Redis`/`MongoDB` backends can successfully retrieve from cache
-        and whether CachedSession using serializers created from the `EncryptionPipelineSerializerFactory`
+        and whether CachedSession using serializers created from the `EncryptionPipelineFactory`
         can successfully retrieve and deserialize previously cached responses using the current secret key.
 
         Args:

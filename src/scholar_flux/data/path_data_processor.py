@@ -226,7 +226,7 @@ class PathDataProcessor(ABCDataProcessor):
     def structure(self, flatten: bool = False, show_value_attributes: bool = False) -> str:
         """Method for showing the structure of the current PathDataProcessor and identifying the current configuration.
 
-        Useful for showing the options being used to process the api response records
+        Useful for showing the options being used to process the API response records.
 
         """
         return generate_repr(

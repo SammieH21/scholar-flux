@@ -13,6 +13,7 @@ Classes:
         using a CachedSessionManager.
 
 """
+
 from __future__ import annotations
 
 import datetime  # noqa: TCH003
@@ -27,7 +28,9 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
-from scholar_flux.utils.helpers import parse_iso_timestamp, coerce_numeric
+from scholar_flux.utils.helpers import parse_iso_timestamp, coerce_numeric, with_fallback
+from scholar_flux.utils.settings_utils import SettingsDictType, SettingsDict
+from scholar_flux.security.utils import SecretUtils
 
 import logging
 
@@ -162,7 +165,7 @@ class CachedSessionConfig(BaseModel):
     serializer: Optional[SessionCacheSerializer] = None
     expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None
     user_agent: Optional[str] = None
-    kwargs: dict[str, Any] = Field(default_factory=dict)
+    kwargs: SettingsDictType = Field(default_factory=SettingsDict)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
@@ -261,48 +264,88 @@ class CachedSessionConfig(BaseModel):
             )
         return backend.value
 
+    def build_cache(self) -> Self:
+        """Helper for preparing backend and keyword arguments to account for special cases in initialization.
+
+        Note:
+            As of v0.6.0, the `MongoDB` backend uses this feature exclusively. Because `requests-cache` naively drops
+            unknown parameters on `CachedSession` initialization, parameters such as `username`, `password`, and
+            `authSource` are omitted entirely — resulting in potential authentication issues if auth is required.
+
+            As a workaround, this method builds the `MongoCache` (`requests_cache.BaseCache` subclass) with the required
+            keyword parameters directly after parameters are unmasked, using the initialized client to pass otherwise
+            omitted parameters.
+
+        Returns:
+            Self:
+                A new `CachedSessionConfig` object, either as a copy of the original, or an edited version with a newly
+                created `BaseCache` subclass (substituted for `backend`) and removed keyword arguments (`kwargs`).
+
+        """
+        config = self.model_copy()
+        if isinstance(self.backend, str) and SessionCacheBackend.get(self.backend) is SessionCacheBackend.MONGODB:
+            client_kwargs = SecretUtils.unmask_parameters(self.kwargs)  # returns a copy with unmasked keyword args
+            # get the serializer, remove the `serializer` key from client_kwargs if it exists
+            serializer = with_fallback(self.serializer, client_kwargs.pop("serializer", None))
+            client_connection = MongoDBStorage.initialize_client(**client_kwargs)
+            config.backend = requests_cache.backends.mongodb.MongoCache(
+                connection=client_connection, serializer=serializer, db_name=self.cache_name
+            )
+            config.kwargs = SettingsDict()  # once the backend is built, remove previous keyword parameters
+        return config
+
     @classmethod
     def _add_default_backend_kwargs(
-        cls, backend: str | SessionCacheBackendType, kwargs: Optional[dict[str, Any]] = None
-    ) -> dict[str, Any]:
+        cls, backend: str | SessionCacheBackendType, kwargs: Optional[SettingsDictType] = None
+    ) -> SettingsDictType:
         """Auto-populate kwargs with connection settings for Redis and MongoDB backends.
 
         References the get_default_config() from storage backends for consistency:
         - RedisStorage.get_default_config()
-        - MongoStorage.get_default_config()
+        - MongoDBStorage.get_default_config()
 
         Args:
             backend (str | Optional[Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"] | requests_cache.BaseCache]):
-                The backend in use. Note that default backend kwargs are only used when `backend in ('redis', 'pymongo)`
-            kwargs (dict[str, Any]):
-                Additional keywords to be used by the `CachedSessionManager`
+                The backend in use. Note that default backend kwargs are only used when `backend in ('redis', 'mongodb)`.
+            kwargs (dict[str, Any] | SettingsDict):
+                Additional keywords to be used by the `CachedSessionManager`.
 
         Returns:
-            dict[str, Any]:
-                The updated dictionary of keyword arguments to use when creating a CachedSession,
-                including the default host and port for Redis/MongoDB when not available.
+            SettingsDict:
+                The updated settings dictionary of keyword arguments to use when creating a CachedSession, including the
+                default host and port for Redis/MongoDB when not available.
 
         """
         # Auto-populate using storage backend defaults (single source of truth)
         backend = backend.lower() if isinstance(backend, str) else backend
-        connection_keys = ("host", "port")
-        update_kwargs: dict[str, Any] = kwargs if isinstance(kwargs, dict) else {}
+        # if a username and password are provided, they are automatically masked via `get_default_config`
+        redis_connection_keys = ("host", "port", "username", "password")
+        mongodb_connection_keys = redis_connection_keys + ("authSource",)  # an exception between redis and MongoDB
+        update_kwargs: SettingsDictType = kwargs if isinstance(kwargs, dict) else SettingsDict()
 
         match backend:
             case "redis":
-                default_connection_kwargs: dict[str, Any] = {
-                    key: value for key, value in RedisStorage.get_default_config().items() if key in connection_keys
-                }
+                default_connection_kwargs = SettingsDict(
+                    {
+                        key: value
+                        for key, value in RedisStorage.get_default_config().items()
+                        if key in redis_connection_keys
+                    }
+                )
                 logger.info("Auto-configured Redis from RedisStorage.get_default_config()")
                 return default_connection_kwargs | update_kwargs
             case "mongodb":
-                default_connection_kwargs = {
-                    key: value for key, value in MongoDBStorage.get_default_config().items() if key in connection_keys
-                }
+                default_connection_kwargs = SettingsDict(
+                    {
+                        key: value
+                        for key, value in MongoDBStorage.get_default_config().items()
+                        if key in mongodb_connection_keys
+                    }
+                )
                 logger.info("Auto-configured MongoDB from MongoDBStorage.get_default_config()")
                 return default_connection_kwargs | update_kwargs
             case _:
-                return update_kwargs
+                return SettingsDict(update_kwargs)
 
     @model_validator(mode="after")
     def validate_backend_filepath(self) -> Self:

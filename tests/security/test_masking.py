@@ -99,6 +99,23 @@ def test_secret_string_pattern():
     assert masker.mask_value(SecretStr("**********"), convert_objects=True) == "**********"  # auto converted via `str`
 
 
+def test_sk_api_key_pattern():
+    """Masks patterns that closely match provider API keys used in downstream apps involving Anthropic, OpenAI, etc.
+
+    Note that this functionality is relevant to apps and servers that direct integrate ScholarFlux with embedding
+    services (OpenAI) and retrieval augmented generation via LLMs.
+
+    """
+    masker = SensitiveDataMasker(register_defaults=True)
+
+    mock_openai_key = f"sk-{uuid.uuid4()}"
+    mock_anthropic_key = f"sk-ant-{uuid.uuid4()}"
+    assert masker.mask_text(mock_openai_key) == "***"
+    assert masker.mask_text(mock_anthropic_key) == "***"
+    not_quite_an_api_key = f"sk-{str(uuid.uuid4())[:3]}"
+    assert masker.mask_text(not_quite_an_api_key) == not_quite_an_api_key
+
+
 def test_split_pattern_with_escaped_pipe():
     """Verifies that pattern splitting is only performed when pipes in patterns are not escaped."""
     pattern = r"a|b\|c"
@@ -346,7 +363,7 @@ def test_pattern_set():
 #   - SQLAlchemyStorage: PostgreSQL, MySQL, MariaDB, SQLite (via SQLAlchemy)
 #   - DuckDBStorage: DuckDB (dedicated subclass of SQLAlchemyStorage)
 #   - RedisStorage: Redis (dict-based config: host, port, password)
-#   - MongoStorage: MongoDB (URI and dict-based configs)
+#   - MongoDBStorage: MongoDB (URI and dict-based configs)
 #
 # Coverage patterns:
 #   1. URI-based config: postgresql://user:pass@host:5432/db
@@ -402,7 +419,7 @@ def test_database_uri_password_masking(uri, expected):
       - SQLAlchemyStorage: PostgreSQL, MySQL, MariaDB, SQLite
       - DuckDBStorage: DuckDB
       - RedisStorage: Redis
-      - MongoStorage: MongoDB
+      - MongoDBStorage: MongoDB
 
     This prevents accidental credential exposure when storage URIs are logged
     during initialization, configuration errors, or debug output.
@@ -482,7 +499,7 @@ def test_database_config_dict_password_masking(config, secret):
     """Verifies that passwords in storage backend dict/JSON configs are properly masked.
 
     Storage backends accept dict-based configurations with separate host, port, and password fields
-    (RedisStorage, MongoStorage) or may be logged in repr() format. This test ensures passwords
+    (RedisStorage, MongoDBStorage) or may be logged in repr() format. This test ensures passwords
     in these configurations are masked when they appear in logs, error messages, or debug output.
 
     Example scenarios:

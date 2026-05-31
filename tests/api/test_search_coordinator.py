@@ -26,10 +26,7 @@ from scholar_flux import logger
 from tests.testing_utilities import search_coordinator_mocking_context
 from requests.exceptions import Timeout
 
-from scholar_flux.exceptions import (
-    RequestCacheException,
-    StorageCacheException,
-)
+from scholar_flux.exceptions import RequestCacheException, StorageCacheException
 
 
 @pytest.fixture(autouse=True)
@@ -94,7 +91,7 @@ def test_build():
     """Verifies that building a new search coordinator from previously created components produces the same structure.
 
     The string representation of the coordinator includes a basic overview of the structure which should use the same
-    api and response_coordinator with the same defaults.
+    API and response_coordinator with the same defaults.
 
     """
     search_coordinator = SearchCoordinator(query="test_query")
@@ -1301,7 +1298,7 @@ def test_timeouterror_exception(timeout_exception, monkeypatch):
 
 
 def test_search_coordinator_retry_handling_masks_sensitive_URL_api_keys(caplog):
-    """Validates that historical records of throttled searches filter api keys from recorded URLs if logged."""
+    """Validates that historical records of throttled searches filter API keys from recorded URLs if logged."""
     api_key_to_mask = "mock_api_key_that_should_be_masked"
     api = SearchAPI.from_defaults(
         provider_name="core", query="test", records_per_page=10, api_key=api_key_to_mask, use_cache=False

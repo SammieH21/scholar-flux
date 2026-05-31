@@ -24,7 +24,9 @@ from scholar_flux.exceptions import (
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils.encoder import JsonDataEncoder
 from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
+from scholar_flux.utils.settings_utils import SettingsDict
 from scholar_flux.utils.helpers import coerce_int, try_none
+from scholar_flux.security.utils import SecretUtils
 from typing import Any, Optional, cast, TYPE_CHECKING
 
 import logging
@@ -82,11 +84,11 @@ class RedisStorage(ABCStorage):
     """
 
     DEFAULT_NAMESPACE: str = "SFAPI"
-    DEFAULT_CONFIG: dict = {
-        "host": config_settings.get("SCHOLAR_FLUX_REDIS_HOST") or "localhost",
-        "port": config_settings.get("SCHOLAR_FLUX_REDIS_PORT") or 6379,
-        "ttl": config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
-    }
+    DEFAULT_CONFIG: SettingsDict = SettingsDict(
+        host=config_settings.get("SCHOLAR_FLUX_REDIS_HOST") or "localhost",
+        port=config_settings.get("SCHOLAR_FLUX_REDIS_PORT") or 6379,
+        ttl=config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
+    )
     DEFAULT_RAISE_ON_ERROR: bool = False
     STORAGE_TYPE: str = "Redis"
 
@@ -108,6 +110,10 @@ class RedisStorage(ABCStorage):
 
             - SCHOLAR_FLUX_REDIS_HOST > REDIS_HOST > 'localhost'
             - SCHOLAR_FLUX_REDIS_PORT > REDIS_PORT > 6379
+
+            When available:
+            - SCHOLAR_FLUX_REDIS_USERNAME > cls.DEFAULT_CONFIG['username']
+            - SCHOLAR_FLUX_REDIS_PASSWORD > cls.DEFAULT_CONFIG['password']
 
         Args:
             host (Optional[str]):
@@ -148,7 +154,7 @@ class RedisStorage(ABCStorage):
         if ttl is not None:
             redis_config["ttl"] = ttl  # -1 for infinite caching
 
-        config: dict[str, Any] = self.get_default_config() | redis_config  # Overriding Redis defaults where available
+        config: SettingsDict = self.get_default_config() | redis_config  # Overriding Redis defaults where available
 
         # TTL recorded in a separate variable and converts strings/floats into integers. Redis only accepts integer TTLs
         self.ttl = coerce_int(self._validate_ttl(config.pop("ttl")))  # Extracting TTL and Redis-specific settings
@@ -157,7 +163,7 @@ class RedisStorage(ABCStorage):
         if host:
             self.config["host"] = host
 
-        self.client = redis.Redis(**self.config)
+        self.client = self.initialize_client(**SecretUtils.unmask_parameters(self.config))
 
         # Only override the defaults if available and the namespace/raise_on_error parameters are not directly provided
         self.namespace = self.DEFAULT_NAMESPACE if self.DEFAULT_NAMESPACE and not namespace else namespace
@@ -172,20 +178,49 @@ class RedisStorage(ABCStorage):
         logger.info("RedisClient initialized and connected.")
 
     @classmethod
-    def get_default_config(cls) -> dict[str, Any]:
+    def initialize_client(cls, *args: Any, **kwargs: Any) -> redis.Redis:
+        """Convenience method for Initializing a new Redis client from positional and/or keyword arguments.
+
+        Args:
+            *args: positional arguments to pass to `RedisClient`
+            **kwargs: keyword arguments to pass to `RedisClient`
+
+        Returns:
+            RedisClient: A new client when initialization is successful
+
+        """
+        if redis is None:
+            raise RedisImportError()
+
+        return redis.Redis(*args, **kwargs)
+
+    @classmethod
+    def get_default_config(cls) -> SettingsDict:
         """Get default configuration with current config_settings values.
 
         Reads from environment variables in order of priority:
         - SCHOLAR_FLUX_REDIS_HOST > cls.DEFAULT_CONFIG['host'] > REDIS_HOST > 'localhost'
         - SCHOLAR_FLUX_REDIS_PORT > DEFAULT_CONFIG['port'] > REDIS_PORT  > 6379
 
+        When available:
+        -  SCHOLAR_FLUX_REDIS_USERNAME > cls.DEFAULT_CONFIG['username']
+        -  SCHOLAR_FLUX_REDIS_PASSWORD > cls.DEFAULT_CONFIG['password']
+
         Returns:
-            dict[str, Any]: Configuration dictionary with host and port.
+            SettingsDict: Configuration dictionary with a host, port, and masked authentication settings if available.
 
         """
         # Converts "None" to None when needed
         config_ttl = try_none(config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"))
-        return {
+
+        config_username = try_none(config_settings.get("SCHOLAR_FLUX_REDIS_USERNAME")) or try_none(
+            cls.DEFAULT_CONFIG.get("username")
+        )
+        config_password = try_none(config_settings.get("SCHOLAR_FLUX_REDIS_PASSWORD")) or try_none(
+            cls.DEFAULT_CONFIG.get("password")
+        )
+
+        config = cls.DEFAULT_CONFIG | {
             "host": config_settings.get("SCHOLAR_FLUX_REDIS_HOST")
             or cls.DEFAULT_CONFIG.get("host")
             or config_settings.get("REDIS_HOST")
@@ -196,6 +231,14 @@ class RedisStorage(ABCStorage):
             or 6379,
             "ttl": config_ttl if config_ttl is not None else try_none(cls.DEFAULT_CONFIG.get("ttl")),
         }
+
+        if config_username:
+            config["username"] = SecretUtils.mask_secret(config_username, convert_object=False)
+
+        if config_password:
+            config["password"] = SecretUtils.mask_secret(config_password, convert_object=False)
+
+        return config
 
     def clone(self) -> RedisStorage:
         """Helper method for creating a new RedisStorage with the same parameters.
@@ -441,7 +484,7 @@ class RedisStorage(ABCStorage):
                                   Defaults to port 6379 or the "port" entry from the DEFAULT_CONFIG class
                                   variable.
             verbose (bool): Indicates whether to log at the levels, DEBUG and lower, or to log warnings only
-            **kwargs: No-Op keyword arguments for compatibility with config connection availability checks
+            **kwargs: Optional keyword arguments for connection compatibility.
 
         Raises:
             TimeoutError: If a timeout error occurs when attempting to ping Redis
@@ -456,9 +499,18 @@ class RedisStorage(ABCStorage):
         redis_host = host or default_config["host"]
         redis_port = port or default_config["port"]
 
-        try:
+        kwargs.setdefault("socket_connect_timeout", 1)
 
-            with redis.Redis(host=redis_host, port=redis_port, socket_connect_timeout=1) as client:
+        if username := default_config.get("username"):
+            kwargs.setdefault("username", username)
+
+        if password := default_config.get("password"):
+            kwargs.setdefault("password", password)
+
+        try:
+            with cls.initialize_client(
+                host=redis_host, port=redis_port, **SecretUtils.unmask_parameters(kwargs)
+            ) as client:
                 cls.ping(client)
 
             if verbose:

@@ -629,7 +629,7 @@ def test_properties(caplog):
 
 
 def test_no_response():
-    """Verifies that an empty api response object automatically defaults missing response field properties with None."""
+    """Verifies that an empty API response object automatically defaults missing response field properties with None."""
     api_response = APIResponse()
     assert api_response.url is None
     assert api_response.reason is None

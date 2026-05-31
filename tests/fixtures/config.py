@@ -5,6 +5,7 @@ from scholar_flux.api import SearchAPIConfig, APIParameterConfig
 from scholar_flux.security import SecretUtils
 from pydantic import SecretStr
 from typing import Optional
+import uuid
 import logging
 import os
 
@@ -112,6 +113,12 @@ def crossref_api_key() -> Optional[SecretStr]:
 
 
 @pytest.fixture
+def mock_api_key() -> SecretStr:
+    """Helper for mocking requests requiring an API key"""
+    return SecretStr(str(uuid.uuid4()))
+
+
+@pytest.fixture
 def scholar_flux_logger() -> logging.Logger:
     """Helper method used for retrieving the logger used by scholar_flux to log events that occur during use for user
     feedback."""
@@ -199,4 +206,5 @@ __all__ = [
     "pubmed_api_key",
     "springer_nature_api_key",
     "crossref_api_key",
+    "mock_api_key",
 ]

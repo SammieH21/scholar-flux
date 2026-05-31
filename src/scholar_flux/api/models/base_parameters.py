@@ -9,7 +9,7 @@ Classes:
 
 """
 from __future__ import annotations
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, ClassVar
 from typing_extensions import Self
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
@@ -88,6 +88,8 @@ class BaseAPIParameterMap(BaseModel):
         records_per_page (str): The API-specific parameter name for records per page.
         api_key_parameter (Optional[str]): The API-specific parameter name for the API key.
         api_key_required (bool): Indicates whether an API key is required.
+        api_key_in_headers (bool): Indicates whether API keys are transmitted via headers or parameters (default).
+        api_key_scheme (str | None): Scheme that prefixes the API key in the request header (i.e., `Bearer [API_KEY]`).
         page_required (bool): If True, indicates that a page is required.
         auto_calculate_page (bool): If True, calculates start index from page; if False, passes page number directly.
         zero_indexed_pagination (bool): Treats page=0 as an allowed page value when retrieving data from the API.
@@ -100,9 +102,13 @@ class BaseAPIParameterMap(BaseModel):
     start: Optional[str] = None
     api_key_parameter: Optional[str] = None
     api_key_required: bool = False
+    api_key_in_headers: bool = False
+    api_key_scheme: str | None = None
     auto_calculate_page: bool = True
     zero_indexed_pagination: bool = False
     api_specific_parameters: Dict[str, APISpecificParameter] = Field(default_factory=dict)
+
+    DEFAULT_API_KEY_PARAMETER: ClassVar[str] = "api_key"
 
     def update(self, other: BaseAPIParameterMap | Dict[str, Any]) -> BaseAPIParameterMap:
         """Update the current instance with values from another BaseAPIParameterMap or dictionary.

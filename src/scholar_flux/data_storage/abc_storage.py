@@ -14,6 +14,7 @@ from typing_extensions import Self
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.settings_utils import SettingsDictType
 from scholar_flux.utils.helpers import coerce_numeric
 from scholar_flux.exceptions.storage_exceptions import CacheParameterValidationException
 from scholar_flux import masker
@@ -36,7 +37,7 @@ class ABCStorage(ABC):
         """Initializes the current storage implementation."""
         self.namespace: Optional[str] = None
         self.raise_on_error: bool = False
-        self.config: dict[str, Any] = {}
+        self.config: SettingsDictType = {}
         self.ttl: Any = None
 
     def _initialize(self, *args: Any, **kwargs: Any) -> None:
@@ -44,7 +45,7 @@ class ABCStorage(ABC):
         pass
 
     @classmethod
-    def get_default_config(cls) -> dict:
+    def get_default_config(cls) -> SettingsDictType:
         """Get default configuration with current config_settings values."""
         return {}
 
@@ -267,6 +268,7 @@ class ABCStorage(ABC):
 
     def structure(self, flatten: bool = False, show_value_attributes: bool = True, mask_values: bool = True) -> str:
         """Helper method for quickly showing a representation of the overall structure of the current storage subclass.
+
         The instance uses the generate_repr helper function to produce human-readable representations of the core
         structure of the storage subclass with its defaults.
 

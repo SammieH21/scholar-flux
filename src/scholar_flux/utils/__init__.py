@@ -5,13 +5,13 @@ Modules:
     - initializer.py: Contains the tools used to initialize (or reinitialize) the scholar_flux package.
                       The initializer creates the following package components:
                         - config: Contains a list of environment variables and defaults for configuring the package
-                        - logger: created by calling setup_logging function with inputs or defaults from an .env file
-                        - masker: identifies and masks sensitive data from logs such as api keys and email addresses
+                        - logger: created by calling setup_logging function with inputs or defaults from a .env file
+                        - masker: identifies and masks sensitive data from logs such as API keys and email addresses
 
     - logger.py: Contains the setup_logging that is used to set the logging level and output location for logs when
                  using the scholar_flux package
 
-    - config.py: Holds the ConfigLoader class that starts from the scholar_flux defaults and reads from an .env and
+    - config.py: Holds the ConfigLoader class that starts from the scholar_flux defaults and reads from a .env and
                  environment variables to automatically apply API keys, encryption settings, the default provider, etc.
 
     - helpers.py: Contains a variety of convenience and helper functions used throughout the scholar_flux package.
@@ -38,6 +38,9 @@ Modules:
     - repr_utils: Contains a set of helper functions specifically geared toward printing nested objects and
                   compositions of classes into a human-readable format to create sensible representations of objects
 
+    - settings_utils: Implements a custom `SettingsDict` compatible with Pydantic. Integrates the package-level
+                      masker to ensure that potentially sensitive information isn't leaked to the console when printed
+
 """
 
 from scholar_flux.utils.logger import setup_logging, log_level_context, resolve_log_stream, resolve_log_level
@@ -62,6 +65,8 @@ from scholar_flux.utils.helpers import (
     coerce_bytes,
     coerce_json_str,
     coerce_flattened_str,
+    handle_exception,
+    with_fallback,
     try_none,
     try_str,
     try_bytes,
@@ -126,6 +131,13 @@ from scholar_flux.utils.response_protocol import (
     ResponseSupportsJSONProtocol,
     response_supports_json,
 )
+
+from scholar_flux.utils.settings_utils import (
+    SettingsDict,
+    SettingsLike,
+    SettingsDictType,
+)
+
 from scholar_flux.utils.lazy_loader import lazy_import_attr
 
 _lazy_imports = {("scholar_flux.utils.provider_utils", "ProviderUtils")}
@@ -162,6 +174,8 @@ __all__ = [
     "coerce_int",
     "coerce_numeric",
     "coerce_bool",
+    "handle_exception",
+    "with_fallback",
     "try_none",
     "try_str",
     "try_bytes",
@@ -205,6 +219,9 @@ __all__ = [
     "ResponseProtocol",
     "ResponseSupportsJSONProtocol",
     "response_supports_json",
+    "SettingsDict",
+    "SettingsLike",
+    "SettingsDictType",
     "is_response_like",
     "initialize_package",
     "extract_year",

@@ -1,11 +1,7 @@
 # tests/api/test_api_history.py
 """Tests for the history module used for rate limiting and retry observability."""
 import pytest
-from scholar_flux.api.rate_limiting.history import (
-    HistoryDeque,
-    RateLimitEvent,
-    RetryAttempt,
-)
+from scholar_flux.api.rate_limiting.history import HistoryDeque, RateLimitEvent, RetryAttempt
 from scholar_flux.api import RateLimiter, RetryHandler, ReconstructedResponse
 from scholar_flux.utils import parse_iso_timestamp
 from datetime import datetime

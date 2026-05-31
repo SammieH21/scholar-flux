@@ -171,6 +171,8 @@ def test_mongo_unavailable(mongo_test_storage, caplog):
 
         with pytest.raises(MongoDBImportError) as excinfo:
             MongoDBStorage()
+        with pytest.raises(MongoDBImportError) as excinfo:
+            MongoDBStorage.initialize_client()
         assert "Optional Dependency: MongoDB backend is not installed" in str(excinfo.value)
         assert "Please install the 'pymongo' package to use this feature." in str(excinfo.value)
 

@@ -246,7 +246,7 @@ def test_successful_connection_with_url(
         m.setenv(env_variable, storage_type)
 
     storage_class = DuckDBStorage if storage_type == "duckdb" else SQLAlchemyStorage
-    url = f"{storage_type}:///{tmp_path}/tmp_cache_storage.db"
+    url = f"{storage_type}:///{tmp_path / 'tmp_cache_storage.db'}"
 
     cache_manager = DataCacheManager.with_storage(storage_type, url=url, verify_connection=True)
     assert isinstance(cache_manager.cache_storage, storage_class)

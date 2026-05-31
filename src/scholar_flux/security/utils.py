@@ -6,8 +6,13 @@ This class uses the pydantic.SecretStr class to mask and unmask fields and can b
 decrypt text as needed before and after conversion to a secret string, respectively.
 
 """
-from typing import Any, Optional, overload
+
+from typing import Any, Optional, overload, MutableMapping, TypeVar
+from typing_extensions import TypeGuard
 from pydantic import SecretStr
+
+
+K = TypeVar("K", bound=object)
 
 
 class SecretUtils:
@@ -20,27 +25,31 @@ class SecretUtils:
 
     @classmethod
     @overload
-    def mask_secret(cls, obj: None) -> None:
+    def mask_secret(cls, obj: None, convert_object: bool = True) -> None:
         """The mask_secret utility will only return None if the input is None."""
         ...
 
     @classmethod
     @overload
-    def mask_secret(cls, obj: Any) -> SecretStr:
+    def mask_secret(cls, obj: Any, convert_object: bool = True) -> SecretStr:
         """The mask_secret method will return a secret string if the provided value is not None."""
         ...
 
     @classmethod
-    def mask_secret(cls, obj: Any) -> Optional[SecretStr]:
+    def mask_secret(cls, obj: Any, convert_object: bool = True) -> Optional[SecretStr]:
         """Helper method masking variables into secret strings:
 
         Args:
             obj (Any | SecretStr): An object to attempt to unmask if it is a secret string
+            convert_object (bool):
+                Determines whether the object is converted into a string prior to masking. Objects are converted into
+                strings by default.
 
         Returns:
             obj (SecretStr): A SecretStr representation of the original object
 
         Examples:
+            >>> from pydantic import SecretStr
             >>> from scholar_flux.security import SecretUtils
             >>> string = 'a secret'
             >>> secret_string = SecretUtils.mask_secret(string)
@@ -52,18 +61,32 @@ class SecretUtils:
             >>> non_secret is None
             # OUTPUT: True
 
+            ## Note that the original type is preserved when `convert_object=False`
+            >>> not_a_string = ['a', 'secret', 'list']
+            >>> secretly_not_a_string = SecretUtils.mask_secret(not_a_string, convert_object=False)
+            >>> isinstance(secretly_not_a_string, SecretStr) is True
+            # OUTPUT: True
+
+            ## Undoing the transformation: the original object is returned
+            >>> SecretUtils.unmask_secret(secretly_not_a_string) is not_a_string
+            # OUTPUT: True
+
         """
-        return obj if cls.is_secret(obj) else SecretStr(str(obj)) if obj is not None else obj
+        if cls.is_secret(obj) or obj is None:
+            return obj
+
+        # Convert by default if not explicitly selected
+        return SecretStr(str(obj) if convert_object else obj)
 
     @classmethod
     def unmask_secret(cls, obj: Any) -> Any:
         """Helper method for unmasking a variable from a SecretStr into its native type if a secret string.
 
         Args:
-            obj (Any | SecretStr): An object to attempt to unmask if it is a secret string
+            obj (Any | SecretStr): An object to attempt to unmask if it is a secret string.
 
         Returns:
-            obj (Any): The object's original type before being converted into a secret string
+            obj (Any): The object's original type before being converted into a secret string.
 
         Examples:
             >>> from scholar_flux.security import SecretUtils
@@ -81,15 +104,40 @@ class SecretUtils:
         return obj.get_secret_value() if cls.is_secret(obj) else obj
 
     @classmethod
-    def is_secret(cls, obj: Any) -> bool:
-        """Utility class method used to verify whether the current variable is a secret string. This method abstracts
-        the implementation details into a single method to aid further extensibility.
+    def unmask_parameters(cls, data: MutableMapping[K, Any]) -> dict[K, Any]:
+        """Helper method for unmasking dictionary parameters from secret strings into their native types.
+
+        Args:
+            data (MutableMapping[K, Any]): An dictionary containing value parameters to unmask.
+
+        Returns:
+            dict[K, Any]: A new dictionary with identical keys and subsequently unmasked values, if masked.
+
+        Examples:
+            >>> from scholar_flux.security import SecretUtils
+            >>> from pydantic import SecretStr
+            >>> values_dict = {"a": SecretStr("one"), "b": "two", "c": 3, "d": SecretStr("four")}
+            >>> expected = {"a": "one", "b": "two", "c": 3, "d": "four"}
+            >>> unmasked_values_dict = SecretUtils.unmask_parameters(values_dict)
+            >>> isinstance(values_dict, dict) is True
+            # OUTPUT: True
+            >>> SecretUtils.unmask_parameters(values_dict) == expected
+            # OUTPUT: True
+
+        """
+        return {key: cls.unmask_secret(value) for key, value in data.items()}
+
+    @classmethod
+    def is_secret(cls, obj: Any) -> TypeGuard[SecretStr]:
+        """Utility class method used to verify whether the current variable is a secret string.
+
+        This method abstracts the implementation details into a single method to aid further extensibility.
 
         Args:
             obj (Any): The object to check
 
         Returns:
-            bool: True if the object is a SecretStr, False otherwise
+            TypeGuard[SecretStr]: True if the object is a SecretStr, False otherwise
 
         """
         return isinstance(obj, SecretStr)

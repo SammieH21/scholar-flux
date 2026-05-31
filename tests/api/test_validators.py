@@ -191,7 +191,8 @@ class TestValidateEmail:
 
             err = (
                 "The environment variable, SCHOLAR_FLUX_DEFAULT_MAILTO contains an invalid email: "
-                f"'{env_email_from_config}'. Provide a valid email or unset the environment variable."
+                f"'{env_email_from_config}'. Provide a valid email or unset the environment variable via "
+                "`scholar_flux.config_settings`."
             )
 
             with pytest.raises(ValueError, match=err):

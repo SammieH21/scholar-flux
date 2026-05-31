@@ -57,6 +57,7 @@ from tests.fixtures.config import (
     pubmed_api_key,
     springer_nature_api_key,
     crossref_api_key,
+    mock_api_key,
 )
 
 from tests.fixtures.response_simulation import (
@@ -208,6 +209,7 @@ __all__ = [
     "pubmed_api_key",
     "springer_nature_api_key",
     "crossref_api_key",
+    "mock_api_key",
     "redis_test_config",
     "storage_test_namespace",
     "mongo_test_config",

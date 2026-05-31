@@ -23,9 +23,10 @@ API Responses from API Providers.
 from scholar_flux.package_metadata import __version__
 from scholar_flux.utils.initializer import initialize_package
 from scholar_flux.utils.logger import log_level_context
+import scholar_flux.security as security
 from typing import Any
 
-config, logger, masker = initialize_package()
+config, logger, masker = initialize_package(masker=security.masker)
 
 from scholar_flux.sessions import SessionManager, CachedSessionManager
 from scholar_flux.data_storage import (

@@ -25,7 +25,7 @@ ScholarFlux is designed to be an extensible solution that delegates responsibili
 - **scholar_flux.api**: The core module that integrates all other steps to produce the coordinated response retrieval and processing that gives ScholarFlux its purpose
 - **scholar_flux.security**: Contains the building blocks for masking with sensitive string pattern matching with applications that can extend to future frameworks requiring security when managing secrets, API keys, and other forms of sensitive data
 - **scholar_flux.data_storage**: Creates the caching and data storage backends that support the processing and preparation of response records and metadata. It defines custom implementations supporting the use of SQL, In-Memory, Redis, MongoDB based on a common class that defines how data processing cache should operate
-- **scholar_flux.sessions**: Implements CachedSessionManagers that can be used to easily create and reproduce the sessions that send and cache requests
+- **scholar_flux.sessions**: Implements auth helpers and CachedSessionManagers that can be used to easily create and reproduce the sessions that send and cache requests
 - **scholar_flux.data**: Produces the core classes and implementations used in the orchestration of response handling steps for response parsing → record extraction → data processing/transformation
 - **scholar_flux.utils**: Contains the backbone of all reusable helper functions that support ScholarFlux in ways unsung, ranging from package initialization, robust configuration loading and processing utilities
 
@@ -127,7 +127,7 @@ ScholarFlux uses optional dependency groups for different features:
 - **`database`**: SQLAlchemy, Redis, and MongoDB support for advanced caching
 - **`duckdb`**: SQLAlchemy and a compatible duckdb-engine for embedded analytical database support
 - **`cryptography`**: Enhanced cache encryption capabilities
-- **`parsing`**: XML and YAML parsing for various API responses
+- **`parsing`**: XML and YAML parsing for various API responses, HTML text extraction for record normalization
 
 ### Installing Specific Extras
 
@@ -533,6 +533,7 @@ When contributing to specific modules, follow these conventions. For practical e
 - Include comprehensive docstrings with examples
 - Add unit tests for all utilities
 - Avoid external dependencies when possible
+- Use `SettingsDict` for building configurations/parameter mappings with sensitive fields if possible
 
 ## Documentation
 
@@ -632,6 +633,7 @@ Visit the [Sphinx documentation](https://SammieH21.github.io/scholar-flux/) for 
 
 - **Documentation**: [https://SammieH21.github.io/scholar-flux/](https://SammieH21.github.io/scholar-flux/)
 - **Tutorials**: [8 comprehensive tutorials](https://SammieH21.github.io/scholar-flux/) covering basics through production deployment
+- **Package Updates**: [CHANGELOG.md](CHANGELOG.md) covers repository updates and source code modification history
 - **Issues**: [GitHub Issues](https://github.com/SammieH21/scholar-flux/issues)
 - **Security**: See [SECURITY.md](SECURITY.md) for security-related questions
 - **AI-Assisted Code Review**: [.github/AI_REVIEW_PROMPTS.md](.github/AI_REVIEW_PROMPTS.md) - Prompts for code/documentation review and test gap analysis
@@ -661,7 +663,7 @@ Find the code of conduct [**here**](https://github.com/SammieH21/scholar-flux/bl
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.5.2). This means:
+ScholarFlux is currently in **beta** (v0.6.0). This means:
 
 - APIs may change between versions
 - We're actively seeking feedback

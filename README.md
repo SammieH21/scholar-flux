@@ -25,8 +25,8 @@
 - [Core Features](#core-features)
 - [Supported Providers](#supported-providers)
 - [Comparison with Existing Tools](#comparison-with-existing-tools)
+- [What's New in v0.6.0](#whats-new-in-v060)
 - [What's New in v0.5.0](#whats-new-in-v050)
-- [What's New in v0.4.0](#whats-new-in-v040)
 - [Documentation](#-documentation)
 - [Contributing](#contributing)
 - [License](#license)
@@ -53,7 +53,7 @@ Query multiple academic databases simultaneously while ScholarFlux handles provi
 
 Academic research requires querying multiple databases, but each provider implements their own parameter names, pagination mechanisms, rate limits, error conditions, and response formats. Building integrations with multiple academic APIs typically means:
 
-- Manually coordinating rate limits across providers (6s for PLOS, 10s per batch request for CORE, 3s for arXiv...)
+- Manually coordinating rate limits across providers (6s for PLOS, 10s per batch request for CORE, 4s for arXiv...)
 - Writing custom parsers for XML (PubMed, arXiv) and JSON (Crossref, OpenAlex) responses
 - Mapping inconsistent field names and data types across separate APIs and databases
 - Implementing retry logic that handles connection errors, internal server errors, client-side errors
@@ -87,7 +87,7 @@ ScholarFlux handles and abstracts away the complexity of retrieving and processi
 - **API-Aware Normalization** - Consolidates API-specific record structures into a unified, ML/analytics-ready schema
 - **Two-layer caching** - Optionally caches successful requests and response processing to avoid redundant requests
 
-## Focus
+### Focus
 
 - **Unified Access**: Aggregate searches across multiple academic databases and publishers
 - **Rich Metadata Retrieval**: Fetch detailed metadata for each publication, including authors, publication date, abstracts, and more
@@ -236,7 +236,7 @@ Built and presented at CDC meetings as a solution for AI-assisted systematic lit
 After the fellowship, I recognized the broader need beyond public health research and open-sourced it, expanding from the initial Springer Nature integration to 7+ providers with comprehensive documentation and production-ready features.
 
 **Technical foundation:**
-- **~61,674 lines of code**: ~34,410 LOC source + ~27,264 LOC comprehensive tests
+- **~63,786 lines of code**: ~35,670 LOC source + ~28,116 LOC comprehensive tests
 - **98% test coverage**: Rigorous testing across all functionality and edge cases
 - **Security-focused**: Automated CVE scanning, credential masking, encrypted caching
 - **Type-safe**: Comprehensive mypy type checking throughout the entire codebase
@@ -385,6 +385,68 @@ for record in normalized_results[:5]:
 
 ## Core Features
 
+### Schema Normalization
+
+ScholarFlux normalizes provider-specific field names into a common academic schema:
+
+```python
+# Raw records have provider-specific field names
+results = coordinator.search_pages(pages=range(1, 5))
+
+# Normalize to universal schema
+normalized = results.normalize()
+
+# Now all records have consistent fields:
+# 'title', 'doi', 'authors', 'abstract', 'journal', 'year', etc.
+df = pd.DataFrame(normalized)
+```
+
+Each provider implements API-aware post-processing that transforms raw, nested responses into consistent output:
+
+| Transformation | Raw Value | Normalized Output |
+|----------------|-----------|-------------------|
+| Year extraction (`PubMed`) | `[[2024, 6, 15]]` | `2024` |
+| Author formatting (`Crossref`) | `[{"given": "Jane", "family": "Smith"}]` | `["Jane Smith"]` |
+| OA resolution (`Crossref`) | `"creativecommons.org/licenses/by/4.0/"` | `true` |
+| Abstract reconstruction (`OpenAlex`) | `{"Hello": [0], "world": [1]}` | `"Hello world"` |
+
+**What normalization handles automatically:**
+- **Nested field traversal**: Paths like `MedlineCitation.Article.AuthorList.Author` (PubMed) or `authorships.institutions.display_name` (OpenAlex)
+- **Fallback paths**: Variability in record fields is handled by using fallback paths for different record types when the default data location is empty
+- **Type conversions**: Dates to ISO format, years as integers, booleans from strings
+- **Author formatting**: Nested author dictionaries parsed into normalized name lists across providers
+- **Abstract reconstruction**: OpenAlex inverted indexes reconstructed into text; Crossref HTML tags stripped
+- **URL reconstruction**: PLOS and PubMed article URLs built from DOI/PMID identifiers
+- **Cross-database identifiers**: CORE extracts arXiv ID, PMID, and MAG ID for entity resolution
+
+For custom field mappings and advanced normalization, see the [Schema Normalization Tutorial](https://SammieH21.github.io/scholar-flux/schema_normalization.html).
+
+### Response Validation & Error Handling
+
+ScholarFlux validates responses at multiple stages, gracefully handling and reporting errors when they occur. When timeouts, missing API keys, missing dependencies, and other errors occur, the `SearchCoordinator` gracefully handles and returns error messages via response classes to indicate what went wrong, all the while ensuring that retrieval and processing pipelines across multiple providers aren't brought to a halt.
+
+The client provides three distinct response types:
+
+```python
+response = coordinator.search(page=1)
+
+if response:  # Falsy if error or no response
+    # ProcessedResponse - successful retrieval and processing
+    print(f"Retrieved {len(response.data)} records")
+    print(f"Total available: {response.total_query_hits}")
+else:
+    # ErrorResponse or NonResponse - something went wrong
+    print(f"Error: {response.message}")
+    print(f"Error type: {response.error}")
+```
+
+**Response types:**
+- `ProcessedResponse`: Successful retrieval and processing
+- `ErrorResponse`: Retrieved response but encountered processing error
+- `NonResponse`: Failed to retrieve response (connection error, timeout, etc.)
+
+**Note:** When `coordinator.search_page(page=1)` is used instead (recommended), a `SearchResult` is returned instead for safe field access, wrapping each response type and returning `None` instead of raising errors when attempting to access inapplicable fields or methods on failed requests.
+
 ### Rate Limiting
 
 ScholarFlux respects per-provider rate limits automatically:
@@ -406,7 +468,7 @@ ScholarFlux implements conservative rate limits that respect each provider's req
 - **PubMed**: 2 seconds between requests (3 req/sec → 10 req/sec with API key)
 - **Crossref**: 1 second between requests
 - **CORE API**: 10 seconds between requests (token-based, not request-based)
-- **Springer Nature**: 2 seconds between requests
+- **Springer Nature**: 6 seconds between requests
 
 **Override the default delay:**
 ```python
@@ -469,24 +531,6 @@ print(coordinator.api.describe())
 
 ```
 
-### Schema Normalization
-
-ScholarFlux normalizes provider-specific field names into a common academic schema:
-
-```python
-# Raw records have provider-specific field names
-results = coordinator.search_pages(pages=range(1, 5))
-
-# Normalize to universal schema
-normalized = results.normalize()
-
-# Now all records have consistent fields:
-# 'title', 'doi', 'authors', 'abstract', 'journal', 'year', etc.
-df = pd.DataFrame(normalized)
-```
-
-For custom field mappings and advanced normalization, see the [Schema Normalization Tutorial](https://SammieH21.github.io/scholar-flux/schema_normalization.html).
-
 ### Workflow Automation
 
 Some providers (like PubMed) require multiple API calls. ScholarFlux handles this automatically:
@@ -505,6 +549,44 @@ print(result.data)      # Full article records with abstracts
 
 See the [Advanced Workflows Tutorial](https://SammieH21.github.io/scholar-flux/advanced_workflows.html) for custom multi-step workflows.
 
+### Request Observability
+
+Debug rate limiting and retry behavior with built-in history tracking. Both `RateLimiter` and `RetryHandler` maintain the last 1000 recorded events:
+
+```python
+from scholar_flux import SearchCoordinator
+from scholar_flux.api.rate_limiting import RetryHandler
+
+# Fresh requests and retry attempts recorded in class-level history for easier search observability across APIs.
+RetryHandler.history.clear_history()
+
+# Limit history to last 500 records (1000 by default)
+RetryHandler.resize_history(500)
+
+# Run a batch of searches
+coordinator = SearchCoordinator(query="psychology AND dissonance", provider_name="crossref")
+responses = coordinator.search_pages(pages=range(1, 5))
+
+# Inspect retry history to see what happened during the last batch of requests.
+for attempt in RetryHandler.history:
+    print(f"  URL: {attempt.url}")
+    print(f"  Status: {attempt.status_code}, Success: {attempt.success}")
+    print(f"  Timestamp: {attempt.timestamp}, Delay: {attempt.delay}")
+
+    if attempt.error:
+        print(f" Error: {attempt.error}")
+        print(f" Error Message: {attempt.message}")
+    print('-' * 105)
+
+# Export the retry history into a list of dictionaries
+retry_history = RetryHandler.history.export_history()
+
+# Calculate the success rate across all requests:
+if retry_history:
+    success_rate = sum(a['success'] for a in retry_history) / len(retry_history)
+    print(f"Success rate: {success_rate:.1%}")
+```
+
 ### Non-Paginated Endpoint Support
 
 Use `parameter_search()` to query specialized endpoints that don't require pagination (recommendations, citations, metadata lookups, full text retrieval):
@@ -518,30 +600,6 @@ result = coordinator.parameter_search(
 ```
 
 This method is used internally by workflows for multi-step retrieval patterns. See [Advanced Workflows](https://SammieH21.github.io/scholar-flux/advanced_workflows.html) for actual implementations in workflows.
-
-### Response Validation & Error Handling
-
-ScholarFlux validates responses at multiple stages, gracefully handling and reporting errors when they occur. When timeouts, missing API keys, missing dependencies, and other errors occur, the `SearchCoordinator` gracefully handles and returns error messages via response classes to indicate what went wrong, all the while ensuring that retrieval and processing pipelines across multiple providers aren't brought to a halt.
-
-The client provides three distinct response types:
-
-```python
-response = coordinator.search(page=1)
-
-if response:  # Falsy if error or no response
-    # ProcessedResponse - successful retrieval and processing
-    print(f"Retrieved {len(response.data)} records")
-    print(f"Total available: {response.total_query_hits}")
-else:
-    # ErrorResponse or NonResponse - something went wrong
-    print(f"Error: {response.message}")
-    print(f"Error type: {response.error}")
-```
-
-**Response types:**
-- `ProcessedResponse`: Successful retrieval and processing
-- `ErrorResponse`: Retrieved response but encountered processing error
-- `NonResponse`: Failed to retrieve response (connection error, timeout, etc.)
 
 
 ## Supported Providers
@@ -697,6 +755,153 @@ print(df.columns)
 
 For detailed comparison, see the [documentation](https://SammieH21.github.io/scholar-flux/).
 
+## What's New in v0.6.0
+
+ScholarFlux v0.6.0 brings significant improvements to security, usability, and production hardening, featuring **Cache Authentication Environment Variable Support**, **Session Encryption Environment Default Setup**, **Customizable API Header & Parameter Authentication Support**, and **Convenience Record Accessibility**.
+
+### Cache Authentication Environment Variable Support
+
+Both Redis and MongoDB Session and Response Cache storage backends each support the utilization of environment variables for authentication.
+
+On initialization, connection credentials are read from the environment variables:
+
+- `SCHOLAR_FLUX_REDIS_USERNAME`
+- `SCHOLAR_FLUX_REDIS_PASSWORD`
+- `SCHOLAR_FLUX_MONGODB_USERNAME`
+- `SCHOLAR_FLUX_MONGODB_PASSWORD`
+
+When non-missing values are provided for authentication credentials, these are automatically masked, only unmasking when a connection is performed.
+
+The following workflow summarizes the setup, which only requires modifying .env files or the environment variables:
+
+```python
+from scholar_flux import SearchCoordinator, CachedSessionManager, DataCacheManager, config_settings, masker
+
+# Env variables automatically read as secret strings when available:
+redis_has_auth = config_settings.get("SCHOLAR_FLUX_REDIS_USERNAME") and config_settings.get("SCHOLAR_FLUX_REDIS_PASSWORD")
+
+# Layer 2 Response Cache: automatically reads host, port, and auth parameters
+redis_cache_manager = DataCacheManager.with_storage("redis")
+
+if redis_has_auth:
+    print("Authentication parameters for Redis are available. These parameters are automatically applied on response cache initialization")
+    # Configuration parameters are read as secrets when available
+    assert masker.is_secret(redis_cache_manager.cache_storage.config.get("username"))
+    assert masker.is_secret(redis_cache_manager.cache_storage.config.get("password"))
+
+# Verify whether connection initialization was successful
+redis_cache_manager.verify_connection()
+
+# Session Cache uses the same configuration settings for initialization:
+mongo_has_auth = config_settings.get("SCHOLAR_FLUX_MONGODB_USERNAME") and config_settings.get("SCHOLAR_FLUX_MONGODB_PASSWORD")
+session_cache_manager = CachedSessionManager(backend="mongodb")
+
+if mongo_has_auth:
+    print("Authentication parameters for MongoDB are available. These parameters are automatically applied on session initialization")
+    assert masker.is_secret(session_cache_manager.kwargs.get("username"))
+    assert masker.is_secret(session_cache_manager.kwargs.get("password"))
+
+# create a session, verifying connection success
+mongodb_session = session_cache_manager(verify_connection=True)
+
+# Initializes as usual:
+coordinator = SearchCoordinator(query="Caching and Auth", cache_manager=redis_cache_manager, session=mongodb_session)
+results = coordinator.search_page(1)
+```
+
+
+### Session Encryption Environment Default Setup
+
+ScholarFlux v0.6.0 now streamlines session encryption serialization setup to automatically implement encryption when a valid secret key is stored within the OS environment.
+
+```python
+from scholar_flux.sessions import CachedSessionManager, EncryptionPipelineFactory
+from scholar_flux import config_settings, SearchCoordinator
+
+# Check if a valid encryption key is defined within the environment or configuration settings
+if EncryptionPipelineFactory.prepare_secret_key():
+    print("A Secret Key exists within the environment")
+else:
+    print("Creating a new secret key. **Important**: Export the key to your environment to persist it across sessions.")
+    secret_key = EncryptionPipelineFactory.generate_secret_key()
+
+
+    env_var = "SCHOLAR_FLUX_CACHE_SECRET_KEY"
+    # persists within the Python session/REPL
+    config_settings.set(env_var, secret_key)
+
+    # Write the key to the default location, creating a new .env file with `create=True` if a dedicated file doesn't already exist.
+    config_settings.write_key(env_var, create=True, raise_on_error=True)
+
+    ## Uncomment for default encryption setup across Python sessions:
+    # config_settings.set("SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION", True)
+    # config_settings.write_key("SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION")
+
+# Create an encrypted session or raise the error preventing its creation
+session = CachedSessionManager.with_session(
+    cache_name="encrypted-session-requests",
+    backend="sqlite",
+    raise_on_error=True,
+    use_encryption=True,  # To explicitly override encryption environment variable configuration settings
+)
+# INFO - Successfully initialized an EncryptionPipeline...
+# INFO - Cached session (...) successfully established
+
+coordinator = SearchCoordinator(query="encryption strategies", session=session)
+
+result = coordinator.search_page(page=1)
+# SearchResult(query='encryption strategies', provider_name='plos', page=1, ..., display_name='PLOS')
+
+
+```
+
+
+### Customizable API Header & Parameter Authentication Support
+
+`SearchAPI.build_auth()` now handles the core facets of parameter vs. header authentication with API keys and tokens under the hood:
+
+```python
+from scholar_flux import SearchAPI, config_settings
+crossref_api_key = config_settings.get("CROSSREF_API_KEY")  # Either a secret string or None, is read automatically otherwise.
+crossref_search_api = SearchAPI(query='example_query', provider_name = "crossref", api_key=crossref_api_key)
+# Called under the hood during searches: Adds the Crossref API token to the auth headers to increase rate limits when available:
+crossref_search_api.build_auth()
+# OUTPUT: AuthAPIKeyHeader(api_key=**********, parameter_name='CROSSREF-PLUS-API-TOKEN', scheme='Bearer')
+
+search_api = SearchAPI(query='example_query', provider_name = "core")
+# Check whether the API key for Core is available. Should return an `AuthAPIKeyParameter(SecretKey)` if the API key exists.
+search_api.build_auth()
+# OUTPUT: AuthAPIKeyParameter(api_key=**********, parameter_name='api_key')
+```
+
+
+### Convenience Record Accessibility Improvements
+
+The `SearchResultList` implements QOL improvements regarding processed record and normalized record retrieval and processing to increase consistency in single and multipage retrieval setups:
+
+```python
+from scholar_flux import SearchCoordinator
+from scholar_flux.utils import truncate
+
+# Retrieve the first 3 pages and normalize records most relevant to gene editing:
+coordinator = SearchCoordinator(query="CRISPR gene editing", provider_name="OpenAlex")
+results = coordinator.search_pages(pages=range(1, 4), normalize_records=True)
+
+# Property alias for all processed records across all pages
+print(f"Record List Preview: {truncate(results.data, max_length=400)}")
+
+# Display normalized records after post-processing and normalization:
+for article in results.normalized_records:  # Flattens previously normalized record lists by default
+    print(f"Title: {article['title']}")
+    print(f"Authors: {article['authors']}")
+    print(f"Year: {article['year']}")
+    print(f"Abstract: {truncate(article['abstract'] or 'N/A', max_length = 120)}")
+    print("*" * 120)
+```
+
+See the [full changelog](https://github.com/SammieH21/scholar-flux/blob/main/CHANGELOG.md) for detailed technical changes.
+
+
 ## What's New in v0.5.0
 
 The v0.5.0 release is designed to increase API maintainability and introduce improved **Cache Initialization and Retrieval Utilities**, **Record Count-Based Retrieval**, and **Search Result Metadata Observability**.
@@ -714,7 +919,7 @@ from scholar_flux import CachedSessionManager
 user_agent = None # Your user agent. Example: 'MyResearchProject/1.0 (mailto:your.email@institution.edu)')
 session = CachedSessionManager.with_session("sqlite", user_agent = user_agent, cache_name = "project_session_cache.db")
 
-# Setting up a Redis session, calling `validate_cached_session` under-the-hood to verify the server connection:
+# Setting up a Redis session, calling `validate_cached_session` under the hood to verify the server connection:
 session = CachedSessionManager.with_session("redis", verify_connection=True)
 
 # Or simply validating an already created CachedSession:
@@ -838,170 +1043,6 @@ for record in normalized_records:
 
 ```
 
-## What's New in v0.4.0
-
-v0.4.0 delivers **API-Aware Normalization Post-Processing Pipelines**, **Request Observability Infrastructure**, and **Production Hardening** for data engineering, research, and ML/AI use cases.
-
-### API-Aware Post-Processing Pipelines
-
-ScholarFlux now includes intelligent post-processing pipelines for each provider, transforming raw API responses into consistent, ML-ready records.
-
-Previously, normalization was tasked with mapping API-specific fields to universal field names, retrieving and extracting elements from configured fallback paths when possible.
-Now each provider implements a `_post_process()` method that transforms processed, API-specific records into consistent, validated output.
-
-| Transformation | Raw Value | Normalized Output |
-|----------------|-----------|-------------------|
-| Year extraction (`PubMed`) | `[[2024, 6, 15]]` | `2024` |
-| Author formatting (`Crossref`) | `[{"given": "Jane", "family": "Smith"}]` | `["Jane Smith"]` |
-| OA resolution (`Crossref`) | `"creativecommons.org/licenses/by/4.0/"` | `true` |
-| Abstract reconstruction (`OpenAlex`) | `{"Hello": [0], "world": [1]}` | `"Hello world"` |
-
-The post-processing step for the current provider is applied automatically when calling `normalize()`:
-
-```python
-from scholar_flux import SearchCoordinator
-from scholar_flux.utils import truncate
-
-# Query Crossref—raw responses have nested, provider-specific structures
-coordinator = SearchCoordinator(query="CRISPR gene editing", provider_name="OpenAlex")
-response = coordinator.search_page(1)
-
-# Normalize with automatic post-processing:
-for article in response.normalize():
-    print(f"Title: {article['title']}")
-    print(f"Authors: {article['authors']}")       # ["Jennifer Doudna", "Feng Zhang"]
-    print(f"Year: {article['year']}")              # 2024 (extracted from date-parts)
-    print(f"Open Access: {article['open_access']}") # True (resolved from license URL)
-    print(f"Abstract: {truncate(article['abstract'] or 'N/A', max_length = 120)}") # Reconstructed Abstract
-    print("*" * 120)
-```
-
-**What normalization handles automatically:**
-- **Nested field traversal**: Paths like `MedlineCitation.Article.AuthorList.Author` (PubMed) or `authorships.institutions.display_name` (OpenAlex)
-- **Fallback paths**: Variability in record fields is handled by using fallback paths for different record types when the default data location is empty
-
-**Examples of what Post-processing additionally provides:**
-- **Type conversions**: Dates to ISO format, years as integers, booleans from strings
-- **Open access detection**: License URL pattern matching (Crossref), PMCID presence (PubMed), default OA status (CORE)
-- **Author formatting**: Crossref and PubMed field maps parse nested lists of author dictionaries containing first, middle, and last names as separate fields into a normalized list of author names (e.g., `given`/`family` for Crossref and `ForeName`/`Initials`/`LastName` for PubMed).
-- **Abstract Reconstruction**: The `OpenAlexFieldMap` automatically parses abstract inverted indexes to reconstruct abstracts into human-readable formats. The `CrossrefFieldMap` extracts and removes HTML tags to clean abstract texts for downstream applications.
-- **URL reconstruction**: PLOS and PubMed article URLs built from DOI/PMID identifiers
-- **Cross-database identifiers**: CORE extracts arXiv ID, PMID, and MAG ID for entity resolution
-
-### Record Resolution for ML Pipelines
-
-When building ML pipelines, you often need to trace processed records back to their original nested structure. ScholarFlux now optionally annotates records with content-based hashes for bidirectional record linking. This happens internally during record normalization to reliably retrieve fields consistently across record types:
-
-```python
-from scholar_flux import SearchCoordinator
-
-# Query Crossref—raw responses have nested, provider-specific structures
-coordinator = SearchCoordinator(query="Genomics breakthroughs", provider_name="crossref", annotate_records=True)
-response = coordinator.search_page(1)
-
-# Processed records may be flattened or filtered
-processed_record = response.processed_records[0]
-
-# These two fields are added by default if `annotate_records=True`
-print(f"The hash of record {processed_record['_extraction_index']}: is {processed_record['_record_id']}")
-# OUTPUT: The hash of record 0: is 29ffdeea3452d26b_0
-
-# Resolve back to the original extracted structure:
-original_record = response.resolve_extracted_record(0)  # Or processed_record['_extraction_index']
-
-# Clean records for export (removes internal annotations):
-clean_records = response.strip_annotations()
-```
-
-### Request History and Observability
-
-Debug rate limiting and retry behavior with built-in history tracking. Both `RateLimiter` and `RetryHandler` maintain the last 1000 recorded events:
-
-```python
-from scholar_flux import SearchCoordinator
-from scholar_flux.api.rate_limiting import RetryHandler
-
-# Fresh requests and retry attempts recorded in class-level history for easier search observability across APIs.
-RetryHandler.history.clear_history()
-
-# Limit history to last 500 records (1000 by default)
-RetryHandler.resize_history(500)
-
-# Run a batch of searches
-coordinator = SearchCoordinator(query="psychology AND dissonance", provider_name="crossref")
-responses = coordinator.search_pages(pages=range(1, 5))
-
-# Inspect retry history to see what happened during the last batch of requests.
-for attempt in RetryHandler.history:
-    print(f"  URL: {attempt.url}")
-    print(f"  Status: {attempt.status_code}, Success: {attempt.success}")
-    print(f"  Timestamp: {attempt.timestamp}, Delay: {attempt.delay}")
-
-    if attempt.error:
-        print(f" Error: {attempt.error}")
-        print(f" Error Message: {attempt.message}")
-    print('-' * 105)
-
-# Export the retry history into a list of dictionaries
-retry_history = RetryHandler.history.export_history()
-
-# Calculate the success rate across all requests:
-if retry_history:
-    success_rate = sum(a['success'] for a in retry_history) / len(retry_history)
-    print(f"Success rate: {success_rate:.1%}")
-```
-
-### DuckDB Storage Backend
-
-For embedded analytical workloads, ScholarFlux now supports DuckDB alongside SQLite, Redis, and MongoDB:
-
-```bash
-pip install scholar-flux[duckdb]
-```
-
-```python
-from scholar_flux import DataCacheManager, SearchCoordinator
-
-# Caching processed results using the DuckDB:
-coordinator = SearchCoordinator(
-    query='analytical databases',
-    cache_manager=DataCacheManager.with_storage('duckdb', url='duckdb:///./research_cache.duckdb')
-)
-result = coordinator.search_page(1)
-```
-
-### Enhanced Security Masking
-
-The `MaskingFilter` now masks non-string types in log output, so you can log objects directly without exposing credentials:
-
-```python
-from scholar_flux import logger
-from scholar_flux.data_storage import SQLAlchemyStorage
-import os
-
-storage = SQLAlchemyStorage(
-    url=f"postgresql://nlp_researcher:{os.environ['MY_SUPER_SECRET_PASS']}@localhost:5432/research_db"
-)
-
-logger.debug(storage)  # Object logged directly—credentials masked automatically:
-
-# OUTPUT: SQLAlchemyStorage(config={'url': 'postgresql://nlp_researcher:***@localhost:5432/research_db', ...},
-#                           engine=Engine(postgresql://nlp_researcher:***@localhost:5432/research_db), ...)
-```
-
-Masking covers database URIs (PostgreSQL, MySQL, Redis, MongoDB, DuckDB), private keys (RSA, EC, OpenSSH, PGP), and query string tokens (`api_key`, `token`, `motherduck_token`).
-
-**Note:** Never hardcode secrets—use environment variables or a secrets manager. See [SECURITY.md](SECURITY.md#api-keys-and-credentials) for detailed guidance.
-
-### Quality-of-Life Improvements
-
-- **Connection verification**: `verify_connection=True` validates storage backend availability on initialization
-- **Namespace context manager**: `with cache.with_namespace('project_a'):` for scoped cache operations
-- **Lazy module loading**: Prevents import-time errors for optional dependencies
-- **Test coverage**: Now at 98% with comprehensive edge case coverage
-
-See the [full changelog](https://github.com/SammieH21/scholar-flux/blob/main/CHANGELOG.md) for detailed technical changes.
-
 
 ## 📚 Documentation
 
@@ -1094,7 +1135,7 @@ If you use ScholarFlux in your research, please cite it:
   title = {ScholarFlux: Production-Grade Orchestration for Academic APIs},
   year = {2026},
   url = {https://github.com/SammieH21/scholar-flux},
-  version = {0.5.2}
+  version = {0.6.0}
 }
 ```
 
@@ -1109,7 +1150,7 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 
 ## 📊 Project Statistics
 
-- **~61,674 Lines of Code** - ~34,410 LOC source + ~27,264 LOC comprehensive tests
+- **~63,786 Lines of Code** - ~35,670 LOC source + ~28,116 LOC comprehensive tests
 - **98% Test Coverage** - Rigorous testing across all functionality and edge cases
 - **7 Default Providers** - Pre-configured with schema normalization and metadata extraction
 - **Type-Safe Architecture** - Comprehensive type hints throughout the codebase with mypy strict-mode type checking
@@ -1117,7 +1158,7 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 - **Zero Known CVEs** - Continuous security monitoring in CI/CD pipeline
 - **8 Comprehensive Tutorials** - Detailed documentation from basics through production deployment
 - **3 AI/ML Example Pipelines** - Production-ready examples for embeddings, agents, and scheduled retrieval
-- **Stable Beta** (v0.5.2) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
+- **Stable Beta** (v0.6.0) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
 
 ---
 

@@ -6,6 +6,7 @@ It provides the foundational information necessary for the SearchAPI to resolve 
 providers, as well as basic defaults necessary for interaction.
 
 """
+
 from pydantic import BaseModel, field_validator, model_validator, ConfigDict, Field
 from typing import Optional, ClassVar, Any
 from scholar_flux.api.validators import validate_url, normalize_url
@@ -21,10 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 class ProviderConfig(BaseModel):
-    """Config for creating the basic instructions and settings necessary to interact with new providers. This config, on
-    initialization, is created for default providers on package initialization in the scholar_flux.api.providers
-    submodule. A new, custom provider or override can be added to the provider_registry (a custom user dictionary) from
-    the scholar_flux.api.providers module.
+    """Config for creating the basic instructions and settings necessary to interact with new providers.
+
+    This config, on initialization, is created for default providers on package initialization in the
+    scholar_flux.api.providers submodule. A new, custom provider or override can be added to the provider_registry
+    (a custom user dictionary) from the scholar_flux.api.providers module.
 
     Args:
         provider_name (str):

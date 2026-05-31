@@ -13,12 +13,16 @@ Classes:
         specifications of the current provider's API.
 
 """
+
 from __future__ import annotations
-from pydantic import model_validator, ValidationError
-from typing import Optional, Dict, Any, Callable, ClassVar
+from pydantic import SecretStr, model_validator, ValidationError
+from typing import overload, Optional, Any, Callable, ClassVar
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
-from scholar_flux.exceptions.api_exceptions import APIParameterException
+from scholar_flux.exceptions.api_exceptions import APIParameterException, APIKeyValidationException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
+from scholar_flux.utils.helpers import with_fallback
+from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
+from scholar_flux.security import SecretUtils
 from scholar_flux.api.providers import provider_registry
 from pydantic.dataclasses import dataclass
 import logging
@@ -37,6 +41,8 @@ class APIParameterMap(BaseAPIParameterMap):
         records_per_page (str): The API-specific parameter name for records per page.
         api_key_parameter (Optional[str]): The API-specific parameter name for the API key.
         api_key_required (bool): Indicates whether an API key is required.
+        api_key_in_headers (bool): Indicates whether API keys are transmitted via headers or parameters (default).
+        api_key_scheme (str | None): Scheme that prefixes the api key in the request header (i.e., `Bearer [API_KEY]`).
         auto_calculate_page (bool): If True, calculates start index from page; if False, passes page number directly.
         zero_indexed_pagination (bool): If True, treats 0 as an allowed page value when retrieving data from APIs.
         api_specific_parameters (Dict[str, str]): Additional universal to API-specific parameter mappings.
@@ -46,19 +52,19 @@ class APIParameterMap(BaseAPIParameterMap):
     @model_validator(mode="before")
     @classmethod
     def set_default_api_key_parameter(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Sets the default for the api key parameter when `api_key_required`=True and `api_key_parameter` is None.
+        """Sets the default for the API key parameter when `api_key_required`=True and `api_key_parameter` is None.
 
         Args:
             values (dict[str, Any]): The dictionary of attributes to validate
 
         Returns:
             dict[str, Any]:
-                The updated parameter values passed to the APIParameterMap.
-                `api_key_parameter` is set to "api_key" if key is required but not specified
+                The updated parameter values passed to the APIParameterMap. `api_key_parameter` is set to
+                `APIParameterMap.DEFAULT_API_KEY_PARAMETER` if an API key is required but not specified.
 
         """
         if values.get("api_key_required") and not values.get("api_key_parameter"):
-            values["api_key_parameter"] = "api_key"
+            values["api_key_parameter"] = cls.DEFAULT_API_KEY_PARAMETER
         return values
 
     @model_validator(mode="before")
@@ -83,7 +89,7 @@ class APIParameterMap(BaseAPIParameterMap):
 
         if not isinstance(api_specific_parameters, dict):
             raise APIParameterException(
-                "All api_specific_parameters must be a dict. " f"Received type {api_specific_parameters}"
+                f"All api_specific_parameters must be a dict. Received type {api_specific_parameters}"
             )
 
         for parameter_name, parameter_metadata in api_specific_parameters.items():
@@ -122,7 +128,7 @@ class APIParameterMap(BaseAPIParameterMap):
 
     @classmethod
     def get_defaults(cls, provider_name: str, **additional_parameters: Any) -> Optional[APIParameterMap]:
-        """Factory method to create APIParameterMap instances with sensible defaults for known APIs.
+        """Retrieves the APIParameterMap associated with a known API, returning None if the provider cannot be found.
 
         This class method attempts to pull from the list of known providers defined in the
         `scholar_flux.api.providers.provider_registry` and returns `None` if an APIParameterMap for the
@@ -212,14 +218,17 @@ class APIParameterConfig:
         query: Optional[str],
         page: Optional[int],
         records_per_page: int,
+        include_api_key: bool | None = None,
         **api_specific_parameters: Any,
-    ) -> Dict[str, Any]:
+    ) -> SettingsDictType:
         """Builds the dictionary of request parameters using the current parameter map and provided values at runtime.
 
         Args:
             query (Optional[str]): The search query string.
             page (Optional[int]): The page number for pagination (1-based).
             records_per_page (int): Number of records to fetch per page.
+            include_api_key (bool | None):
+                Indicates whether an API key should be included. If `None`, an API key is added when required.
             **api_specific_parameters: Additional API-specific parameters to include.
 
         Returns:
@@ -239,10 +248,15 @@ class APIParameterConfig:
 
         parameters = self._get_api_specific_parameters(parameters, **api_specific_parameters)
 
-        parameters = self._get_api_key(parameters, **api_specific_parameters)
+        if include_api_key is True or (include_api_key is None and not self.parameter_map.api_key_in_headers):
+            parameters = self._include_api_key(parameters, **api_specific_parameters)
+        else:
+            parameters.pop(self.parameter_map.api_key_parameter, None)
+            parameters.pop(self.parameter_map.DEFAULT_API_KEY_PARAMETER, None)
 
         # Filter out None values from parameters
-        return {k: v for k, v in parameters.items() if k is not None and v is not None}
+        prepared_parameters = {k: v for k, v in parameters.items() if k is not None and v is not None}
+        return SettingsDict(prepared_parameters) if isinstance(parameters, SettingsDict) else prepared_parameters
 
     def _calculate_start_index(
         self, page: Optional[int] = None, records_per_page: Optional[int] = None
@@ -289,19 +303,20 @@ class APIParameterConfig:
             )
 
         if not self.parameter_map.auto_calculate_page:
-
             return adjusted_page
 
         return start + (adjusted_page - start) * records_per_page
 
-    def _get_api_specific_parameters(self, parameters: Optional[dict], **api_specific_parameters: Any) -> dict:
-        """Helper method for extracting api specific parameters from additional keyword arguments.
+    def _get_api_specific_parameters(
+        self, parameters: Optional[SettingsDictType], **api_specific_parameters: Any
+    ) -> SettingsDictType:
+        """Helper method for extracting API-specific parameters from additional keyword arguments.
 
         These additional parameters are retrieved from `**api_specific_parameters` when available and not already
         provided in the `parameters` dictionary.
 
         Args:
-            parameters (dict): The dictionary of parameters being built for a request.
+            parameters (dict[str, Any] | SettingsDict): The dictionary of parameters being built for a request.
             api_specific_parameters (dict): A list of key-value pairs from which to extract any additional parameters.
 
         Returns:
@@ -315,7 +330,7 @@ class APIParameterConfig:
         parameters = parameters if parameters is not None else {}
 
         # raise an error if parameters is not actually a dictionary
-        if not isinstance(parameters, dict):
+        if not isinstance(parameters, (dict, SettingsDict)):
             raise APIParameterException(
                 f"Expected `parameters` to be a dictionary, instead received {type(parameters)}"
             )
@@ -345,7 +360,7 @@ class APIParameterConfig:
         """Helper method to show the complete list of all parameters that can be found in the current_mappings.
 
         Returns:
-            List: The complete list of all universal and api specific parameters corresponding to the current API
+            List: The complete list of all universal and API-specific parameters corresponding to the current API
 
         """
         return self.parameter_map.show_parameters()
@@ -392,7 +407,7 @@ class APIParameterConfig:
 
         return self if inplace else APIParameterConfig.as_config(parameter_map)
 
-    def extract_parameters(self, parameters: Optional[dict[str, Any]]) -> dict[str, Any]:
+    def extract_parameters(self, parameters: Optional[SettingsDictType], *, inplace: bool = True) -> SettingsDictType:
         """Extracts all parameters from a dictionary: Helpful for when keywords must be extracted by provider.
 
         Note: this method modifies the original parameter dictionary, using the `pop()` method to `extract` all
@@ -402,15 +417,21 @@ class APIParameterConfig:
         Useful for reorganizing dictionaries that contain dynamically specified input parameters for distinct APIs.
 
         Args:
-            parameters (Optional[dict[str, Any]]):
+            parameters (Optional[dict[str, Any]] | SettingsDict):
                 An optional parameter dictionary from which to extract API-specific parameters.
+            inplace (bool):
+                Indicates whether the original parameter dict should be mutated inplace. If False, the dict is copied.
+
 
         Returns:
-            (dict[str, Any]): A dictionary containing all extracted parameters if available.
+            (dict[str, Any] | SettingsDict): A dictionary containing all extracted parameters if available.
 
         """
         if not parameters:
             return {}
+
+        if not inplace and isinstance(parameters, (dict, SettingsDict)):
+            parameters = parameters.copy()
 
         api_specific_parameters = {
             parameter: parameters.pop(parameter)
@@ -421,46 +442,132 @@ class APIParameterConfig:
         api_specific_parameters |= parameters.get("parameters", {})
         return api_specific_parameters
 
-    def _get_api_key(self, parameters: Optional[dict], **api_specific_parameters: Any) -> dict:
-        """Helper method for extracting the api key from a dictionary of parameters.
+    def extract_api_key(
+        self, parameters: Optional[SettingsDictType], *, inplace: bool = True, **api_specific_parameters: Any
+    ) -> SecretStr | None:
+        """Helper method for extracting the API key from a dictionary of parameters and keyword arguments.
 
-        This helper method attempts to retrieve the API key and add it as a parameter in the current dictionary if
-        not already provided.
+        Note: The removal of API keys from the received `parameters` dictionary is intentional with the aim of removing
+        empty API keys and stale `api_key` parameter names that don't apply to a particular API provider. To avoid this
+        behavior, unpack the parameter dictionary instead (e.g., `.extract_api_key(**parameters)`).
 
         Args:
-            parameters (dict): The dictionary of parameters being built for a request
+            parameters (dict[str, Any] | SettingsDict):
+                The dictionary of parameters from which API keys are extracted when building the request.
+            inplace (bool):
+                Indicates whether the original parameter dict should be mutated inplace. If False, the dict is copied.
+            **api_specific_parameters:
+                A list of key-value pairs from which the key will be extracted if available
+
+        Returns:
+            Optional[SecretStr]: The extracted API key formatted as a secret key if available and `None` otherwise.
+
+        """
+        # Extracts the API key if available
+        key_name = self.parameter_map.api_key_parameter
+        api_key = api_specific_parameters.get(self.parameter_map.DEFAULT_API_KEY_PARAMETER) or (
+            api_specific_parameters.get(key_name) if key_name else None
+        )
+
+        if not inplace and isinstance(parameters, (dict, SettingsDict)):
+            parameters = parameters.copy()
+
+        # Should remove both api key parameters if any one of them still exists (potentially out of date)
+        extracted_api_key = (
+            with_fallback(
+                parameters.pop(self.parameter_map.api_key_parameter or "", None),
+                parameters.pop(self.parameter_map.DEFAULT_API_KEY_PARAMETER, None),
+            )
+            if isinstance(parameters, (dict, SettingsDict))
+            else None
+        )
+
+        # Prioritize api_specific_parameters over the parameters dict (consider the latter as the dictionary to prepare)
+        api_key = extracted_api_key if api_key is None else api_key
+
+        # Returns a secret string when available, otherwise None
+        return self.validate_api_key(api_key, allow_missing=True)
+
+    @classmethod
+    @overload
+    def validate_api_key(cls, api_key: None, *, allow_missing: bool = False) -> SecretStr | None:
+        """If the API key is None, an API key is not returned."""
+        ...
+
+    @classmethod
+    @overload
+    def validate_api_key(cls, api_key: str | SecretStr, *, allow_missing: bool = False) -> SecretStr:
+        """If the API key is a string or secret string, the key is returned after masking."""
+        ...
+
+    @classmethod
+    def validate_api_key(cls, api_key: object, *, allow_missing: bool = False) -> SecretStr | None:
+        """Verifies that the received api_key is of the correct type.
+
+        Args:
+            api_key (object): The API key to validate.
+            allow_missing (bool): Whether a missing API key should gracefully return None or raise an error (default).
+
+        Returns:
+            SecretStr: The API key, masked as a secret string when valid.
+            None: If an API key has not been provided.
+
+        """
+        if api_key is None and allow_missing:
+            return None
+
+        if not isinstance((unmasked_key := SecretUtils.unmask_secret(api_key)), str):
+            key_type = "extracted and unmasked" if isinstance(api_key, SecretStr) else "extracted"
+            raise APIKeyValidationException(
+                f"Expected the {key_type} API key to be of type `str` or `SecretStr`, but instead received "
+                f"{type(unmasked_key)}."
+            )
+        return SecretUtils.mask_secret(api_key)
+
+    def _include_api_key(
+        self, parameters: Optional[SettingsDictType], **api_specific_parameters: Any
+    ) -> SettingsDictType:
+        """Helper method for including the API key as a parameter in a dictionary of request parameters.
+
+        This helper method attempts to extract the API key from the received parameters, including the extracted key
+        within the prepared dictionary of request parameters when successful. Referencing the current API parameter
+        mapping, the key-value pair is assigned under the correct parameter name for the current API when the API key is
+        successfully extracted.
+
+        Args:
+            parameters (dict[str, Any] | SettingsDict): The dictionary of parameters being built for a request
             api_specific_parameters (dict): A list of key-value pairs from which the key will be extracted if available
         Returns:
             dict: If the API key extraction was successful or if it wasn't required
 
         Raises:
             APIParameterException:
-                If the api key is required, but not provided or If the parameters argument is not a dictionary
+                If the API key is required, but not provided or if the parameters argument is not a dictionary.
 
         """
         # if parameters is None, create an empty dictionary
         parameters = parameters if parameters is not None else {}
 
         # raise an error if parameters is not actually a dictionary
-        if not isinstance(parameters, dict):
+        if not isinstance(parameters, (dict, SettingsDict)):
             raise APIParameterException(
                 f"Expected `parameters` to be a dictionary, instead received {type(parameters)}"
             )
 
         # Include API key if provided
-        if self.parameter_map.api_key_parameter:
-            key_name = self.parameter_map.api_key_parameter
-            api_key = api_specific_parameters.get("api_key")
+        if key_name := self.parameter_map.api_key_parameter:
+            # Extracts the API key from the parameters dictionary if exists. Removes keys inplace (This is intentional).
+            api_key = self.extract_api_key(parameters, **api_specific_parameters)
 
-            # set the api key if it exists
+            # Sets the API key into `parameters` with the correct parameter name if a key exists
             if api_key:
-                parameters = parameters | {key_name: api_key}  # so extractions don't modify the original object
+                parameters.update({key_name: api_key})
 
-            # raise an error if an api key is required, but does not exist
-            elif self.parameter_map.api_key_required:
+            # Raise an error if an api key is required, but does not exist
+            elif self.parameter_map.api_key_required and not parameters.get(key_name):
                 logger.error("An API key is required but not provided")
                 raise APIParameterException("An API key is required but not provided")
-        # returns a new dictionary with the api key
+        # Returns a new dictionary with the api key
         return parameters
 
     @classmethod
@@ -520,7 +627,6 @@ class APIParameterConfig:
 
         parameter_dict = parameter_map.model_dump() if isinstance(parameter_map, BaseAPIParameterMap) else parameter_map
         try:
-
             updated_parameter_mapping = APIParameterMap(**parameter_dict)
             return cls(updated_parameter_mapping)
         except ValidationError as e:
@@ -529,7 +635,7 @@ class APIParameterConfig:
                 f"parameter, `{parameter_dict}`: {e}"
             )
 
-    def _find_duplicated_parameters(self, api_specific_parameters: dict) -> dict[str, Any]:
+    def _find_duplicated_parameters(self, api_specific_parameters: SettingsDictType) -> SettingsDictType:
         """Finds and flags duplicated parameters in the provided `api_specific_parameters` dictionary.
 
         This helper method identifies key conflicts with known defaults and flags them ahead of time to
@@ -538,10 +644,10 @@ class APIParameterConfig:
         The function returns a list of all duplicated_parameters if they exist. Otherwise the dictionary will be empty.
 
         Args:
-            api_specific_parameters (dict[str, Any]): The dictionary to check for duplicated_parameters
+            api_specific_parameters (dict[str, Any] | SettingsDict): The dictionary to check for duplicated_parameters
 
         Returns:
-            dict[str, Any]: A dictionary containing all api specific parameters that have been duplicated
+            dict[str, Any] | SettingsDict: A dictionary containing all API-specific parameters that have been duplicated
 
         """
         core_parameters = {"query", "records_per_page", "api_key"}
@@ -550,10 +656,10 @@ class APIParameterConfig:
         records_per_page_parameter_name = self.parameter_map.records_per_page
         api_key_parameter = self.parameter_map.api_key_parameter
 
+        api_parameters = core_parameters | {query_parameter_name, records_per_page_parameter_name, api_key_parameter}
         duplicated_parameters = {
             parameter: api_specific_parameters.get(parameter)
-            for parameter in core_parameters
-            | {query_parameter_name, records_per_page_parameter_name, api_key_parameter}
+            for parameter in api_parameters
             if parameter is not None and parameter in api_specific_parameters
         }
 
@@ -563,12 +669,11 @@ class APIParameterConfig:
     def from_defaults(cls, provider_name: str, **additional_parameters: Any) -> APIParameterConfig:
         """Factory method to create APIParameterConfig instances with sensible defaults for known APIs.
 
-        If the provider_name does not exist, the code will raise an exception.
+        If the provider_name does not exist, this method will raise an exception.
 
         Args:
             provider_name (str): The name of the API to create the parameter map for.
-            api_key (Optional[str]): API key value if required.
-            additional_parameters (dict): Additional parameter mappings.
+            **additional_parameters: Additional parameter mappings.
 
         Returns:
             APIParameterConfig: Configured parameter config instance for the specified API.
@@ -591,7 +696,7 @@ class APIParameterConfig:
         )
 
     def __repr__(self) -> str:
-        """Helper method for displaying the config and parameter mappings for the api in a user-friendly manner."""
+        """Helper method for displaying the config and parameter mappings for the API in a user-friendly manner."""
         return self.structure()
 
 

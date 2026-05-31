@@ -36,6 +36,7 @@ from scholar_flux.security.patterns import (
 from scholar_flux.security.masker import SensitiveDataMasker
 from scholar_flux.security.filters import MaskingFilter
 
+masker = SensitiveDataMasker(register_defaults=True)  # Package-level initialization default for the SensitiveDataMasker
 
 __all__ = [
     "SecretUtils",
@@ -46,4 +47,5 @@ __all__ = [
     "MaskingPatternSet",
     "SensitiveDataMasker",
     "MaskingFilter",
+    "masker",
 ]

@@ -8,10 +8,7 @@ import logging
 
 from scholar_flux.api import SearchAPI, ResponseCoordinator
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, ResponseHistoryRegistry
-from scholar_flux.exceptions import (
-    RequestFailedException,
-    InvalidCoordinatorParameterException,
-)
+from scholar_flux.exceptions import RequestFailedException, InvalidCoordinatorParameterException
 
 from scholar_flux.data.base_parser import BaseDataParser
 from scholar_flux.data.base_extractor import BaseDataExtractor

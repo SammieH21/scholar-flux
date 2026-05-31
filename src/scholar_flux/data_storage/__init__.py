@@ -11,7 +11,7 @@ Core components:
                          the same underlying interface. By default, this class uses sqlalchemy to set up a db in a
                          consistent location.
     - RedisStorage: Contains the core methods to the Redis Client. This storage defaults to localhost, port 6379
-    - MongoStorage: Contains the core methods used to interact with the Mongo DB database. By default, this class
+    - MongoDBStorage: Contains the core methods used to interact with the Mongo DB database. By default, this class
                     attempts to connect to Mongo DB on localhost, port 27017.
     - InMemoryStorage: The default storage method - simply saves processed request content and responses to a
                        temporary dictionary that is deleted when the python session is stopped
@@ -22,7 +22,7 @@ In addition, Exceptions for missing dependencies are set to return storage-speci
 is initialized without the necessary dependencies:
 
     SQLAlchemyStorage -> sqlalchemy
-    MongoStorage -> pymongo
+    MongoDBStorage -> pymongo
     RedisStorage -> redis
     SQLAlchemyStorage -> sqlalchemy
 

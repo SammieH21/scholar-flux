@@ -5,11 +5,7 @@ from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.response_metadata_map import ResponseMetadataMap
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.api.normalization.springer_nature_field_map import field_map
-from scholar_flux.api.validators import (
-    validate_api_specific_field,
-    validate_str,
-    validate_date,
-)
+from scholar_flux.api.validators import validate_api_specific_field, validate_str, validate_date
 
 name = "springernature"
 validate_springer_field = partial(validate_api_specific_field, provider_name=name)

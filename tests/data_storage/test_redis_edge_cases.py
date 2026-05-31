@@ -147,9 +147,12 @@ def test_redis_unavailable(redis_test_storage, caplog):
         assert "The redis module is not available" in caplog.text
 
         with pytest.raises(RedisImportError) as excinfo:
-            RedisStorage()
+            _ = RedisStorage()
         assert "Optional Dependency: Redis backend is not installed" in str(excinfo.value)
         assert "Please install the 'redis' package to use this feature." in str(excinfo.value)
+
+        with pytest.raises(RedisImportError) as excinfo:
+            _ = RedisStorage.initialize_client()
 
 
 def test_redis_server_unavailable(redis_test_storage, monkeypatch, caplog):
