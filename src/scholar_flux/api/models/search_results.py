@@ -38,6 +38,7 @@ Example:
     ...     print(f"Error: {response.error} - {response.message}")
 
 """
+
 from __future__ import annotations
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.utils.response_protocol import ResponseProtocol
@@ -714,6 +715,46 @@ class SearchResultList(list[SearchResult]):
     Note: Attempts to add other classes to the SearchResultList other than SearchResults will raise a TypeError.
 
     """
+
+    @property
+    def processed_records(self) -> RecordList:
+        """Alias for `SearchResultList.join()`: Returns the complete list of processed records across all responses.
+
+        Returns:
+            RecordList: The complete list of processed records across all processed responses.
+
+        """
+        return self.join(include=set(), strip_annotations=False)
+
+    @property
+    def data(self) -> RecordList:
+        """Alias for joining all processed records via `SearchResult.data` across all responses.
+
+        Returns:
+            RecordList: The complete list of processed record data across all responses.
+
+        """
+        record_list: list[RecordType] = []
+
+        for record in self:
+            record_list.extend(record.data or [])
+        return record_list
+
+    @property
+    def normalized_records(self) -> NormalizedRecordList:
+        """Returns a list of all normalized records across all responses. Assumes `normalize()` previously called.
+
+        Note: If `normalize()` has not yet been called, this method will return an empty list.
+
+        Returns:
+            NormalizedRecordList: The complete list of normalized records across all responses.
+
+        """
+        record_list: list[NormalizedRecordType] = []
+
+        for record in self:
+            record_list.extend(record.normalized_records or [])
+        return record_list
 
     def append(self, item: SearchResult) -> None:
         """Overrides the default `list.append` method for type-checking compatibility.

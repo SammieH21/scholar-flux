@@ -155,7 +155,8 @@ def validate_and_process_email(
         if env_email:
             raise ValueError(
                 f"The environment variable, SCHOLAR_FLUX_DEFAULT_MAILTO contains an invalid email: '{env_email}'. "
-                "Provide a valid email or unset the environment variable."
+                "Provide a valid email or unset the environment variable via "
+                "`scholar_flux.config_settings`."
             )
         raise ValueError(f"The provided email is invalid, received {email_string}")
 

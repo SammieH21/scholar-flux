@@ -342,7 +342,10 @@ def test_cache_missing_dep(caplog):
 
     with pytest.raises(SessionCreationError):
         _ = CachedSessionManager(
-            user_agent="ua", cache_name="c", cache_directory="/tmp", backend=backend  # type:ignore
+            user_agent="ua",
+            cache_name="c",
+            cache_directory="/tmp",
+            backend=backend,  # type:ignore
         )
 
     assert "The specified backend is not supported by Requests-Cache:" in caplog.text
@@ -381,7 +384,7 @@ def test_get_cache_directory_package_and_home(monkeypatch, tmp_path):
         assert str(tmp_path) in str(result)
 
 
-def test_redis_session_manager_default_kwargs(caplog):
+def test_redis_session_manager_default_kwargs(monkeypatch, caplog):
     """Verifies that default redis kwargs match `scholar_flux.data_storage.RedisStorage.get_default_config()`."""
     session_manager = CachedSessionManager(backend="redis")
     assert session_manager.kwargs == {
@@ -390,12 +393,48 @@ def test_redis_session_manager_default_kwargs(caplog):
     assert "Auto-configured Redis from RedisStorage.get_default_config()" in caplog.text
 
 
+def test_redis_session_manager_default_kwargs_includes_auth_when_available(
+    restore_config_settings, monkeypatch, mock_api_key, caplog
+):
+    """Verifies that redis kwargs with auth match `scholar_flux.data_storage.RedisStorage.get_default_config()`."""
+    config_settings.set("SCHOLAR_FLUX_REDIS_USERNAME", "admin")
+    config_settings.set("SCHOLAR_FLUX_REDIS_PASSWORD", mock_api_key)
+
+    session_manager = CachedSessionManager(backend="redis")
+    assert session_manager.kwargs == {
+        key: value for key, value in RedisStorage.get_default_config().items() if key != "ttl"
+    }
+    assert session_manager.kwargs["password"] == mock_api_key
+    assert session_manager.kwargs["username"].get_secret_value() == "admin"
+
+
+def test_mongodb_session_manager_default_kwargs_includes_auth_when_available(
+    restore_config_settings, monkeypatch, mock_api_key, caplog
+):
+    """Verifies that MongoDB kwargs with auth match `scholar_flux.data_storage.MongoDBStorage.get_default_config()`."""
+    config_settings.set("SCHOLAR_FLUX_MONGODB_USERNAME", "admin")
+    config_settings.set("SCHOLAR_FLUX_MONGODB_PASSWORD", mock_api_key)
+
+    session_manager = CachedSessionManager(backend="mongodb")
+
+    assert session_manager.kwargs == {
+        k: v
+        for k, v in MongoDBStorage.get_default_config().items()
+        if k in ("host", "port", "username", "password", "authSource")
+    }
+    assert "Auto-configured MongoDB from MongoDBStorage.get_default_config()" in caplog.text
+    assert session_manager.kwargs["password"] == mock_api_key
+    assert session_manager.kwargs["username"].get_secret_value() == "admin"
+
+
 def test_mongodb_session_manager_default_kwargs(caplog):
     """Verifies that default mongodb kwargs match `scholar_flux.data_storage.MongoDBStorage.get_default_config()`."""
     session_manager = CachedSessionManager(backend="mongodb")
 
     assert session_manager.kwargs == {
-        k: v for k, v in MongoDBStorage.get_default_config().items() if k in ("host", "port")
+        k: v
+        for k, v in MongoDBStorage.get_default_config().items()
+        if k in ("host", "port", "username", "password", "authSource")
     }
     assert "Auto-configured MongoDB from MongoDBStorage.get_default_config()" in caplog.text
 
@@ -570,7 +609,7 @@ def test_cached_session_expire_after_resolution_order(
         assert cached_session_manager.expire_after == expected
 
 
-def test_get_cache_directory_package_with_env(monkeypatch, tmp_path):
+def test_get_cache_directory_package_with_env(monkeypatch, tmp_path, restore_config_settings):
     """Tests the behavior of the `SCHOLAR_FLUX_CACHE_DIRECTORY` environment variable when provided.
 
     This test verifies that cache directory specified in the environment variable will be used when set and confirmed as

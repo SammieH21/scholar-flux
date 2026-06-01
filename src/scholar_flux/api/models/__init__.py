@@ -29,12 +29,7 @@ from scholar_flux.api.models.response_types import APIResponseType
 from scholar_flux.api.models.search_api_config import SearchAPIConfig
 from scholar_flux.api.models.search_inputs import PageListInput
 
-from scholar_flux.api.models.responses import (
-    APIResponse,
-    ErrorResponse,
-    NonResponse,
-    ProcessedResponse,
-)
+from scholar_flux.api.models.responses import APIResponse, ErrorResponse, NonResponse, ProcessedResponse
 
 from scholar_flux.api.models.search_results import SearchResult, SearchResultList
 

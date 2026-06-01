@@ -7,7 +7,9 @@ from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.exceptions import CacheParameterValidationException
 from scholar_flux.utils import config_settings
+from scholar_flux.security import masker
 from datetime import datetime, timezone
+from unittest.mock import patch
 from time import sleep
 import re
 
@@ -156,6 +158,111 @@ def test_default_config_settings_override(
     default_config = storage.get_default_config()
     assert default_config["host"] == host_value
     assert default_config["port"] == port_value
+
+
+@patch("redis.Redis")
+def test_redis_username_password_retrieval(mock_redis_client, db_dependency_unavailable, mock_api_key, monkeypatch):
+    """Verifies that Redis builds a dictionary containing authentication parameters when available."""
+    if db_dependency_unavailable("redis"):
+        pytest.skip()
+    user = "admin"
+    username_env = "SCHOLAR_FLUX_REDIS_USERNAME"
+    password_env = "SCHOLAR_FLUX_REDIS_PASSWORD"
+
+    with monkeypatch.context() as m:
+        m.setenv(username_env, user)
+        m.setenv(password_env, masker.unmask_secret(mock_api_key))  # pretend its an actual password
+
+        config = RedisStorage.get_default_config()
+        assert config.get("username") == masker.mask_secret(user)
+        assert config.get("password") == mock_api_key  # API key already masked
+        config.pop("ttl", None)
+        unmasked_config = masker.unmask_parameters(config)
+
+        _ = RedisStorage()
+        mock_redis_client.assert_called_with(
+            host=unmasked_config["host"],
+            port=unmasked_config["port"],
+            username=unmasked_config["username"],
+            password=unmasked_config["password"],
+        )
+
+    # Fields should only show if they've been stored in the config or environment. Context over
+    config = RedisStorage.get_default_config()
+    assert "username" not in config
+    assert "password" not in config
+
+
+@patch("scholar_flux.data_storage.mongodb_storage.MongoClient")
+def test_mongodb_username_password_retrieval(mock_mongodb_client, db_dependency_unavailable, mock_api_key, monkeypatch):
+    """Verifies that MongoDB builds a dictionary containing authentication parameters when available."""
+    if db_dependency_unavailable("mongodb"):
+        pytest.skip()
+    user = "admin"
+    username_env = "SCHOLAR_FLUX_MONGODB_USERNAME"
+    password_env = "SCHOLAR_FLUX_MONGODB_PASSWORD"
+
+    with monkeypatch.context() as m:
+        m.setenv(username_env, user)
+        m.setenv(password_env, masker.unmask_secret(mock_api_key))  # pretend its an actual password
+
+        config = MongoDBStorage.get_default_config()
+        assert config.get("username") == masker.mask_secret(user)
+        assert config.get("password") == mock_api_key  # API key already masked
+
+        _ = MongoDBStorage()
+        mock_mongodb_client.assert_called_with(
+            host=config["host"],
+            port=config["port"],
+            serverSelectionTimeoutMS=config["serverSelectionTimeoutMS"],
+            username=masker.unmask_secret(config["username"]),
+            password=masker.unmask_secret(config["password"]),
+        )
+
+    # Fields should only show if they've been stored in the config or environment. Context over
+    config = MongoDBStorage.get_default_config()
+    assert "username" not in config
+    assert "password" not in config
+
+
+@patch("scholar_flux.data_storage.mongodb_storage.MongoClient")
+def test_mongodb_username_password_availability_check(
+    mock_mongodb_client, restore_config_settings, db_dependency_unavailable, mock_api_key, monkeypatch
+):
+    """Verifies that MongoDB builds a dictionary containing authentication parameters when available."""
+    if db_dependency_unavailable("mongodb"):
+        pytest.skip()
+
+    user = masker.mask_secret("admin")
+
+    config_settings.set("SCHOLAR_FLUX_MONGODB_USERNAME", user)
+    config_settings.set("SCHOLAR_FLUX_MONGODB_PASSWORD", mock_api_key)
+
+    MongoDBStorage.is_available()
+
+    _, kwargs = mock_mongodb_client.call_args
+    assert kwargs["username"] == masker.unmask_secret(user)
+    assert kwargs["password"] == masker.unmask_secret(mock_api_key)
+
+
+@patch("redis.Redis")
+def test_redis_username_password_availability_check(
+    mock_redis_client, restore_config_settings, db_dependency_unavailable, mock_api_key, monkeypatch
+):
+    """Verifies that redis builds a dictionary containing authentication parameters when available."""
+    if db_dependency_unavailable("redis"):
+        pytest.skip()
+
+    user = masker.mask_secret("admin")
+
+    config_settings.set("SCHOLAR_FLUX_REDIS_USERNAME", user)
+    config_settings.set("SCHOLAR_FLUX_REDIS_PASSWORD", mock_api_key)
+
+    RedisStorage.is_available()
+
+    _, kwargs = mock_redis_client.call_args
+    assert kwargs["username"] == masker.unmask_secret(user)
+    assert kwargs["password"] == masker.unmask_secret(mock_api_key)
 
 
 def test_null_storage_behavior(mock_response, null_test_storage):

@@ -137,9 +137,8 @@ def test_api_key_additions(provider):
     api_key = SensitiveDataMasker.mask_secret("A Secret")
     assert provider_info
 
-    with patch.dict(
-        scholar_flux.api.models.search_api_config.config_settings.config, {provider_info.api_key_env_var: api_key}
-    ):
+    env_var = provider_info.api_key_env_var or "NON_EXISTENT_API_KEY_FIELD"
+    with patch.dict(scholar_flux.api.models.search_api_config.config_settings.config, {env_var: api_key}):
         config = SearchAPIConfig.from_defaults(provider)
         if provider_info.api_key_env_var:
             assert config.api_key == api_key
@@ -194,7 +193,7 @@ def test_search_api_config_validation(caplog):
     """
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig.validate_api_key(v="")  # type:ignore
-    assert "Received an empty string as an api_key, expected None or a non-empty string" in str(excinfo.value)
+    assert "Received an empty string as an API key, expected None or a non-empty string" in str(excinfo.value)
 
     invalid_url = "hsttps://invalid_url.com"
     with pytest.raises(ValueError) as excinfo:
@@ -234,13 +233,13 @@ def test_search_api_config_validation(caplog):
     v = 5
     with pytest.raises(ValueError) as excinfo:
         _ = SearchAPIConfig.validate_api_key(v)  # type:ignore
-    assert f"Incorrect type received for the api_key. Expected None or string, received {type(v)}" in str(excinfo.value)
-    assert "The received api_key is less than 20 characters long - verify that the api_key is correct" in caplog.text
+    assert f"Incorrect type received for the API key. Expected None or string, received {type(v)}" in str(excinfo.value)
+    assert "The received API key is less than 20 characters long - verify that the API key is correct" in caplog.text
     assert SearchAPIConfig.validate_api_key(secret_api_key) == secret_api_key  # type:ignore
 
     long_api_key = "v" * 257
     assert SearchAPIConfig.validate_api_key(long_api_key)  # type:ignore
-    assert "The received api_key is more than 256 characters long - verify that the api_key is correct" in caplog.text
+    assert "The received API key is more than 256 characters long - verify that the API key is correct" in caplog.text
 
 
 def test_missing_provider_information(caplog):

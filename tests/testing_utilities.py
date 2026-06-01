@@ -10,6 +10,33 @@ if TYPE_CHECKING:
     from scholar_flux import SearchCoordinator
 
 
+DISABLE_ENV_LIST: list[str] = [
+    "SCHOLAR_FLUX_HOME",
+    "SCHOLAR_FLUX_DEFAULT_MAILTO",
+    "SCHOLAR_FLUX_DEFAULT_USER_AGENT",
+    "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND",
+    "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE",
+    "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL",
+    "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL",
+    "SCHOLAR_FLUX_DEFAULT_PROVIDER",
+    "SCHOLAR_FLUX_MONGODB_USERNAME",
+    "SCHOLAR_FLUX_MONGODB_PASSWORD",
+    "SCHOLAR_FLUX_MONGODB_DATABASE",
+    "SCHOLAR_FLUX_MONGODB_COLLECTION",
+    "SCHOLAR_FLUX_REDIS_USERNAME",
+    "SCHOLAR_FLUX_REDIS_PASSWORD",
+    "SCHOLAR_FLUX_CACHE_DIRECTORY",
+    "SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY",
+    "SCHOLAR_FLUX_SQLALCHEMY_URL",
+    "SCHOLAR_FLUX_REDIS_URL",
+    "SCHOLAR_FLUX_MONGODB_URL",
+    "SCHOLAR_FLUX_LOG_DIRECTORY",
+    "SCHOLAR_FLUX_LOG_STREAM",
+    "SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION",
+    "SCHOLAR_FLUX_CACHE_SECRET_KEY",
+]
+
+
 def enable_debugging() -> None:
     """Helper function that defines the environment variables needed to enable logging by default in ScholarFlux."""
     os.environ["SCHOLAR_FLUX_LOG_LEVEL"] = "DEBUG"
@@ -20,23 +47,9 @@ def enable_debugging() -> None:
 def prepare_env() -> None:
     """Helper function that temporarily configures env variables needed to enable consistent logging and testing."""
     enable_debugging()
+    os.environ["SCHOLAR_FLUX_LOAD_ENV"] = "FALSE"
 
-    disable_env_list = [
-        "SCHOLAR_FLUX_HOME",
-        "SCHOLAR_FLUX_DEFAULT_MAILTO",
-        "SCHOLAR_FLUX_DEFAULT_USER_AGENT",
-        "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND",
-        "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE",
-        "SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL",
-        "SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL",
-        "SCHOLAR_FLUX_DEFAULT_PROVIDER",
-        "SCHOLAR_FLUX_CACHE_DIRECTORY",
-        "SCHOLAR_FLUX_SESSION_CACHE_DIRECTORY",
-        "SCHOLAR_FLUX_SQLALCHEMY_URL",
-        "SCHOLAR_FLUX_LOG_DIRECTORY",
-    ]
-
-    for env_var in disable_env_list:
+    for env_var in DISABLE_ENV_LIST:
         os.environ.pop(env_var, None)
 
 

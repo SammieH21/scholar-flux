@@ -23,7 +23,7 @@ def pubmed_search_api() -> SearchAPI:
 @pytest.fixture
 def pubmed_coordinator(pubmed_search_api) -> SearchCoordinator:
     """Defines a basic search API to use when simulating the retrieval, processing and caching of responses from the
-    PubMed api using requests_mock."""
+    PubMed API using requests_mock."""
     coordinator = SearchCoordinator(search_api=pubmed_search_api)
     return coordinator
 

@@ -2,7 +2,7 @@
 
 This file provides Claude Code (claude.ai/code) with quick-reference context for ScholarFlux development. For complete information, consult the linked documentation which serves as the authoritative source.
 
-### Last updated 5/08/2026 (**v0.5.2**)
+### Last updated 5/31/2026 (**v0.6.0**)
 
 > **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.
 > For complete, authoritative information, consult:
@@ -52,7 +52,7 @@ else:  # Falsy on errors (When the `SearchResult` contains `ErrorResponse` or `N
     print(f"Retrieval unsuccessful ({result.error}): {result.message}")
 
 # View the class-level history of all requests/retry attempts and delays between requests during the current session
-# Note: sensitive data is masked by default (e.g., api keys, tokens, `mailto` fields)
+# Note: sensitive data is masked by default (e.g., API keys, tokens, `mailto` fields)
 print(coordinator.api.rate_limiter.history.structure())
 print(coordinator.retry_handler.history.structure())
 ```
@@ -120,8 +120,8 @@ SearchCoordinator
 | `scholar_flux.data`         | Parsers, extractors, processors                       | [Guidelines](CONTRIBUTING.md#scholar_fluxdata)         |
 | `scholar_flux.data_storage` | Cache backends (SQL, Redis, MongoDB, Memory, DuckDB)  | [Guidelines](CONTRIBUTING.md#scholar_fluxdata_storage) |
 | `scholar_flux.security`     | Credential masking via `SensitiveDataMasker`          | [Guidelines](CONTRIBUTING.md#scholar_fluxsecurity)     |
-| `scholar_flux.sessions`     | Session factories (cached/uncached, encryption)       | [Guidelines](CONTRIBUTING.md#scholar_fluxsessions)     |
-| `scholar_flux.utils`        | Config loading, helpers, JSON processing, repr utils  | [Guidelines](CONTRIBUTING.md#scholar_fluxutils)        |
+| `scholar_flux.sessions`     | Session factories (cached/uncached, encryption, api key auth)       | [Guidelines](CONTRIBUTING.md#scholar_fluxsessions)     |
+| `scholar_flux.utils`        | Config loading, helpers, JSON processing, settings/repr utils  | [Guidelines](CONTRIBUTING.md#scholar_fluxutils)        |
 
 ## Response Types
 
@@ -146,6 +146,9 @@ Three response types with truthiness semantics for safe error checking. For most
 
 **Note**: When calling `SearchCoordinator.search_page()`, these three response types are nested in a `SearchResult` container that additionally include search metadata annotations (i.e., `query`, `page`, and `provider_name`, `display_name`, `retrieval_timestamp`, `cached`) and references each of the above components through properties or methods. Normalized records can additionally include search metadata annotations via the `include` parameter (i.e., `result.normalize(include={'query', 'page', 'display_name'})`).
 
+**Multi-page results:** the `SearchResultList` exposes `.data`, `.processed_records`, `.normalized_records` as convenience properties for flattened record access across pages, queries, and providers.
+
+
 The `SearchCoordinator` is designed to orchestrate the full pipeline: parse → extract → process → optionally normalize. To retrieve raw responses without processing, use `SearchCoordinator.fetch()` or `SearchAPI.search()` directly instead.
 
 ## Provider Rate Limits
@@ -165,17 +168,31 @@ Rate limits are enforced automatically per provider and are used alongside dynam
 ## Core Environment Variables
 
 ```bash
-# API keys
-PUBMED_API_KEY, CORE_API_KEY (Optional)
-# Required
-SPRINGER_NATURE_API_KEY
+# API Keys (see Getting Started docs)
+SPRINGER_NATURE_API_KEY                       # Required
+PUBMED_API_KEY, CORE_API_KEY                  # Optional
+CROSSREF_API_KEY                              # Optional (aliases CROSSREF-PLUS-API-TOKEN)
+
+# Package Environment Setup
+SCHOLAR_FLUX_HOME                             # Default location for storing .env, cache directories, logs
+SCHOLAR_FLUX_LOAD_ENV                         # Whether the default .env is loaded on package initialization
 
 # Logging
-SCHOLAR_FLUX_ENABLE_LOGGING=TRUE
+SCHOLAR_FLUX_ENABLE_LOGGING=TRUE              # Opt-in (warnings only by default)
 SCHOLAR_FLUX_LOG_LEVEL=DEBUG
+
+# Cache Backend & Database Auth (see production_deployment docs)
+SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND    # sqlite (default), redis, mongodb, memory, filesystem
+SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE   # memory (default), redis, sql, mongodb, null
+SCHOLAR_FLUX_MONGODB_HOST, _PORT, _USERNAME, _PASSWORD, _DATABASE, _COLLECTION
+SCHOLAR_FLUX_REDIS_HOST, _PORT, _USERNAME, _PASSWORD
+
+# Session Encryption (see SECURITY.md)
+SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION     # Enables encrypted session cache
+SCHOLAR_FLUX_CACHE_SECRET_KEY                 # 32-byte URL-safe base64 secret
 ```
 
-**Full configuration**: [CONTRIBUTING.md#enabling-debug-logging](CONTRIBUTING.md#enabling-debug-logging)
+**Guides**: [Getting Started](https://SammieH21.github.io/scholar-flux/getting_started.html) | [Production Deployment](https://SammieH21.github.io/scholar-flux/production_deployment.html) | [Security](https://github.com/SammieH21/scholar-flux/blob/main/SECURITY.md)
 
 ## AI-Assisted Development
 

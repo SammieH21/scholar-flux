@@ -7,6 +7,7 @@ accepted by each API provider given their respective configurations.
 """
 from typing import Optional, Dict, Any
 import requests
+from requests.auth import AuthBase
 from requests_cache.session import CachedSession
 from requests_cache.backends.base import BaseCache
 from urllib.parse import urljoin
@@ -19,6 +20,7 @@ from scholar_flux.exceptions import (
 
 from scholar_flux.sessions import SessionManager, CachedSessionManager
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
 from scholar_flux.utils import config_settings
 
 logger = logging.getLogger(__name__)
@@ -132,12 +134,14 @@ class BaseAPI:
         will be overridden.
 
         Args:
-            session (Optional[requests.Session]): A pre-configured session or None to create a new session.
-            user_agent (Optional[str]): Optional user-agent string for the session.
-            use_cache (Optional[bool]): Indicates whether or not to use cache if a cached session doesn't yet exist.
-                                        If `use_cache` is True and a cached session has already been passed, the
-                                        previously created cached session is returned. Otherwise, a new CachedSession
-                                        is created.
+            session (Optional[requests.Session]):
+                A pre-configured session or None to create a new session.
+            user_agent (Optional[str]):
+                Optional user-agent string for the session.
+            use_cache (Optional[bool]):
+                Indicates whether or not to use cache if a cached session doesn't yet exist. If `use_cache` is True and
+                a cached session has already been passed, the previously created cached session is returned. Otherwise,
+                a new CachedSession is created.
 
         Returns:
             requests.Session: The configured session.
@@ -218,7 +222,7 @@ class BaseAPI:
         """Checks whether the current session object used by the current API is a cached session.
 
         Returns:
-            bool: True if the current object is a cached session object, and False otherwise
+            bool: True if the current object is a cached session object, and False otherwise.
 
         """
         return self.is_cached_session(self.session)
@@ -228,6 +232,8 @@ class BaseAPI:
         base_url: str,
         endpoint: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
+        *,
+        auth: Optional[AuthBase] = None,
     ) -> requests.PreparedRequest:
         """Prepares a GET request for the specified endpoint with optional parameters.
 
@@ -235,6 +241,7 @@ class BaseAPI:
             base_url (str): The base URL for the API.
             endpoint (Optional[str]): The API endpoint to prepare the request for.
             parameters (Optional[Dict[str, Any]]): Optional query parameters for the request.
+            auth (Optional[AuthBase]): Optionally enables the addition of an authorization hook onto the request.
 
         Returns:
             prepared_request (PreparedRequest) : The prepared request object.
@@ -244,7 +251,7 @@ class BaseAPI:
             url = urljoin(base_url, endpoint) if endpoint else base_url
             parameters = parameters or {}
 
-            request = requests.Request("GET", url, params=parameters)
+            request = requests.Request("GET", url, params=parameters, auth=auth)
             prepared_request = request.prepare()
         except Exception as e:
             raise RequestCreationException(
@@ -258,7 +265,9 @@ class BaseAPI:
         base_url: str,
         endpoint: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
+        *,
         timeout: Optional[int | float] = None,
+        auth: Optional[AuthBase] = None,
     ) -> requests.Response:
         """Sends a GET request to the specified endpoint with optional parameters.
 
@@ -267,6 +276,7 @@ class BaseAPI:
             endpoint (Optional[str]): The endpoint of the API to send the request to.
             parameters (Optional[Dict[str, Any]]): Optional query parameters for the request.
             timeout (Optional[int | float]): Timeout for the request in seconds.
+            auth (Optional[AuthBase]): Optionally enables the addition of an authorization hook onto the request.
 
         Returns:
             requests.Response: The response object.
@@ -275,7 +285,7 @@ class BaseAPI:
 
         timeout = self._validate_timeout(timeout if timeout is not None else self.timeout)
 
-        prepared_request = self.prepare_request(base_url, endpoint, parameters)
+        prepared_request = self.prepare_request(base_url, endpoint, parameters, auth=auth)
         base_url = urljoin(base_url, endpoint) if endpoint else base_url
 
         logger.debug(f"Sending request to {base_url}")
@@ -288,23 +298,23 @@ class BaseAPI:
             raise
 
     @staticmethod
-    def _validate_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
+    def _validate_parameters(parameters: SettingsDictType) -> SettingsDictType:
         """Helper for validating the provided API parameter dictionary at runtime.
 
         In the event that the parameters are valid, the function returns the original dictionary as is.
         Otherwise, an `APIParameterException` is raised.
 
         Args:
-            parameters (dict[str, Any]): A dictionary of parameters to validate
+            parameters (dict[str, Any] | SettingsDict): A dictionary of parameters to validate.
 
         Returns:
-            The original object that was provided, if no issues are found during validation
+            The original object that was provided, if no issues are found during validation.
 
         Raises:
-            APIParameterException: If the object is not a dictionary or contains a non-string key
+            APIParameterException: If the object is not a dictionary or contains a non-string key.
 
         """
-        if not isinstance(parameters, dict):
+        if not isinstance(parameters, (dict, SettingsDict)):
             raise APIParameterException(
                 f"Expected the parameter overrides to be a dictionary, received type {type(parameters)}"
             )
@@ -317,7 +327,8 @@ class BaseAPI:
     def summary(self) -> str:
         """Create a summary representation of the current structure of the API:
 
-        Returns the original representation.
+        Returns:
+            str: A string representation of the current BaseAPI or subclass.
 
         """
         return repr(self)

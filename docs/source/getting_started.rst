@@ -102,7 +102,7 @@ Test your installation:
 
    import scholar_flux
    print(scholar_flux.__version__)
-   # Output: 0.5.2
+   # Output: 0.6.0
 
 .. code-block:: python
 

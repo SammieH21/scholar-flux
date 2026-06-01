@@ -1,11 +1,21 @@
 import pytest
 from unittest.mock import patch
 from requests_cache.session import CachedSession
+from requests_cache.serializers import json_serializer
 import requests_mock
 from contextlib import suppress
 import importlib
-from scholar_flux.sessions import CachedSessionManager
+
+from pydantic import SecretStr
+
+from base64 import b64encode, b64decode
+
+import logging
+from tests.testing_utilities import raise_error
+
 import scholar_flux.sessions.encryption
+from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
+from scholar_flux.sessions import CachedSessionManager
 from scholar_flux.api import SearchAPI
 from scholar_flux.utils import config_settings
 from scholar_flux.exceptions import (
@@ -13,15 +23,10 @@ from scholar_flux.exceptions import (
     CryptographyImportError,
     SecretKeyError,
     CachedSessionValidationError,
+    SessionConfigurationError,
 )
-from pydantic import SecretStr
-
-import logging
 
 logger = logging.getLogger(__name__)
-
-from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
-from base64 import b64encode, b64decode
 
 
 @pytest.fixture(scope="session")
@@ -62,9 +67,9 @@ def test_env_key_loader(skip_missing_encryption_dependency, caplog, restore_conf
     config_settings.set("SCHOLAR_FLUX_CACHE_SECRET_KEY", SecretStr(fernet.decode()))
     # verifies whether, when a fernet key is not provided, the secret key will be used by default
     factory = EncryptionPipelineFactory()
-    assert "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY" in caplog.text
-    # Verifies that _prepare_key is being called correctly on factory initialization
-    assert fernet == factory.secret_key == EncryptionPipelineFactory._prepare_key(key=None)
+    assert "Using the secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY" in caplog.text
+    # Verifies that prepare_secret_key is being called correctly on factory initialization
+    assert fernet == factory.secret_key == EncryptionPipelineFactory.prepare_secret_key(key=None)
 
 
 def test_encryption_factory_secret_initialization(session_encryption_dependency):
@@ -244,7 +249,7 @@ def test_validate_encrypted_cached_session_does_not_raise_on_new_key_if_empty(tm
 def test_encrypted_cached_session_initialization(
     default_encryption_cache_session_manager,
     incorrect_secret_salt_encryption_cache_session_manager,
-    session_encryption_dependency,
+    skip_missing_encryption_dependency,
 ):
     """Verifies that, when available, the EncryptionPipelineFactory works as intended to encrypt session cache when
     using the initial fernet key for session encryption and decryption.
@@ -254,10 +259,6 @@ def test_encrypted_cached_session_initialization(
     accessible resource can't be accessed with the current, incorrect Fernet key.
 
     """
-
-    if not session_encryption_dependency:
-        pytest.skip()
-
     session = default_encryption_cache_session_manager.configure_session()
     incorrect_session = incorrect_secret_salt_encryption_cache_session_manager.configure_session()
     assert isinstance(session, CachedSession)
@@ -299,3 +300,96 @@ def test_encrypted_cached_session_initialization(
         with suppress(InvalidToken):
             response_three = api_two.search(page=1)
         assert not getattr(response_three, "from_cache", False)
+
+
+def test_encrypted_cached_session_initialization_when_enabled(
+    skip_missing_encryption_dependency,
+    restore_config_settings,
+    caplog,
+    tmp_path,
+    cleanup,
+):
+    """Verifies that, when available, sessions correctly implement encryption caching by default."""
+    # generates the secret key used for Fernet encryption/decryption
+    fernet = EncryptionPipelineFactory.generate_secret_key()
+
+    # simulates the fernet key being saved as a secret key in the config
+    config_settings.set("SCHOLAR_FLUX_CACHE_SECRET_KEY", SecretStr(fernet.decode()))
+    config_settings.set("SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION", True)
+
+    encrypted_session_manager = CachedSessionManager(cache_directory=tmp_path)
+    assert encrypted_session_manager.serializer is not None
+    assert encrypted_session_manager()
+    assert "Successfully initialized an EncryptionPipeline..." in caplog.text
+
+
+def test_encrypted_cached_session_initialization_when_disabled(
+    skip_missing_encryption_dependency,
+    restore_config_settings,
+    caplog,
+    tmp_path,
+    cleanup,
+    monkeypatch,
+):
+    """Verifies that, when not available due to a missing dependency, encryption setup is skipped."""
+    # generates the secret key used for Fernet encryption/decryption
+    fernet = EncryptionPipelineFactory.generate_secret_key()
+
+    monkeypatch.setattr(
+        EncryptionPipelineFactory,
+        "__init__",
+        raise_error(RuntimeError, "Error: Encryption setup should be unreachable."),
+    )
+
+    # simulates the fernet key being saved as a secret key in the config
+    config_settings.set("SCHOLAR_FLUX_CACHE_SECRET_KEY", SecretStr(fernet.decode()))
+
+    encrypted_session_manager = CachedSessionManager(cache_directory=tmp_path)
+    assert encrypted_session_manager.serializer is None
+
+    # should skip when directly specified as False
+    config_settings.set("SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION", True)
+    encrypted_session_manager = CachedSessionManager(cache_directory=tmp_path, use_encryption=False)
+    assert encrypted_session_manager.serializer is None
+
+    # Should preempt encryption serialization setup
+    encrypted_session_manager = CachedSessionManager(cache_directory=tmp_path, serializer=json_serializer)
+    assert encrypted_session_manager.serializer is json_serializer
+
+    config_settings.unset("SCHOLAR_FLUX_CACHE_SECRET_KEY")
+    with monkeypatch.context() as m:
+        m.delenv("SCHOLAR_FLUX_CACHE_SECRET_KEY", raising=False)  # Briefly turn off if set
+    encrypted_session_manager = CachedSessionManager(cache_directory=tmp_path)
+    assert encrypted_session_manager.serializer is None
+
+    assert (
+        "The environment variable, SCHOLAR_FLUX_CACHE_SECRET_KEY is empty. To use session encryption by default, "
+        "provide a valid 32-byte URL-safe base64 secret key via the environment or set it via "
+        "`scholar_flux.config_settings`."
+    ) in caplog.text
+
+
+def test_encrypted_cached_session_initialization_fails_on_secret_key_error(
+    skip_missing_encryption_dependency,
+    restore_config_settings,
+    caplog,
+    tmp_path,
+    cleanup,
+):
+    """Verifies that encryption pipeline setup failures can be gracefully handled or re-raised via `raise_on_error`."""
+    # generates the secret key used for Fernet encryption/decryption
+
+    # simulates the fernet key being saved as a secret key in the config
+    config_settings.set("SCHOLAR_FLUX_CACHE_SECRET_KEY", "An invalid URL-Safe base64 key")
+    config_settings.set("SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION", True)
+
+    err_message = "Encryption enabled but failed due to a `SecretKeyError`.*"
+    with pytest.raises(SessionConfigurationError, match=err_message) as excinfo:
+        _ = CachedSessionManager(cache_directory=tmp_path, raise_on_error=True)
+    err = str(excinfo.value)
+    assert err in caplog.text
+    caplog.clear()
+
+    cached_session_manager = CachedSessionManager(cache_directory=tmp_path, raise_on_error=False)
+    assert cached_session_manager.serializer is None
+    assert f"{err} Skipping encryption..." in caplog.text

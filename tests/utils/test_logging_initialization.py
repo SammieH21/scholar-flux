@@ -49,7 +49,7 @@ def test_logging_setup_with_directory(tmp_path, cleanup, caplog):
     logger = logging.getLogger("test_logger")
 
     setup_logging(logger, log_file=log_file, log_directory=tmp_path, log_level=logging.INFO)
-    assert f"Logging setup complete (folder: {tmp_path}/{log_file})" in caplog.text
+    assert f"Logging setup complete (folder: {tmp_path/log_file})" in caplog.text
     assert logger.level == logging.INFO
 
 

@@ -11,6 +11,7 @@ Under the hood, the SearchAPIConfig can use both pre-created and custom defaults
 minimal code.
 
 """
+
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, SecretStr, model_validator
 from typing import Optional, Any, ClassVar
@@ -22,6 +23,8 @@ from scholar_flux.api.models.api_parameters import APIParameterConfig
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.models.base_parameters import APISpecificParameter
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
+from scholar_flux.security.utils import SecretUtils
 from scholar_flux.exceptions import (
     MissingAPIKeyException,
     MissingAPISpecificParameterException,
@@ -89,7 +92,7 @@ class SearchAPIConfig(BaseModel):
     records_per_page: int = Field(20, ge=0, le=1000, description="Number of records per page (1-1000)")
     request_delay: float = Field(-1, description="Minimum delay between requests in seconds")
     api_key: Optional[SecretStr] = Field(None, description="API key if required")
-    api_specific_parameters: Optional[dict[str, Any]] = Field(
+    api_specific_parameters: Optional[SettingsDictType] = Field(
         default=None,
         description=("Additional parameters specific to the current API to add to the configuration."),
     )
@@ -200,25 +203,28 @@ class SearchAPIConfig(BaseModel):
         if v is None:
             return v
 
-        if not isinstance(v, (str, SecretStr)):
-            raise ValueError(f"Incorrect type received for the api_key. Expected None or string, received {type(v)}")
+        key = SecretUtils.unmask_secret(v)  # NoOp if not a secret string
 
-        key = v.get_secret_value() if isinstance(v, SecretStr) else v
+        if not isinstance(key, (str, SecretStr)):
+            key_type = "unmasked " if isinstance(v, SecretStr) else ""
+            raise ValueError(
+                f"Incorrect type received for the {key_type}API key. Expected None or string, received {type(key)}"
+            )
 
         if not key:
-            raise MissingAPIKeyException("Received an empty string as an api_key, expected None or a non-empty string")
+            raise MissingAPIKeyException("Received an empty string as an API key, expected None or a non-empty string")
 
         if len(key) > cls.MAX_API_KEY_LENGTH:
             raise ValueError(
-                f"The received api_key is more than {cls.MAX_API_KEY_LENGTH} characters long - verify that the api_key is correct"
+                f"The received API key is more than {cls.MAX_API_KEY_LENGTH} characters long - verify that the API key is correct"
             )
 
         if len(key) < 20:
-            logger.warning("The received api_key is less than 20 characters long - verify that the api_key is correct")
+            logger.warning("The received API key is less than 20 characters long - verify that the API key is correct")
         elif len(key) > 256:
-            logger.warning("The received api_key is more than 256 characters long - verify that the api_key is correct")
+            logger.warning("The received API key is more than 256 characters long - verify that the API key is correct")
 
-        return SecretStr(v) if not isinstance(v, SecretStr) else v
+        return SecretUtils.mask_secret(v)  # mask if not already a secret string
 
     @model_validator(mode="after")
     def validate_search_api_config_parameters(self) -> Self:
@@ -246,7 +252,7 @@ class SearchAPIConfig(BaseModel):
             # attempts to load an API key if the provider config is required and contains an API key that can be read
             self.api_key = self._load_api_key(provider_info)
 
-        # Remaining steps involve preparing api specific parameters based on the identified api mappings
+        # Remaining steps involve preparing API specific parameters based on the identified api mappings
         api_specific_parameter_mappings = parameter_map.api_specific_parameters or {}
         api_specific_parameter_values = self.api_specific_parameters or {}
 
@@ -260,8 +266,8 @@ class SearchAPIConfig(BaseModel):
     def _prepare_api_specific_parameters(
         cls,
         api_specific_parameter_mappings: dict[str, APISpecificParameter],
-        api_specific_parameter_values: dict[Any, Any],
-    ) -> dict[str, Any]:
+        api_specific_parameter_values: SettingsDictType,
+    ) -> SettingsDictType:
         """Helper method for extracting both necessary and/or default API-specific parameters from the configuration."""
         if api_specific_parameter_mappings or api_specific_parameter_values:
             ignored_keys = api_specific_parameter_values.keys() - api_specific_parameter_mappings.keys()
@@ -279,7 +285,7 @@ class SearchAPIConfig(BaseModel):
                 )
                 for parameter, parameter_metadata in api_specific_parameter_mappings.items()
             }
-        return api_specific_parameter_values
+        return SettingsDict(api_specific_parameter_values)
 
     @classmethod
     def _remove_nonprovider_config_parameters(
@@ -306,7 +312,6 @@ class SearchAPIConfig(BaseModel):
         provider_info = None
         # account for incomplete information in the SearchAPIConfig
         if not base_url and not provider_name:
-
             if not fallback_to_default:
                 raise MissingProviderException("Either a base URL or a valid provider name must be specified.")
 
@@ -370,7 +375,6 @@ class SearchAPIConfig(BaseModel):
                 isinstance(provider_from_name, ProviderConfig)
                 and provider_from_url.provider_name != provider_from_name.provider_name
             ):
-
                 logger.warning(
                     f"The URL, {base_url} and provider_name {provider_name} were both provided, "
                     "each resolving to two different providers. \nPreferring provider: "
@@ -467,8 +471,9 @@ class SearchAPIConfig(BaseModel):
 
         Args:
             provider_info (ProviderConfig):
-                Config for the API Provider. This config will be checked to determine whether there is an api key to
+                Config for the API Provider. This config will be checked to determine whether there is an API key to
                 potentially load and by what name.
+
         Returns:
             Optional[SecretStr]: A key converted to a SecretStr if successfully read, otherwise None
 
@@ -482,10 +487,10 @@ class SearchAPIConfig(BaseModel):
             f"for the provider, {provider_info.provider_name}..."
         )
 
-        # attempt to load the api key if a variable is referenced in the provider config
+        # attempt to load the API key if a variable is referenced in the provider config
         if api_key := config_settings.get(provider_info.api_key_env_var):
             logger.info(f"API key successfully loaded for the provider, {provider_info.provider_name}")
-            return SecretStr(api_key) if isinstance(api_key, str) else api_key
+            return SecretUtils.mask_secret(api_key) if isinstance(api_key, str) else api_key
 
         if provider_info.parameter_map.api_key_required:
             logger.warning(f"Could not load the required API key for: {provider_info.provider_name}")
@@ -622,7 +627,7 @@ class SearchAPIConfig(BaseModel):
 
         api_key = config_dict.get("api_key")
         if api_key and isinstance(api_key, str):
-            config_dict["api_key"] = SecretStr(api_key)
+            config_dict["api_key"] = SecretUtils.mask_secret(api_key)
 
         return cls.model_validate(config_dict)
 

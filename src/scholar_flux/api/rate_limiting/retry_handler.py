@@ -8,19 +8,22 @@ This class is implemented by default within the `SearchCoordinator` class to ver
 successful or the maximum retry limit has been reached.
 
 """
+
 from email.utils import parsedate_to_datetime
 import time
 import requests
 import datetime
 import logging
-from scholar_flux.exceptions import RequestFailedException, InvalidResponseException, RetryAfterDelayExceededException
+from scholar_flux.exceptions import (
+    APIParameterException,
+    RequestFailedException,
+    InvalidResponseException,
+    RetryAfterDelayExceededException,
+)
 from scholar_flux.utils.response_protocol import ResponseProtocol, is_response_like
 from scholar_flux.utils.helpers import get_first_available_key, parse_iso_timestamp
 from scholar_flux.utils.repr_utils import generate_repr
-from scholar_flux.api.rate_limiting.history import (
-    HistoryDeque,
-    RetryAttempt,
-)
+from scholar_flux.api.rate_limiting.history import HistoryDeque, RetryAttempt
 from typing import Any, Optional, Callable, Mapping, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -163,6 +166,7 @@ class RetryHandler:
                 The returned response-like object, when successful, or None if no valid response was obtained.
 
         Raises:
+            APIParameterException: When a parameter receives an incorrect value (missing API key, negative request delay)
             RequestFailedException: When a request raises an exception for whatever reason.
             TimeoutError: When a request times out during response retrieval.
             InvalidResponseException: When the number of retries has been exceeded and self.raise_on_error is True.
@@ -275,6 +279,8 @@ class RetryHandler:
                 error=e.__class__.__name__,
                 message=str(e),
             )
+            raise
+        except APIParameterException:  # Common errors that should immediately halt processing
             raise
         except (InvalidResponseException, RetryAfterDelayExceededException) as e:
             logger.error(e.message)

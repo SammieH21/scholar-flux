@@ -310,7 +310,7 @@ class BaseDataExtractor:
     def __repr__(self) -> str:
         """Base method for identifying the current implementation of the BaseDataExtractor. Subclasses can override this
         for more specific descriptions of attributes and defaults. Useful for showing the options being used for
-        extracting metadata and records from the parsed json/data dictionaries from the api response.
+        extracting metadata and records from the parsed json/data dictionaries from the API response.
 
         Returns:
             str: The representation of the current object

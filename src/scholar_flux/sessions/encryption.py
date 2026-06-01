@@ -10,6 +10,7 @@ This encryption factory uses encryption and a safer_serializer for two steps:
 If a key does not exist and is not provided, the EncryptionPipelineFactory will create a new Fernet key for these steps
 
 """
+
 from scholar_flux.exceptions import (
     ItsDangerousImportError,
     CryptographyImportError,
@@ -18,7 +19,7 @@ from scholar_flux.exceptions import (
 from requests_cache.serializers.pipeline import SerializerPipeline, Stage
 from requests_cache.serializers.cattrs import CattrStage
 from scholar_flux.security import SecretUtils
-from scholar_flux.utils import config_settings
+from scholar_flux.utils import config_settings, try_none
 from pydantic import SecretStr
 import logging
 
@@ -79,7 +80,7 @@ class EncryptionPipelineFactory:
         Otherwise a random Fernet key is generated and used to encrypt the session.
 
         Args:
-            secret_key Optional[str | bytes]:
+            secret_key Optional[str | bytes | SecretStr]:
                 The key to use for encrypting and decrypting the data that flows through the pipeline.
             salt: Optional[str]: An optional salt used to further increase security on write
 
@@ -93,7 +94,7 @@ class EncryptionPipelineFactory:
 
         self.signer = Signer
 
-        prepared_key = self._prepare_key(secret_key)
+        prepared_key = self.prepare_secret_key(secret_key)
         self.secret_key = prepared_key or self.generate_secret_key()
         self.salt = salt or ""
 
@@ -111,22 +112,32 @@ class EncryptionPipelineFactory:
         unmasked_key = SecretUtils.unmask_secret(key)
         unmasked_key_bytes = unmasked_key.encode(self.ENCODING) if isinstance(unmasked_key, str) else unmasked_key
         self._validate_key(unmasked_key_bytes)
-        self._secret_key = SecretUtils.mask_secret(unmasked_key_bytes.decode(self.ENCODING))
+        self._secret_key = SecretUtils.mask_secret(unmasked_key_bytes, convert_object=False)
 
     @classmethod
-    def _prepare_key(cls, key: Optional[str | bytes | SecretStr]) -> Optional[bytes]:
+    def prepare_secret_key(cls, key: Optional[str | bytes | SecretStr] = None) -> Optional[bytes]:
         """Prepares the input (bytes, string) and returns a bytes variable if a non-missing value is provided.
 
+        Note: If no key is provided, this method attempts to read from the package configuration settings, defaulting
+        to None if a key is still not available. This behavior is useful for environment variable configuration checks
+        where code paths assume that a valid key is stored in the environment.
+
         Args:
-            key (Optional[str | bytes]): The input key to use as a fernet/secret key.
+            key (Optional[str | bytes | SecretStr]):
+                The input key (32 URL-safe base64-encoded bytes) to validate as a Fernet/secret key if provided. This
+                value is read from the environment if None.
 
         Returns:
             Optional[bytes]: The key prepared as a bytes object. If no key is provided, this method will return None.
 
+        Raises:
+            SecretKeyError: If validation fails. A SecretKeyError indicates that the secret key, whether provided,
+            directly or through the environment is not compatible as a Fernet key or contains an invalid type.
+
         """
-        if not key and (cache_secret_key := config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")):
+        if not key and (cache_secret_key := try_none(config_settings.get("SCHOLAR_FLUX_CACHE_SECRET_KEY"))):
             logger.debug(
-                "Using secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build cache‑session" " encryption pipeline"
+                "Using the secret key from SCHOLAR_FLUX_CACHE_SECRET_KEY to build a cached session encryption pipeline"
             )
 
             key = SecretUtils.unmask_secret(cache_secret_key)
@@ -134,7 +145,8 @@ class EncryptionPipelineFactory:
         if key is None:
             return None
 
-        byte_key = SecretUtils.unmask_secret(key).encode(cls.ENCODING) if isinstance(key, str | SecretStr) else key
+        unmasked_key = SecretUtils.unmask_secret(key)
+        byte_key = unmasked_key.encode(cls.ENCODING) if isinstance(unmasked_key, str) else unmasked_key
         if not isinstance(byte_key, bytes):
             raise SecretKeyError(
                 f"The secret key used for pipeline serialization encryption must be a bytes or {cls.ENCODING.upper()} "
@@ -146,7 +158,7 @@ class EncryptionPipelineFactory:
     @staticmethod
     def _validate_key(key: bytes) -> None:
         """Ensures that the length of the received bytes is 44 characters."""
-        if len(key) != 44:  # 32 bytes encoded in base64 => 44 characters
+        if len(key) != 44:  # 32-byte encoded in base64 => 44 characters
             raise SecretKeyError("Fernet key must be 32 URL-safe base64-encoded bytes (length 44)")
         try:
             Fernet(key)
@@ -158,14 +170,14 @@ class EncryptionPipelineFactory:
         """Generates a secret key for Fernet encryption using the `cryptography` package.
 
         Returns:
-            bytes: A new 32 byte URL-safe base 64 key
+            bytes: A new 32-byte URL-safe base64 key
 
         """
         return Fernet.generate_key()
 
     @property
     def fernet(self) -> Fernet:
-        """Returns the current fernet key using the validated 32 byte URL-safe base64 key."""
+        """Returns the current fernet key using the validated 32-byte URL-safe base64 key."""
         return Fernet(self.secret_key)
 
     def encryption_stage(self) -> Stage:

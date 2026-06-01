@@ -2,7 +2,7 @@
 
 ## Project Status
 
-ScholarFlux is currently in **beta** (v0.5.2). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
+ScholarFlux is currently in **beta** (v0.6.0). While we remain committed to security and will address vulnerabilities as they become known, please be aware:
 
 - This is pre-release software under active development
 - APIs and interfaces may change between versions
@@ -62,6 +62,7 @@ ScholarFlux masks sensitive data at multiple levels:
 - **ConfigLoader** wraps API keys in `SecretStr` objects—they won't leak via `repr()` or `str()`
 - **SensitiveDataMasker** pattern-matches API keys, database URIs, and private keys before they hit logs
 - **MaskingFilter** scrubs any remaining sensitive strings from log output
+- **SettingsDict** uses `scholar_flux.security.masker` to mask plain-text secrets before being printed to console environments
 
 Even if you accidentally log a config object, credentials stay masked:
 
@@ -75,7 +76,7 @@ logger.setLevel(logging.DEBUG)
 config_settings = ConfigLoader()
 config_settings.load_config(reload_env=True)
 
-# Even if you log the entire config, secrets are masked
+# Even if the entire config is logged, secrets are masked
 logger.debug(f"Config: {config_settings.config}")
 # OUTPUT: Config: {'PUBMED_API_KEY': '**********', 'SCHOLAR_FLUX_DEFAULT_MAILTO': '**********', ...}
 ```
@@ -94,6 +95,42 @@ masker.add_sensitive_string_patterns(
 print(masker.mask_text("INTERNAL-12345678"))
 # OUTPUT: '***'
 ```
+
+Several patterns are automatically masked on startup via `SensitiveDataMasker._register_api_defaults()`, including, but not limited to the following:
+
+- `api[-_]key=`
+- `secret[-_]key=`
+- `mailto:***`
+- `password`
+- `URI credentials`
+- `'sk-'/'sk-ant-' credentials`
+
+### API Key-Based Authentication & Transmission
+
+ScholarFlux handles credential storage at rest and credential use as distinct responsibilities. The `SearchAPI` uses a provider-specific authentication lifecycle (`AuthAPIKeyParameter`, `AuthAPIKeyHeader`) for handling key-based authentication methods.
+
+1. **On `SearchAPI` initialization**: Keys are validated (i.e., type, length) and masked via the `SearchAPIConfig`. If an API key is unassigned but required for a provider, a warning is raised on initialization completion.
+2. **When the user performs a record search**: The `SearchAPI.search()` creates an `AuthAPIKeyParameter` or `AuthAPIKeyHeader` to validate and mask API keys/tokens.
+3. **After building the request**: The `AuthAPIKeyParameter`/`AuthAPIKeyHeader` unmasks and injects the key or token into the `requests.PreparedRequest` URL query or headers based on the configuration. The request is transmitted to the API provider immediately afterward.
+
+**Note**: To opt out when a key is available or otherwise required (e.g., request mocking, configuration testing), use `AuthAPIKeyNoOp` to send a request without API key injection.
+
+```python
+from scholar_flux import SearchAPI
+
+api = SearchAPI(query="test", provider_name="crossref")
+
+# Handled internally by `SearchAPI.search()` when a token is available or required
+auth = api.build_auth()
+
+# Key is masked at rest. None is returned when not required otherwise.
+print(auth)
+# AuthAPIKeyHeader(api_key=**********, parameter_name='CROSSREF-PLUS-API-TOKEN', scheme='Bearer')
+
+# Key is only unmasked when auth(prepared_request) is called during request dispatch
+```
+
+Provider configuration settings declare **how** keys should be transmitted (`api_key_in_headers`, `api_key_parameter`, `api_key_scheme`, `api_key_required`, `api_key_env_var`). The `SearchAPI` uses these provider-specific configuration settings to determine whether to transmit the API key via request `headers` or `params`.
 
 ### Caching Security
 
@@ -123,32 +160,95 @@ session = CachedSession(
 # Import the cached session manager factor class
 from scholar_flux.sessions import EncryptionPipelineFactory, CachedSessionManager
 from scholar_flux.api import SearchAPI
-import os
+from scholar_flux import config_settings
 
-# Attempts to load encryption key from environment
-# variable or keep track of it:
-key = os.environ.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
+# Attempts to load an encryption key from the `SCHOLAR_FLUX_CACHE_SECRET_KEY` environment variable when available
+encryption_pipeline_factory = EncryptionPipelineFactory()
+env_var = "SCHOLAR_FLUX_CACHE_SECRET_KEY"
 
-# Recreates new key if it is None from the previous step
-encryption_pipeline_factory = EncryptionPipelineFactory(key)
+# If the key was not previously read from the OS environment
+if not config_settings.get(env_var):
 
-if not key:
-    # Save this key to the environment variable for future use
+    print("Created a new secret key. **Important**: Export the key to your environment to persist it across sessions.")
     # CRITICAL: Store this key securely - losing it means losing cached data
-    current_key = encryption_pipeline_factory.secret_key
+    # Persists the encryption key within the current configuration settings for the python session/REPL
+    config_settings.set(env_var, encryption_pipeline_factory.secret_key)
 
-# Create a new encryption serializer
-serializer = encryption_pipeline_factory()
+    # Write the key to the default environment location. Use `create=True` to create a new .env file if it doesn't already exist.
+    config_settings.write_key(env_var, create=True)
 
-# Creates a cached session manager with encryption
-manager = CachedSessionManager(backend='sqlite', user_agent='scholar flux search', serializer=serializer)
+# Generates a new serializer from the factory
+serializer = encryption_pipeline_factory()  # Create the `EncryptionPipelineFactory` and call it to generate an encryption serializer
 
-# uses the manager class to creates a new CachedSession
-session = manager()
+# Creates a cached session with encryption — raising an error by default when an error occurs
+session = CachedSessionManager.with_session(backend='sqlite', user_agent='scholar flux search', serializer=serializer, raise_on_error=True)
 
-# creates a basic response retrieval session to use as a part of a final search coordinator or separately
-api = SearchAPI(query = 'security best practices', session = session)
+# Creates a basic response retrieval session to use as a part of a final search coordinator or separately
+api = SearchAPI(query = 'encryption AND serialization', session = session)
 ```
+
+### Alternative: Automatic Specification
+
+When the secret key has been previously stored and read from a .env file or the `SCHOLAR_FLUX_CACHE_SECRET_KEY` environment variable, future sessions can reuse the key when `SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION` is enabled or `use_encryption=True` is specified:
+
+```python
+
+from scholar_flux.sessions import CachedSessionManager
+from scholar_flux.api import SearchCoordinator
+
+# For future sessions, simply specify use_encryption=True or set SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION for automatic encryption when a key is available.
+session = CachedSessionManager.with_session(
+    backend='sqlite',
+    user_agent='scholar flux search',
+    use_encryption=True,
+    raise_on_error=True,
+    verify_connection=True,  # Will raise an error for invalid tokens, serialization issues, bad directory specifications, etc.
+)
+
+# Create a SearchCoordinator that orchestrates the record retrieval and processing pipeline
+coordinator = SearchCoordinator(query = 'cybersecurity best practices', session = session)
+```
+
+### Authentication with Redis or MongoDB
+
+Both Redis and MongoDB Session and Response Cache storage backends each support the utilization of environment variables for authentication.
+
+On initialization, connection credentials are read and masked via explicitly provided environment variables:
+
+- `SCHOLAR_FLUX_REDIS_USERNAME`
+- `SCHOLAR_FLUX_REDIS_PASSWORD`
+
+- `SCHOLAR_FLUX_MONGODB_USERNAME`
+- `SCHOLAR_FLUX_MONGODB_PASSWORD`
+
+When available, these authentication parameters are automatically masked as secret strings, only unmasking at the time of request transmission:
+
+```python
+from scholar_flux import SearchCoordinator, CachedSessionManager, DataCacheManager, config_settings, masker
+
+# Env variables automatically read as secret strings when available:
+redis_has_auth = config_settings.get("SCHOLAR_FLUX_REDIS_USERNAME") and config_settings.get("SCHOLAR_FLUX_REDIS_PASSWORD")
+
+# Layer 2 Response Cache: automatically reads host, port, and auth parameters
+redis_cache_manager = DataCacheManager.with_storage("redis")
+
+if redis_has_auth:
+    print("Authentication parameters for Redis are available. These parameters are automatically applied on response cache initialization")
+    # Configuration parameters are read as secrets when the environment variables contain valid values.
+    assert masker.is_secret(redis_cache_manager.cache_storage.config.get("username"))
+    assert masker.is_secret(redis_cache_manager.cache_storage.config.get("password"))
+
+# When available, authentication parameters used automatically:
+redis_cache_manager = DataCacheManager.with_storage("redis", verify_connection=True)
+
+
+## When credentials are unnecessary for a session, remove the environment variables and restart, or unset them from the
+## current configuration settings/OS environment for the session.
+# config_settings.unset("SCHOLAR_FLUX_REDIS_USERNAME", unset_os_env=True)
+# config_settings.unset("SCHOLAR_FLUX_REDIS_PASSWORD", unset_os_env=True)
+
+```
+
 
 ### Security Notes:
 

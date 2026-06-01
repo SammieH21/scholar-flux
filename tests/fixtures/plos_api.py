@@ -22,7 +22,7 @@ def plos_search_api() -> SearchAPI:
 @pytest.fixture
 def plos_coordinator(plos_search_api: SearchAPI) -> SearchCoordinator:
     """Defines a basic search API to use when simulating the retrieval, processing and caching of responses from the
-    PLOS api using requests_mock."""
+    PLOS API using requests_mock."""
     coordinator = SearchCoordinator(search_api=plos_search_api)
     return coordinator
 

@@ -8,6 +8,7 @@ This class implements caching by using the prebuilt features available in MongoD
 within the database for later CRUD operations.
 
 """
+
 from __future__ import annotations
 from typing import Any, Optional, TYPE_CHECKING
 
@@ -23,6 +24,8 @@ from scholar_flux.exceptions import (
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.utils import config_settings  # provides the loaded global environment configuration
 from scholar_flux.utils.helpers import try_none
+from scholar_flux.security.utils import SecretUtils
+from scholar_flux.utils.settings_utils import SettingsDict
 
 import threading
 import logging
@@ -84,16 +87,18 @@ class MongoDBStorage(ABCStorage):
 
     """
 
-    DEFAULT_CONFIG: dict[str, Any] = {
-        "host": config_settings.get("SCHOLAR_FLUX_MONGODB_HOST") or "mongodb://127.0.0.1",
-        "port": config_settings.get("SCHOLAR_FLUX_MONGODB_PORT") or 27017,
-        "ttl": config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
-        "serverSelectionTimeoutMS": 5000,
-        "db": "storage_manager_db",
-        "collection": "result_page",
-    }
+    # MongoDB connection-specific parameters
+    DEFAULT_CONFIG: SettingsDict = SettingsDict(
+        host=config_settings.get("SCHOLAR_FLUX_MONGODB_HOST") or "mongodb://127.0.0.1",
+        port=config_settings.get("SCHOLAR_FLUX_MONGODB_PORT") or 27017,
+        ttl=config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
+        serverSelectionTimeoutMS=5000,
+    )
 
-    # for mongodb, the default
+    # Defaults for MongoDB + ScholarFlux
+    DEFAULT_DATABASE: str = config_settings.get("SCHOLAR_FLUX_MONGODB_DATABASE") or "storage_manager_db"
+    DEFAULT_COLLECTION: str = config_settings.get("SCHOLAR_FLUX_MONGODB_COLLECTION") or "result_page"
+
     DEFAULT_NAMESPACE: Optional[str] = None
     DEFAULT_RAISE_ON_ERROR: bool = False
     STORAGE_TYPE: str = "MongoDB"
@@ -113,8 +118,15 @@ class MongoDBStorage(ABCStorage):
         scholar_flux.utils.config_settings.config dictionary, which, in turn, resolves the host and port from
         environment variables or the default MongoDB host/port in the following order of priority:
 
-            - SCHOLAR_FLUX_MONGODB_HOST > MONGODB_HOST > 'mongodb://127.0.0.1' (localhost)
-            - SCHOLAR_FLUX_MONGODB_PORT > MONGODB_PORT > 27017
+        - SCHOLAR_FLUX_MONGODB_HOST > MONGODB_HOST > 'mongodb://127.0.0.1' (localhost)
+        - SCHOLAR_FLUX_MONGODB_PORT > MONGODB_PORT > 27017
+        - SCHOLAR_FLUX_MONGODB_DATABASE > DEFAULT_CONFIG['db'] > SCHOLAR_FLUX_MONGODB_DATABASE > storage_manager_db
+        - SCHOLAR_FLUX_MONGODB_COLLECTION > DEFAULT_CONFIG['collection'] > SCHOLAR_FLUX_MONGODB_COLLECTION > result_page
+
+        When available:
+        -  SCHOLAR_FLUX_MONGODB_USERNAME > cls.DEFAULT_CONFIG['username']
+        -  SCHOLAR_FLUX_MONGODB_PASSWORD > cls.DEFAULT_CONFIG['password']
+
 
         Args:
             host (Optional[str]):
@@ -154,12 +166,12 @@ class MongoDBStorage(ABCStorage):
         """
         # optional dependencies set to None if not available
         if pymongo is None:
-            raise MongoDBImportError
+            raise MongoDBImportError()
 
         if ttl is not None:
             mongo_config["ttl"] = ttl  # -1 for infinite caching
 
-        config: dict[str, Any] = self.get_default_config() | mongo_config  # Overriding MongoDB defaults where available
+        config: SettingsDict = self.get_default_config() | mongo_config  # Overriding MongoDB defaults where available
 
         self.ttl = self._validate_ttl(config.pop("ttl"))  # Extracting TTL and MongoDB-specific settings
         self.config = config
@@ -167,10 +179,12 @@ class MongoDBStorage(ABCStorage):
         if host:
             self.config["host"] = host
 
-        self.client: MongoClient = MongoClient(
-            host=self.config["host"],
-            port=self.config["port"],
-            serverSelectionTimeoutMS=self.config.get("serverSelectionTimeoutMS", 5000),
+        self.client = self.initialize_client(
+            **{
+                setting: SecretUtils.unmask_secret(value)
+                for setting, value in self.config.items()
+                if setting not in ("database", "db", "collection", "ttl")
+            }
         )
         self.namespace = namespace if namespace is not None else self.DEFAULT_NAMESPACE
         self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
@@ -201,19 +215,55 @@ class MongoDBStorage(ABCStorage):
                     self._index_created = True
 
     @classmethod
-    def get_default_config(cls) -> dict[str, Any]:
+    def initialize_client(cls, *args: Any, **kwargs: Any) -> MongoClient:
+        """Convenience method for Initializing a new MongoDB client from positional and/or keyword arguments.
+
+        Args:
+            *args: positional arguments to pass to `MongoClient`
+            **kwargs: keyword arguments to pass to `MongoClient`
+
+        Returns:
+            MongoClient: A new client when initialization is successful
+
+        """
+        if pymongo is None:
+            raise MongoDBImportError()
+
+        return MongoClient(*args, **kwargs)
+
+    @classmethod
+    def get_default_config(cls) -> SettingsDict:
         """Get default configuration with current config_settings values.
 
         Reads from environment variables in order of priority:
         - SCHOLAR_FLUX_MONGODB_HOST > cls.DEFAULT_CONFIG['host'] > MONGODB_HOST > "mongodb://127.0.0.1" (localhost)
         - SCHOLAR_FLUX_MONGODB_PORT > DEFAULT_CONFIG['port'] > MONGODB_PORT  > 27017
+        - SCHOLAR_FLUX_MONGODB_DATABASE > DEFAULT_CONFIG['db'] > SCHOLAR_FLUX_MONGODB_DATABASE > storage_manager_db
+        - SCHOLAR_FLUX_MONGODB_COLLECTION > DEFAULT_CONFIG['collection'] > SCHOLAR_FLUX_MONGODB_COLLECTION > result_page
+
+        When available:
+        -  SCHOLAR_FLUX_MONGODB_USERNAME > cls.DEFAULT_CONFIG['username']
+        -  SCHOLAR_FLUX_MONGODB_PASSWORD > cls.DEFAULT_CONFIG['password']
 
         Returns:
-            dict: Configuration dictionary with host and port.
+            SettingsDict: Configuration dictionary with a host, port, and masked authentication settings if available.
 
         """
         config_ttl = try_none(config_settings.get("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"))
-        return cls.DEFAULT_CONFIG | {
+
+        config_username = try_none(config_settings.get("SCHOLAR_FLUX_MONGODB_USERNAME")) or try_none(
+            cls.DEFAULT_CONFIG.get("username")
+        )
+        config_password = try_none(config_settings.get("SCHOLAR_FLUX_MONGODB_PASSWORD")) or try_none(
+            cls.DEFAULT_CONFIG.get("password")
+        )
+
+        default_database = (
+            try_none(cls.DEFAULT_CONFIG.get("db") or cls.DEFAULT_CONFIG.get("database")) or cls.DEFAULT_DATABASE
+        )
+        default_collection = try_none(cls.DEFAULT_CONFIG.get("collection")) or cls.DEFAULT_COLLECTION
+
+        config: SettingsDict = cls.DEFAULT_CONFIG | {
             "host": config_settings.get("SCHOLAR_FLUX_MONGODB_HOST")
             or cls.DEFAULT_CONFIG.get("host")
             or config_settings.get("MONGODB_HOST")
@@ -222,10 +272,19 @@ class MongoDBStorage(ABCStorage):
             or cls.DEFAULT_CONFIG.get("port")
             or config_settings.get("MONGODB_PORT")
             or 27017,
-            "db": cls.DEFAULT_CONFIG.get("db") or "storage_manager_db",
-            "collection": cls.DEFAULT_CONFIG.get("collection") or "result_page",
+            "db": try_none(config_settings.get("SCHOLAR_FLUX_MONGODB_DATABASE")) or default_database,
+            "collection": try_none(config_settings.get("SCHOLAR_FLUX_MONGODB_COLLECTION")) or default_collection,
             "ttl": config_ttl if config_ttl is not None else try_none(cls.DEFAULT_CONFIG.get("ttl")),
+            "serverSelectionTimeoutMS": cls.DEFAULT_CONFIG.get("serverSelectionTimeoutMS", 5000),
         }
+
+        if config_username:
+            config["username"] = SecretUtils.mask_secret(config_username, convert_object=False)
+
+        if config_password:
+            config["password"] = SecretUtils.mask_secret(config_password, convert_object=False)
+
+        return config
 
     def clone(self) -> MongoDBStorage:
         """Helper method for creating a new MongoDBStorage with the same parameters.
@@ -495,13 +554,21 @@ class MongoDBStorage(ABCStorage):
             return False
 
         default_config = cls.get_default_config()
-
         mongodb_host = host or default_config["host"]
         mongodb_port = port or default_config["port"]
 
+        kwargs.setdefault("serverSelectionTimeoutMS", 1000)
+
+        if username := default_config.get("username"):
+            kwargs.setdefault("username", username)
+
+        if password := default_config.get("password"):
+            kwargs.setdefault("password", password)
+
         try:
-            client: MongoClient
-            with MongoClient(host=mongodb_host, port=mongodb_port, serverSelectionTimeoutMS=1000) as client:
+            with cls.initialize_client(
+                host=mongodb_host, port=mongodb_port, **SecretUtils.unmask_parameters(kwargs)
+            ) as client:
                 cls.ping(client)
 
             if verbose:

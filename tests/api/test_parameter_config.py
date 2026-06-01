@@ -1,6 +1,7 @@
 import pytest
 import re
-from scholar_flux.api import APIParameterMap, APIParameterConfig
+from scholar_flux import SearchAPI
+from scholar_flux.api import APIParameterMap, APIParameterConfig, provider_registry
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 
@@ -228,7 +229,7 @@ def test_api_specific_parameter_default_and_required():
 
 
 def test_set_default_api_key_parameter_sets_default():
-    """Tests if APIParameterMap.api_key_parameter can default to "api_key" when an api key is required.
+    """Tests if APIParameterMap.api_key_parameter can default to "api_key" when an API key is required.
 
     This test covers scenarios when a partially incomplete parameter map is created and the `api_key_parameter` is not
     specified.
@@ -323,11 +324,39 @@ def test_from_defaults_unknown_provider():
         APIParameterMap.from_defaults("unknown")
 
 
+def test_extract_api_key(mock_api_key, default_api_parameter_config):
+    """Tests that the API key extraction correctly accounts of inplace retrieval"""
+    parameter_dict = {"api_key": mock_api_key, "start": 1, "records_per_page": 20}
+    copied_dict = parameter_dict.copy()
+    assert default_api_parameter_config.extract_api_key(copied_dict, inplace=False) == parameter_dict.get("api_key")
+    assert copied_dict == parameter_dict
+
+    assert default_api_parameter_config.extract_api_key(copied_dict) == parameter_dict.get("api_key")
+    parameter_dict.pop("api_key")  # should be extracted [removed if inplace=False]
+    assert copied_dict == parameter_dict
+
+
+def test_extract_api_parameters(mock_api_key):
+    """Tests that API-specific parameter extraction correctly accounts of inplace retrieval"""
+    plos_parameter_map = provider_registry["plos"].parameter_map
+    parameter_config = APIParameterConfig.as_config(plos_parameter_map)
+    parameters = {"q": "test", "start": 0, "rows": 20, "fq": "publication_date:[2020-01-01T00:00:00Z TO *]"}
+    copied_parameters = parameters.copy()
+    expected = {"fq": parameters["fq"]}
+    api_specific_parameters = parameter_config.extract_parameters(copied_parameters, inplace=False)
+
+    assert expected == api_specific_parameters
+    assert copied_parameters == parameters
+
+    # removes API-specific parameters from the result set
+    assert expected == parameter_config.extract_parameters(copied_parameters)
+    parameters.pop("fq")
+    assert copied_parameters == parameters
+
+
 def test_build_parameters():
     """Tests that the APIParameterConfig, when calling `build_parameters`, raises an error when encountering an override
     to core parameters (which should ideally be handled with a context manager instead)"""
-    from scholar_flux import SearchAPI
-
     search_api = SearchAPI.from_defaults(query="test query", provider_name="PLOS")
 
     with pytest.raises(APIParameterException) as excinfo:
@@ -489,21 +518,21 @@ def test_api_specific_parameters(basic_parameter_config, caplog):
 def test_show_parameters(basic_parameter_config):
     """Ensures that each of the core parameters can be found within the list returned by `show_parameters()`"""
     assert all(
-        parameter in ("query", "start", "records_per_page", "api_key_parameter")
+        parameter in ("query", "start", "records_per_page", "api_key_parameter", "api_key_in_headers", "api_key_scheme")
         for parameter in basic_parameter_config.show_parameters()
     )
 
 
 def test_get_incorrect_api_key(default_api_parameter_config, caplog):
-    """Verifies that the `_get_api_key` method appropriately raises an `APIParameterException` for invalid values."""
+    """Verifies that `._include_api_key()` appropriately raises an `APIParameterException` for invalid values."""
     # A list should be an invalid input:
     with pytest.raises(APIParameterException) as excinfo:
-        default_api_parameter_config._get_api_key([])  # type: ignore
+        default_api_parameter_config._include_api_key([])  # type: ignore
     assert f"Expected `parameters` to be a dictionary, instead received {type([])}" in str(excinfo.value)
 
     # a dictionary should also raise an error:
     with pytest.raises(APIParameterException) as excinfo:
-        default_api_parameter_config._get_api_key({})  # type: ignore
+        default_api_parameter_config._include_api_key({})  # type: ignore
     msg = "An API key is required but not provided"
     assert msg in str(excinfo.value)
     assert msg in caplog.text

@@ -14,6 +14,7 @@ Modules:
 """
 from scholar_flux.exceptions.api_exceptions import (
     APIException,
+    APIKeyValidationException,
     MissingAPIKeyException,
     MissingAPISpecificParameterException,
     MissingProviderException,
@@ -34,10 +35,7 @@ from scholar_flux.exceptions.api_exceptions import (
     QueryValidationException,
 )
 
-from scholar_flux.exceptions.coordinator_exceptions import (
-    CoordinatorException,
-    InvalidCoordinatorParameterException,
-)
+from scholar_flux.exceptions.coordinator_exceptions import CoordinatorException, InvalidCoordinatorParameterException
 
 from scholar_flux.exceptions.util_exceptions import (
     SessionCreationError,
@@ -99,6 +97,7 @@ from scholar_flux.exceptions.path_exceptions import (
 
 __all__ = [
     "APIException",
+    "APIKeyValidationException",
     "MissingAPIKeyException",
     "MissingAPISpecificParameterException",
     "MissingProviderException",

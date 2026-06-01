@@ -261,6 +261,24 @@ For production deployments, you can configure default cache backends using envir
    export SCHOLAR_FLUX_REDIS_HOST=localhost
    export SCHOLAR_FLUX_REDIS_PORT=6379
 
+   export SCHOLAR_FLUX_MONGODB_HOST=mongodb://localhost
+   export SCHOLAR_FLUX_MONGODB_PORT=27018
+
+   # Optionally specify authentication parameters if needed. Unused if missing.
+   export SCHOLAR_FLUX_REDIS_USERNAME=
+   export SCHOLAR_FLUX_REDIS_PASSWORD=
+
+   export SCHOLAR_FLUX_MONGODB_USERNAME=
+   export SCHOLAR_FLUX_MONGODB_PASSWORD=
+
+   # MongoDB-specific parameters for niche use-cases. Defaults are used instead if these variables are empty
+   export SCHOLAR_FLUX_MONGODB_DATABASE=
+   export SCHOLAR_FLUX_MONGODB_COLLECTION=
+
+   # Optional session cache encryption settings
+   export SCHOLAR_FLUX_USE_SESSION_CACHE_ENCRYPTION=false
+   export SCHOLAR_FLUX_CACHE_SECRET_KEY=...   # 32-byte URL-safe base64 key
+
 With these variables set, caches use the configured backends automatically:
 
 .. code-block:: python
@@ -354,23 +372,25 @@ For sensitive queries, use encrypted session cache:
    from scholar_flux.api import SearchCoordinator
    from scholar_flux.sessions import EncryptionPipelineFactory, CachedSessionManager
    from scholar_flux.utils import config_settings
-   import os
+
+   env_key_name = "SCHOLAR_FLUX_CACHE_SECRET_KEY"  # Read from the env on package initialization
+   env_path = config_settings.env_path  # is the default env path
 
    # Load or create encryption key
-   key = os.environ.get("SCHOLAR_FLUX_CACHE_SECRET_KEY")
-   encryption_factory = EncryptionPipelineFactory(key)
+   secret_key = config_settings.get(env_key_name)
+   encryption_factory = EncryptionPipelineFactory(secret_key)  # If secret_key is None, a new secret key is created
 
-   if not key:
-       # Save this key securely - losing it means losing cached data
-       new_key = encryption_factory.secret_key
-       print(f"Saving the secret key...")
+   if not secret_key:
+       # stores globally within session-level package configuration settings. Converted internally from bytes to utf-8
+       config_settings.set(env_key_name, encryption_factory.secret_key)
 
-
+       # Save this secret key securely - losing it means losing cached data
        # next reload of scholar_flux should hold the following variable after it is saved
+       print(f"Saving the secret key...")
        config_settings.write_key(
-           "SCHOLAR_FLUX_CACHE_SECRET_KEY", # the name of the key
-           new_key.decode(), # the value of the key bytes to write
-           env_path=config_settings.env_path # the current `env_path` is actually the default
+           key = env_key_name,  # if the key is stored within config settings, its associated value is written
+           env_path="./my.env", # the current `env_path` is actually the default
+           raise_on_error=True,
        )
 
    # Create encrypted serializer
@@ -382,6 +402,8 @@ For sensitive queries, use encrypted session cache:
        backend="sqlite",
        cache_directory=None,  # Uses default scholar-flux directory
        serializer=serializer
+       ## Optionally remove the serializer keyword assignment and specify `True` instead
+       # use_encryption = None
    )
 
    coordinator = SearchCoordinator(

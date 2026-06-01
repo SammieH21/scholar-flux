@@ -105,6 +105,12 @@ class APIParameterException(APIException):
     pass
 
 
+class APIKeyValidationException(APIParameterException):
+    """Exception raised for API key validation-related errors."""
+
+    pass
+
+
 class RequestCacheException(APIException):
     """Exception raised for API request-cache related errors."""
 
@@ -174,6 +180,7 @@ __all__ = [
     "MissingAPISpecificParameterException",
     "MissingProviderException",
     "MissingResponseException",
+    "APIKeyValidationException",
     "NoRecordsAvailableException",
     "InvalidResponseException",
     "RetryAfterDelayExceededException",

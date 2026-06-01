@@ -71,7 +71,7 @@ def unauthorized_response(mock_unauthorized_response) -> ErrorResponse:
 
 
 @pytest.fixture
-def search_result_success(extracted_records, processed_records, metadata) -> SearchResult:
+def search_result_success(extracted_records, processed_records, normalized_records, metadata) -> SearchResult:
     """Fixture that indicates that the retrieval and processing of the response was successful."""
 
     search_result_success = SearchResult(
@@ -85,6 +85,7 @@ def search_result_success(extracted_records, processed_records, metadata) -> Sea
             extracted_records=extracted_records,
             processed_records=processed_records,
             metadata=metadata,
+            normalized_records=normalized_records,
         ),
     )
 
@@ -446,3 +447,23 @@ def test_search_result_copy():
     assert id(copied_search_result_list) != id(copied_search_result_list2)
     assert isinstance(copied_search_result_list, SearchResultList)
     assert isinstance(copied_search_result_list2, SearchResultList)
+
+
+def test_search_result_list_record_properties(
+    search_result_success, search_result_error, search_result_none, processed_records, normalized_records
+):
+    """Verifies that `data`, `processed_records`, and `normalized_records` properties return flattened record lists."""
+    result_list = SearchResultList([search_result_success, search_result_error, search_result_none])
+    # should be a flattened list, only search_result_success has data
+    assert result_list.normalized_records == [
+        record for result in result_list for record in (result.normalized_records or [])
+    ]
+    assert result_list.normalized_records == normalized_records
+
+    assert result_list.processed_records == [
+        record for result in result_list for record in (result.processed_records or [])
+    ]
+    assert result_list.processed_records == processed_records
+
+    assert result_list.data == [record for result in result_list for record in (result.data or [])]
+    assert result_list.data == processed_records

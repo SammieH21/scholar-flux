@@ -183,7 +183,7 @@ class ABCDataProcessor(ABC):
     def __repr__(self) -> str:
         """Method for identifying the current implementation and subclasses of the ABCDataProcessor.
 
-        Useful for showing the options being used to process the records that originate from the parsed api response.
+        Useful for showing the options being used to process the records that originate from the parsed API response.
 
         """
         return self.structure()

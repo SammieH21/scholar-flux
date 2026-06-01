@@ -1,5 +1,6 @@
 # /api/search_coordinator.py
 """Implements the SearchCoordinator for orchestrating single/multi-page API response retrieval and record processing."""
+
 from __future__ import annotations
 from typing import Any, Optional, Sequence, cast, Generator
 from typing_extensions import Self
@@ -116,7 +117,7 @@ class SearchCoordinator(BaseCoordinator):
             they do not already exist.
 
         Args:
-            search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs.
+            search_api (Optional[SearchAPI]): The SearchAPI to use for the retrieval of response records from APIs.
             response_coordinator (Optional[ResponseCoordinator]):
                 Core class used to coordinate the handling and processing of all responses received from APIs.
             parser (Optional[BaseDataParser]):
@@ -133,7 +134,7 @@ class SearchCoordinator(BaseCoordinator):
                 The name of the API provider where requests will be sent. If a provider_name and base_url are both
                 given, the SearchAPIConfig will prioritize base_urls over the provider_name.
             cache_requests (Optional[bool]):
-                Determines whether or not to cache requests - api is the ground truth if not directly specified
+                Determines whether or not to cache requests - API is the ground truth if not directly specified
             cache_results (Optional[bool]):
                 Determines whether or not to cache processed responses - on by default unless specified otherwise
             annotate_records (Optional[bool]):
@@ -231,7 +232,7 @@ class SearchCoordinator(BaseCoordinator):
 
         Args:
             search_api (Optional[SearchAPI]):
-                The search API to use for the retrieval of response records from APIs. If not provided, it is created
+                The SearchAPI to use for the retrieval of response records from APIs. If not provided, it is created
                 from the other received parameters.
             provider_name (Optional[str]):
                 The name of the API provider where requests will be sent. If a `provider_name` and `base_url` are both
@@ -330,7 +331,7 @@ class SearchCoordinator(BaseCoordinator):
         blocks of a SearchCoordinator.
 
         Args:
-            search_api (Optional[SearchAPI]): The search API to use for the retrieval of response records from APIs
+            search_api (Optional[SearchAPI]): The SearchAPI to use for the retrieval of response records from APIs
             response_coordinator (Optional[ResponseCoordinator]): Core class used to handle the processing and
                                                                  core handling of all responses from APIs
 
@@ -370,7 +371,7 @@ class SearchCoordinator(BaseCoordinator):
             SearchCoordinator:
                 A previously created coordinator containing the components to use if a default is not provided
             search_api (Optional[SearchAPI]):
-                The search API to use for the retrieval of response records from APIs
+                The SearchAPI to use for the retrieval of response records from APIs
             response_coordinator (Optional[ResponseCoordinator]):
                 Core class used to handle the processing and core handling of all responses from APIs
             retry_handler (Optional[RetryHandler]):
@@ -1136,7 +1137,7 @@ class SearchCoordinator(BaseCoordinator):
     def robust_request(
         self, page: Optional[int], **api_specific_parameters: Any
     ) -> Optional[Response | ResponseProtocol]:
-        """Constructs and sends a request to the current API. Fetches a response from the current API.
+        """Constructs and sends a request to the current API provider, receiving a response-like object when successful.
 
         Args:
             page (Optional[int]):
@@ -1225,7 +1226,7 @@ class SearchCoordinator(BaseCoordinator):
             # Note: NonResponse classes won't be recorded in `last_response`, this allows retrieval of the last 429
             non_response = NonResponse.from_error(cache_key=cache_key, message=e.message, error=e)
             return non_response
-        except RequestFailedException as e:
+        except (RequestFailedException, APIParameterException) as e:
             return NonResponse.from_error(error=e, message=str(e), cache_key=cache_key)
 
         if response is None:

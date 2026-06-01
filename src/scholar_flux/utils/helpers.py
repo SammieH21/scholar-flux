@@ -32,6 +32,7 @@ from typing import (
 from typing_extensions import TypeAliasType
 from collections.abc import Iterable
 import logging
+from pydantic import SecretStr
 
 if TYPE_CHECKING:
     from bs4 import BeautifulSoup
@@ -96,7 +97,9 @@ def try_quote_numeric(value: object) -> Optional[str]:
 
 
 def quote_numeric(value: object) -> str:
-    """Attempts to quote as a numeric value and returns the quoted value if successful. Otherwise raises an error.
+    """Attempts to quote as a numeric value and returns the quoted value if successful.
+
+    When the returned value cannot be quoted, a ValueError is raised instead.
 
     Args:
         value (object): a value that is quoted only if it is a numeric string or an integer
@@ -110,7 +113,7 @@ def quote_numeric(value: object) -> str:
     """
     quoted_value = try_quote_numeric(value)
     if quoted_value is None:
-        raise ValueError("The value, ({value}) could not be quoted as numeric string or an integer")
+        raise ValueError(f"The value, ({value}) could not be quoted as numeric string or an integer")
     return quoted_value
 
 
@@ -209,7 +212,7 @@ def infer_text_pattern_search(
     regex: bool = True,
     flags: int | re.RegexFlag = 0,
 ) -> Optional[V | D]:
-    """Infers a category based on a text pattern search. If a value match can't be inferred, a default is returned.
+    """Infers a category based on a text pattern search, otherwise returning the default if a match can't be inferred.
 
     Args:
         text (str):
@@ -347,6 +350,7 @@ def filter_record_key_prefixes(
         invert (bool):
             If False, dictionary keys beginning with the prefix are removed (default behavior). If true,
             fields beginning with the prefix are retained instead.
+
     Returns:
         RecordType: The filtered record after retaining (invert=True) or removing (invert=False) string prefixes.
 
@@ -683,18 +687,20 @@ def try_none(value: T) -> None | T:
 def try_none(
     value: object, none_indicators: tuple[Any, ...] = ("none", "unspecified", "unknown", "n/a")
 ) -> object | None:
-    """Converts empty strings, 'none', and empty data containers into None. Otherwise, the original value is returned.
+    """Converts empty strings/secret strings, 'none', and empty data containers into `None`.
+
+    Otherwise, the original value is returned.
 
     Args:
-        value (object): The value to convert into None when possible
+        value (object): The value to convert into None when possible.
         none_indicators (tuple[Any, ...]): Tuple of values that should be treated as None indicators.
 
     Returns:
         object | None: The original value if not converted, and None otherwise
 
     """
-
-    formatted_value = value.strip().lower() if isinstance(value, str) else value
+    unmasked_value = value.get_secret_value() if isinstance(value, SecretStr) else value
+    formatted_value = unmasked_value.strip().lower() if isinstance(unmasked_value, str) else unmasked_value
     none_indicators = as_tuple(none_indicators)
     return value if (formatted_value or isinstance(value, int)) and formatted_value not in none_indicators else None
 
@@ -934,10 +940,12 @@ def try_compile(
 
 
 def is_nested(obj: Any) -> bool:
-    """Indicates whether the current value is a nested object. Useful for recursive iterations such as JSON record data.
+    """Indicates whether the current value is a nested object.
+
+    Useful for recursive iterations such as JSON record data.
 
     Args:
-        obj (Any) Any (realistic JSON) data type - including dicts, lists, strs, numbers, etc.
+        obj (Any): Any (realistic JSON) data type - including dicts, lists, strs, numbers, etc.
 
     Returns:
         bool: True if nested otherwise False
@@ -953,8 +961,9 @@ def get_values(obj: Iterable) -> Iterable:
         obj (Iterable): An object to get the values from.
 
     Returns:
-        Iterable: An iterable created from `obj.values()` if the object is a dictionary and the original object otherwise.
-                  If the object is empty or is not a nested object, an empty list is returned.
+        Iterable:
+            An iterable created from `obj.values()` if the object is a dictionary and the original object otherwise. If
+            the object is empty or is not a nested object, an empty list is returned.
 
     """
     if not is_nested(obj):
@@ -972,7 +981,6 @@ def is_nested_json(obj: Any) -> bool:
         bool: False if the value is not a Json-like structure and, True if it is a nested JSON structure.
 
     """
-
     if not is_nested(obj) or not obj:
         return False
 
@@ -989,15 +997,15 @@ def is_nested_json(obj: Any) -> bool:
 
 
 def unlist_1d(current_data: tuple | list | Any) -> Any:
-    """Retrieves an element from a list/tuple if it contains only a single element. Otherwise, it will return the
-    element as is. Useful for extracting text from a single element list/tuple.
+    """Retrieves an element from a list/tuple if it contains only a single element.
+
+    Otherwise, it will return the element as is. Useful for extracting text from a single element list/tuple.
 
     Args:
         current_data (tuple | list | Any): An object potentially unlist if it contains a single element.
 
     Returns:
-        Any: The unlisted object if it comes from a single element list/tuple,
-             otherwise returns the input unchanged.
+        Any: The unlisted object if it comes from a single element list/tuple, otherwise returns the input unchanged.
 
     """
     if isinstance(current_data, (tuple, list)) and len(current_data) == 1:
@@ -1013,8 +1021,8 @@ def as_list_1d(value: Any) -> list:
 
     Returns:
         list:
-            If already a list, the value is returned as is. Otherwise, the value is nested in a list.
-            Caveat: if the value is None, an empty list is returned
+            If already a list, the value is returned as is. Otherwise, the value is nested in a list. Caveat: if the
+            value is None, an empty list is returned.
 
     """
     if value is not None:
@@ -1023,8 +1031,9 @@ def as_list_1d(value: Any) -> list:
 
 
 def path_search(obj: Union[dict, list], key_to_find: str) -> list[str]:
-    """Searches for keys matching the regex pattern in the given dictionary. This function only verifies top-level keys
-    rather than nested values.
+    """Searches for keys matching the regex pattern in the given dictionary.
+
+    This function only verifies top-level keys rather than nested values.
 
     Args:
         obj (Union[dict, list]): The dictionary to search.
@@ -1066,7 +1075,6 @@ def try_call(
             the function will generate a warning and return `None` by default unless the default was set.
 
     """
-
     suppress = as_tuple(suppress)
     args = as_tuple(args)
 
@@ -1086,6 +1094,44 @@ def try_call(
                 f"An error occurred in the call to the function argument, '{function_name}', args={args}, kwargs={kwargs}: {e}",
             )
     return default
+
+
+@overload
+def with_fallback(value: None, default: D) -> D:
+    """When `None` is received, and a default is provided, the default is returned as is."""
+    ...
+
+
+@overload
+def with_fallback(value: T, default: Optional[object] = None) -> T:
+    """When `T` and a default is received, T is returned only when not `None`."""
+    ...
+
+
+def with_fallback(value: object | None, default: Optional[object] = None) -> object | None:
+    """Helper for declaring configuration fallbacks inline with type checking and minimal repeated code."""
+    return value if value is not None else default
+
+
+def handle_exception(
+    error: BaseException, message: Optional[str] = None, raise_on_error: Optional[bool] = True, *, verbose: bool = True
+) -> None:
+    """Handles errors, re-raising if `raise_on_error=True` or gracefully continuing when `raise_on_error=False`.
+
+    Args:
+        error (BaseException): The error to be handled.
+        message (Optional[str]): The message to raise. When empty or None, the exception info is extracted instead.
+        raise_on_error (Optional[bool]): Determines whether an exception is re-raised (True) or logged only (False).
+        verbose (bool): Determines whether the error or warning should be logged.
+
+    """
+    message = message if message else str(error)
+    if raise_on_error:
+        if verbose:
+            logger.error(message)
+        raise error
+    elif verbose:
+        logger.warning(message)
 
 
 def generate_iso_timestamp() -> str:
@@ -1333,6 +1379,8 @@ __all__ = [
     "coerce_json_str",
     "coerce_flattened_str",
     "coerce_bool",
+    "handle_exception",
+    "with_fallback",
     "try_none",
     "try_str",
     "try_bytes",

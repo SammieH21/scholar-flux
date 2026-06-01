@@ -19,13 +19,10 @@ from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage, DuckDBStorage
 from scholar_flux.utils.repr_utils import generate_repr
+from scholar_flux.utils.settings_utils import SettingsDictType
 from scholar_flux.utils import config_settings
 from scholar_flux.utils.response_protocol import ResponseProtocol
-from scholar_flux.exceptions import (
-    StorageCacheException,
-    MissingResponseException,
-    InvalidResponseStructureException,
-)
+from scholar_flux.exceptions import StorageCacheException, MissingResponseException, InvalidResponseStructureException
 from scholar_flux.package_metadata import __version__
 import copy
 
@@ -138,7 +135,7 @@ class DataCacheManager:
         return self.cache_storage.raise_on_error
 
     @property
-    def config(self) -> dict:
+    def config(self) -> SettingsDictType:
         """The underlying configuration dictionary being used with the current storage device."""
         return self.cache_storage.config
 

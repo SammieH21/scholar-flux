@@ -21,16 +21,18 @@ Classes:
         `duckdb_engine` package for SQLAlchemy dialect support.
 
 """
+
 from __future__ import annotations
 import logging
-from typing import Any, List, Dict, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import JsonDataEncoder
 from scholar_flux.utils.helpers import coerce_str, try_none
 from scholar_flux.utils import config_settings  # global environment configuration
 from scholar_flux.data_storage.abc_storage import ABCStorage
 from scholar_flux.package_metadata import get_default_writable_directory
-from urllib.parse import urlparse
+from scholar_flux.security.utils import SecretUtils
+from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
 from scholar_flux.exceptions import (
     SQLAlchemyImportError,
     DuckDBImportError,
@@ -41,6 +43,7 @@ from scholar_flux.exceptions import (
     CacheVerificationException,
     CacheParameterValidationException,
 )
+from urllib.parse import urlparse
 
 import cattrs
 import threading
@@ -147,10 +150,10 @@ class SQLAlchemyStorage(ABCStorage):
     """
 
     DEFAULT_NAMESPACE: Optional[str] = None
-    DEFAULT_CONFIG: Dict[str, Any] = {
-        "url": lambda: SQLAlchemyStorage.get_default_url(),
-        "echo": False,
-    }
+    DEFAULT_CONFIG: SettingsDictType = SettingsDict(
+        url=lambda: SQLAlchemyStorage.get_default_url(),
+        echo=False,
+    )
     DEFAULT_RAISE_ON_ERROR: bool = False
     STORAGE_TYPE: str = "SQL"
 
@@ -181,7 +184,7 @@ class SQLAlchemyStorage(ABCStorage):
                 If True, verifies the SQL service is available immediately after initialization.
                 Raises StorageCacheException if connection fails. Defaults to False.
             **sqlalchemy_config:
-                Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine Typical parameters include
+                Additional SQLAlchemy engine/session options passed to `sqlalchemy.create_engine`. Typical parameters include
                 the following:
 
                     - url (str): Indicates what server to connect to. Defaults to sqlite in the package directory.
@@ -198,7 +201,7 @@ class SQLAlchemyStorage(ABCStorage):
             sqlalchemy_config.get("echo") if isinstance(sqlalchemy_config.get("echo"), bool) else default_config["echo"]
         )
 
-        self.config: dict[str, Any] = sqlalchemy_config
+        self.config: SettingsDictType = SettingsDict(sqlalchemy_config)
         self.engine = create_engine(**self.config)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
@@ -253,11 +256,11 @@ class SQLAlchemyStorage(ABCStorage):
                 )
             return None
 
-    def retrieve_all(self) -> Dict[str, Any]:
+    def retrieve_all(self) -> dict[str, Any]:
         """Retrieve all records from cache.
 
         Returns:
-            dict:
+            dict[str, Any]:
                 Dictionary of key-value pairs. Keys are original keys, values are JSON deserialized objects.
 
         """
@@ -279,7 +282,7 @@ class SQLAlchemyStorage(ABCStorage):
                 )
             return cache
 
-    def retrieve_keys(self) -> List[str]:
+    def retrieve_keys(self) -> list[str]:
         """Retrieve all keys for records from cache.
 
         Returns:
@@ -507,7 +510,7 @@ class SQLAlchemyStorage(ABCStorage):
         default for the current class is returned via `cls.create_default_url` instead.
 
         """
-        config_url = try_none(config_settings.get("SCHOLAR_FLUX_SQLALCHEMY_URL"))
+        config_url = try_none(SecretUtils.unmask_secret(config_settings.get("SCHOLAR_FLUX_SQLALCHEMY_URL")))
         if config_url:
             try:
                 cls.verify_url_string(config_url)
@@ -522,18 +525,17 @@ class SQLAlchemyStorage(ABCStorage):
         return cls.create_default_url()
 
     @classmethod
-    def get_default_config(cls) -> dict[str, Any]:
+    def get_default_config(cls) -> SettingsDictType:
         """Get default configuration with current config_settings values.
 
         Returns:
-            dict: A dictionary configuration with the default URL and `echo` (for debugging SQL statements).
+            SettingsDict: A dictionary configuration with the default URL and `echo` (for debugging SQL statements).
 
         """
-        url = cls.DEFAULT_CONFIG.get("url")
-        return {
-            "url": url if callable(url) else lambda: url,
-            "echo": cls.DEFAULT_CONFIG.get("echo") or False,
-        }
+        default_url = cls.DEFAULT_CONFIG.get("url")
+        url_func = default_url if callable(default_url) else lambda: default_url
+
+        return cls.DEFAULT_CONFIG | {"url": url_func, "echo": cls.DEFAULT_CONFIG.get("echo") or False}
 
     @classmethod
     def ping(cls, engine: Engine) -> None:
@@ -578,10 +580,12 @@ class DuckDBStorage(SQLAlchemyStorage):
 
     """
 
-    DEFAULT_CONFIG: Dict[str, Any] = {
-        "url": lambda: DuckDBStorage.get_default_url(),
-        "echo": False,
-    }
+    DEFAULT_CONFIG: SettingsDictType = SettingsDict(
+        {
+            "url": lambda: DuckDBStorage.get_default_url(),
+            "echo": False,
+        }
+    )
     STORAGE_TYPE: str = "DuckDB"
 
     def __init__(
@@ -613,11 +617,11 @@ class DuckDBStorage(SQLAlchemyStorage):
                 If True, verifies the SQL service is available immediately after initialization.
                 Raises StorageCacheException if connection fails. Defaults to False.
             **sqlalchemy_config:
-                Additional SQLAlchemy engine/session options passed to sqlalchemy.create_engine Typical parameters include
-                the following:
+                Additional SQLAlchemy engine/session options passed to `sqlalchemy.create_engine`. Typical parameters
+                include the following:
 
-                    - url (str): Indicates what server to connect to. Defaults to sqlite in the package directory.
-                    - echo (bool): Indicates whether to show the executed SQL queries in the console.
+                - url (str): Indicates what server to connect to. Defaults to sqlite in the package directory.
+                - echo (bool): Indicates whether to show the executed SQL queries in the console.
 
         """
         duckdb_url = url or self.DEFAULT_CONFIG["url"]()

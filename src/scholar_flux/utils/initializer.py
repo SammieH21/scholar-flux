@@ -7,16 +7,19 @@ ConfigLoader 2) The Logger is subsequently set up for the scholar_flux API packa
 subsequently set up to enable sensitive data to be redacted from logs
 
 """
+
 from typing import Optional, Any
 import logging
 import scholar_flux.security as security
 from pprint import pformat
 import warnings
 from scholar_flux.utils.logger import setup_logging, resolve_log_stream, resolve_log_level
-from scholar_flux.utils.helpers import try_none, coerce_bool
+from scholar_flux.utils.helpers import try_none, coerce_bool, with_fallback
 from scholar_flux.exceptions import PackageInitializationError
+from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
 from scholar_flux.utils.config_loader import ConfigLoader
 from pathlib import Path
+import os
 
 config_settings = ConfigLoader()
 
@@ -24,9 +27,11 @@ config_settings = ConfigLoader()
 def initialize_package(
     log: bool = True,
     env_path: Optional[str | Path] = None,
-    config_params: Optional[dict[str, Any]] = None,
-    logging_params: Optional[dict[str, Any]] = None,
-) -> tuple[dict[str, Any], logging.Logger, security.SensitiveDataMasker]:
+    config_params: Optional[SettingsDictType] = None,
+    logging_params: Optional[SettingsDictType] = None,
+    *,
+    masker: Optional[security.SensitiveDataMasker] = None,
+) -> tuple[SettingsDict, logging.Logger, security.SensitiveDataMasker]:
     """Function used for orchestrating the initialization of the config, log settings, and masking for scholar_flux.
 
     This function imports a '.env' configuration file at the specified location if it exists. Otherwise, `scholar_flux`
@@ -34,7 +39,7 @@ def initialize_package(
     package defaults and available OS environment variables are used.
 
     This function can also be used for dynamic re-initialization of configuration parameters and logging. The
-    `config_params` are sent as keyword arguments to the scholar_flux.utils.ConfigSettings.load_config method.
+    `config_params` are sent as keyword arguments to the scholar_flux.utils.ConfigLoader.load_config method.
     `logging_paras` are used as keyword arguments to the scholar_flux.utils.setup_logging method to set up
     logging settings and handlers.
 
@@ -47,25 +52,26 @@ def initialize_package(
             variables from a config. Useful for loading API keys from environment variables for later use.
         logging_params (Optional[Dict]):
             A dictionary allowing users to specify options for package-level logging with custom logic. Log settings are
-            loaded from the OS environment or an .env file when available, with precedence given to .env files. These
+            loaded from the OS environment or a .env file when available, with precedence given to .env files. These
             settings, when loaded, override the default ScholarFlux logging configuration. Otherwise,
             ScholarFlux uses a log-level of `WARNING` by default.
+        masker (Optional[SensitiveDataMasker]): An optional, pre-initialized `SensitiveDataMasker`
 
     Returns:
-        Tuple[Dict[str, Any], logging.Logger, scholar_flux.security.SensitiveDataMasker]:
-            A tuple containing the configuration dictionary and the initialized logger.
+        Tuple[SettingsDict, logging.Logger, scholar_flux.security.SensitiveDataMasker]:
+            A tuple containing the configuration settings dictionary and the initialized logger.
 
     Raises:
         PackageInitializationError: If there are issues with loading the configuration or initializing the logger.
 
     """
-    if config_params is not None and not isinstance(config_params, dict):
+    if config_params is not None and not isinstance(config_params, (SettingsDict, dict)):
         raise PackageInitializationError(
             "An error occurred in the reinitialization of scholar_flux: "
             f"`config_params` must be a dictionary, but received type {type(config_params)}."
         )
 
-    if logging_params is not None and not isinstance(logging_params, dict):
+    if logging_params is not None and not isinstance(logging_params, (SettingsDict, dict)):
         raise PackageInitializationError(
             "An error occurred in the reinitialization of scholar_flux: "
             f"`logging_params` must be a dictionary, but received type {type(logging_params)}."
@@ -73,19 +79,25 @@ def initialize_package(
 
     logger = (
         logging_params["logger"]
-        if isinstance(logging_params, dict) and isinstance(logging_params.get("logger"), logging.Logger)
+        if isinstance(logging_params, (SettingsDict, dict)) and isinstance(logging_params.get("logger"), logging.Logger)
         else logging.getLogger("scholar_flux")
     )
 
-    masker = security.SensitiveDataMasker()
+    masker = masker if isinstance(masker, security.SensitiveDataMasker) else security.SensitiveDataMasker()
     masking_filter = security.MaskingFilter(masker)
 
     # Attempt to load configuration parameters from the provided env file
-    config_params_dict: dict[str, Any] = {"reload_env": True}
+    load_dotenv = coerce_bool(os.getenv("SCHOLAR_FLUX_LOAD_ENV")) if env_path is None else True
+
+    # If a .env path isn't provided, check `SCHOLAR_FLUX_LOAD_ENV` to determine whether to load from the default path
+    config_params_dict = SettingsDict(
+        reload_env=with_fallback(load_dotenv, True),
+    )
     config_params_dict.update(config_params or {})
 
     if env_path:
         config_params_dict["env_path"] = env_path
+    config_params_dict.setdefault("raise_on_error", False)  # by default, gracefully continue initialization
 
     # if configuration parameters are provided by the user, load with verbose settings:
     config_params_dict.setdefault("verbose", bool(config_params or env_path))
