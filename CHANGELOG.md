@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.1] - 07/14/2026
+### Security
+
+**Package Dependencies**:
+- **Cryptography Dependency Update**: Updated the minimum supported `cryptography` version from v48.0.0 to v48.0.1 to address a high-severity OpenSSL Denial of Service vulnerability (`CVE-2026-34180`) resulting from the out-of-bounds processing of a malicious ASN.1 structure.
+- **PyMongo Dependency Update**: Updated the minimum supported `pymongo` version from v4.0.0 to v4.6.3 to address an out-of-bounds read vulnerability in the `bson` module (`CVE-2024-5629`) where malformed BSON from a MongoDB server could expose application memory in exception messages. This update mitigates potential exposure when retrieving responses via the MongoDB session/response cache.
+- **PyYAML Dependency Update**: Updated the minimum supported `pyyaml` version from v5.0.0 to v6.0.2 to address arbitrary code execution vulnerabilities in non-safe loaders among earlier versions (`CVE-2019-20477`, `CVE-2020-1747`, `CVE-2020-14343`). While ScholarFlux, which parses `application/yaml` response content via `yaml.safe_load()` exclusively, was unaffected, this version increase ensures that all installations include relevant patches and have Python 3.10+ wheel support.
+- **Redis Dependency Update**: Updated the minimum supported `redis` version from v4.0.0 to v4.5.4 to address race conditions in the async client that could leak response data across clients (`CVE-2023-28858` and its incomplete-fix follow-up, `CVE-2023-28859`). Although ScholarFlux exclusively uses the synchronous `redis.Redis` client and was unaffected, this update ensures that `redis` installations via `scholar-flux[database]` include the required security patch.
+- **Starlette Transitive Dependency Update**: Updated the `docs` dependency group to explicitly define `starlette>=1.3.1` as the minimum package dependency, addressing `CVE-2026-54282` (host spoofing/BADHOST path traversal) and `CVE-2026-54283` (DoS vulnerability via request.form() limits) to ensure that the installation of `sphinx-autobuild` does not introduce a vulnerable version of the `starlette` transitive dependency.
+
+
 ## [0.6.0] - 05/31/2026
 **Note**: While the changes to the `SearchAPI` are substantial, user-facing changes are backward compatible with previous versions, mainly hardening security, improving API consistency, and introducing dedicated auth functionality. Existing codebases and workflows will not require modification to benefit from this update aside from special cases defined below:
 
@@ -285,7 +296,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Improved Feature Documentation**: Added "Features at a Glance" summary with bullet points for quick reference and detailed rate limit documentation for all providers.
 - **Better Code Examples**: Updated `main.py` and README examples with improved comments, normalization patterns, and comprehensive error handling demonstrations.
 
-## 0.3.0 - 12/03/2025
+## [0.3.0] - 12/03/2025
 ### Added
 - The `SearchCoordinator` now includes a `parameter_search` feature that allows end-users to retrieve non-paginated API responses with a prebuilt dictionary or endpoint. This addition allows users to send requests while taking advantage of caching, retry-logic, rate limiting, and processing orchestration.
 - The type expectations for metadata fields are now more specifically tailored to what can be expected for the `SearchCoordinator` (including the now optional pagination), `ProcessedResponse` models which constrains metadata types to dictionaries with string parameters.
