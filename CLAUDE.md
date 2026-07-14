@@ -2,7 +2,7 @@
 
 This file provides Claude Code (claude.ai/code) with quick-reference context for ScholarFlux development. For complete information, consult the linked documentation which serves as the authoritative source.
 
-### Last updated 5/31/2026 (**v0.6.0**)
+### Last updated 7/14/2026 (**v0.6.1**)
 
 > **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.
 > For complete, authoritative information, consult:
@@ -120,7 +120,7 @@ SearchCoordinator
 | `scholar_flux.data`         | Parsers, extractors, processors                       | [Guidelines](CONTRIBUTING.md#scholar_fluxdata)         |
 | `scholar_flux.data_storage` | Cache backends (SQL, Redis, MongoDB, Memory, DuckDB)  | [Guidelines](CONTRIBUTING.md#scholar_fluxdata_storage) |
 | `scholar_flux.security`     | Credential masking via `SensitiveDataMasker`          | [Guidelines](CONTRIBUTING.md#scholar_fluxsecurity)     |
-| `scholar_flux.sessions`     | Session factories (cached/uncached, encryption, api key auth)       | [Guidelines](CONTRIBUTING.md#scholar_fluxsessions)     |
+| `scholar_flux.sessions`     | Session factories (cached/uncached, encryption, API key auth)       | [Guidelines](CONTRIBUTING.md#scholar_fluxsessions)     |
 | `scholar_flux.utils`        | Config loading, helpers, JSON processing, settings/repr utils  | [Guidelines](CONTRIBUTING.md#scholar_fluxutils)        |
 
 ## Response Types
@@ -144,7 +144,7 @@ Three response types with truthiness semantics for safe error checking. For most
 | `error`              | Property (None)                          | Error type/exception                      |
 | `message`            | Optional context                         | Error description                         |
 
-**Note**: When calling `SearchCoordinator.search_page()`, these three response types are nested in a `SearchResult` container that additionally include search metadata annotations (i.e., `query`, `page`, and `provider_name`, `display_name`, `retrieval_timestamp`, `cached`) and references each of the above components through properties or methods. Normalized records can additionally include search metadata annotations via the `include` parameter (i.e., `result.normalize(include={'query', 'page', 'display_name'})`).
+**Note**: When calling `SearchCoordinator.search_page()`, these three response types are nested in a `SearchResult` container that additionally includes search metadata annotations (i.e., `query`, `page`, and `provider_name`, `display_name`, `retrieval_timestamp`, `cached`) and references each of the above components through properties or methods. Normalized records can additionally include search metadata annotations via the `include` parameter (i.e., `result.normalize(include={'query', 'page', 'display_name'})`).
 
 **Multi-page results:** the `SearchResultList` exposes `.data`, `.processed_records`, `.normalized_records` as convenience properties for flattened record access across pages, queries, and providers.
 
@@ -221,7 +221,7 @@ Quick definitions for terms used throughout ScholarFlux documentation:
 | **RetryHandler**           | A configurable class used by the SearchCoordinator to handle automatic retries with rate limiting/exponential backoff on failed requests while respecting `Retry-After` headers from APIs.                                                           |
 | **Field Map**              | A configuration that maps provider-specific field names to normalized schema fields, with optional fallback paths.                                                                                                                                   |
 | **Two-Tier Caching**       | Layer 1 (`session cache`) caches raw HTTP responses; Layer 2 (`Response processing cache`) caches records that are extracted/processed from raw responses. Cached searches are returned almost instantly.                                            |
-| **Workflow**               | A multi-step workflow used by the `SearchCoordinator` to customize how `search()` and `search_page()` retrieves and processes records. While optional for all other providers, this is required for PubMed's search → fetch pattern.                 |
+| **Workflow**               | A multi-step workflow used by the `SearchCoordinator` to customize record retrieval and processing via `search()` and `search_page()`. While optional for all other providers, this is required for PubMed's search → fetch pattern.                 |
 | **Backoff**                | Progressively increasing delays between retry attempts after failed requests.                                                                                                                                                                        |
 
 
