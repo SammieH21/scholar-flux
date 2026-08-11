@@ -1,18 +1,20 @@
-from scholar_flux.api.workflows import PubMedSearchStep, PubMedFetchStep, SearchWorkflow, WorkflowResult, StepContext
+import uuid
+from unittest.mock import MagicMock
+
+import pytest
+import requests_mock
+from requests import Response
+
 from scholar_flux.api import (
-    SearchAPI,
-    SearchCoordinator,
-    ProcessedResponse,
     ErrorResponse,
     NonResponse,
+    ProcessedResponse,
     ReconstructedResponse,
+    SearchAPI,
+    SearchCoordinator,
 )
-from scholar_flux.exceptions import XMLToDictImportError, NoRecordsAvailableException
-from requests import Response
-from unittest.mock import MagicMock
-import requests_mock
-import pytest
-import uuid
+from scholar_flux.api.workflows import PubMedFetchStep, PubMedSearchStep, SearchWorkflow, StepContext, WorkflowResult
+from scholar_flux.exceptions import NoRecordsAvailableException, XMLToDictImportError
 from scholar_flux.utils import config_settings
 
 

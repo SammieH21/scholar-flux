@@ -2,7 +2,7 @@
 """The scholar_flux.data_storage.null_storage module implements a Null (No-Op) Storage that is used to ensure that
 responses are always reprocessed when implemented."""
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any
 from scholar_flux.data_storage.abc_storage import ABCStorage
 
 import logging
@@ -31,15 +31,15 @@ class NullStorage(ABCStorage):
     """
 
     # for compatibility with other storage backends
-    DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_NAMESPACE: str | None = None
     DEFAULT_RAISE_ON_ERROR: bool = False
     STORAGE_TYPE: str = "Null"
 
     def __init__(
         self,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
         ttl: None = None,
-        raise_on_error: Optional[bool] = None,
+        raise_on_error: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a No-Op cache for compatibility with the `ABCStorage` base class.
@@ -57,42 +57,38 @@ class NullStorage(ABCStorage):
         if raise_on_error is not None:
             logger.warning("The parameter, `raise_on_error` is not enforced in NullStorage. Skipping.")
 
-        self.namespace: Optional[str] = None
+        self.namespace: str | None = None
         self.ttl = None
         self.raise_on_error: bool = False
 
     def _initialize(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
-        pass
 
     def clone(self) -> NullStorage:
         """Helper method for creating a new implementation of the current NullStorage."""
         cls = self.__class__
         return cls()
 
-    def retrieve(self, *args: Any, **kwargs: Any) -> Optional[Any]:
+    def retrieve(self, *args: Any, **kwargs: Any) -> Any | None:
         """Method added for abstract class consistency - no-op"""
         return None
 
-    def retrieve_all(self, *args: Any, **kwargs: Any) -> Optional[dict[str, Any]]:
+    def retrieve_all(self, *args: Any, **kwargs: Any) -> dict[str, Any] | None:
         """Method added for abstract class consistency - returns a dictionary for type consistency"""
         return {}
 
-    def retrieve_keys(self, *args: Any, **kwargs: Any) -> Optional[list[str]]:
+    def retrieve_keys(self, *args: Any, **kwargs: Any) -> list[str] | None:
         """Method added for abstract class consistency - returns a list for type consistency"""
         return []
 
     def update(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
-        pass
 
     def delete(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
-        pass
 
     def delete_all(self, *args: Any, **kwargs: Any) -> None:
         """Method added for abstract class consistency - no-op"""
-        pass
 
     def verify_cache(self, *args: Any, **kwargs: Any) -> bool:
         """Method added for abstract class consistency - returns False, indicating that no cache is ever stored"""
@@ -100,7 +96,6 @@ class NullStorage(ABCStorage):
 
     def verify_connection(self) -> None:
         """No-Op that otherwise raises an error when connections can't be established successfully."""
-        pass
 
     @classmethod
     def is_available(cls, *args: Any, **kwargs: Any) -> bool:

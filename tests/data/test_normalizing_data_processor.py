@@ -1,6 +1,7 @@
+import pytest
+
 from scholar_flux.data import NormalizingDataProcessor
 from scholar_flux.exceptions import DataProcessingException
-import pytest
 
 
 def test_normalizing_processor_basic():

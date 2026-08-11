@@ -8,14 +8,16 @@ This module tests the enhanced masking capabilities including:
 
 """
 
-import pytest
 import json
+import uuid
+
+import pytest
+
 from scholar_flux import logger
 from scholar_flux.api.validators import validate_and_process_url
-import uuid
 from scholar_flux.security import (
-    KeyMaskingPattern,
     FuzzyKeyMaskingPattern,
+    KeyMaskingPattern,
     SensitiveDataMasker,
 )
 

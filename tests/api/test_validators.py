@@ -16,14 +16,13 @@ Coverage:
 
 """
 
+from collections.abc import Callable
 from functools import partial
 
 import pytest
+from pydantic import SecretStr
 
 from scholar_flux.api.providers import provider_registry
-from pydantic import SecretStr
-from scholar_flux.utils import config_settings
-from typing import Callable
 from scholar_flux.api.validators import (
     api_validator,
     validate_and_process_email,
@@ -32,7 +31,7 @@ from scholar_flux.api.validators import (
     validate_int,
     validate_str,
 )
-
+from scholar_flux.utils import config_settings
 
 # =============================================================================
 # UNIT TESTS: Core Validators

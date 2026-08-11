@@ -1,5 +1,6 @@
 import pytest
-from scholar_flux.data import DataProcessor, DataExtractor
+
+from scholar_flux.data import DataExtractor, DataProcessor
 from scholar_flux.exceptions import DataProcessingException
 
 

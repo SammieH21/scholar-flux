@@ -1,12 +1,12 @@
+from pathlib import Path
+
 import pytest
 
-from scholar_flux.data_storage.redis_storage import RedisStorage
-from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
-from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage
-from scholar_flux.data_storage.sql_storage import DuckDBStorage
 from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
+from scholar_flux.data_storage.mongodb_storage import MongoDBStorage
 from scholar_flux.data_storage.null_storage import NullStorage
-from pathlib import Path
+from scholar_flux.data_storage.redis_storage import RedisStorage
+from scholar_flux.data_storage.sql_storage import DuckDBStorage, SQLAlchemyStorage
 
 
 @pytest.fixture(scope="module")
@@ -135,16 +135,16 @@ def null_test_storage():
 
 
 __all__ = [
-    "redis_test_config",
-    "storage_test_namespace",
-    "mongo_test_config",
-    "sqlite_test_config",
-    "redis_test_storage",
-    "mongo_test_storage",
-    "mongo_nm_test_storage",
-    "sqlite_test_storage",
-    "sqlite_nm_test_storage",
-    "in_memory_test_storage",
     "in_memory_nm_test_storage",
+    "in_memory_test_storage",
+    "mongo_nm_test_storage",
+    "mongo_test_config",
+    "mongo_test_storage",
     "null_test_storage",
+    "redis_test_config",
+    "redis_test_storage",
+    "sqlite_nm_test_storage",
+    "sqlite_test_config",
+    "sqlite_test_storage",
+    "storage_test_namespace",
 ]

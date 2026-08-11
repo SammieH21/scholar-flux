@@ -12,12 +12,14 @@ This test suite covers:
 """
 
 import pytest
-from scholar_flux.utils.helpers import BeautifulSoup
+
 from scholar_flux.api.normalization.crossref_field_map import (
     CrossrefFieldMap,
+)
+from scholar_flux.api.normalization.crossref_field_map import (
     field_map as crossref_field_map,
 )
-
+from scholar_flux.utils.helpers import BeautifulSoup
 
 # ==================== Fixtures ====================
 

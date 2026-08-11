@@ -1,10 +1,12 @@
 """Tests verifying that the `JsonFileUtils` implementation correctly reads, writes, and formats JSON data structures."""
 
-from scholar_flux.utils import JsonFileUtils
-from types import GeneratorType
-from pathlib import Path
 import os
+from pathlib import Path
+from types import GeneratorType
+
 import pytest
+
+from scholar_flux.utils import JsonFileUtils
 
 
 def test_get_filepath(cleanup, tmp_path):

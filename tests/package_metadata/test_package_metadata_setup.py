@@ -1,7 +1,9 @@
-import pytest
-from unittest.mock import patch
 import importlib
 from importlib.metadata import PackageNotFoundError
+from unittest.mock import patch
+
+import pytest
+
 import scholar_flux.package_metadata
 
 

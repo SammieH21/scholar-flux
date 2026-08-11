@@ -23,7 +23,7 @@ API Responses from API Providers.
 from scholar_flux.package_metadata import __version__
 from scholar_flux.utils.initializer import initialize_package
 from scholar_flux.utils.logger import log_level_context
-import scholar_flux.security as security
+from scholar_flux import security
 from typing import Any
 
 config, logger, masker = initialize_package(masker=security.masker)

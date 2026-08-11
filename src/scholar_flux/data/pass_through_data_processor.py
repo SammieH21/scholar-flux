@@ -6,7 +6,6 @@ The pass through data processor is designed for simplicity, allowing end-users t
 also filter records based on conditions and extract nested key-value pairs within each record if specified.
 
 """
-from typing import Optional
 from scholar_flux.utils import nested_key_exists
 
 from scholar_flux.data import ABCDataProcessor
@@ -29,9 +28,9 @@ class PassThroughDataProcessor(ABCDataProcessor):
 
     def __init__(
         self,
-        ignore_keys: Optional[list[str]] = None,
-        keep_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = True,
+        ignore_keys: list[str] | None = None,
+        keep_keys: list[str] | None = None,
+        regex: bool | None = True,
     ) -> None:
         """Initialize the PassThroughDataProcessor with explicit extraction paths and options.
 
@@ -63,9 +62,9 @@ class PassThroughDataProcessor(ABCDataProcessor):
     def process_page(
         self,
         parsed_records: RecordList,
-        ignore_keys: Optional[list[str]] = None,
-        keep_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
+        ignore_keys: list[str] | None = None,
+        keep_keys: list[str] | None = None,
+        regex: bool | None = None,
     ) -> list[dict]:
         """Processes and returns each record as is if filtering the final list of records by key is not enabled."""
 
@@ -93,7 +92,7 @@ class PassThroughDataProcessor(ABCDataProcessor):
 
     @classmethod
     def record_filter(
-        cls, record_dict: RecordType, record_keys: Optional[list[str]] = None, regex: Optional[bool] = None
+        cls, record_dict: RecordType, record_keys: list[str] | None = None, regex: bool | None = None
     ) -> bool:
         """Helper method that filters records using regex pattern matching, checking if any of the keys provided in the
         function call exist."""

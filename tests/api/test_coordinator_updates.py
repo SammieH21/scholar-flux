@@ -1,15 +1,17 @@
-import pytest
 from copy import deepcopy
+
+import pytest
+from requests_cache.session import CachedSession
+
 from scholar_flux.api import (
     BaseCoordinator,
-    SearchCoordinator,
-    SearchAPI,
     ResponseCoordinator,
-    RetryHandler,
     ResponseValidator,
+    RetryHandler,
+    SearchAPI,
+    SearchCoordinator,
 )
 from scholar_flux.exceptions import InvalidCoordinatorParameterException
-from requests_cache.session import CachedSession
 
 
 @pytest.fixture(scope="session")

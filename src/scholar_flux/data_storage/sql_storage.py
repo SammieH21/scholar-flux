@@ -24,7 +24,7 @@ Classes:
 
 from __future__ import annotations
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from scholar_flux.utils.encoder import JsonDataEncoder
 from scholar_flux.utils.helpers import coerce_str, try_none
@@ -69,7 +69,6 @@ else:
 
         def Column(*args, **kwargs):
             """Placeholder function that is returned when the sqlalchemy package is not available."""
-            pass
 
         String = Integer = Sequence = JSON = exc = Engine = None
         DeclarativeBase = object
@@ -81,8 +80,6 @@ if TYPE_CHECKING or sqlalchemy is not None:
 
     class Base(DeclarativeBase):
         """Helper class that future SQLAlchemy-compatible tables inherit from."""
-
-        pass
 
     class CacheTable(Base):
         """Table that implements caching in a manner similar to a dictionary with key-cache data pairs."""
@@ -149,7 +146,7 @@ class SQLAlchemyStorage(ABCStorage):
 
     """
 
-    DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_NAMESPACE: str | None = None
     DEFAULT_CONFIG: SettingsDictType = SettingsDict(
         url=lambda: SQLAlchemyStorage.get_default_url(),
         echo=False,
@@ -159,10 +156,10 @@ class SQLAlchemyStorage(ABCStorage):
 
     def __init__(
         self,
-        url: Optional[str] = None,
-        namespace: Optional[str] = None,
+        url: str | None = None,
+        namespace: str | None = None,
         ttl: None = None,
-        raise_on_error: Optional[bool] = False,
+        raise_on_error: bool | None = False,
         verify_connection: bool = False,
         **sqlalchemy_config: Any,
     ) -> None:
@@ -228,7 +225,7 @@ class SQLAlchemyStorage(ABCStorage):
         cls = self.__class__
         return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
-    def retrieve(self, key: str) -> Optional[Any]:
+    def retrieve(self, key: str) -> Any | None:
         """Retrieve the value associated with the provided key from cache.
 
         Args:
@@ -337,7 +334,7 @@ class SQLAlchemyStorage(ABCStorage):
                     exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
                 )
 
-    def delete(self, key: str) -> Optional[bool]:
+    def delete(self, key: str) -> bool | None:
         """Delete the value associated with the provided key from cache.
 
         Args:
@@ -412,7 +409,7 @@ class SQLAlchemyStorage(ABCStorage):
             return record_data
 
         if isinstance(record_data, list):
-            record_type: Optional[type] = list
+            record_type: type | None = list
         elif isinstance(record_data, dict):
             record_type = dict
         else:
@@ -544,7 +541,7 @@ class SQLAlchemyStorage(ABCStorage):
             pass
 
     @classmethod
-    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs: Any) -> bool:
+    def is_available(cls, url: str | None = None, verbose: bool = True, **kwargs: Any) -> bool:
         """Tests whether the SQL service can be accessed. If so, this function returns True, otherwise False.
 
         Args:
@@ -590,10 +587,10 @@ class DuckDBStorage(SQLAlchemyStorage):
 
     def __init__(
         self,
-        url: Optional[str] = None,
-        namespace: Optional[str] = None,
+        url: str | None = None,
+        namespace: str | None = None,
         ttl: None = None,
-        raise_on_error: Optional[bool] = False,
+        raise_on_error: bool | None = False,
         verify_connection: bool = False,
         **sqlalchemy_config: Any,
     ) -> None:
@@ -659,7 +656,7 @@ class DuckDBStorage(SQLAlchemyStorage):
         return f"duckdb:///{url_path}"
 
     @classmethod
-    def is_available(cls, url: Optional[str] = None, verbose: bool = True, **kwargs: Any) -> bool:
+    def is_available(cls, url: str | None = None, verbose: bool = True, **kwargs: Any) -> bool:
         """Tests whether the SQL service can be accessed. If so, this function returns True, otherwise False.
 
         Args:

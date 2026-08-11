@@ -1,23 +1,27 @@
-import pytest
-from pydantic import SecretStr, BaseModel, Field
-from random import randint
-from dataclasses import dataclass, field
-from scholar_flux import logger
-from collections import deque
-from typing import Callable
 import json
 import re
 import uuid
+from collections import deque
+from dataclasses import dataclass, field
+from random import randint
+
+import pytest
+from pydantic import BaseModel, Field, SecretStr
+
+from scholar_flux import logger, masker
 from scholar_flux.security import (
+    FuzzyKeyMaskingPattern,
+    KeyMaskingPattern,
     MaskingPattern,
     MaskingPatternSet,
-    KeyMaskingPattern,
-    FuzzyKeyMaskingPattern,
-    StringMaskingPattern,
     SensitiveDataMasker,
+    StringMaskingPattern,
 )
-from scholar_flux import masker
 from scholar_flux.utils import generate_repr
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class MockInputs(BaseModel):
@@ -792,7 +796,7 @@ def test_secret_string_stays_masked(mock_key, caplog):
     """Verifies that `SecretStr` stay fully masked in logs, given that they should already be masked to begin with."""
     masker = SensitiveDataMasker(register_defaults=True)
     # Retrieves the pattern for masking SecretStr('**********') implementations
-    pattern = masker.unmask_secret(list(masker.get_patterns_by_name("SecretStr"))[0].pattern)
+    pattern = masker.unmask_secret(next(iter(masker.get_patterns_by_name("SecretStr"))).pattern)
 
     # Verifies masking behavior on different types before and after string conversion
     logger.info(mock_key)

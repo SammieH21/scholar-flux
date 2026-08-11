@@ -1,33 +1,31 @@
 """Tests for verifying the session functionality across different configurations and cache backend implementations."""
 
-import pytest
-import requests
-from requests_cache import CachedSession, CachedResponse
-from requests_cache.backends.sqlite import SQLiteCache
-import requests_mock
-from pydantic import ValidationError
-from pathlib import Path
-from datetime import datetime, timedelta
-from time import sleep
+import importlib.util
+import logging
 import os
 import re
-import importlib.util
+from datetime import datetime, timedelta
+from pathlib import Path
+from time import sleep
 
-import logging
+import pytest
+import requests
+import requests_mock
+from pydantic import ValidationError
+from requests_cache import CachedResponse, CachedSession
+from requests_cache.backends.sqlite import SQLiteCache
 
-from scholar_flux.sessions.models.session import BaseSessionManager, SessionCacheBackend, CachedSessionConfig
-from scholar_flux.sessions.session_manager import SessionManager, CachedSessionManager
-from scholar_flux.utils import config_settings
-from scholar_flux.data_storage import RedisStorage, MongoDBStorage
+from scholar_flux.data_storage import MongoDBStorage, RedisStorage
 from scholar_flux.exceptions.util_exceptions import (
-    SessionCreationError,
+    CachedSessionValidationError,
     SessionCacheDirectoryError,
     SessionConfigurationError,
-    CachedSessionValidationError,
+    SessionCreationError,
 )
-
+from scholar_flux.sessions.models.session import BaseSessionManager, CachedSessionConfig, SessionCacheBackend
+from scholar_flux.sessions.session_manager import CachedSessionManager, SessionManager
+from scholar_flux.utils import config_settings
 from tests.testing_utilities import raise_error
-
 
 logger = logging.getLogger(__name__)
 

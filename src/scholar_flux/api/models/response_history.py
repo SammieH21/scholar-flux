@@ -6,7 +6,7 @@ calculation of accurate request delays.
 
 """
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse
@@ -98,7 +98,7 @@ class ResponseHistoryRegistry(BaseProviderDict):
                 f"Removed the {type(response)} for the provider, '{provider_name}' from the response history registry"
             )
 
-    def get_from_url(self, provider_url: Optional[str]) -> Optional[ProcessedResponse | ErrorResponse]:
+    def get_from_url(self, provider_url: str | None) -> ProcessedResponse | ErrorResponse | None:
         """Attempt to retrieve a ProcessedResponse or ErrorResponse instance for the given provider from a URL.
 
         This method retrieves responses by resolving the provided URL to the provider's base URL after normalization.

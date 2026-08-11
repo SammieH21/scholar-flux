@@ -1,7 +1,9 @@
-from typing import MutableMapping, Generator
+from collections.abc import Generator, MutableMapping
+
 import pytest
-from scholar_flux.utils import PathNode, PathNodeMap, ProcessingPath
+
 from scholar_flux.exceptions import PathNodeMapError
+from scholar_flux.utils import PathNode, PathNodeMap, ProcessingPath
 
 
 @pytest.fixture
@@ -102,7 +104,7 @@ def test_pathnodemap_filter_and_cache(ref_test_nodes):
 def test_negative_filter_depth(default_mapping):
     """Verifies that negative filter depths will successfully raise a PathNodeMapError."""
     # uses the first node as a test prop for verifying depth settings
-    first_node = list(default_mapping.values())[0]
+    first_node = next(iter(default_mapping.values()))
     err = "Minimum and Maximum depth must be None or greater than 0 or 1"
 
     # verifies that the minimum depth and maximum depth, when negative raises a PathNodeMapError

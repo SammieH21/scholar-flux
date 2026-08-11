@@ -9,8 +9,11 @@ This test suite covers:
 """
 
 import pytest
+
 from scholar_flux.api.normalization.arxiv_field_map import (
     ArXivFieldMap,
+)
+from scholar_flux.api.normalization.arxiv_field_map import (
     field_map as arxiv_field_map,
 )
 

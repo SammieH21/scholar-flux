@@ -1,7 +1,8 @@
-from scholar_flux.api.models import ProcessedResponse
-from scholar_flux.api import SearchCoordinator, SearchAPI
-import requests_mock
 import requests
+import requests_mock
+
+from scholar_flux.api import SearchAPI, SearchCoordinator
+from scholar_flux.api.models import ProcessedResponse
 
 
 def test_plos_api(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers):

@@ -5,7 +5,7 @@ The BaseAPI is subclassed by scholar_flux.api.SearchAPI to further build and for
 accepted by each API provider given their respective configurations.
 
 """
-from typing import Optional, Dict, Any
+from typing import Any
 import requests
 from requests.auth import AuthBase
 from requests_cache.session import CachedSession
@@ -71,10 +71,10 @@ class BaseAPI:
 
     def __init__(
         self,
-        user_agent: Optional[str] = None,
-        session: Optional[requests.Session] = None,
-        timeout: Optional[int | float] = None,
-        use_cache: Optional[bool] = None,
+        user_agent: str | None = None,
+        session: requests.Session | None = None,
+        timeout: float | None = None,
+        use_cache: bool | None = None,
     ):
         """Initializes the BaseAPI client for response retrieval given the provided inputs.
 
@@ -93,14 +93,14 @@ class BaseAPI:
         self.timeout = self._validate_timeout(timeout if timeout is not None else self.DEFAULT_TIMEOUT)
 
     @staticmethod
-    def _validate_timeout(timeout: int | float) -> int | float:
+    def _validate_timeout(timeout: float) -> int | float:
         """Helper method used to ensure that timeout values received are positive numeric values."""
         if not isinstance(timeout, (int, float)) or timeout <= 0:
             raise APIParameterException(f"Invalid timeout value: {timeout}")
         return timeout
 
     @property
-    def user_agent(self) -> Optional[str]:
+    def user_agent(self) -> str | None:
         """The User-Agent should always reflect what is used in the session.
 
         This method retrieves the User-Agent from the session directly.
@@ -110,7 +110,7 @@ class BaseAPI:
         return user_agent.decode("utf-8") if isinstance(user_agent, bytes) else user_agent
 
     @user_agent.setter
-    def user_agent(self, user_agent: Optional[str]) -> None:
+    def user_agent(self, user_agent: str | None) -> None:
         """This property setter is used to directly update the session header without the need to update the user agent
         in both the session and the BaseAPI class.
 
@@ -124,9 +124,9 @@ class BaseAPI:
 
     def configure_session(
         self,
-        session: Optional[requests.Session] = None,
-        user_agent: Optional[str] = None,
-        use_cache: Optional[bool] = None,
+        session: requests.Session | None = None,
+        user_agent: str | None = None,
+        use_cache: bool | None = None,
     ) -> requests.Session:
         """Creates a new `Session` or `CachedSession` object for API requests if a session does not already exist.
 
@@ -206,7 +206,7 @@ class BaseAPI:
         return isinstance(session, CachedSession)
 
     @property
-    def cache(self) -> Optional[BaseCache]:
+    def cache(self) -> BaseCache | None:
         """Retrieves the requests-session cache object if the session object is a `CachedSession` object.
 
         If a session cache does not exist, this function will return None.
@@ -230,10 +230,10 @@ class BaseAPI:
     def prepare_request(
         self,
         base_url: str,
-        endpoint: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
+        endpoint: str | None = None,
+        parameters: dict[str, Any] | None = None,
         *,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
     ) -> requests.PreparedRequest:
         """Prepares a GET request for the specified endpoint with optional parameters.
 
@@ -263,11 +263,11 @@ class BaseAPI:
     def send_request(
         self,
         base_url: str,
-        endpoint: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
+        endpoint: str | None = None,
+        parameters: dict[str, Any] | None = None,
         *,
-        timeout: Optional[int | float] = None,
-        auth: Optional[AuthBase] = None,
+        timeout: float | None = None,
+        auth: AuthBase | None = None,
     ) -> requests.Response:
         """Sends a GET request to the specified endpoint with optional parameters.
 

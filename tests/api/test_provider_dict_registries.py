@@ -1,17 +1,19 @@
+import copy
+import re
+
 import pytest
-from scholar_flux.api.models import BaseProviderDict, BaseAPIParameterMap
+
+from scholar_flux.api.models import BaseAPIParameterMap, BaseProviderDict
 from scholar_flux.api.normalization import BaseFieldMap
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.rate_limiting import (
+    RateLimiter,
+    RateLimiterRegistry,
+    ThreadedRateLimiter,
     rate_limiter_registry,
     threaded_rate_limiter_registry,
-    RateLimiterRegistry,
-    RateLimiter,
-    ThreadedRateLimiter,
 )
 from scholar_flux.exceptions import APIParameterException
-import copy
-import re
 
 EXPECTED_PROVIDERS = provider_registry.providers
 

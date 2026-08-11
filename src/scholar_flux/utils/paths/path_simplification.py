@@ -11,7 +11,7 @@ PathSimplifier will attempt to shorten the names in the final dictionary of path
 """
 from __future__ import annotations
 import logging
-from typing import Optional, List, Dict, Union, Any, Set
+from typing import Any
 from collections import defaultdict
 
 from scholar_flux.exceptions.path_exceptions import PathSimplificationError
@@ -40,7 +40,7 @@ class PathSimplifier:
 
     delimiter: str = ProcessingPath.DEFAULT_DELIMITER
     non_informative: list[str] = field(default_factory=list)
-    name_mappings: Dict[ProcessingPath, str] = field(default_factory=dict)
+    name_mappings: dict[ProcessingPath, str] = field(default_factory=dict)
 
     def _generate_base_name(self, path: ProcessingPath, max_components: int) -> ProcessingPath:
         """Generate a base name from the Processing Path.
@@ -92,7 +92,7 @@ class PathSimplifier:
     def generate_unique_name(
         self,
         path: ProcessingPath,
-        max_components: Optional[int],
+        max_components: int | None,
         remove_noninformative: bool = False,
     ) -> ProcessingPath:
         """Generate a unique name for the given Processing Path.
@@ -144,10 +144,10 @@ class PathSimplifier:
 
     def simplify_paths(
         self,
-        paths: Union[List[Union[ProcessingPath, str]], Set[Union[ProcessingPath, str]]],
-        max_components: Optional[int],
+        paths: list[ProcessingPath | str] | set[ProcessingPath | str],
+        max_components: int | None,
         remove_noninformative: bool = False,
-    ) -> Dict[ProcessingPath, str]:
+    ) -> dict[ProcessingPath, str]:
         """Simplify paths by removing non-informative components and selecting the last 'max_components' informative
         components.
 
@@ -183,9 +183,9 @@ class PathSimplifier:
 
     def simplify_to_row(
         self,
-        terminal_nodes: List[PathNode] | Set[PathNode],
-        collapse: Optional[str] = ";",
-    ) -> Dict[str, Any]:
+        terminal_nodes: list[PathNode] | set[PathNode],
+        collapse: str | None = ";",
+    ) -> dict[str, Any]:
         """Simplify terminal nodes by mapping them to their corresponding unique names.
 
         Args:
@@ -239,7 +239,7 @@ class PathSimplifier:
             return None
         return delimiter.join(map(str, obj))
 
-    def get_mapped_paths(self) -> Dict[ProcessingPath, str]:
+    def get_mapped_paths(self) -> dict[ProcessingPath, str]:
         """Get the current name mappings.
 
         Returns:

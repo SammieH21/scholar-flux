@@ -9,7 +9,8 @@ Trie-based implementations.
 
 """
 from __future__ import annotations
-from typing import Optional, Union, Any, Set, ClassVar, MutableSequence, MutableMapping
+from typing import Any, ClassVar
+from collections.abc import MutableSequence, MutableMapping
 from dataclasses import dataclass, field
 from scholar_flux.exceptions.path_exceptions import PathDiscoveryError
 
@@ -38,22 +39,22 @@ class PathDiscoverer:
 
     """
 
-    records: Optional[Union[list[dict], dict]] = None
+    records: list[dict] | dict | None = None
     path_mappings: dict[ProcessingPath, Any] = field(default_factory=dict)
     DEFAULT_DELIMITER: ClassVar[str] = ProcessingPath.DEFAULT_DELIMITER
 
     @property
-    def terminal_paths(self) -> Set[ProcessingPath]:
+    def terminal_paths(self) -> set[ProcessingPath]:
         """Helper method for returning a list of all discovered paths from the PathDiscoverer."""
         return set(self.path_mappings.keys())
 
     def discover_path_elements(
         self,
-        records: Optional[Union[list[dict], dict]] = None,
-        current_path: Optional[ProcessingPath] = None,
-        max_depth: Optional[int] = None,
+        records: list[dict] | dict | None = None,
+        current_path: ProcessingPath | None = None,
+        max_depth: int | None = None,
         inplace: bool = False,
-    ) -> Optional[dict[ProcessingPath, Any]]:
+    ) -> dict[ProcessingPath, Any] | None:
         """Recursively traverses records to discover keys, their paths, and terminal status. Uses the private method
         _discover_path_elements in order to add terminal path value pairs to the path_mappings attribute.
 
@@ -101,7 +102,7 @@ class PathDiscoverer:
         self,
         record: Any,
         current_path: ProcessingPath,
-        max_depth: Optional[int] = None,
+        max_depth: int | None = None,
     ) -> None:
         """
         Helper function for recursively traversing a dictionary and adding terminal path - value pairs where they exist.
@@ -170,7 +171,7 @@ class PathDiscoverer:
             raise
 
     @staticmethod
-    def _log_early_stop(path: ProcessingPath, value: Any, max_depth: Optional[int] = None) -> None:
+    def _log_early_stop(path: ProcessingPath, value: Any, max_depth: int | None = None) -> None:
         """Logs the resulting value after halting the addition of paths early by max depth.
 
         Args:

@@ -3,7 +3,6 @@
 from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap
 from scholar_flux.utils.helpers import as_tuple, try_none
 from scholar_flux.utils.record_types import NormalizedRecordType
-from typing import Optional
 
 
 class CoreFieldMap(AcademicFieldMap):
@@ -72,7 +71,7 @@ class CoreFieldMap(AcademicFieldMap):
         return record
 
     @classmethod
-    def extract_arxiv_id(cls, record: NormalizedRecordType) -> Optional[str]:
+    def extract_arxiv_id(cls, record: NormalizedRecordType) -> str | None:
         """Extracts the arXiv identifier for cross-database entity resolution.
 
         Args:
@@ -85,7 +84,7 @@ class CoreFieldMap(AcademicFieldMap):
         return cls.extract_id(record, "arxiv_id")
 
     @classmethod
-    def extract_pmid(cls, record: NormalizedRecordType) -> Optional[str]:
+    def extract_pmid(cls, record: NormalizedRecordType) -> str | None:
         """Extracts the PubMed identifier for cross-database entity resolution.
 
         Args:
@@ -104,7 +103,7 @@ class CoreFieldMap(AcademicFieldMap):
         return cls.extract_id(record, "pmid") or cls.extract_id(record, "pubmed_id")
 
     @classmethod
-    def extract_mag_id(cls, record: NormalizedRecordType) -> Optional[str]:
+    def extract_mag_id(cls, record: NormalizedRecordType) -> str | None:
         """Extracts the Microsoft Academic Graph identifier for cross-database entity resolution.
 
         Args:
@@ -123,7 +122,7 @@ class CoreFieldMap(AcademicFieldMap):
         return cls.extract_id(record, "mag_id")
 
     @classmethod
-    def extract_oai_ids(cls, record: NormalizedRecordType) -> Optional[list[str]]:
+    def extract_oai_ids(cls, record: NormalizedRecordType) -> list[str] | None:
         """Extracts the OAI identifiers for cross-database entity resolution.
 
         Args:

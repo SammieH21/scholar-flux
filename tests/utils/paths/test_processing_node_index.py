@@ -1,16 +1,18 @@
 import re
+
+import pytest
+
 from scholar_flux import DataExtractor
 from scholar_flux.utils import (
-    PathSimplifier,
     PathDiscoverer,
     PathNode,
-    PathNodeMap,
-    RecordPathNodeMap,
     PathNodeIndex,
-    RecordPathChainMap,
+    PathNodeMap,
+    PathSimplifier,
     ProcessingPath,
+    RecordPathChainMap,
+    RecordPathNodeMap,
 )
-import pytest
 
 
 @pytest.fixture

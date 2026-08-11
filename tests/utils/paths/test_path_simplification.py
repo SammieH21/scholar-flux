@@ -1,11 +1,13 @@
+import pytest
+
 from scholar_flux.utils import (
-    PathSimplifier,
     PathDiscoverer,
     PathNode,
     PathNodeIndex,
+    PathSimplifier,
     ProcessingPath,
 )
-import pytest
+from scholar_flux.exceptions import PathSimplificationError
 
 
 def test_path_uniqueness():
@@ -45,7 +47,7 @@ def test_generate_base_name_valid():
 def test_generate_base_name_invalid():
     """Verifies that the `_generate_base_name` method raises an exception when given invalid input."""
     simplifier = PathSimplifier()
-    with pytest.raises(Exception):
+    with pytest.raises(PathSimplificationError):
         simplifier._generate_base_name("not_a_path", 2)  # type: ignore
 
 
@@ -112,7 +114,7 @@ def test_simplify_to_row_missing_mapping():
     simplifier = PathSimplifier()
     path = ProcessingPath(["a", "b", "c"])
     node = PathNode(path, "value")
-    with pytest.raises(Exception):
+    with pytest.raises(PathSimplificationError):
         simplifier.simplify_to_row([node])
 
 

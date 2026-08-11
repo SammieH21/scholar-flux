@@ -4,7 +4,7 @@ authors:
   - family-names: "Haskin"
     given-names: "Sammie"
 title: "ScholarFlux: Production-Grade Orchestration for Academic APIs"
-version: 0.6.1
-date-released: "2026-07-14"
+version: 0.6.2
+date-released: "2026-08-11"
 repository-code: "https://github.com/SammieH21/scholar-flux"
 license: Apache-2.0

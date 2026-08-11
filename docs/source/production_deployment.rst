@@ -17,7 +17,7 @@ ScholarFlux is designed for production-grade data collection from academic APIs.
 - **Essential patterns**: Caching, concurrency, and security basics
 
 .. note::
-   ScholarFlux is currently **beta (v0.6.1)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
+   ScholarFlux is currently **beta (v0.6.2)**. Test thoroughly before production deployment and monitor the `GitHub repository <https://github.com/SammieH21/scholar-flux>`_ for updates.
 
 Prerequisites
 -------------

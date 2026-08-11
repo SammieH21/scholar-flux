@@ -10,8 +10,11 @@ This test suite covers:
 """
 
 import pytest
+
 from scholar_flux.api.normalization.open_alex_field_map import (
     OpenAlexFieldMap,
+)
+from scholar_flux.api.normalization.open_alex_field_map import (
     field_map as openalex_field_map,
 )
 

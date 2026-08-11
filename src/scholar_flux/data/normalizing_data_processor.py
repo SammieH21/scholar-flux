@@ -4,7 +4,7 @@ from scholar_flux.data.data_processor import DataProcessor
 from scholar_flux.utils.json_processing_utils import RecursiveJsonProcessor, PathUtils
 from scholar_flux.utils.helpers import is_nested_json
 from scholar_flux.utils.record_types import RecordType, NormalizedRecordType
-from typing import Optional, Any
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,14 +52,14 @@ class NormalizingDataProcessor(DataProcessor):
 
     def __init__(
         self,
-        record_keys: Optional[
-            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
-        ] = None,
-        ignore_keys: Optional[list[str]] = None,
-        keep_keys: Optional[list[str]] = None,
-        value_delimiter: Optional[str] = None,
-        regex: Optional[bool] = True,
-        traverse_lists: Optional[bool] = True,
+        record_keys: (
+            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str] | None
+        ) = None,
+        ignore_keys: list[str] | None = None,
+        keep_keys: list[str] | None = None,
+        value_delimiter: str | None = None,
+        regex: bool | None = True,
+        traverse_lists: bool | None = True,
     ) -> None:
         """Initializes the NormalizingDataProcessor.
 

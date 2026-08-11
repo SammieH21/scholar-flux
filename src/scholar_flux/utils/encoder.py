@@ -17,7 +17,8 @@ Classes:
 import base64
 import json
 import binascii
-from typing import Any, Optional, TypeVar, MutableMapping, MutableSequence, overload
+from typing import Any, TypeVar, overload
+from collections.abc import MutableMapping, MutableSequence
 import logging
 
 logger = logging.getLogger(__name__)
@@ -59,11 +60,11 @@ class CacheDataEncoder:
 
     """
 
-    DEFAULT_HASH_PREFIX: Optional[str] = "<hashbytes>"
+    DEFAULT_HASH_PREFIX: str | None = "<hashbytes>"
     DEFAULT_NONREADABLE_PROP: float = 0.2
 
     @classmethod
-    def is_base64(cls, s: str | bytes, hash_prefix: Optional[str] = None) -> bool:
+    def is_base64(cls, s: str | bytes, hash_prefix: str | None = None) -> bool:
         """Check if a string is a valid base64 encoded string. Encoded strings can optionally be identified with a
         hash_prefix to streamline checks to determine whether or not to later decode a base64 encoded string.
 
@@ -106,7 +107,7 @@ class CacheDataEncoder:
             return False
 
     @classmethod
-    def is_nonreadable(cls, s: bytes, prop: Optional[float] = None) -> bool:
+    def is_nonreadable(cls, s: bytes, prop: float | None = None) -> bool:
         """Check if a decoded byte string contains a high percentage of non-printable characters. Non-printable
         characters are defined as those not within the unicode range of (32 <= c <= 126).
 
@@ -127,36 +128,31 @@ class CacheDataEncoder:
 
     @classmethod
     @overload
-    def encode(cls, data: bytes, hash_prefix: Optional[str] = None) -> str:
+    def encode(cls, data: bytes, hash_prefix: str | None = None) -> str:
         """When the data is a bytes object, an encoded string is returned."""
-        ...
 
     @classmethod
     @overload
-    def encode(cls, data: MutableMapping, hash_prefix: Optional[str] = None) -> dict:
+    def encode(cls, data: MutableMapping, hash_prefix: str | None = None) -> dict:
         """When the data is a MutableMapping, a recursively encoded dict is returned."""
-        ...
 
     @classmethod
     @overload
-    def encode(cls, data: MutableSequence | set, hash_prefix: Optional[str] = None) -> list:
+    def encode(cls, data: MutableSequence | set, hash_prefix: str | None = None) -> list:
         """When the data is a sequence, a recursively encoded sequence is returned."""
-        ...
 
     @classmethod
     @overload
-    def encode(cls, data: tuple, hash_prefix: Optional[str] = None) -> tuple:
+    def encode(cls, data: tuple, hash_prefix: str | None = None) -> tuple:
         """When the data is a tuple, a recursively encoded tuple is returned."""
-        ...
 
     @classmethod
     @overload
-    def encode(cls, data: T, hash_prefix: Optional[str] = None) -> T:
+    def encode(cls, data: T, hash_prefix: str | None = None) -> T:
         """For all other types, expect an object."""
-        ...
 
     @classmethod
-    def encode(cls, data: object, hash_prefix: Optional[str] = None) -> object:
+    def encode(cls, data: object, hash_prefix: str | None = None) -> object:
         """Recursively encodes all items that contain elements that cannot be directly serialized into JSON into a
         format more suitable for serialization:
 
@@ -193,36 +189,31 @@ class CacheDataEncoder:
 
     @classmethod
     @overload
-    def decode(cls, data: str, hash_prefix: Optional[str] = None) -> str | bytes:
+    def decode(cls, data: str, hash_prefix: str | None = None) -> str | bytes:
         """When the data is a string object, the original string or a decoded bytes object is returned."""
-        ...
 
     @classmethod
     @overload
-    def decode(cls, data: dict, hash_prefix: Optional[str] = None) -> dict:
+    def decode(cls, data: dict, hash_prefix: str | None = None) -> dict:
         """When the data is a dict, a recursively decoded dict is returned."""
-        ...
 
     @classmethod
     @overload
-    def decode(cls, data: list, hash_prefix: Optional[str] = None) -> list:
+    def decode(cls, data: list, hash_prefix: str | None = None) -> list:
         """When the data is a list, a recursively decoded list is returned."""
-        ...
 
     @classmethod
     @overload
-    def decode(cls, data: tuple, hash_prefix: Optional[str] = None) -> tuple:
+    def decode(cls, data: tuple, hash_prefix: str | None = None) -> tuple:
         """When the data is a tuple, a recursively decoded tuple is returned."""
-        ...
 
     @classmethod
     @overload
-    def decode(cls, data: T, hash_prefix: Optional[str] = None) -> T:
+    def decode(cls, data: T, hash_prefix: str | None = None) -> T:
         """For all other types, expect the same object to be returned as is."""
-        ...
 
     @classmethod
-    def decode(cls, data: object, hash_prefix: Optional[str] = None) -> object:
+    def decode(cls, data: object, hash_prefix: str | None = None) -> object:
         """Recursively decodes base64 strings back to bytes or recursively decode elements within dictionaries and
         lists.
 
@@ -257,7 +248,7 @@ class CacheDataEncoder:
         return data  # Return unmodified non-decodable types
 
     @classmethod
-    def _encode_bytes(cls, data: bytes, hash_prefix: Optional[str] = None) -> str:
+    def _encode_bytes(cls, data: bytes, hash_prefix: str | None = None) -> str:
         """Helper method for encoding bytes objects into strings.
 
         Args:
@@ -278,7 +269,7 @@ class CacheDataEncoder:
             raise ValueError(f"{err}.") from e
 
     @classmethod
-    def _encode_dict(cls, data: MutableMapping, hash_prefix: Optional[str] = None) -> dict:
+    def _encode_dict(cls, data: MutableMapping, hash_prefix: str | None = None) -> dict:
         """Helper method for recursively encoding a mutable mapping containing encoded value into its original encoded
         representation.
 
@@ -291,7 +282,7 @@ class CacheDataEncoder:
 
         """
         # exact type comparison, ignores format
-        if type(data) is not dict:  # noqa: E721
+        if type(data) is not dict:
             logger.warning("Non-dictionary mutable mappings are coerced into dictionaries when encoded")
         try:
             hash_prefix = hash_prefix or ""
@@ -302,7 +293,7 @@ class CacheDataEncoder:
             raise ValueError(f"{err}.") from e
 
     @classmethod
-    def _encode_list(cls, data: MutableSequence | set, hash_prefix: Optional[str] = None) -> list:
+    def _encode_list(cls, data: MutableSequence | set, hash_prefix: str | None = None) -> list:
         """Helper method for encoding a list containing encoded value into its original encoded representation.
 
         Args:
@@ -314,7 +305,7 @@ class CacheDataEncoder:
 
         """
         # exact type comparison, ignores format
-        if type(data) is not list:  # noqa: E721
+        if type(data) is not list:
             logger.warning("Non-list/tuple mutable sequences are coerced into lists when encoded")
         try:
             hash_prefix = hash_prefix or ""
@@ -325,7 +316,7 @@ class CacheDataEncoder:
             raise ValueError(f"{err}.") from e
 
     @classmethod
-    def _encode_tuple(cls, data: tuple, hash_prefix: Optional[str] = None) -> tuple:
+    def _encode_tuple(cls, data: tuple, hash_prefix: str | None = None) -> tuple:
         """Helper method for encoding a tuple containing encoded value into its original encoded representation.
 
         Args:
@@ -346,22 +337,20 @@ class CacheDataEncoder:
 
     @classmethod
     @overload
-    def _decode_string(cls, data: bytes, hash_prefix: Optional[str] = None) -> bytes:
+    def _decode_string(cls, data: bytes, hash_prefix: str | None = None) -> bytes:
         """When a bytes object is received, the decoded bytes object is returned when possible."""
-        ...
 
     @classmethod
     @overload
-    def _decode_string(cls, data: str, hash_prefix: Optional[str] = None) -> str | bytes:
+    def _decode_string(cls, data: str, hash_prefix: str | None = None) -> str | bytes:
         """When a string is received, bytes are returned when decoding is possible.
 
         The string is returned otherwise.
 
         """
-        ...
 
     @classmethod
-    def _decode_string(cls, data: str | bytes, hash_prefix: Optional[str] = None) -> str | bytes:
+    def _decode_string(cls, data: str | bytes, hash_prefix: str | None = None) -> str | bytes:
         """Helper method for decoding a string into bytes if possible. Otherwise the original string is returned.
 
         Args:
@@ -393,7 +382,7 @@ class CacheDataEncoder:
             return data  # Return original if decoding error occurs
 
     @classmethod
-    def _decode_dict(cls, data: dict, hash_prefix: Optional[str] = None) -> dict:
+    def _decode_dict(cls, data: dict, hash_prefix: str | None = None) -> dict:
         """Helper method for decoding a dictionary containing encoded value into its original decoded representation.
 
         Args:
@@ -413,7 +402,7 @@ class CacheDataEncoder:
             raise ValueError(f"{err}.") from e
 
     @classmethod
-    def _decode_list(cls, data: list, hash_prefix: Optional[str] = None) -> list:
+    def _decode_list(cls, data: list, hash_prefix: str | None = None) -> list:
         """Helper method for decoding a recursively encoded list into its original decoded representation.
 
         Args:
@@ -433,7 +422,7 @@ class CacheDataEncoder:
             raise ValueError(f"{err}.") from e
 
     @classmethod
-    def _decode_tuple(cls, data: tuple, hash_prefix: Optional[str] = None) -> tuple:
+    def _decode_tuple(cls, data: tuple, hash_prefix: str | None = None) -> tuple:
         """Helper method for decoding a recursively encoded tuple into its original decoded representation.
 
         Args:

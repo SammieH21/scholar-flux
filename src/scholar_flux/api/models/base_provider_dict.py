@@ -2,7 +2,7 @@
 """The scholar_flux.api.models.base_provider_dict.py module implements a BaseProviderDict to extend the dictionary and
 resolve provider names to a generic key, handling the normalization of provider names for consistent access."""
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any
 import re
 from collections import UserDict
 from scholar_flux.api.models.provider_config import ProviderConfig
@@ -123,7 +123,7 @@ class BaseProviderDict(UserDict[str, Any]):
         """
         return list(self.data)
 
-    def find(self, key: str | re.Pattern, regex: Optional[bool] = None) -> list[str]:
+    def find(self, key: str | re.Pattern, regex: bool | None = None) -> list[str]:
         """Identifies providers with names matching the specified pattern using either prefix or regex pattern matching.
 
         This implementation uses `fuzzy` finding, or "flexible matching that's more forgiving than exact". When

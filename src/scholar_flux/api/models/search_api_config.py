@@ -14,7 +14,7 @@ minimal code.
 
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, SecretStr, model_validator
-from typing import Optional, Any, ClassVar
+from typing import Any, ClassVar
 from typing_extensions import Self
 from urllib.parse import urlparse
 from scholar_flux.api.validators import validate_url
@@ -91,8 +91,8 @@ class SearchAPIConfig(BaseModel):
     base_url: str = Field(default="", description="Base URL for the article API")
     records_per_page: int = Field(20, ge=0, le=1000, description="Number of records per page (1-1000)")
     request_delay: float = Field(-1, description="Minimum delay between requests in seconds")
-    api_key: Optional[SecretStr] = Field(None, description="API key if required")
-    api_specific_parameters: Optional[SettingsDictType] = Field(
+    api_key: SecretStr | None = Field(None, description="API key if required")
+    api_specific_parameters: SettingsDictType | None = Field(
         default=None,
         description=("Additional parameters specific to the current API to add to the configuration."),
     )
@@ -102,7 +102,7 @@ class SearchAPIConfig(BaseModel):
     MAX_API_KEY_LENGTH: ClassVar[int] = 512
 
     @field_validator("provider_name", mode="before")
-    def validate_provider_name(cls, v: Optional[str]) -> str:
+    def validate_provider_name(cls, v: str | None) -> str:
         """Validates the `provider_name` attribute and triggers a validation error if it is not valid."""
 
         if v is None:
@@ -115,7 +115,7 @@ class SearchAPIConfig(BaseModel):
         return v.strip()
 
     @field_validator("base_url", mode="before")
-    def validate_url_type(cls, v: Optional[str]) -> str:
+    def validate_url_type(cls, v: str | None) -> str:
         """Validates the type for the `base_url` attribute and triggers a validation error if it is not valid."""
         if v is None:
             return ""
@@ -133,7 +133,7 @@ class SearchAPIConfig(BaseModel):
         return v
 
     @field_validator("request_delay", mode="before")
-    def validate_request_delay(cls, v: Optional[int | float]) -> Optional[int | float]:
+    def validate_request_delay(cls, v: float | None) -> int | float | None:
         """Sets the request delay (delay between each request) for valid `request delays`. This validator triggers a
         validation error when the request delay is an invalid type.
 
@@ -158,7 +158,7 @@ class SearchAPIConfig(BaseModel):
         return v
 
     @classmethod
-    def default_request_delay(cls, v: Optional[int | float], provider_name: Optional[str] = None) -> float:
+    def default_request_delay(cls, v: float | None, provider_name: str | None = None) -> float:
         """Helper method enabling the retrieval of the most appropriate rate limit for the current provider.
 
         Defaults to the SearchAPIConfig default rate limit when the current provider is unknown and a valid rate limit
@@ -181,7 +181,7 @@ class SearchAPIConfig(BaseModel):
         return cls.DEFAULT_REQUEST_DELAY
 
     @field_validator("records_per_page", mode="before")
-    def set_records_per_page(cls, v: Optional[int]) -> int:
+    def set_records_per_page(cls, v: int | None) -> int:
         """Sets the records_per_page parameter with the default if the supplied value is not valid:
 
         Triggers a validation error when records_per_page is an invalid type. Otherwise uses the
@@ -197,7 +197,7 @@ class SearchAPIConfig(BaseModel):
         return v
 
     @field_validator("api_key", mode="before")
-    def validate_api_key(cls, v: Optional[SecretStr | str]) -> Optional[SecretStr]:
+    def validate_api_key(cls, v: SecretStr | str | None) -> SecretStr | None:
         """Validates the `api_key` attribute and triggers a validation error if it is not valid."""
 
         if v is None:
@@ -289,7 +289,7 @@ class SearchAPIConfig(BaseModel):
 
     @classmethod
     def _remove_nonprovider_config_parameters(
-        cls, config_parameters: dict[str, Any], current_provider: Optional[str]
+        cls, config_parameters: dict[str, Any], current_provider: str | None
     ) -> dict[str, Any]:
         """Helper method for removing unneeded API-specific parameters that aren't defined for the current provider."""
         current_config = APIParameterConfig.get_defaults(current_provider or "")
@@ -303,7 +303,7 @@ class SearchAPIConfig(BaseModel):
     @classmethod
     def _prepare_provider_info(
         cls, base_url: str, provider_name: str, fallback_to_default: bool = True
-    ) -> tuple[str, str, Optional[ProviderConfig]]:
+    ) -> tuple[str, str, ProviderConfig | None]:
         """Helper method to identify the base_url or provider_name in addition to provider info when one is missing.
 
         The provider information is also returned if available to assist with later validation steps.
@@ -351,7 +351,7 @@ class SearchAPIConfig(BaseModel):
         return base_url, provider_name, provider_info
 
     @classmethod
-    def _resolve_provider_config(cls, base_url: str, provider_name: str) -> tuple[str, str, Optional[ProviderConfig]]:
+    def _resolve_provider_config(cls, base_url: str, provider_name: str) -> tuple[str, str, ProviderConfig | None]:
         """Helper method to resolve mismatches between the URL and the provider_name when both are provided. The default
         behavior is to always prefer a provided base_url over the provider_name to offer maximum flexibility.
 
@@ -463,7 +463,7 @@ class SearchAPIConfig(BaseModel):
         return self._extract_url_basename(self.base_url, verbose=False)
 
     @classmethod
-    def _load_api_key(cls, provider_info: Optional[ProviderConfig] = None) -> Optional[SecretStr]:
+    def _load_api_key(cls, provider_info: ProviderConfig | None = None) -> SecretStr | None:
         """Helper method that determines whether or not the API key associated with a specific provider is loaded. This
         method is generally called in circumstances where a key is required but not provided. It will attempt to revert
         to an API key if the provider_config indicates that there is an environment variable to look for that may
@@ -574,7 +574,7 @@ class SearchAPIConfig(BaseModel):
         return cls.model_validate(config_dict)
 
     @classmethod
-    def _extract_api_specific_parameter(cls, config_dict: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    def _extract_api_specific_parameter(cls, config_dict: dict[str, Any] | None = None) -> dict[str, Any]:
         """Helper class method to ensure that api_specific_parameters are handled accordingly in constructor methods
         that can receive API-specific parameters as keyword arguments.
 

@@ -16,7 +16,7 @@ Classes:
 
 from __future__ import annotations
 from pydantic import SecretStr, model_validator, ValidationError
-from typing import overload, Optional, Any, Callable, ClassVar
+from typing import overload, Any, ClassVar, TYPE_CHECKING
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
 from scholar_flux.exceptions.api_exceptions import APIParameterException, APIKeyValidationException
 from scholar_flux.utils.repr_utils import generate_repr_from_string
@@ -26,6 +26,10 @@ from scholar_flux.security import SecretUtils
 from scholar_flux.api.providers import provider_registry
 from pydantic.dataclasses import dataclass
 import logging
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +131,7 @@ class APIParameterMap(BaseAPIParameterMap):
         return parameter_map
 
     @classmethod
-    def get_defaults(cls, provider_name: str, **additional_parameters: Any) -> Optional[APIParameterMap]:
+    def get_defaults(cls, provider_name: str, **additional_parameters: Any) -> APIParameterMap | None:
         """Retrieves the APIParameterMap associated with a known API, returning None if the provider cannot be found.
 
         This class method attempts to pull from the list of known providers defined in the
@@ -215,8 +219,8 @@ class APIParameterConfig:
 
     def build_parameters(
         self,
-        query: Optional[str],
-        page: Optional[int],
+        query: str | None,
+        page: int | None,
         records_per_page: int,
         include_api_key: bool | None = None,
         **api_specific_parameters: Any,
@@ -258,9 +262,7 @@ class APIParameterConfig:
         prepared_parameters = {k: v for k, v in parameters.items() if k is not None and v is not None}
         return SettingsDict(prepared_parameters) if isinstance(parameters, SettingsDict) else prepared_parameters
 
-    def _calculate_start_index(
-        self, page: Optional[int] = None, records_per_page: Optional[int] = None
-    ) -> Optional[int]:
+    def _calculate_start_index(self, page: int | None = None, records_per_page: int | None = None) -> int | None:
         """Helper method for retrieving the start index as an offset and records_per_page.
 
         Note that the behavior of the pagination depends on whether 0 is allowed for an API and whether pagination
@@ -308,7 +310,7 @@ class APIParameterConfig:
         return start + (adjusted_page - start) * records_per_page
 
     def _get_api_specific_parameters(
-        self, parameters: Optional[SettingsDictType], **api_specific_parameters: Any
+        self, parameters: SettingsDictType | None, **api_specific_parameters: Any
     ) -> SettingsDictType:
         """Helper method for extracting API-specific parameters from additional keyword arguments.
 
@@ -368,8 +370,8 @@ class APIParameterConfig:
     def add_parameter(
         self,
         name: str,
-        description: Optional[str] = None,
-        validator: Optional[Callable[[Any], Any]] = None,
+        description: str | None = None,
+        validator: Callable[[Any], Any] | None = None,
         default: Any = None,
         required: bool = False,
         inplace: bool = True,
@@ -407,7 +409,7 @@ class APIParameterConfig:
 
         return self if inplace else APIParameterConfig.as_config(parameter_map)
 
-    def extract_parameters(self, parameters: Optional[SettingsDictType], *, inplace: bool = True) -> SettingsDictType:
+    def extract_parameters(self, parameters: SettingsDictType | None, *, inplace: bool = True) -> SettingsDictType:
         """Extracts all parameters from a dictionary: Helpful for when keywords must be extracted by provider.
 
         Note: this method modifies the original parameter dictionary, using the `pop()` method to `extract` all
@@ -443,7 +445,7 @@ class APIParameterConfig:
         return api_specific_parameters
 
     def extract_api_key(
-        self, parameters: Optional[SettingsDictType], *, inplace: bool = True, **api_specific_parameters: Any
+        self, parameters: SettingsDictType | None, *, inplace: bool = True, **api_specific_parameters: Any
     ) -> SecretStr | None:
         """Helper method for extracting the API key from a dictionary of parameters and keyword arguments.
 
@@ -492,13 +494,11 @@ class APIParameterConfig:
     @overload
     def validate_api_key(cls, api_key: None, *, allow_missing: bool = False) -> SecretStr | None:
         """If the API key is None, an API key is not returned."""
-        ...
 
     @classmethod
     @overload
     def validate_api_key(cls, api_key: str | SecretStr, *, allow_missing: bool = False) -> SecretStr:
         """If the API key is a string or secret string, the key is returned after masking."""
-        ...
 
     @classmethod
     def validate_api_key(cls, api_key: object, *, allow_missing: bool = False) -> SecretStr | None:
@@ -524,9 +524,7 @@ class APIParameterConfig:
             )
         return SecretUtils.mask_secret(api_key)
 
-    def _include_api_key(
-        self, parameters: Optional[SettingsDictType], **api_specific_parameters: Any
-    ) -> SettingsDictType:
+    def _include_api_key(self, parameters: SettingsDictType | None, **api_specific_parameters: Any) -> SettingsDictType:
         """Helper method for including the API key as a parameter in a dictionary of request parameters.
 
         This helper method attempts to extract the API key from the received parameters, including the extracted key
@@ -571,7 +569,7 @@ class APIParameterConfig:
         return parameters
 
     @classmethod
-    def get_defaults(cls, provider_name: str, **additional_parameters: Any) -> Optional[APIParameterConfig]:
+    def get_defaults(cls, provider_name: str, **additional_parameters: Any) -> APIParameterConfig | None:
         """Factory method to create APIParameterConfig instances with sensible defaults for known APIs.
 
         Avoids throwing an error if the provider name does not already exist.

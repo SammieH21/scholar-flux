@@ -1,9 +1,11 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
 from requests import Response
-from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
-from scholar_flux.data_storage import DataCacheManager
+
 from scholar_flux.api import ReconstructedResponse
+from scholar_flux.data_storage import DataCacheManager
+from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
 from scholar_flux.exceptions import (
     InvalidResponseStructureException,
     MissingResponseException,

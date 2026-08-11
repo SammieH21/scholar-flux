@@ -1,6 +1,6 @@
 import pytest
 
-import scholar_flux.utils as utils
+from scholar_flux import utils
 
 
 def test_lazy_import_provider_utils():
@@ -45,4 +45,4 @@ def test_nonexistent_import():
         from scholar_flux.utils import ProvUtilities  # noqa: F401
 
     with pytest.raises(AttributeError):
-        _ = getattr(utils, "ProvUtilities")
+        _ = utils.ProvUtilities

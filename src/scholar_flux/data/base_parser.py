@@ -5,7 +5,8 @@ This module implements the BaseDataParser that is used to prepare and parse JSON
 nested structures prior to record extraction and processing.
 
 """
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
 from scholar_flux.exceptions import XMLToDictImportError, YAMLImportError
 from scholar_flux.exceptions import DataParsingException
 from scholar_flux.utils.response_protocol import ResponseProtocol, is_response_like
@@ -45,7 +46,6 @@ class BaseDataParser:
             new parsers and overrides to class methods to be used on content-type identification.
 
         """
-        pass
 
     @classmethod
     def detect_format(cls, response: requests.Response | ResponseProtocol) -> str | None:

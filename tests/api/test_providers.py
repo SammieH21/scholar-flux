@@ -1,7 +1,9 @@
-import pytest
-from scholar_flux.api.providers import ProviderRegistry, provider_registry
 from types import NoneType
+
+import pytest
+
 from scholar_flux.api.models import ProviderConfig
+from scholar_flux.api.providers import ProviderRegistry, provider_registry
 
 
 @pytest.mark.parametrize(

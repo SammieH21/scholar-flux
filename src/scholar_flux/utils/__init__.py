@@ -239,4 +239,4 @@ def __dir__() -> list[str]:
     Represents the available modules and objects that are available for import and use within the current module.
 
     """
-    return list(globals().keys()) + [object_name for (_, object_name) in _lazy_imports]  # noqa: C417
+    return list(globals().keys()) + [object_name for (_, object_name) in _lazy_imports]

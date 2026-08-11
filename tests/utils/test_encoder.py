@@ -1,11 +1,13 @@
-from scholar_flux.utils.encoder import CacheDataEncoder, JsonDataEncoder
-from collections import OrderedDict, UserDict, deque
-from requests.utils import CaseInsensitiveDict
-from scholar_flux.utils import RecursiveJsonProcessor
-from typing import TypeVar
-from base64 import b64encode
-import pytest
 import json
+from base64 import b64encode
+from collections import OrderedDict, UserDict, deque
+from typing import TypeVar
+
+import pytest
+from requests.utils import CaseInsensitiveDict
+
+from scholar_flux.utils import RecursiveJsonProcessor
+from scholar_flux.utils.encoder import CacheDataEncoder, JsonDataEncoder
 
 T = TypeVar("T")
 

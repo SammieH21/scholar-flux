@@ -1,32 +1,30 @@
-import pytest
-from unittest.mock import MagicMock
-import re
-import requests_mock
-
-from requests import Response
-from requests_cache.models.response import CachedResponse
-from scholar_flux.api import SearchAPI, BaseCoordinator, SearchCoordinator, ResponseCoordinator
 import datetime
-from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, WorkflowStep, StepContext
-from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
-from scholar_flux.api.providers import provider_registry
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse, NonResponse
-from scholar_flux.data_storage import DataCacheManager
-from scholar_flux.utils import format_iso_timestamp, parse_iso_timestamp
-from tests.testing_utilities import raise_error
+import re
+from unittest.mock import MagicMock
 
+import pytest
+import requests_mock
+from requests import Response
+from requests.exceptions import Timeout
+from requests_cache.models.response import CachedResponse
+
+from scholar_flux import logger
+from scholar_flux.api import BaseCoordinator, ReconstructedResponse, ResponseCoordinator, SearchAPI, SearchCoordinator
+from scholar_flux.api.models import ErrorResponse, NonResponse, ProcessedResponse
+from scholar_flux.api.providers import provider_registry
+from scholar_flux.api.rate_limiting import threaded_rate_limiter_registry
+from scholar_flux.api.workflows import BaseWorkflow, BaseWorkflowStep, SearchWorkflow, StepContext, WorkflowStep
+from scholar_flux.data_storage import DataCacheManager
 from scholar_flux.exceptions import (
     InvalidCoordinatorParameterException,
+    PageUnavailableFromCacheException,
+    RequestCacheException,
     RequestFailedException,
     RetryAfterDelayExceededException,
-    PageUnavailableFromCacheException,
+    StorageCacheException,
 )
-from scholar_flux.api import ReconstructedResponse
-from scholar_flux import logger
-from tests.testing_utilities import search_coordinator_mocking_context
-from requests.exceptions import Timeout
-
-from scholar_flux.exceptions import RequestCacheException, StorageCacheException
+from scholar_flux.utils import format_iso_timestamp, parse_iso_timestamp
+from tests.testing_utilities import raise_error, search_coordinator_mocking_context
 
 
 @pytest.fixture(autouse=True)
@@ -655,7 +653,7 @@ def test_basic_coordinator_search(default_memory_cache_session, academic_json_re
         coordinator.retry_handler.raise_on_error = True
         with pytest.raises(RequestFailedException):
             _ = coordinator.robust_request(page=1)
-        assert f"Failed to get a valid response from {coordinator.display_name}"
+        assert f"Failed to get a valid response from the {coordinator.display_name}" in caplog.text
 
     with requests_mock.Mocker(real_http=False):
         non_response = coordinator.search(page=1)
@@ -780,7 +778,7 @@ def test_nonpaginated_search_resolution_failure():
 
     with requests_mock.Mocker(real_http=False):
         # won't work due to the endpoint not being mocked
-        nonresponse = coordinator.parameter_search(endpoint="test-endpoint")  #
+        nonresponse = coordinator.parameter_search(endpoint="test-endpoint")
     assert isinstance(nonresponse, NonResponse)
 
     error = nonresponse.error or ""
@@ -995,7 +993,7 @@ def test_respect_retry_after_wait_called(caplog):
 
     # Assert _wait was called with a positive delay and correct timestamp
     assert coordinator.api.rate_limiter._wait.called
-    args, kwargs = coordinator.api.rate_limiter._wait.call_args
+    args, _kwargs = coordinator.api.rate_limiter._wait.call_args
     delay, timestamp = args
     assert delay > 0
     assert isinstance(timestamp, float)
@@ -1215,7 +1213,6 @@ def test_robust_request_min_retry_delay(monkeypatch):
     def mock_execute_with_retry(*args, **kwargs) -> None:
         """Helper function for monitoring keywords that are passed to the `RetryHandler.execute_with_retry` method."""
         called_kwargs.update(kwargs)
-        return None
 
     monkeypatch.setattr(coordinator.retry_handler, "execute_with_retry", mock_execute_with_retry)
     coordinator.robust_request(page=1)

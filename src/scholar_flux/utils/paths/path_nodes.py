@@ -7,7 +7,6 @@ sets.
 
 """
 from __future__ import annotations
-from typing import Union, Optional
 import logging
 import copy
 from typing import Any, ClassVar
@@ -55,7 +54,7 @@ class PathNode:
     @classmethod
     def to_path_node(
         cls,
-        path: Union[ProcessingPath, str, int, list[str], list[int], list[str | int]],
+        path: ProcessingPath | str | int | list[str] | list[int] | list[str | int],
         value: Any,
         **path_kwargs: Any,
     ) -> Self:
@@ -81,7 +80,7 @@ class PathNode:
             raise InvalidPathNodeError("Could not construct a path from the inputs") from e
         return cls(path, value)
 
-    def update(self, **attributes: Union[ProcessingPath, Any]) -> PathNode:
+    def update(self, **attributes: ProcessingPath | Any) -> PathNode:
         """
         Update the parameters of a PathNode by creating a new PathNode instance.
         Note that the original PathNode dataclass is frozen. This method uses
@@ -235,7 +234,7 @@ class PathNode:
         """Helper method for copying the current node."""
         return PathNode(path=self.path, value=copy.copy(self.value))
 
-    def __deepcopy__(self, memo: Optional[dict[int, Any]]) -> PathNode:
+    def __deepcopy__(self, memo: dict[int, Any] | None) -> PathNode:
         """Helper method for deeply copying the current node."""
         return PathNode(path=self.path, value=copy.deepcopy(self.value, memo))
 

@@ -1,14 +1,16 @@
+import re
+from copy import deepcopy
+from typing import Any
+
+import pytest
+
 from scholar_flux.api.models import (
-    ProcessedResponse,
     ErrorResponse,
+    ProcessedResponse,
     SearchResult,
     SearchResultList,
 )
 from scholar_flux.api.providers import get_display_name
-from copy import deepcopy
-from typing import Any
-import re
-import pytest
 
 
 @pytest.fixture

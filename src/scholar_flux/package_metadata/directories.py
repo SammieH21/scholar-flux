@@ -7,7 +7,7 @@ and logging based on whether it is writable.
 
 """
 from pathlib import Path
-from typing import ClassVar, Literal, Optional
+from typing import ClassVar, Literal
 
 import os
 
@@ -43,7 +43,7 @@ class PackageDirectorySettings(BaseModel):
     DEFAULT_PACKAGE_NAME: ClassVar[str] = "scholar_flux"
 
     @property
-    def package_env_home(self) -> Optional[Path]:
+    def package_env_home(self) -> Path | None:
         """Resolves the user-specified package `home_env` variable for storing logs, caching, and configuration."""
         env_home = os.getenv(self.home_env_var)
         return Path(env_home).expanduser() if env_home else None
@@ -100,9 +100,9 @@ class PackageDirectorySettings(BaseModel):
     def get_default_writable_directory(
         self,
         directory_type: Literal["package_cache", "logs", "env"],
-        subdirectory: Optional[str | Path] = None,
+        subdirectory: str | Path | None = None,
         *,
-        default: Optional[Path] = None,
+        default: Path | None = None,
     ) -> Path:
         """Determines the default directory to use for storing package cache, logs, and environment variables.
 

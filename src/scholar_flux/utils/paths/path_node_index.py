@@ -9,7 +9,7 @@ nested JSON data structure.
 """
 from __future__ import annotations
 import re
-from typing import Optional, Union, Any, ClassVar
+from typing import Any, ClassVar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from scholar_flux.exceptions.path_exceptions import (
@@ -92,14 +92,14 @@ class PathNodeIndex:
     """
 
     DEFAULT_DELIMITER: ClassVar[str] = ProcessingPath.DEFAULT_DELIMITER
-    MAX_PROCESSES: ClassVar[Optional[int]] = 8
+    MAX_PROCESSES: ClassVar[int | None] = 8
     node_map: PathNodeMap | RecordPathChainMap = field(default_factory=PathNodeMap)
     simplifier: PathSimplifier = field(
         default_factory=lambda: PathSimplifier(
             delimiter=PathNodeIndex.DEFAULT_DELIMITER, non_informative=["i", "value"]
         )
     )
-    use_cache: Optional[bool] = None
+    use_cache: bool | None = None
 
     def __post_init__(self) -> None:
         """Method automatically used after initialization, to validate and set the index and simplifier.
@@ -130,8 +130,8 @@ class PathNodeIndex:
     @classmethod
     def _validate_index(
         cls,
-        node_map: Union[PathNodeMap, RecordPathChainMap, dict[ProcessingPath, PathNode]],
-        use_cache: Optional[bool] = None,
+        node_map: PathNodeMap | RecordPathChainMap | dict[ProcessingPath, PathNode],
+        use_cache: bool | None = None,
     ) -> PathNodeMap | RecordPathChainMap:
         """Determine whether the current path is an index of paths and nodes.
 
@@ -152,7 +152,7 @@ class PathNodeIndex:
 
     @classmethod
     def from_path_mappings(
-        cls, path_mappings: dict[ProcessingPath, Any], chain_map: bool = False, use_cache: Optional[bool] = None
+        cls, path_mappings: dict[ProcessingPath, Any], chain_map: bool = False, use_cache: bool | None = None
     ) -> PathNodeIndex:
         """Takes a dictionary of path:value mappings and transforms the dictionary into a list of PathNodes: useful for
         later path manipulations such as grouping and consolidating paths into a flattened dictionary.
@@ -174,7 +174,7 @@ class PathNodeIndex:
         class_name = self.__class__.__name__
         return f"{class_name}(index(len={len(self.node_map)}))"
 
-    def get_node(self, path: Union[ProcessingPath, str]) -> Optional[PathNode]:
+    def get_node(self, path: ProcessingPath | str) -> PathNode | None:
         """Try to retrieve a path node with the given path.
 
         Args:
@@ -200,7 +200,7 @@ class PathNodeIndex:
         """
         return list(self.node_map.filter(path).values())
 
-    def pattern_search(self, pattern: Union[str, re.Pattern]) -> list[PathNode]:
+    def pattern_search(self, pattern: str | re.Pattern) -> list[PathNode]:
         """Attempt to find all values containing the specified pattern using regular expressions
         Args:
             pattern (Union[str, re.Pattern]) pattern to search for
@@ -217,9 +217,9 @@ class PathNodeIndex:
 
     def simplify_to_rows(
         self,
-        object_delimiter: Optional[str] = ";",
+        object_delimiter: str | None = ";",
         parallel: bool = False,
-        max_components: Optional[int] = None,
+        max_components: int | None = None,
         remove_noninformative: bool = True,
     ) -> list[dict[str, Any]]:
         """Simplify indexed nodes into a paginated data structure.
@@ -258,7 +258,7 @@ class PathNodeIndex:
             normalized_rows = pool.starmap(self.simplifier.simplify_to_row, node_chunks)
         return normalized_rows
 
-    def combine_keys(self, skip_keys: Optional[list] = None) -> None:
+    def combine_keys(self, skip_keys: list | None = None) -> None:
         """Combine nodes with values in their paths by updating the paths of count nodes.
 
         This method searches for paths ending with values and count, identifies related nodes,
@@ -341,7 +341,7 @@ class PathNodeIndex:
             )
 
         except Exception as e:
-            logger.exception(f"Error during nodes combination: {e}")
+            logger.error(f"Error during nodes combination: {e}")
             raise PathCombinationError(f"Error during nodes combination: {e}")
 
     @classmethod
@@ -349,7 +349,7 @@ class PathNodeIndex:
         cls,
         json_records: dict | list[dict],
         combine_keys: bool = True,
-        object_delimiter: Optional[str] = ";",
+        object_delimiter: str | None = ";",
         parallel: bool = False,
     ) -> list[dict[str, Any]]:
         """Full pipeline for processing a loaded JSON structure into a list of dictionaries where each individual list

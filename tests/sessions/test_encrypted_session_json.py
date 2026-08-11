@@ -1,30 +1,28 @@
-import pytest
-from unittest.mock import patch
-from requests_cache.session import CachedSession
-from requests_cache.serializers import json_serializer
-import requests_mock
-from contextlib import suppress
 import importlib
-
-from pydantic import SecretStr
-
-from base64 import b64encode, b64decode
-
 import logging
-from tests.testing_utilities import raise_error
+from base64 import b64decode, b64encode
+from contextlib import suppress
+from unittest.mock import patch
+
+import pytest
+import requests_mock
+from pydantic import SecretStr
+from requests_cache.serializers import json_serializer
+from requests_cache.session import CachedSession
 
 import scholar_flux.sessions.encryption
-from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
-from scholar_flux.sessions import CachedSessionManager
 from scholar_flux.api import SearchAPI
-from scholar_flux.utils import config_settings
 from scholar_flux.exceptions import (
-    ItsDangerousImportError,
-    CryptographyImportError,
-    SecretKeyError,
     CachedSessionValidationError,
+    CryptographyImportError,
+    ItsDangerousImportError,
+    SecretKeyError,
     SessionConfigurationError,
 )
+from scholar_flux.sessions import CachedSessionManager
+from scholar_flux.sessions.encryption import EncryptionPipelineFactory, Fernet
+from scholar_flux.utils import config_settings
+from tests.testing_utilities import raise_error
 
 logger = logging.getLogger(__name__)
 

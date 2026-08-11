@@ -2,7 +2,6 @@
 """The scholar_flux.api.normalization.plos_field_map.py module defines the normalization mappings for the PLOS API."""
 from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap
 from scholar_flux.utils.record_types import NormalizedRecordType
-from typing import Optional
 
 
 class PLOSFieldMap(AcademicFieldMap):
@@ -56,7 +55,7 @@ class PLOSFieldMap(AcademicFieldMap):
         return record
 
     @classmethod
-    def reconstruct_plos_url(cls, record: NormalizedRecordType, field: str = "doi") -> Optional[str]:
+    def reconstruct_plos_url(cls, record: NormalizedRecordType, field: str = "doi") -> str | None:
         """Reconstructs the PLOS article URL from the DOI of the article.
 
         Args:

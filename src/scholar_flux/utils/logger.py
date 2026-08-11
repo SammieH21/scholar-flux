@@ -4,7 +4,7 @@ used for logging events and progress in the retrieval and processing of API resp
 
 import logging
 from pathlib import Path
-from typing import Iterator, Optional
+from collections.abc import Iterator
 from logging.handlers import RotatingFileHandler
 from sys import stdout, stderr
 from typing import TextIO, Literal
@@ -19,16 +19,16 @@ import warnings
 
 
 def setup_logging(
-    logger: Optional[logging.Logger] = None,
-    log_directory: Optional[str] = None,
-    log_file: Optional[str] = "application.log",
+    logger: logging.Logger | None = None,
+    log_directory: str | None = None,
+    log_file: str | None = "application.log",
     log_level: int = logging.DEBUG,
-    propagate_logs: Optional[bool] = True,
+    propagate_logs: bool | None = True,
     max_bytes: int = 1048576,
     backup_count: int = 5,
-    logging_filter: Optional[logging.Filter] = None,
+    logging_filter: logging.Filter | None = None,
     *,
-    stream: Optional[TextIO | Literal[False]] = None,
+    stream: TextIO | Literal[False] | None = None,
     raise_on_error: bool = True,
 ) -> None:
     """Configures a logger to write to the console and, optionally, file logs with an optional logging filter.
@@ -55,7 +55,7 @@ def setup_logging(
             Optionally modifies the stream used for logging. By default, a stream is created that uses `stderr`.
             Set this to False to avoid creating a log stream altogether.
         raise_on_error (bool):
-            Indicates whether an error should be raised if an error on package directory setup occurs.
+            Indicates whether an error should be raised if an error occurs during file-based logging setup.
 
     Example:
         >>> # Basic setup - logs to console and file
@@ -118,34 +118,40 @@ def setup_logging(
     console_handler = logging.NullHandler() if stream is False else logging.StreamHandler(stream)
     console_handler.setFormatter(formatter)
 
-    # create a handler for file logs
-    log_file_path = current_log_directory / log_file if current_log_directory and log_file else None
-
-    if log_file_path:
-        file_handler = RotatingFileHandler(str(log_file_path), maxBytes=max_bytes, backupCount=backup_count)
-        file_handler.setFormatter(formatter)
-    else:
-        file_handler = None
-
     # add both file and console handlers to the logger. No-Op when streaming is not enabled
     if logging_filter:
         # Add a sensitive data masking filter to both file and console handlers
         console_handler.addFilter(logging_filter)
+
     logger.addHandler(console_handler)
 
-    if file_handler:
-        if logging_filter:
-            file_handler.addFilter(logging_filter)
-        logger.addHandler(file_handler)
+    file_handler: RotatingFileHandler | None = None
+
+    # create a handler for file logs
+    log_file_path = current_log_directory / log_file if current_log_directory and log_file else None
+
+    if log_file_path:
+        try:
+            file_handler = RotatingFileHandler(str(log_file_path), maxBytes=max_bytes, backupCount=backup_count)
+            file_handler.setFormatter(formatter)
+
+            if logging_filter:
+                file_handler.addFilter(logging_filter)
+            logger.addHandler(file_handler)
+        except (PermissionError, OSError) as e:
+            err = f"Encountered an error setting up the rotating file handler: {e}"
+            if raise_on_error:
+                raise LogDirectoryError(err) from e
+            warnings.warn(f"{err}\nDisabling file-based logging...", stacklevel=2)
 
     # indicate the location where logs are created, if created
-    logging_type = f"(folder: {log_file_path})" if log_file_path else "(console_only)"
+    logging_type = f"(folder: {log_file_path})" if file_handler else "(console_only)"
     logger.info("Logging setup complete %s", logging_type)
 
 
 @contextmanager
 def log_level_context(
-    log_level: int | str = logging.DEBUG, logger: Optional[logging.Logger] = None, allow_lower_level: bool = True
+    log_level: int | str = logging.DEBUG, logger: logging.Logger | None = None, allow_lower_level: bool = True
 ) -> Iterator[None]:
     """Context manager for temporarily changing the log level for the package-level (or custom) logger.
 
@@ -187,7 +193,7 @@ def log_level_context(
         target_logger.setLevel(current_level)
 
 
-def resolve_log_stream(stream: Optional[str | bool | TextIO]) -> TextIO | Literal[False]:
+def resolve_log_stream(stream: str | bool | TextIO | None) -> TextIO | Literal[False]:
     """Helper for resolving streams used for logging from strings.
 
     Args:
@@ -215,7 +221,7 @@ def resolve_log_stream(stream: Optional[str | bool | TextIO]) -> TextIO | Litera
     return stdout if stream_fmt in ("stdout", stdout) else stderr
 
 
-def resolve_log_level(log_level: Optional[str | int] = None) -> int | None:
+def resolve_log_level(log_level: str | int | None = None) -> int | None:
     """Utility for resolving numeric strings and log level values into integer log levels.
 
     Args:

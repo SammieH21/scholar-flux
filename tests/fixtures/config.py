@@ -1,17 +1,17 @@
-import pytest
-from scholar_flux import config, config_settings
-from scholar_flux import logger
-from scholar_flux.api import SearchAPIConfig, APIParameterConfig
-from scholar_flux.security import SecretUtils
-from pydantic import SecretStr
-from typing import Optional
-import uuid
 import logging
 import os
+import uuid
+
+import pytest
+from pydantic import SecretStr
+
+from scholar_flux import config, config_settings, logger
+from scholar_flux.api import APIParameterConfig, SearchAPIConfig
+from scholar_flux.security import SecretUtils
 
 
 @pytest.fixture
-def core_api_key() -> Optional[SecretStr]:
+def core_api_key() -> SecretStr | None:
     """Masked API key that is otherwise required for testing and retrieval of data from the CORE API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
@@ -28,7 +28,7 @@ def core_api_key() -> Optional[SecretStr]:
 
 
 @pytest.fixture
-def open_alex_api_key() -> Optional[SecretStr]:
+def open_alex_api_key() -> SecretStr | None:
     """Masked API key that is otherwise required for testing and retrieval of data from the OpenAlex API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
@@ -45,7 +45,7 @@ def open_alex_api_key() -> Optional[SecretStr]:
 
 
 @pytest.fixture
-def arxiv_api_key() -> Optional[SecretStr]:
+def arxiv_api_key() -> SecretStr | None:
     """Masked API key that is otherwise required for testing and retrieval of data from the arXiv API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
@@ -62,7 +62,7 @@ def arxiv_api_key() -> Optional[SecretStr]:
 
 
 @pytest.fixture
-def pubmed_api_key() -> Optional[SecretStr]:
+def pubmed_api_key() -> SecretStr | None:
     """Masked API key that is otherwise required for testing and retrieval of data from the NIH PubMed database.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
@@ -79,7 +79,7 @@ def pubmed_api_key() -> Optional[SecretStr]:
 
 
 @pytest.fixture
-def springer_nature_api_key() -> Optional[SecretStr]:
+def springer_nature_api_key() -> SecretStr | None:
     """Masked API key that is otherwise required for testing and retrieval of data from the Springer Nature API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
@@ -96,7 +96,7 @@ def springer_nature_api_key() -> Optional[SecretStr]:
 
 
 @pytest.fixture
-def crossref_api_key() -> Optional[SecretStr]:
+def crossref_api_key() -> SecretStr | None:
     """Masked API key that is otherwise required for testing and retrieval of data from the Crossref API.
 
     To prevent unnecessary API calls and rate limiting issues, the key is not used to send requests and
@@ -192,19 +192,19 @@ def restore_config_settings():
 
 
 __all__ = [
-    "scholar_flux_logger",
-    "original_config_test_api_key",
-    "new_config_test_api_key",
-    "original_config",
-    "new_config",
-    "original_api_parameter_config",
-    "new_api_parameter_config",
-    "restore_config_settings",
-    "core_api_key",
     "arxiv_api_key",
-    "open_alex_api_key",
-    "pubmed_api_key",
-    "springer_nature_api_key",
+    "core_api_key",
     "crossref_api_key",
     "mock_api_key",
+    "new_api_parameter_config",
+    "new_config",
+    "new_config_test_api_key",
+    "open_alex_api_key",
+    "original_api_parameter_config",
+    "original_config",
+    "original_config_test_api_key",
+    "pubmed_api_key",
+    "restore_config_settings",
+    "scholar_flux_logger",
+    "springer_nature_api_key",
 ]

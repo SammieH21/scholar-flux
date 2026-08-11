@@ -1,12 +1,14 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from scholar_flux.data_storage.redis_storage import RedisStorage
 from scholar_flux.exceptions import (
-    RedisImportError,
+    CacheDeletionException,
     CacheRetrievalException,
     CacheUpdateException,
-    CacheDeletionException,
     CacheVerificationException,
+    RedisImportError,
 )
 from tests.testing_utilities import raise_error
 
@@ -191,7 +193,7 @@ def test_missing_namespace(redis_test_storage, monkeypatch, caplog):
 
         with pytest.raises(KeyError) as excinfo:
             _ = RedisStorage(namespace=23)  # type: ignore
-        msg = f"A non-empty namespace string must be provided for the RedisStorage. Received {type(23)}"
+        msg = f"A non-empty namespace string must be provided for the RedisStorage. Received {int}"
 
         assert msg in caplog.text
         assert msg in str(excinfo.value)
@@ -199,7 +201,7 @@ def test_missing_namespace(redis_test_storage, monkeypatch, caplog):
         caplog.clear()
         with pytest.raises(KeyError) as excinfo:
             _ = RedisStorage(namespace="")  # type: ignore
-        msg = f"A non-empty namespace string must be provided for the RedisStorage. Received {type('')}"
+        msg = f"A non-empty namespace string must be provided for the RedisStorage. Received {str}"
 
         assert msg in caplog.text
         assert msg in str(excinfo.value)

@@ -24,7 +24,7 @@ from pydantic import SecretStr
 import logging
 
 
-from typing import Final, Optional, TYPE_CHECKING
+from typing import Final, TYPE_CHECKING
 import pickle
 
 if TYPE_CHECKING:
@@ -70,7 +70,7 @@ class EncryptionPipelineFactory:
 
     ENCODING: Final[str] = "utf-8"
 
-    def __init__(self, secret_key: Optional[str | bytes | SecretStr] = None, salt: Optional[str] = ""):
+    def __init__(self, secret_key: str | bytes | SecretStr | None = None, salt: str | None = ""):
         """Initializes the EncryptionPipelineFactory class that generates an encryption pipeline for use with
         CachedSession objects.
 
@@ -115,7 +115,7 @@ class EncryptionPipelineFactory:
         self._secret_key = SecretUtils.mask_secret(unmasked_key_bytes, convert_object=False)
 
     @classmethod
-    def prepare_secret_key(cls, key: Optional[str | bytes | SecretStr] = None) -> Optional[bytes]:
+    def prepare_secret_key(cls, key: str | bytes | SecretStr | None = None) -> bytes | None:
         """Prepares the input (bytes, string) and returns a bytes variable if a non-missing value is provided.
 
         Note: If no key is provided, this method attempts to read from the package configuration settings, defaulting

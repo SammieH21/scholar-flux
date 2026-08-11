@@ -1,11 +1,12 @@
 """Tests for verifying basic session authentication with API keys."""
 
 import pytest
-from pydantic import SecretStr
-from scholar_flux.sessions.auth import AuthAPIKeyBase, AuthAPIKeyNoOp, AuthAPIKeyHeader, AuthAPIKeyParameter
-from scholar_flux.security import SecretUtils
-from scholar_flux.exceptions import APIParameterException, APIKeyValidationException
 import requests
+from pydantic import SecretStr
+
+from scholar_flux.exceptions import APIKeyValidationException, APIParameterException
+from scholar_flux.security import SecretUtils
+from scholar_flux.sessions.auth import AuthAPIKeyBase, AuthAPIKeyHeader, AuthAPIKeyNoOp, AuthAPIKeyParameter
 
 
 @pytest.fixture

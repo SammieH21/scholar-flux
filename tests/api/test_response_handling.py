@@ -1,12 +1,13 @@
-from scholar_flux import ResponseCoordinator, DataCacheManager
-from scholar_flux.api import ResponseValidator
-from scholar_flux.data_storage import InMemoryStorage
-from scholar_flux.api.models import ErrorResponse, ReconstructedResponse
-from scholar_flux.exceptions import StorageCacheException, InvalidResponseException
-import pytest
-import requests
 import re
 
+import pytest
+import requests
+
+from scholar_flux import DataCacheManager, ResponseCoordinator
+from scholar_flux.api import ResponseValidator
+from scholar_flux.api.models import ErrorResponse, ReconstructedResponse
+from scholar_flux.data_storage import InMemoryStorage
+from scholar_flux.exceptions import InvalidResponseException, StorageCacheException
 from scholar_flux.exceptions.data_exceptions import DataParsingException
 
 

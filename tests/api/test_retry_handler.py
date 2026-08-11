@@ -1,11 +1,13 @@
-import pytest
-import json
 import datetime
+import json
 from textwrap import dedent
 from unittest.mock import patch
+
+import pytest
 from requests import Response
+
 from scholar_flux.api import RetryHandler
-from scholar_flux.exceptions import RequestFailedException, InvalidResponseException
+from scholar_flux.exceptions import InvalidResponseException, RequestFailedException
 from tests.testing_utilities import raise_error
 
 
@@ -164,9 +166,10 @@ def test_execute_with_retry_exception():
     handler = RetryHandler()
 
     def request_func():
-        raise Exception("fail")
+        """Simulates a RuntimeError to be caught and reraised as a RequestFailedException via the RetryHandler."""
+        raise RuntimeError("fail")
 
-    with pytest.raises(RequestFailedException):
+    with pytest.raises(RequestFailedException, match=".*fail"):
         handler.execute_with_retry(request_func)
 
 

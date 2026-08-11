@@ -1,7 +1,9 @@
-import pytest
-from scholar_flux.utils import JsonFileUtils
 from pathlib import Path
 from typing import cast
+
+import pytest
+
+from scholar_flux.utils import JsonFileUtils
 
 
 @pytest.fixture
@@ -51,4 +53,4 @@ def mock_complex_json_records() -> list[dict]:
     return cast("list[dict]", JsonFileUtils.load_data(path))
 
 
-__all__ = ["sample_json", "mock_api_parsed_json_records", "mock_complex_json_records"]
+__all__ = ["mock_api_parsed_json_records", "mock_complex_json_records", "sample_json"]

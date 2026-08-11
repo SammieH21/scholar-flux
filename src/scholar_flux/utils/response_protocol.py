@@ -17,9 +17,11 @@ other implementations when not directly using the default `requests` client.
 
 """
 from __future__ import annotations
-from typing import Any, MutableMapping, runtime_checkable, Protocol
-from typing_extensions import TypeGuard
+from typing import TYPE_CHECKING, Any, runtime_checkable, Protocol, TypeGuard
 from requests import Response
+
+if TYPE_CHECKING:
+    from collections.abc import MutableMapping
 
 
 @runtime_checkable

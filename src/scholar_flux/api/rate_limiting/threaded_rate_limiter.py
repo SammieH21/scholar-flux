@@ -13,11 +13,12 @@ from contextlib import contextmanager
 import time
 from typing_extensions import Self
 from scholar_flux.api.rate_limiting.rate_limiter import RateLimiter
-from typing import Optional, Iterator, TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Any
 import threading
 
 if TYPE_CHECKING:
     from datetime import datetime
+    from collections.abc import Iterator
 
 
 class ThreadedRateLimiter(RateLimiter):
@@ -28,7 +29,7 @@ class ThreadedRateLimiter(RateLimiter):
 
     """
 
-    def __init__(self, min_interval: Optional[float | int] = None) -> None:
+    def __init__(self, min_interval: float | None = None) -> None:
         """Initializes a new `ThreadedRateLimiter` with thread safety.
 
         Args:
@@ -39,7 +40,7 @@ class ThreadedRateLimiter(RateLimiter):
         # Add thread synchronization
         self._lock = threading.RLock()
 
-    def wait(self, min_interval: Optional[float | int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def wait(self, min_interval: float | None = None, metadata: dict[str, Any] | None = None) -> None:
         """Thread-safe version of the `.wait` method that prevents race conditions.
 
         Args:
@@ -58,9 +59,9 @@ class ThreadedRateLimiter(RateLimiter):
 
     def wait_since(
         self,
-        min_interval: Optional[float | int] = None,
-        timestamp: Optional[float | int | datetime] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        min_interval: float | None = None,
+        timestamp: float | datetime | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Thread-safe method for waiting until an interval from a reference timestamp or datetime has passed.
 
@@ -74,7 +75,7 @@ class ThreadedRateLimiter(RateLimiter):
         with self._lock:
             super().wait_since(min_interval, timestamp, metadata=metadata)
 
-    def sleep(self, interval: Optional[float | int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def sleep(self, interval: float | None = None, metadata: dict[str, Any] | None = None) -> None:
         """Thread-safe version of `.sleep` that prevents race conditions.
 
         This method provides thread-safe access to the sleep functionality by acquiring the internal lock
@@ -92,7 +93,7 @@ class ThreadedRateLimiter(RateLimiter):
                 self._sleep(interval, metadata=metadata)
 
     @contextmanager
-    def rate(self, min_interval: float | int, metadata: Optional[Dict[str, Any]] = None) -> Iterator[Self]:
+    def rate(self, min_interval: float, metadata: dict[str, Any] | None = None) -> Iterator[Self]:
         """Thread-safe version of `.rate` context manager.
 
         Args:

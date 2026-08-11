@@ -1,13 +1,15 @@
-from scholar_flux.api.models import ProcessedResponse, ReconstructedResponse, APIResponse
-from scholar_flux.api import SearchCoordinator, ResponseCoordinator, ResponseValidator
-from scholar_flux.utils.response_protocol import ResponseProtocol
-from scholar_flux.utils.helpers import coerce_json_str
-from scholar_flux.exceptions import InvalidResponseReconstructionException
-from scholar_flux.data import DataParser
+from dataclasses import dataclass
+
+import pytest
 import requests_mock
 from requests import Response
-from dataclasses import dataclass
-import pytest
+
+from scholar_flux.api import ResponseCoordinator, ResponseValidator, SearchCoordinator
+from scholar_flux.api.models import APIResponse, ProcessedResponse, ReconstructedResponse
+from scholar_flux.data import DataParser
+from scholar_flux.exceptions import InvalidResponseReconstructionException
+from scholar_flux.utils.helpers import coerce_json_str
+from scholar_flux.utils.response_protocol import ResponseProtocol
 
 
 @dataclass

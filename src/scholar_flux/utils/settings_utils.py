@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Annotated
-from typing_extensions import TypeGuard, TypeVar
+from typing import Any, Annotated, TypeGuard
+from typing_extensions import TypeVar
 from collections import UserDict
 from pydantic import BeforeValidator, GetCoreSchemaHandler
 

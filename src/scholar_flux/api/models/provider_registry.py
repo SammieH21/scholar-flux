@@ -8,7 +8,7 @@ interaction and specification of APIs.
 
 """
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
 from scholar_flux.api.validators import validate_and_process_url, normalize_url
@@ -126,7 +126,7 @@ class ProviderRegistry(BaseProviderDict):
         else:
             logger.warning(f"A ProviderConfig with the provider name, '{provider_name}' was not found")
 
-    def get_from_url(self, provider_url: Optional[str]) -> Optional[ProviderConfig]:
+    def get_from_url(self, provider_url: str | None) -> ProviderConfig | None:
         """Attempt to retrieve a ProviderConfig instance for the given provider by resolving the provided URL to the
         provider's base URL. Will not throw an error in the event that the provider does not exist.
 
@@ -175,8 +175,8 @@ class ProviderRegistry(BaseProviderDict):
         return generate_repr_from_string(class_name, dictionary_elements, flatten=flatten, as_dict=True)
 
     def resolve_config(
-        self, provider_url: Optional[str] = None, provider_name: Optional[str] = None, verbose: bool = True
-    ) -> Optional[ProviderConfig]:
+        self, provider_url: str | None = None, provider_name: str | None = None, verbose: bool = True
+    ) -> ProviderConfig | None:
         """Helper method to resolve mismatches between the URL and the provider_name when both are provided. The default
         behavior is to always prefer a provided provider_url over the provider_name to offer maximum flexibility.
 
@@ -209,7 +209,7 @@ class ProviderRegistry(BaseProviderDict):
             )
         return None
 
-    def get_display_name(self, provider_name: str, default: Optional[str] = None) -> Optional[str]:
+    def get_display_name(self, provider_name: str, default: str | None = None) -> str | None:
         """Finds the human-readable name for a provider if it exists.
 
         If the provider doesn't exist within the registry, the result falls back to the default if available and None otherwise.

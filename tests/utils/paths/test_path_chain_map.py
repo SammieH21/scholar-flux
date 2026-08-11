@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from scholar_flux.exceptions.path_exceptions import (
-    InvalidProcessingPathError,
-    RecordPathNodeMapError,
-    PathNodeMapError,
-    RecordPathChainMapError,
-    InvalidPathNodeError,
-)
 import pytest
 
-
-from scholar_flux.utils.paths import ProcessingPath, PathNode, PathNodeMap, RecordPathNodeMap, RecordPathChainMap
+from scholar_flux.exceptions.path_exceptions import (
+    InvalidPathNodeError,
+    InvalidProcessingPathError,
+    PathNodeMapError,
+    RecordPathChainMapError,
+    RecordPathNodeMapError,
+)
+from scholar_flux.utils.paths import PathNode, PathNodeMap, ProcessingPath, RecordPathChainMap, RecordPathNodeMap
 
 
 @pytest.fixture
@@ -113,7 +112,7 @@ def test_inferred_record_index():
 
     with pytest.raises(InvalidPathNodeError) as excinfo:  # type: ignore
         _ = RecordPathNodeMap(" ")  # type: ignore
-    assert f"The current object is not a PathNode: expected 'PathNode', received {type(' ')}" in str(excinfo.value)
+    assert f"The current object is not a PathNode: expected 'PathNode', received {str}" in str(excinfo.value)
 
 
 def test_formatting(all_path_nodes):
@@ -257,7 +256,7 @@ def test_record_map_resolution(all_path_nodes):
 
     assert (
         "Expected either a RecordPathNodeMap or a list of nodes to resolve into "
-        f"a record map, but received an element of type {type(1)}"
+        f"a record map, but received an element of type {int}"
     ) in str(excinfo.value)
 
 
@@ -327,7 +326,7 @@ def test_retrieval(all_path_nodes, default_mapping):
 
     with pytest.raises(InvalidPathNodeError) as excinfo:
         _ = default_mapping.node_exists("")  # type: ignore
-    assert f"Key must be node or path. Received '{type('')}'" in str(excinfo.value)
+    assert f"Key must be node or path. Received '{str}'" in str(excinfo.value)
 
 
 def test_node_validation(all_path_nodes):

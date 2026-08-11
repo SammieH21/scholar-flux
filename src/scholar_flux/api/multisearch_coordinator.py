@@ -6,7 +6,8 @@ This implementation uses shared rate limiting to ensure that rate limits to diff
 
 """
 from __future__ import annotations
-from typing import Optional, Generator, Sequence, Iterable, Any
+from typing import Any
+from collections.abc import Generator, Sequence, Iterable
 from typing_extensions import Self
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
@@ -167,7 +168,7 @@ class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
         self,
         page: int = 1,
         iterate_by_group: bool = False,
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         multithreading: bool = True,
         **kwargs: Any,
     ) -> SearchResultList:
@@ -241,10 +242,10 @@ class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
         self,
         pages: Sequence[int] | PageListInput,
         iterate_by_group: bool = False,
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         multithreading: bool = True,
         *,
-        min_records: Optional[int] = None,
+        min_records: int | None = None,
         page_offset: int = 0,
         **kwargs: Any,
     ) -> SearchResultList:
@@ -302,7 +303,7 @@ class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
         for search_result in search_iterator:
             search_results.append(search_result)
 
-        logging.debug("Completed multi-search coordinated retrieval and processing")
+        logger.debug("Completed multi-search coordinated retrieval and processing")
 
         return search_results
 
@@ -434,7 +435,7 @@ class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
     def iter_pages_threaded(
         self,
         pages: Sequence[int] | PageListInput,
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         **kwargs: Any,
     ) -> Generator[SearchResult, None, None]:
         """Threading by provider to respect rate limits Helper method that implements threading to simultaneously
@@ -515,7 +516,7 @@ class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
         provider_coordinators: dict[str, SearchCoordinator],
         pages: Sequence[int] | PageListInput,
         *,
-        min_records: Optional[int] = None,
+        min_records: int | None = None,
         page_offset: int = 0,
         **kwargs: Any,
     ) -> Generator[SearchResult, None, None]:
@@ -546,7 +547,7 @@ class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
         # All coordinators in this group share the same threaded rate limiter
 
         # will be used to flag non-retryable error codes from the provider for early stopping across queries if needed
-        last_response: Optional[APIResponse] = None
+        last_response: APIResponse | None = None
         for search_coordinator in provider_coordinators.values():
             if (
                 isinstance(last_response, ErrorResponse)
@@ -627,8 +628,8 @@ class MultiSearchCoordinator(UserDict[str, SearchCoordinator]):
 
     def select(
         self,
-        query: Optional[str] = None,
-        provider_name: Optional[str] = None,
+        query: str | None = None,
+        provider_name: str | None = None,
     ) -> list[SearchCoordinator]:
         """Helper method that enables the selection of coordinators based on their query or provider name."""
         provider_name = (

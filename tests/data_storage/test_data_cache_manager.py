@@ -1,14 +1,15 @@
-import pytest
-from scholar_flux.data_storage.null_storage import NullStorage
-from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
-from scholar_flux.data_storage.sql_storage import SQLAlchemyStorage, DuckDBStorage
-from scholar_flux.data_storage import DataCacheManager, ABCStorage
-from scholar_flux.utils import config_settings
-from scholar_flux.exceptions import StorageCacheException
-from tests.testing_utilities import raise_error
 import copy
 import re
 
+import pytest
+
+from scholar_flux.data_storage import ABCStorage, DataCacheManager
+from scholar_flux.data_storage.in_memory_storage import InMemoryStorage
+from scholar_flux.data_storage.null_storage import NullStorage
+from scholar_flux.data_storage.sql_storage import DuckDBStorage, SQLAlchemyStorage
+from scholar_flux.exceptions import StorageCacheException
+from scholar_flux.utils import config_settings
+from tests.testing_utilities import raise_error
 
 STORAGE_TYPES: list[str] = ["MEMORY", "REDIS", "MONGODB", "SQL", "DUCKDB", "NULL"]
 
@@ -375,7 +376,7 @@ def test_factory_methods():
     assert isinstance(inmemory_cache.cache_storage, InMemoryStorage)
 
     # Test invalid storage
-    with pytest.raises(Exception):  # StorageCacheException expected
+    with pytest.raises(StorageCacheException):  # StorageCacheException expected
         DataCacheManager.with_storage("invalid_storage")  # type: ignore
 
 

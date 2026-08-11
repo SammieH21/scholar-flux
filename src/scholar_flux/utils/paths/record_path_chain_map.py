@@ -9,7 +9,8 @@ operations.
 """
 from __future__ import annotations
 
-from typing import Any, Optional, Union, Generator, Sequence, Mapping
+from typing import Any
+from collections.abc import Generator, Sequence, Mapping
 from collections import UserDict
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
@@ -37,17 +38,15 @@ class RecordPathNodeMap(PathNodeMap):
 
     def __init__(
         self,
-        *nodes: Union[
-            PathNode,
-            Generator[PathNode, None, None],
-            set[PathNode],
-            Sequence[PathNode],
-            Mapping[str | ProcessingPath, PathNode],
-        ],
-        record_index: Optional[int | str] = None,
-        use_cache: Optional[bool] = None,
-        allow_terminal: Optional[bool] = False,
-        overwrite: Optional[bool] = True,
+        *nodes: PathNode
+        | Generator[PathNode, None, None]
+        | set[PathNode]
+        | Sequence[PathNode]
+        | Mapping[str | ProcessingPath, PathNode],
+        record_index: int | str | None = None,
+        use_cache: bool | None = None,
+        allow_terminal: bool | None = False,
+        overwrite: bool | None = True,
         **path_nodes: Mapping[str | ProcessingPath, PathNode],
     ) -> None:
         """Initializes the RecordPathNodeMap using a similar set of inputs as the original PathNodeMap.
@@ -70,7 +69,7 @@ class RecordPathNodeMap(PathNodeMap):
         self.update(prepared_nodes)
 
     @classmethod
-    def _extract_record_index(cls, path: Union[str, int, ProcessingPath] | PathNode) -> int:
+    def _extract_record_index(cls, path: str | int | ProcessingPath | PathNode) -> int:
         """Helper method that retrieves a numeric record index that corresponds to the inputted node, path, or
         string."""
         try:
@@ -141,7 +140,7 @@ class RecordPathNodeMap(PathNodeMap):
         mapping: (
             dict[str | ProcessingPath, PathNode] | PathNodeMap | Sequence[PathNode] | set[PathNode] | RecordPathNodeMap
         ),
-        use_cache: Optional[bool] = None,
+        use_cache: bool | None = None,
     ) -> RecordPathNodeMap:
         """Helper method for coercing types into a RecordPathNodeMap."""
 
@@ -151,7 +150,7 @@ class RecordPathNodeMap(PathNodeMap):
         record_index, nodes = cls._prepare_inputs(mapping)
         return cls(*nodes, record_index=record_index, use_cache=use_cache)
 
-    def _validate_node(self, node: PathNode, overwrite: Optional[bool] = None) -> None:
+    def _validate_node(self, node: PathNode, overwrite: bool | None = None) -> None:
         """Validate constraints on the node to be inserted into the PathNodeMap.
 
         Args:
@@ -186,25 +185,23 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
 
     def __init__(
         self,
-        *record_maps: Union[
-            RecordPathNodeMap,
-            PathNodeMap,
-            PathNode,
-            Generator[PathNode, None, None],
-            Sequence[PathNode],
-            Mapping[int | str | ProcessingPath, PathNode],
-            Mapping[int, PathNodeMap],
-        ],
-        use_cache: Optional[bool] = None,
-        **path_record_maps: Union[
-            RecordPathNodeMap,
-            PathNodeMap,
-            PathNode,
-            Generator[PathNode, None, None],
-            Sequence[PathNode],
-            Mapping[int | str | ProcessingPath, PathNode],
-            Mapping[int, PathNodeMap],
-        ],
+        *record_maps: RecordPathNodeMap
+        | PathNodeMap
+        | PathNode
+        | Generator[PathNode, None, None]
+        | Sequence[PathNode]
+        | Mapping[int | str | ProcessingPath, PathNode]
+        | Mapping[int, PathNodeMap],
+        use_cache: bool | None = None,
+        **path_record_maps: (
+            RecordPathNodeMap
+            | PathNodeMap
+            | PathNode
+            | Generator[PathNode, None, None]
+            | Sequence[PathNode]
+            | Mapping[int | str | ProcessingPath, PathNode]
+            | Mapping[int, PathNodeMap]
+        ),
     ) -> None:
         """Initializes the RecordPathNodeMap instance."""
         self.use_cache = use_cache if use_cache is not None else RecordPathNodeMap.DEFAULT_USE_CACHE
@@ -212,7 +209,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
             *record_maps, *path_record_maps.values(), use_cache=self.use_cache
         )
 
-    def __getitem__(self, key: Union[int, ProcessingPath]) -> RecordPathNodeMap:
+    def __getitem__(self, key: int | ProcessingPath) -> RecordPathNodeMap:
         """Retrieve a path record map from the RecordPathChainMap if the key exists.
 
         Args:
@@ -262,7 +259,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         # if we have a full path, check whether the mapping contains the path
         return path in mapping
 
-    def get_node(self, key: Union[str, ProcessingPath], default: Optional[PathNode] = None) -> Optional[PathNode]:
+    def get_node(self, key: str | ProcessingPath, default: PathNode | None = None) -> PathNode | None:
         """Helper method for retrieving a path node in a standardized way across PathNodeMaps."""
         mapping = self.get(key)
         return mapping.get(key, default) if mapping is not None else None
@@ -278,7 +275,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         return [path for mapping in self.data.values() for path in mapping]
 
     @classmethod
-    def _extract_record_index(cls, path: Union[str, int, ProcessingPath]) -> int:
+    def _extract_record_index(cls, path: str | int | ProcessingPath) -> int:
         """Helper method for extracting the path record index for a path."""
         return RecordPathNodeMap._extract_record_index(path)
 
@@ -298,9 +295,9 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
     def filter(
         self,
         prefix: ProcessingPath | str | int,
-        min_depth: Optional[int] = None,
-        max_depth: Optional[int] = None,
-        from_cache: Optional[bool] = None,
+        min_depth: int | None = None,
+        max_depth: int | None = None,
+        from_cache: bool | None = None,
     ) -> dict[ProcessingPath, PathNode]:
         """Filter the RecordPathChainMap for paths with the given prefix.
 
@@ -329,7 +326,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         except Exception as e:
             raise PathNodeMapError(f"Encountered an error filtering PathNodeMaps within the ChainMap: {e}")
 
-    def node_exists(self, node: Union["PathNode", ProcessingPath]) -> bool:
+    def node_exists(self, node: PathNode | ProcessingPath) -> bool:
         """Helper method to validate whether the current node exists."""
         if not isinstance(node, (PathNode, ProcessingPath)):
             raise InvalidPathNodeError(f"Key must be node or path. Received '{type(node)}'")
@@ -343,7 +340,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         return mapping is not None and mapping.get(node) is not None
 
     @classmethod
-    def _resolve_record_maps(cls, *args: Any, use_cache: Optional[bool] = None) -> dict[int, RecordPathNodeMap]:
+    def _resolve_record_maps(cls, *args: Any, use_cache: bool | None = None) -> dict[int, RecordPathNodeMap]:
         """Helper method for resolving groups of nodes and record maps into an integrated structure."""
 
         mapped_groups: dict[int, RecordPathNodeMap] = {}
@@ -391,8 +388,8 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
     def update(
         self,
         *args: Any,
-        overwrite: Optional[bool] = None,
-        **kwargs: dict[str, PathNode] | dict[Union[str, ProcessingPath], RecordPathNodeMap],
+        overwrite: bool | None = None,
+        **kwargs: dict[str, PathNode] | dict[str | ProcessingPath, RecordPathNodeMap],
     ) -> None:
         """Updates the PathNodeMap instance with new key-value pairs.
 
@@ -418,8 +415,8 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         logger.debug("Updated successfully")
 
     def get(  # type: ignore[override]
-        self, key: Union[str, ProcessingPath], default: Optional[RecordPathNodeMap] = None
-    ) -> Optional[RecordPathNodeMap]:
+        self, key: str | ProcessingPath, default: RecordPathNodeMap | None = None
+    ) -> RecordPathNodeMap | None:
         """Gets an item from the RecordPathNodeMap instance. If the value isn't available, this method will return the
         value specified in default.
 
@@ -436,7 +433,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
 
         return self.data.get(record_index, default)
 
-    def add(self, node: PathNode | RecordPathNodeMap, overwrite: Optional[bool] = None) -> None:
+    def add(self, node: PathNode | RecordPathNodeMap, overwrite: bool | None = None) -> None:
         """Add a node to the PathNodeMap instance.
 
         Args:
@@ -453,7 +450,7 @@ class RecordPathChainMap(UserDict[int, RecordPathNodeMap]):
         except Exception as e:
             raise PathNodeMapError(f"Error adding nodes to RecordPathChainMap: {e}") from e
 
-    def remove(self, node: Union[ProcessingPath, "PathNode", str]) -> None:
+    def remove(self, node: ProcessingPath | PathNode | str) -> None:
         """
         Remove the specified path or node from the PathNodeMap instance.
         Args:

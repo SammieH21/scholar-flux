@@ -11,8 +11,11 @@ This test suite covers:
 """
 
 import pytest
+
 from scholar_flux.api.normalization.core_field_map import (
     CoreFieldMap,
+)
+from scholar_flux.api.normalization.core_field_map import (
     field_map as core_field_map,
 )
 

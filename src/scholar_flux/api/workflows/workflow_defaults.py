@@ -7,7 +7,6 @@ At the present moment, only the PubMed API implements a workflow to consolidate 
 """
 
 from enum import Enum
-from typing import Optional
 from scholar_flux.api.workflows.search_workflow import SearchWorkflow
 from scholar_flux.api.models.provider_config import ProviderConfig
 from scholar_flux.api.workflows.pubmed_workflow import PubMedSearchWorkflow
@@ -19,7 +18,7 @@ class WORKFLOW_DEFAULTS(Enum):
     pubmed = PubMedSearchWorkflow()
 
     @classmethod
-    def get(cls, workflow_name: str) -> Optional[SearchWorkflow]:
+    def get(cls, workflow_name: str) -> SearchWorkflow | None:
         """Attempt to retrieve a SearchWorkflow instance for the given workflow name. Will not throw an error if the
         workflow does not exist.
 

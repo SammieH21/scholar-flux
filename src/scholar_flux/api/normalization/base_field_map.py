@@ -9,7 +9,8 @@ that unifies API-specific record specifications into a common structure.
 """
 from pydantic import Field, BaseModel, field_validator
 
-from typing import Any, Mapping, Optional, Sequence, overload
+from typing import Any, overload
+from collections.abc import Mapping, Sequence
 from scholar_flux.utils.repr_utils import generate_repr
 from scholar_flux.utils.helpers import as_tuple
 from scholar_flux.utils.record_types import RecordType, RecordList, NormalizedRecordType, NormalizedRecordList
@@ -45,7 +46,7 @@ class BaseFieldMap(BaseModel):
     default_field_values: dict[str, Any] = Field(default_factory=dict, description="Optional API-Specific defaults")
 
     @field_validator("provider_name", mode="before")
-    def validate_provider_name(cls, v: Optional[str]) -> str:
+    def validate_provider_name(cls, v: str | None) -> str:
         """Transforms the `provider_name` into an empty string prior to further type validation."""
         if v is None:
             return ""
@@ -68,7 +69,7 @@ class BaseFieldMap(BaseModel):
         return {key: value for key, value in field_map.items() if not key.startswith("_")} | self.api_specific_fields
 
     def normalize_record(
-        self, record: dict, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+        self, record: dict, keep_api_specific_fields: bool | Sequence[str] | None = True
     ) -> NormalizedRecordType:
         """Maps API-specific fields in a single dictionary record to a normalized set of field names.
 
@@ -101,7 +102,7 @@ class BaseFieldMap(BaseModel):
         return self.filter_api_specific_fields(normalized_record, keep_api_specific_fields)
 
     def normalize_records(
-        self, records: RecordType | RecordList, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+        self, records: RecordType | RecordList, keep_api_specific_fields: bool | Sequence[str] | None = True
     ) -> NormalizedRecordList:
         """Maps API-specific fields in one or more records to a normalized set of field names.
 
@@ -119,7 +120,7 @@ class BaseFieldMap(BaseModel):
         return [self.normalize_record(record, keep_api_specific_fields) for record in record_list]
 
     def _add_defaults(
-        self, record: dict[str, Any], default_field_values: Optional[dict[str, Any]] = None
+        self, record: dict[str, Any], default_field_values: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Adds default values for fields that are missing from the current record.
 
@@ -149,7 +150,7 @@ class BaseFieldMap(BaseModel):
         return dict.fromkeys(self.fields) | record | filtered_defaults
 
     def filter_api_specific_fields(
-        self, record: NormalizedRecordType, keep_api_specific_fields: Optional[bool | Sequence[str] | set[str]] = None
+        self, record: NormalizedRecordType, keep_api_specific_fields: bool | Sequence[str] | set[str] | None = None
     ) -> dict[str, Any]:
         """Filters API Specific parameters from the processed record.
 
@@ -174,12 +175,10 @@ class BaseFieldMap(BaseModel):
     @overload
     def apply(self, records: RecordType) -> NormalizedRecordType:
         """When calling `apply` to normalize a single record dictionary, a normalized record dictionary is returned."""
-        ...
 
     @overload
     def apply(self, records: RecordList) -> NormalizedRecordList:
         """When calling `apply` to normalize a list of records, a list of normalized record dictionaries is returned."""
-        ...
 
     def apply(self, records: RecordType | RecordList) -> NormalizedRecordType | NormalizedRecordList:
         """Normalizes a record or list of records by mapping API-specific field names to common fields.
@@ -217,12 +216,10 @@ class BaseFieldMap(BaseModel):
     @overload
     def __call__(self, records: RecordType, *args: Any, **kwargs: Any) -> NormalizedRecordType:
         """When __call__ operates on a record dictionary, a normalized record dictionary is returned."""
-        ...
 
     @overload
     def __call__(self, records: RecordList, *args: Any, **kwargs: Any) -> NormalizedRecordList:
         """When __call__ operates on a list of records, a list of normalized record dictionaries is returned."""
-        ...
 
     def __call__(
         self, records: RecordType | RecordList, *args: Any, **kwargs: Any

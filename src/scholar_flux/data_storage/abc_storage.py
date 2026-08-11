@@ -9,7 +9,7 @@ cache and can be further extended to duckdb and other abstractions supported by 
 
 """
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any
 from typing_extensions import Self
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -35,21 +35,20 @@ class ABCStorage(ABC):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initializes the current storage implementation."""
-        self.namespace: Optional[str] = None
+        self.namespace: str | None = None
         self.raise_on_error: bool = False
         self.config: SettingsDictType = {}
         self.ttl: Any = None
 
     def _initialize(self, *args: Any, **kwargs: Any) -> None:
         """Optional base method to implement for initializing/reinitializing connections."""
-        pass
 
     @classmethod
     def get_default_config(cls) -> SettingsDictType:
         """Get default configuration with current config_settings values."""
         return {}
 
-    def __deepcopy__(self, memo: Optional[dict[int, Any]]) -> Self:
+    def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
         """Future implementations of ABCStorage devices are unlikely to be deep-copied.
 
         This method defines the error message that will be used by default upon failures.
@@ -62,17 +61,17 @@ class ABCStorage(ABC):
         )
 
     @abstractmethod
-    def retrieve(self, *args: Any, **kwargs: Any) -> Optional[Any]:
+    def retrieve(self, *args: Any, **kwargs: Any) -> Any | None:
         """Core method for retrieving a page of records from the cache."""
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve_all(self, *args: Any, **kwargs: Any) -> Optional[dict[str, Any]]:
+    def retrieve_all(self, *args: Any, **kwargs: Any) -> dict[str, Any] | None:
         """Core method for retrieving all pages of records from the cache."""
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve_keys(self, *args: Any, **kwargs: Any) -> Optional[list[str]]:
+    def retrieve_keys(self, *args: Any, **kwargs: Any) -> list[str] | None:
         """Core method for retrieving all keys from the cache."""
         raise NotImplementedError
 
@@ -82,7 +81,7 @@ class ABCStorage(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, *args: Any, **kwargs: Any) -> Optional[bool]:
+    def delete(self, *args: Any, **kwargs: Any) -> bool | None:
         """Core method for record deletion.
 
         Should return True when successful, False otherwise, and `None` on error.
@@ -132,7 +131,6 @@ class ABCStorage(ABC):
             - InMemory/Null: ping() (no-op, uses default)
 
         """
-        pass
 
     def _prefix(self, key: str) -> str:
         """Prefixes a namespace to the given `key`:
@@ -157,7 +155,7 @@ class ABCStorage(ABC):
         return f"{self.namespace}:{key}" if not key.startswith(f"{self.namespace}:") else key
 
     @classmethod
-    def _validate_prefix(cls, key: Optional[str], required: bool = False) -> bool:
+    def _validate_prefix(cls, key: str | None, required: bool = False) -> bool:
         """Helper method for validating the current namespace key.
 
         Raises a KeyError if the key is not a string
@@ -175,7 +173,7 @@ class ABCStorage(ABC):
         raise KeyError(msg)
 
     @classmethod
-    def _validate_ttl(cls, ttl: Optional[int | float | str] = None) -> Optional[int | float]:
+    def _validate_ttl(cls, ttl: float | str | None = None) -> int | float | None:
         """Validates TTL values, converting them into floats when possible and not already a non-negative numeric value.
 
         Args:
@@ -209,7 +207,7 @@ class ABCStorage(ABC):
 
     @classmethod
     def _handle_storage_exception(
-        cls, exception: BaseException, operation_exception_type: Optional[type[BaseException]] = None, msg: str = ""
+        cls, exception: BaseException, operation_exception_type: type[BaseException] | None = None, msg: str = ""
     ) -> None:
         """Helper method for logging errors and raising a new exception if needed.
 

@@ -1,9 +1,11 @@
-from scholar_flux.api import SearchCoordinator, SearchAPI
-from scholar_flux.utils import JsonFileUtils
-import requests_mock
-import pytest
 from pathlib import Path
+
+import pytest
+import requests_mock
 from requests import Response
+
+from scholar_flux.api import SearchAPI, SearchCoordinator
+from scholar_flux.utils import JsonFileUtils
 
 
 @pytest.fixture
@@ -111,13 +113,13 @@ def plos_page_2_response(
 
 
 __all__ = [
-    "plos_search_api",
     "plos_coordinator",
-    "plos_page_1_url",
-    "plos_page_1_data",
-    "plos_page_2_url",
-    "plos_page_2_data",
     "plos_headers",
+    "plos_page_1_data",
     "plos_page_1_response",
+    "plos_page_1_url",
+    "plos_page_2_data",
     "plos_page_2_response",
+    "plos_page_2_url",
+    "plos_search_api",
 ]

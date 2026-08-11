@@ -1,7 +1,9 @@
 """Direct ABCStorage tests to cover basic functionality before subclassed overrides."""
 
-import pytest
 import copy
+
+import pytest
+
 from scholar_flux.data_storage.abc_storage import ABCStorage
 
 

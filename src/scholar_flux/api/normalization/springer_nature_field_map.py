@@ -2,7 +2,6 @@
 """scholar_flux.api.normalization.springer_nature_field_map.py defines the normalization steps for Springer Nature."""
 from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap, URL_PATTERN
 from scholar_flux.utils.record_types import NormalizedRecordType
-from typing import Optional
 from re import Pattern
 
 
@@ -59,8 +58,8 @@ class SpringerNatureFieldMap(AcademicFieldMap):
 
     @classmethod
     def extract_primary_url(
-        cls, record: NormalizedRecordType, field: str = "url", pattern_delimiter: Optional[str | Pattern] = URL_PATTERN
-    ) -> Optional[str]:
+        cls, record: NormalizedRecordType, field: str = "url", pattern_delimiter: str | Pattern | None = URL_PATTERN
+    ) -> str | None:
         """Extracts the primary (or first valid) URL from a record field with a flat or nested JSON structure.
 
         Args:
@@ -81,7 +80,7 @@ class SpringerNatureFieldMap(AcademicFieldMap):
         )
 
     @classmethod
-    def extract_open_access(cls, record: NormalizedRecordType, field: str = "open_access") -> Optional[bool]:
+    def extract_open_access(cls, record: NormalizedRecordType, field: str = "open_access") -> bool | None:
         """Extracts the current record's open access status by delegating processing to `.extract_boolean_field()`.
 
         Args:

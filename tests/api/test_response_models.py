@@ -1,33 +1,36 @@
+import json
+import re
+from collections import UserDict
+from collections.abc import MutableMapping
+from copy import deepcopy
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from http.client import responses
+from typing import Any
+from unittest.mock import patch
+
+import pytest
+from requests import RequestException, Response
+
 from scholar_flux.api.models.responses import (
+    APIResponse,
     ErrorResponse,
     NonResponse,
     ProcessedResponse,
-    APIResponse,
     ReconstructedResponse,
 )
 from scholar_flux.api.models.search_results import SearchResult
 from scholar_flux.api.response_validator import ResponseValidator
 from scholar_flux.exceptions import InvalidResponseReconstructionException, InvalidResponseStructureException
-from collections import UserDict
 from scholar_flux.utils import (
-    quote_if_string,
     ResponseProtocol,
-    is_response_like,
     coerce_bytes,
     generate_iso_timestamp,
+    is_response_like,
     parse_iso_timestamp,
+    quote_if_string,
 )
 from tests.testing_utilities import raise_error
-from requests import Response, RequestException
-from http.client import responses
-from unittest.mock import patch
-from datetime import datetime
-from copy import deepcopy
-from dataclasses import dataclass, asdict
-from typing import Any, MutableMapping
-import json
-import pytest
-import re
 
 
 class DummyResponse(Response):
@@ -64,7 +67,6 @@ class ResponseLikeObject:
 
     def raise_for_status(self) -> None:
         """Dummy method for raising an exception for HTTP error status codes."""
-        ...
 
     def validate(self) -> None:
         """Helper for performing field validation via the `ResponseValidator`."""
@@ -515,7 +517,7 @@ def test_api_response_timestamp_validation(caplog):
     another_invalid_dt_response = APIResponse.model_validate(keywords | dict(created_at=True))
 
     assert another_invalid_dt_response.created_at is None
-    assert f"Expected an iso8601-formatted datetime, but received type ({type(True)})" in caplog.text
+    assert f"Expected an iso8601-formatted datetime, but received type ({bool})" in caplog.text
 
 
 def test_raise_for_status():
@@ -719,7 +721,7 @@ def test_error_validation(override, caplog):
         response.validate()
 
     direct_inputs = ("status_code", "url")
-    field = list(override.keys())[0]
+    field = next(iter(override.keys()))
     value = override[field]
     text = f"{quote_if_string(field)}: {quote_if_string(value) if field in direct_inputs else type(value)}"
 

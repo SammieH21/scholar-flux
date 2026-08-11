@@ -1,8 +1,9 @@
-import pytest
-from scholar_flux.api import RateLimiter, ThreadedRateLimiter
 import time
-
 from unittest.mock import patch
+
+import pytest
+
+from scholar_flux.api import RateLimiter, ThreadedRateLimiter
 from scholar_flux.exceptions import APIParameterException
 
 

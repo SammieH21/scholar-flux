@@ -8,9 +8,9 @@ subsequently set up to enable sensitive data to be redacted from logs
 
 """
 
-from typing import Optional, Any
+from typing import Any
 import logging
-import scholar_flux.security as security
+from scholar_flux import security
 from pprint import pformat
 import warnings
 from scholar_flux.utils.logger import setup_logging, resolve_log_stream, resolve_log_level
@@ -26,11 +26,11 @@ config_settings = ConfigLoader()
 
 def initialize_package(
     log: bool = True,
-    env_path: Optional[str | Path] = None,
-    config_params: Optional[SettingsDictType] = None,
-    logging_params: Optional[SettingsDictType] = None,
+    env_path: str | Path | None = None,
+    config_params: SettingsDictType | None = None,
+    logging_params: SettingsDictType | None = None,
     *,
-    masker: Optional[security.SensitiveDataMasker] = None,
+    masker: security.SensitiveDataMasker | None = None,
 ) -> tuple[SettingsDict, logging.Logger, security.SensitiveDataMasker]:
     """Function used for orchestrating the initialization of the config, log settings, and masking for scholar_flux.
 

@@ -1,14 +1,16 @@
-import pytest
+import copy
+import json
+import re
 from typing import Any
+from unittest.mock import patch
+
+import pytest
+
 from scholar_flux.data.base_extractor import BaseDataExtractor
 from scholar_flux.data.data_extractor import DataExtractor
 from scholar_flux.exceptions import DataExtractionException
-from scholar_flux.utils import try_int, PathUtils
-from unittest.mock import patch
+from scholar_flux.utils import PathUtils, try_int
 from tests.testing_utilities import raise_error
-import re
-import json
-import copy
 
 
 def test_extract_with_manual_paths(mock_academic_json):
@@ -190,23 +192,19 @@ def test_extractor_invalid_configuration():
     """Providing a non‑list record_path should raise a DataExtractionException during extractor initialization."""
     with pytest.raises(DataExtractionException) as excinfo:
         DataExtractor(record_path=23)  # type: ignore
-    assert f"A list is required for a record path. Received: {type(23)}" in str(excinfo.value)
+    assert f"A list is required for a record path. Received: {int}" in str(excinfo.value)
 
     with pytest.raises(DataExtractionException) as excinfo:
         DataExtractor(metadata_path="invalid metadata identifier")  # type: ignore
-    assert f"The provided metadata path override is not a list or dictionary: {type('')}" in str(excinfo.value)
+    assert f"The provided metadata path override is not a list or dictionary: {str}" in str(excinfo.value)
 
     with pytest.raises(DataExtractionException) as excinfo:
         DataExtractor(dynamic_metadata_identifiers="invalid metadata")  # type: ignore
-    assert f"The dynamic metadata identifiers provided must be a tuple or list. Received: {type('')}" in str(
-        excinfo.value
-    )
+    assert f"The dynamic metadata identifiers provided must be a tuple or list. Received: {str}" in str(excinfo.value)
 
     with pytest.raises(DataExtractionException) as excinfo:
         DataExtractor(dynamic_record_identifiers="invalid record identifier")  # type: ignore
-    assert f"The dynamic record identifiers provided must be a tuple or list. Received: {type('')}" in str(
-        excinfo.value
-    )
+    assert f"The dynamic record identifiers provided must be a tuple or list. Received: {str}" in str(excinfo.value)
 
 
 def test_extractor_invalid_nested_configuration():
@@ -255,7 +253,7 @@ def test_extract_records_invalid_path(extractor_manual_paths: DataExtractor, moc
     metadata = extractor_manual_paths.extract_metadata(mock_academic_json)
     assert records is None
     assert metadata.get("starting") is None
-    assert f"The following metadata keys are missing or None: {', '.join(['starting'])}" in caplog.text
+    assert f"The following metadata keys are missing or None: {'starting'}" in caplog.text
 
 
 def test_key_error(mock_academic_json, extractor_manual_paths, caplog):

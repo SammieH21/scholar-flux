@@ -15,7 +15,7 @@ Classes:
 import datetime
 import requests
 import requests_cache
-from typing import Optional, Type, Literal, TYPE_CHECKING, overload
+from typing import Literal, TYPE_CHECKING, overload
 from pathlib import Path
 import logging
 from scholar_flux.package_metadata import get_default_writable_directory
@@ -48,7 +48,7 @@ from pydantic import ValidationError
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    __class__: Type
+    __class__: type
 
 
 class SessionManager(BaseSessionManager):
@@ -70,7 +70,7 @@ class SessionManager(BaseSessionManager):
 
     """
 
-    def __init__(self, user_agent: Optional[str] = None) -> None:
+    def __init__(self, user_agent: str | None = None) -> None:
         """Initializes a basic session manager that sets the user agent if provided.
 
         Args:
@@ -105,7 +105,7 @@ class SessionManager(BaseSessionManager):
         return session
 
     @classmethod
-    def with_session(cls, *, user_agent: Optional[str] = None) -> requests.Session:
+    def with_session(cls, *, user_agent: str | None = None) -> requests.Session:
         """Convenience factory method for creating and configuring a new requests.Session instance.
 
         Note: This method is designed to first instantiate the current SessionManager class with the specified
@@ -156,19 +156,19 @@ class CachedSessionManager(SessionManager):
 
     """
 
-    DEFAULT_EXPIRE_AFTER: Optional[int] = config_settings.get("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL")
+    DEFAULT_EXPIRE_AFTER: int | None = config_settings.get("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL")
 
     def __init__(
         self,
-        user_agent: Optional[str] = None,
-        cache_name: Optional[str] = None,
-        cache_directory: Optional[Path | str] = None,
-        backend: Optional[SessionCacheBackendType] = None,
-        serializer: Optional[SessionCacheSerializer] = None,
-        expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
-        raise_on_error: Optional[bool] = None,
+        user_agent: str | None = None,
+        cache_name: str | None = None,
+        cache_directory: Path | str | None = None,
+        backend: SessionCacheBackendType | None = None,
+        serializer: SessionCacheSerializer | None = None,
+        expire_after: float | str | datetime.datetime | datetime.timedelta | None = None,
+        raise_on_error: bool | None = None,
         *,
-        use_encryption: Optional[bool] = None,
+        use_encryption: bool | None = None,
     ) -> None:
         """Initializes the CachedSessionManager, defining and validating the options for `CachedSession` generation.
 
@@ -249,7 +249,7 @@ class CachedSessionManager(SessionManager):
         return self.config.cache_name
 
     @property
-    def cache_directory(self) -> Optional[Path]:
+    def cache_directory(self) -> Path | None:
         """Makes the config's cache directory accessible by the CachedSessionManager."""
         return self.config.cache_directory
 
@@ -271,14 +271,14 @@ class CachedSessionManager(SessionManager):
     @property
     def serializer(
         self,
-    ) -> Optional[SessionCacheSerializer]:
+    ) -> SessionCacheSerializer | None:
         """Makes the serializer from the config accessible from the CachedSessionManager."""
         return self.config.serializer
 
     @property
     def expire_after(
         self,
-    ) -> Optional[int | float | str | datetime.datetime | datetime.timedelta]:
+    ) -> int | float | str | datetime.datetime | datetime.timedelta | None:
         """Makes the config's value used for response cache expiration accessible from the CachedSessionManager."""
         return self.config.expire_after
 
@@ -287,8 +287,8 @@ class CachedSessionManager(SessionManager):
         cls,
         serializer: SessionCacheSerializer | None = None,
         *,
-        use_encryption: Optional[bool] = None,
-        raise_on_error: Optional[bool] = None,
+        use_encryption: bool | None = None,
+        raise_on_error: bool | None = None,
     ) -> SessionCacheSerializer | None:
         """Returns the received serializer if it exists and alternatively creates an encryption serializer if enabled.
 
@@ -343,7 +343,7 @@ class CachedSessionManager(SessionManager):
         return None
 
     @classmethod
-    def get_cache_name(cls, cache_name: Optional[str] = None) -> str:
+    def get_cache_name(cls, cache_name: str | None = None) -> str:
         """Retrieves a valid, non-missing `cache_name` when an input for the parameter is not provided.
 
         When `cache_name` is None, this method attempts to retrieve a valid cache name from the
@@ -366,8 +366,8 @@ class CachedSessionManager(SessionManager):
 
     @classmethod
     def get_cache_directory(
-        cls, cache_directory: Optional[Path | str] = None, backend: Optional[SessionCacheBackendType] = None
-    ) -> Optional[Path]:
+        cls, cache_directory: Path | str | None = None, backend: SessionCacheBackendType | None = None
+    ) -> Path | None:
         """Finds a directory path for use with session cache, favoring explicitly assigned directories if provided.
 
         Note that this method will only attempt to find a cache directory if one is needed, such as when
@@ -404,7 +404,7 @@ class CachedSessionManager(SessionManager):
 
     @classmethod
     def default_session_backend(
-        cls, raise_on_error: Optional[bool] = None
+        cls, raise_on_error: bool | None = None
     ) -> Literal["dynamodb", "filesystem", "gridfs", "memory", "mongodb", "redis", "sqlite"]:
         """Reads a default backend from `SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND` or defaulting to sqlite otherwise.
 
@@ -455,7 +455,7 @@ class CachedSessionManager(SessionManager):
             raise SessionCacheDirectoryError(f"Could not create cache directory due to an exception: {e}")
 
     @classmethod
-    def _default_expire_after(cls) -> Optional[int | float | str | datetime.datetime | datetime.timedelta]:
+    def _default_expire_after(cls) -> int | float | str | datetime.datetime | datetime.timedelta | None:
         """Extracts and prepares the `expire_after` field from class/config defaults of unknown types."""
         config_expire_after = try_none(config_settings.get("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL"))
         return config_expire_after if config_expire_after is not None else try_none(cls.DEFAULT_EXPIRE_AFTER)
@@ -465,17 +465,15 @@ class CachedSessionManager(SessionManager):
         self, verify_connection: bool = False, *, raise_on_error: Literal[True] = True
     ) -> requests_cache.session.CachedSession:
         """When `raise_on_error=True`, session configuration will raise an error when cached session creation fails."""
-        ...
 
     @overload
     def configure_session(
         self, verify_connection: bool = False, *, raise_on_error: Literal[False] | None = None
     ) -> requests.Session | requests_cache.session.CachedSession:
         """When `raise_on_error` is False or None, session configuration falls back to `requests.Session` on error."""
-        ...
 
     def configure_session(
-        self, verify_connection: bool = False, *, raise_on_error: Optional[bool] = None
+        self, verify_connection: bool = False, *, raise_on_error: bool | None = None
     ) -> requests.Session | requests_cache.session.CachedSession:
         """Creates and returns a new `CachedSession` using the same settings shown in the current `CachedSessionConfig`.
 
@@ -537,50 +535,49 @@ class CachedSessionManager(SessionManager):
     @overload
     def with_session(
         cls,
-        backend: Optional[SessionCacheBackendType] = None,
+        backend: SessionCacheBackendType | None = None,
         *,
-        user_agent: Optional[str] = None,
-        cache_name: Optional[str] = None,
-        cache_directory: Optional[Path | str] = None,
-        serializer: Optional[SessionCacheSerializer] = None,
-        expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
+        user_agent: str | None = None,
+        cache_name: str | None = None,
+        cache_directory: Path | str | None = None,
+        serializer: SessionCacheSerializer | None = None,
+        expire_after: float | str | datetime.datetime | datetime.timedelta | None = None,
         raise_on_error: Literal[True] = True,
         verify_connection: bool = False,
-        use_encryption: Optional[bool] = None,
+        use_encryption: bool | None = None,
     ) -> requests_cache.session.CachedSession:
         """When `raise_on_error=True`, session configuration will raise an error when cached session creation fails."""
-        ...
 
     @classmethod
     @overload
     def with_session(
         cls,
-        backend: Optional[SessionCacheBackendType] = None,
+        backend: SessionCacheBackendType | None = None,
         *,
-        user_agent: Optional[str] = None,
-        cache_name: Optional[str] = None,
-        cache_directory: Optional[Path | str] = None,
-        serializer: Optional[SessionCacheSerializer] = None,
-        expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
+        user_agent: str | None = None,
+        cache_name: str | None = None,
+        cache_directory: Path | str | None = None,
+        serializer: SessionCacheSerializer | None = None,
+        expire_after: float | str | datetime.datetime | datetime.timedelta | None = None,
         raise_on_error: Literal[False] | None = None,
         verify_connection: bool = False,
-        use_encryption: Optional[bool] = None,
+        use_encryption: bool | None = None,
     ) -> requests.Session | requests_cache.session.CachedSession:
         """When `raise_on_error` is False or None, session configuration falls back to `requests.Session` on error."""
 
     @classmethod
     def with_session(
         cls,
-        backend: Optional[SessionCacheBackendType] = None,
+        backend: SessionCacheBackendType | None = None,
         *,
-        user_agent: Optional[str] = None,
-        cache_name: Optional[str] = None,
-        cache_directory: Optional[Path | str] = None,
-        serializer: Optional[SessionCacheSerializer] = None,
-        expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None,
-        raise_on_error: Optional[bool] = None,
+        user_agent: str | None = None,
+        cache_name: str | None = None,
+        cache_directory: Path | str | None = None,
+        serializer: SessionCacheSerializer | None = None,
+        expire_after: float | str | datetime.datetime | datetime.timedelta | None = None,
+        raise_on_error: bool | None = None,
         verify_connection: bool = False,
-        use_encryption: Optional[bool] = None,
+        use_encryption: bool | None = None,
     ) -> requests.Session | requests_cache.session.CachedSession:
         """Convenience factory method for creating and configuring a new CachedSession.
 

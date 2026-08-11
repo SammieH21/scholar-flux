@@ -7,7 +7,8 @@ The extracted list of responses and metadata dictionaries are used in later step
 processing.
 
 """
-from typing import Any, Optional, Union, overload, Mapping, Iterator
+from typing import Any, overload
+from collections.abc import Mapping, Iterator
 from typing_extensions import Self
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils.helpers import filter_record_key_prefixes
@@ -93,11 +94,11 @@ class DataExtractor(BaseDataExtractor):
 
     def __init__(
         self,
-        record_path: Optional[list] = None,
-        metadata_path: Optional[list[list] | dict[str, list]] = None,
-        dynamic_record_identifiers: Optional[list | tuple] = None,
-        dynamic_metadata_identifiers: Optional[list | tuple] = None,
-        annotate_records: Optional[bool] = None,
+        record_path: list | None = None,
+        metadata_path: list[list] | dict[str, list] | None = None,
+        dynamic_record_identifiers: list | tuple | None = None,
+        dynamic_metadata_identifiers: list | tuple | None = None,
+        annotate_records: bool | None = None,
     ):
         """Initialize the DataExtractor with optional path overrides for metadata and records.
 
@@ -138,8 +139,8 @@ class DataExtractor(BaseDataExtractor):
     @classmethod
     def _validate_dynamic_identifiers(
         cls,
-        dynamic_record_identifiers: Optional[list | tuple] = None,
-        dynamic_metadata_identifiers: Optional[list | tuple] = None,
+        dynamic_record_identifiers: list | tuple | None = None,
+        dynamic_metadata_identifiers: list | tuple | None = None,
     ) -> None:
         """Method used to validate the dynamic record identifiers provided to the DataExtractor prior to its later use
         in extracting metadata and records.
@@ -178,7 +179,6 @@ class DataExtractor(BaseDataExtractor):
             raise DataExtractionException(
                 f"Error initializing the DataExtractor: At least one of the inputs are invalid. {e}"
             ) from e
-        return None
 
     def _validate_inputs(self) -> None:
         """Method used to validate the inputs provided to the DataExtractor prior to its later use in extracting
@@ -201,7 +201,6 @@ class DataExtractor(BaseDataExtractor):
         """
         self._validate_paths(self.record_path, self.metadata_path)
         self._validate_dynamic_identifiers(self.dynamic_record_identifiers, self.dynamic_metadata_identifiers)
-        return None
 
     def dynamic_identification(self, parsed_page_dict: dict) -> tuple[RecordList, MetadataType]:
         """Dynamically identify and separate metadata from records. This function recursively traverses the dictionary
@@ -273,7 +272,7 @@ class DataExtractor(BaseDataExtractor):
             ]
         )
 
-    def extract(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[RecordList], Optional[MetadataType]]:
+    def extract(self, parsed_page: list[dict] | dict) -> tuple[RecordList | None, MetadataType | None]:
         """Extract both records and metadata from the parsed page dictionary.
 
         Args:
@@ -358,31 +357,27 @@ class DataExtractor(BaseDataExtractor):
     @overload
     def strip_annotations(cls, records: RecordType) -> RecordType:
         """When `strip_annotations` is called on a single record, internal annotations are stripped."""
-        ...
 
     @classmethod
     @overload
     def strip_annotations(cls, records: NormalizedRecordList) -> NormalizedRecordList:
         """When `strip_annotations` is called on a normalized record, internal annotations are stripped."""
-        ...
 
     @classmethod
     @overload
     def strip_annotations(cls, records: RecordList) -> RecordList:
         """When `strip_annotations` is called on a record list, each record is stripped, returning a list."""
-        ...
 
     @classmethod
     @overload
     def strip_annotations(cls, records: None) -> None:
         """When `strip_annotations` is called and a record is None, None is returned."""
-        ...
 
     @classmethod
     def strip_annotations(
         cls,
-        records: Optional[Union[RecordType, RecordList, NormalizedRecordList]],
-    ) -> Optional[Union[RecordType, RecordList, NormalizedRecordList]]:
+        records: RecordType | RecordList | NormalizedRecordList | None,
+    ) -> RecordType | RecordList | NormalizedRecordList | None:
         """Removes metadata annotations from records by filtering out keys prefixed with underscore.
 
         This method creates clean copies of records without internal pipeline metadata fields that may be added during

@@ -1,17 +1,19 @@
+import re
 from contextlib import contextmanager
-from scholar_flux.api import SearchAPI, SearchCoordinator, APIParameterMap, MultiSearchCoordinator
-from scholar_flux.exceptions import InvalidCoordinatorParameterException
-from scholar_flux.api.rate_limiting import ThreadedRateLimiter, threaded_rate_limiter_registry
-from scholar_flux.api.models import SearchResultList, ProcessedResponse, ErrorResponse, PageListInput
+from datetime import datetime
+from pathlib import Path
+from time import time
+from typing import Any
 from unittest.mock import patch
 from warnings import warn
-from typing import Any
-from pathlib import Path
-import requests_mock
+
 import pytest
-from time import time
-from datetime import datetime
-import re
+import requests_mock
+
+from scholar_flux.api import APIParameterMap, MultiSearchCoordinator, SearchAPI, SearchCoordinator
+from scholar_flux.api.models import ErrorResponse, PageListInput, ProcessedResponse, SearchResultList
+from scholar_flux.api.rate_limiting import ThreadedRateLimiter, threaded_rate_limiter_registry
+from scholar_flux.exceptions import InvalidCoordinatorParameterException
 
 
 @pytest.fixture
@@ -773,7 +775,7 @@ def test_invalid_parameters(initialize_mocker, pause_rate_limiting, caplog):
             multisearch_coordinator.iter_pages_threaded(pages=PageListInput([1, 2]), max_workers=non_positive_workers)
         )
         assert isinstance(pages, SearchResultList) and not pages
-        assert f"The value for workers ({non_positive_workers}) is non-positive: defaulting to 1 worker"
+        assert f"The value for workers ({non_positive_workers}) is non-positive: defaulting to 1 worker" in caplog.text
 
 
 def test_empty_search(pause_rate_limiting, caplog):

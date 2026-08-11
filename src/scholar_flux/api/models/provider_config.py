@@ -8,7 +8,7 @@ providers, as well as basic defaults necessary for interaction.
 """
 
 from pydantic import BaseModel, field_validator, model_validator, ConfigDict, Field
-from typing import Optional, ClassVar, Any
+from typing import ClassVar, Any
 from scholar_flux.api.validators import validate_url, normalize_url
 from scholar_flux.api.models.base_parameters import BaseAPIParameterMap
 from scholar_flux.api.normalization.base_field_map import BaseFieldMap
@@ -78,18 +78,18 @@ class ProviderConfig(BaseModel):
     provider_name: str = Field(min_length=1, description="Provider Name or Base URL for the article API")
     base_url: str = Field(description="Base URL for the API")
     parameter_map: BaseAPIParameterMap = Field(description="Map detailing the parameter names used by the API")
-    metadata_map: Optional[ResponseMetadataMap] = Field(
+    metadata_map: ResponseMetadataMap | None = Field(
         default=None, description="Metadata map used to distinguish field names"
     )
-    field_map: Optional[BaseFieldMap] = Field(
+    field_map: BaseFieldMap | None = Field(
         default=None, description="Maps API-Specific fields to commonly named parameters"
     )
     records_per_page: int = Field(default=20, ge=0, le=1000, description="Number of records per page (1-1000)")
     request_delay: float = Field(default=6.1, ge=0, description="Minimum delay between requests in seconds")
-    api_key_env_var: Optional[str] = Field(
+    api_key_env_var: str | None = Field(
         default=None, description="The API Key environment variable to read from the system environment, if specified"
     )
-    docs_url: Optional[str] = Field(default=None, description="URL for the API's documentation")
+    docs_url: str | None = Field(default=None, description="URL for the API's documentation")
     display_name: str = Field(default="", min_length=1, description="A Human-readable provider name")
     model_config: ClassVar[ConfigDict] = ConfigDict(str_strip_whitespace=True)
 
@@ -120,7 +120,7 @@ class ProviderConfig(BaseModel):
         return cls._normalize_url(v, normalize_https=False)
 
     @field_validator("docs_url")
-    def validate_docs_url(cls, v: Optional[str]) -> Optional[str]:
+    def validate_docs_url(cls, v: str | None) -> str | None:
         """Validates the documentation URL and raises an APIParameterException if invalid."""
         if v is not None and not validate_url(v):
             msg = f"Error validating the document URL: The URL provided to the ProviderConfig is invalid: {v}"

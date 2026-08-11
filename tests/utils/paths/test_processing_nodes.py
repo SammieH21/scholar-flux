@@ -1,9 +1,11 @@
-import pytest
 from copy import deepcopy
+
+import pytest
+
 from scholar_flux.exceptions import InvalidPathNodeError
 from scholar_flux.utils.paths import (
-    ProcessingPath,
     PathNode,
+    ProcessingPath,
 )
 
 

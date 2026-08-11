@@ -7,11 +7,11 @@ creation, filtering, and discovery of nested keys in JSON structures.
 
 """
 from __future__ import annotations
-from typing import Union
 import re
 import logging
 from copy import deepcopy
-from typing import Optional, List, Tuple, Pattern, ClassVar
+from typing import ClassVar
+from re import Pattern
 from dataclasses import dataclass, field
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
@@ -57,16 +57,16 @@ class ProcessingPath:
 
     """
 
-    components: Tuple[str, ...] = field(init=False)
-    component_types: Optional[Tuple[str, ...]] = field(init=False, default=None)
+    components: tuple[str, ...] = field(init=False)
+    component_types: tuple[str, ...] | None = field(init=False, default=None)
     delimiter: str = field(init=False, default="")
     DEFAULT_DELIMITER: ClassVar[str] = "."  # Class-level default delimiter
 
     def __init__(
         self,
-        components: Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]] = (),
-        component_types: Optional[Union[Tuple[str, ...], List[str]]] = None,
-        delimiter: Optional[str] = None,
+        components: str | int | tuple[str, ...] | list[str] | list[int] | list[str | int] = (),
+        component_types: tuple[str, ...] | list[str] | None = None,
+        delimiter: str | None = None,
     ):
         """Initializes the ProcessingPath. The inputs are first validated to ensure that the path components and
         delimiters are valid.
@@ -118,8 +118,8 @@ class ProcessingPath:
         return delimiter
 
     def _validate_and_split_path(
-        self, path: Union[str, int, Tuple[str, ...], List[str], List[int], List[str | int]]
-    ) -> Tuple[str, ...]:
+        self, path: str | int | tuple[str, ...] | list[str] | list[int] | list[str | int]
+    ) -> tuple[str, ...]:
         """Helper method used to validate and prepare a tuple of path components on the instantiation of the
         ProcessingPath. After validation, the path is prepared, split and formatted depending on its input type.
 
@@ -161,8 +161,8 @@ class ProcessingPath:
         return tuple(str(p) if isinstance(p, int) else p for p in path)
 
     def _validate_component_types(
-        self, component_types: Optional[Union[str, Tuple[str, ...], List[str]]] = None
-    ) -> Optional[Tuple[str, ...]]:
+        self, component_types: str | tuple[str, ...] | list[str] | None = None
+    ) -> tuple[str, ...] | None:
         """Helper method that validates the component types that serve as metadata for each component. Upon validation,
         the component types are split into a tuple of strings depending on their initial type.
 
@@ -212,9 +212,9 @@ class ProcessingPath:
 
     @staticmethod
     def infer_delimiter(
-        path: Union[str, ProcessingPath],
-        delimiters: list[str] = ["<>", "//", "/", ">", "<", "\\", "%", "."],
-    ) -> Optional[str]:
+        path: str | ProcessingPath,
+        delimiters: list[str] | None = None,
+    ) -> str | None:
         """Infer the delimiter used in the path string based on its string representation.
 
         Args:
@@ -225,9 +225,10 @@ class ProcessingPath:
             str: The inferred delimiter.
 
         """
+        path_delimiters = ["<>", "//", "/", ">", "<", "\\", "%", "."] if delimiters is None else delimiters
         str_path = path.to_string() if isinstance(path, ProcessingPath) else path
 
-        for delimiter in delimiters:
+        for delimiter in path_delimiters:
             if delimiter in str_path:
                 return delimiter
 
@@ -260,9 +261,9 @@ class ProcessingPath:
     @classmethod
     def to_processing_path(
         cls,
-        path: Union[ProcessingPath, str, int, List[str], List[int], List[str | int]],
-        component_types: Optional[list | tuple] = None,
-        delimiter: Optional[str] = None,
+        path: ProcessingPath | str | int | list[str] | list[int] | list[str | int],
+        component_types: list | tuple | None = None,
+        delimiter: str | None = None,
         infer_delimiter: bool = False,
     ) -> ProcessingPath:
         """Convert an input to a ProcessingPath instance if it's not already.
@@ -299,8 +300,8 @@ class ProcessingPath:
     @classmethod
     def with_inferred_delimiter(
         cls,
-        path: Union[ProcessingPath, str],
-        component_types: Optional[List | Tuple] = None,
+        path: ProcessingPath | str,
+        component_types: list | tuple | None = None,
     ) -> ProcessingPath:
         """Converts an input to a ProcessingPath instance if it's not already a processing path.
 
@@ -342,7 +343,7 @@ class ProcessingPath:
         """
         return self.delimiter.join(self.components)
 
-    def __getitem__(self, index: Union[int, slice]) -> ProcessingPath:
+    def __getitem__(self, index: int | slice) -> ProcessingPath:
         """Retrieve a subset of the ProcessingPath components using indexing or slicing.
 
         Args:
@@ -371,7 +372,7 @@ class ProcessingPath:
         else:
             raise IndexError(f"Invalid index for ProcessingPath: received {index}")
 
-    def append(self, component: int | str, component_type: Optional[str] = None) -> ProcessingPath:
+    def append(self, component: int | str, component_type: str | None = None) -> ProcessingPath:
         """Append a component to the path and return a new ProcessingPath object.
 
         Args:
@@ -430,7 +431,7 @@ class ProcessingPath:
                 f"The first element of the current path, '{self}',  cannot be indexed as a record: {e}"
             )
 
-    def is_ancestor_of(self, path: Union[str, ProcessingPath]) -> bool:
+    def is_ancestor_of(self, path: str | ProcessingPath) -> bool:
         """Determine whether the current path (self) is equal to or a subset/descendant path of the specified path.
 
         Args:
@@ -451,7 +452,7 @@ class ProcessingPath:
 
         return self[: self.depth] == path[: self.depth]
 
-    def has_ancestor(self, path: Union[str, ProcessingPath]) -> bool:
+    def has_ancestor(self, path: str | ProcessingPath) -> bool:
         """Determine whether the provided path is equal to or a subset/descendant of the current path (self).
 
         Args:
@@ -498,9 +499,9 @@ class ProcessingPath:
 
     def replace_path(
         self,
-        old: Union[str, ProcessingPath],
-        new: Union[str, ProcessingPath],
-        component_types: Optional[List | Tuple] = None,
+        old: str | ProcessingPath,
+        new: str | ProcessingPath,
+        component_types: list | tuple | None = None,
     ) -> ProcessingPath:
         """Replace an ancestor path or full path in the current ProcessingPath with a new path.
 
@@ -662,7 +663,7 @@ class ProcessingPath:
         """
         return self.depth
 
-    def __truediv__(self, other: Union[ProcessingPath, str]) -> ProcessingPath:
+    def __truediv__(self, other: ProcessingPath | str) -> ProcessingPath:
         """Concatenate the ProcessingPath with another path using the '/' operator.
 
         Args:
@@ -758,7 +759,7 @@ class ProcessingPath:
             else re.compile(re.escape(self.delimiter.join(self.components)))
         )
 
-    def to_list(self) -> List[str]:
+    def to_list(self) -> list[str]:
         """Convert the ProcessingPath to a list of components.
 
         Returns:
@@ -795,8 +796,8 @@ class ProcessingPath:
             raise InvalidProcessingPathError(f"Error generating alphanumeric representation for path '{self}': {e}")
 
     def _filter_indices_list(
-        self, indices: List[int], include_matches: bool = False
-    ) -> Tuple[Tuple[str, ...], Optional[Tuple[str, ...]]]:
+        self, indices: list[int], include_matches: bool = False
+    ) -> tuple[tuple[str, ...], tuple[str, ...] | None]:
         """Filter the current ProcessingPath using a list of indices and returns components and component types as a
         tuple."""
         filtered_components = tuple(
@@ -854,7 +855,7 @@ class ProcessingPath:
         new_components = tuple(placeholder if component.isdigit() else component for component in self.components)
         return ProcessingPath(new_components, self.component_types, self.delimiter)
 
-    def get_parent(self, step: int = 1) -> Optional[ProcessingPath]:
+    def get_parent(self, step: int = 1) -> ProcessingPath | None:
         """Get the ancestor path of the current ProcessingPath by the specified number of steps.
 
         This method navigates up the path structure by the given number of steps. If the step count is greater than or
@@ -886,7 +887,7 @@ class ProcessingPath:
             self.delimiter,
         )
 
-    def get_ancestors(self) -> List[Optional[ProcessingPath]]:
+    def get_ancestors(self) -> list[ProcessingPath | None]:
         """Get all parent paths of the current ProcessingPath by the specified number of steps.
 
         Returns:
@@ -899,7 +900,7 @@ class ProcessingPath:
             return []
         return [self.get_parent(i) for i in range(1, self.depth)]
 
-    def remove(self, removal_list: List[str]) -> ProcessingPath:
+    def remove(self, removal_list: list[str]) -> ProcessingPath:
         """Remove specified components from the path.
 
         Args:
@@ -917,7 +918,7 @@ class ProcessingPath:
 
         return ProcessingPath(filtered_components, filtered_component_types, self.delimiter)
 
-    def remove_by_type(self, removal_list: List[str], raise_on_error: bool = False) -> ProcessingPath:
+    def remove_by_type(self, removal_list: list[str], raise_on_error: bool = False) -> ProcessingPath:
         """Remove specified component types from the path.
 
         Args:
@@ -942,7 +943,7 @@ class ProcessingPath:
 
         return ProcessingPath(filtered_components, filtered_component_types, self.delimiter)
 
-    def info_content(self, non_informative: List[str]) -> int:
+    def info_content(self, non_informative: list[str]) -> int:
         """Calculate the number of informative components in the path.
 
         Args:
@@ -972,7 +973,7 @@ class ProcessingPath:
         )
 
     @classmethod
-    def keep_descendants(cls, paths: List[ProcessingPath]) -> List[ProcessingPath]:
+    def keep_descendants(cls, paths: list[ProcessingPath]) -> list[ProcessingPath]:
         """Filters a list of paths and keeps only descendants."""
         if not paths:
             return []

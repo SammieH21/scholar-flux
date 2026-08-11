@@ -34,7 +34,7 @@ from collections import deque
 from pydantic.dataclasses import dataclass
 from dataclasses import asdict
 from pydantic import Field
-from typing import Optional, ClassVar, Generic, TypeVar, Any
+from typing import ClassVar, Generic, TypeVar, Any
 from typing_extensions import Self
 from scholar_flux.utils.helpers import generate_iso_timestamp, coerce_int, coerce_str
 from scholar_flux.utils import generate_repr, generate_sequence_repr
@@ -75,33 +75,33 @@ class RetryAttempt:
 
     """
 
-    status_code: Optional[int]
+    status_code: int | None
     attempt_number: int
     min_retry_delay: float
     backoff_factor: float
     success: bool
-    url: Optional[str] = None
-    delay: Optional[float] = None
-    duration: Optional[float] = None
-    elapsed: Optional[float] = None
+    url: str | None = None
+    delay: float | None = None
+    duration: float | None = None
+    elapsed: float | None = None
     timeout: bool = False
-    message: Optional[str] = None
-    error: Optional[str] = None
+    message: str | None = None
+    error: str | None = None
     timestamp: str = Field(default_factory=generate_iso_timestamp)
 
     @classmethod
     def from_response(
         cls,
-        response: Optional[Response | ResponseProtocol],
+        response: Response | ResponseProtocol | None,
         attempt_number: int,
         min_retry_delay: float,
         backoff_factor: float,
-        url: Optional[str] = None,
-        delay: Optional[float] = None,
-        duration: Optional[float] = None,
+        url: str | None = None,
+        delay: float | None = None,
+        duration: float | None = None,
         timeout: bool = False,
-        message: Optional[str] = None,
-        error: Optional[str] = None,
+        message: str | None = None,
+        error: str | None = None,
     ) -> Self:
         """Helper method for creating a new RetryAttempt from the provided response.
 
@@ -126,9 +126,9 @@ class RetryAttempt:
             - `success` is determined by calling `response.raise_for_status()`
 
         """
-        status_code: Optional[int] = None
+        status_code: int | None = None
         success: bool = False
-        elapsed: Optional[float] = None
+        elapsed: float | None = None
         if isinstance(response, Response) or isinstance(response, ResponseProtocol):
             status_code = coerce_int(response.status_code)
             url = coerce_str(url or response.url)
@@ -160,7 +160,7 @@ class RetryAttempt:
         )
 
     @classmethod
-    def _extract_url_from_message(cls, message: Optional[str]) -> Optional[str]:
+    def _extract_url_from_message(cls, message: str | None) -> str | None:
         """Helper method for extracting the URL from error messages (primarily error timeouts) when not provided."""
         if isinstance(message, str) and (url_match := re.search(r"host='(.*?)'", message)):
             return normalize_url(url_match.group(1))
@@ -201,10 +201,10 @@ class RateLimitEvent:
     """
 
     interval: float
-    url: Optional[str] = None
-    caller: Optional[str] = None
-    request_delay: Optional[float] = None
-    metadata: Optional[dict[str, Any]] = None
+    url: str | None = None
+    caller: str | None = None
+    request_delay: float | None = None
+    metadata: dict[str, Any] | None = None
     timestamp: str = Field(default_factory=generate_iso_timestamp)
 
     @classmethod
@@ -212,9 +212,9 @@ class RateLimitEvent:
         cls,
         interval: float,
         *,
-        url: Optional[str] = None,
-        caller: Optional[str] = None,
-        request_delay: Optional[float] = None,
+        url: str | None = None,
+        caller: str | None = None,
+        request_delay: float | None = None,
         **metadata: Any,
     ) -> Self:
         """Helper method for initializing a new RateLimitEvent from a list of known attributes and keyword arguments.
@@ -277,7 +277,7 @@ class HistoryDeque(deque, Generic[T]):
     @classmethod
     def create(
         cls,
-        maxlen: Optional[int] = None,
+        maxlen: int | None = None,
     ) -> Self:
         """Factory function to create a bounded history deque.
 

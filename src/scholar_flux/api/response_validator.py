@@ -12,8 +12,8 @@ from scholar_flux.exceptions.api_exceptions import (
     InvalidResponseStructureException,
     RequestFailedException,
 )
-from typing import Any, Mapping, Optional
-from typing_extensions import TypeGuard
+from typing import Any, TypeGuard
+from collections.abc import Mapping
 from scholar_flux.utils.response_protocol import ResponseProtocol, is_response_like
 from scholar_flux.utils.repr_utils import generate_repr
 from scholar_flux.api.validators import validate_url
@@ -197,11 +197,11 @@ class ResponseValidator:
     @classmethod
     def identify_invalid_keywords(
         cls,
-        status_code: Optional[object] = None,
-        url: Optional[object] = None,
-        reason: Optional[object] = None,
-        content: Optional[object] = None,
-        headers: Optional[object] = None,
+        status_code: object | None = None,
+        url: object | None = None,
+        reason: object | None = None,
+        content: object | None = None,
+        headers: object | None = None,
     ) -> dict[str, object]:
         """Validates response field keyword arguments, indicating those that contain invalid values.
 
