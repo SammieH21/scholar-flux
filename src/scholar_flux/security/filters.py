@@ -7,7 +7,6 @@ via the `logging` module.
 
 """
 import logging
-from typing import Optional
 from scholar_flux.security.masker import SensitiveDataMasker
 
 
@@ -32,7 +31,7 @@ class MaskingFilter(logging.Filter):
 
     """
 
-    def __init__(self, masker: Optional[SensitiveDataMasker] = None):
+    def __init__(self, masker: SensitiveDataMasker | None = None):
         """By default, this implementation is applied in the initialization of the package in scholar_flux.__init__ on
         import, so this class does not need to be applied directly.
 

@@ -26,9 +26,9 @@ import re
 from pydantic import SecretStr
 
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 from scholar_flux.security import masker
-from scholar_flux.utils.helpers import coerce_str, coerce_int, try_int, with_fallback, handle_exception
+from scholar_flux.utils.helpers import coerce_str, coerce_int, try_int, handle_exception, with_fallback
 from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
 
 # Initialize logger: useful for observability prior to full package initialization
@@ -175,14 +175,16 @@ class ConfigLoader:
         SCHOLAR_FLUX_PROPAGATE_LOGS=os.getenv("SCHOLAR_FLUX_PROPAGATE_LOGS"),
         SCHOLAR_FLUX_DEFAULT_PROVIDER=os.getenv("SCHOLAR_FLUX_DEFAULT_PROVIDER") or "plos",
         SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND=os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_BACKEND"),
-        SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL=os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL", 86400),
+        SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL=with_fallback(
+            os.getenv("SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL"), 86400
+        ),  # respects SCHOLAR_FLUX_DEFAULT_SESSION_CACHE_TTL='' -> None
         SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE=os.getenv("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_STORAGE"),
         SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL=os.getenv("SCHOLAR_FLUX_DEFAULT_RESPONSE_CACHE_TTL"),
         SCHOLAR_FLUX_DEFAULT_USER_AGENT=os.getenv("SCHOLAR_FLUX_DEFAULT_USER_AGENT"),
         SCHOLAR_FLUX_DEFAULT_MAILTO=os.getenv("SCHOLAR_FLUX_DEFAULT_MAILTO"),
     )
 
-    def __init__(self, env_path: Optional[Path | str] = None, *, raise_on_error: bool | None = None):
+    def __init__(self, env_path: Path | str | None = None, *, raise_on_error: bool | None = None):
         """Initializes the `ConfigLoader` with class-level defaults and establishes the `.env` path to read from.
 
         If a custom path is provided and valid, it will be used when it points to a valid file that exists; otherwise,
@@ -206,8 +208,8 @@ class ConfigLoader:
         self.config: SettingsDict = self.DEFAULT_ENV.copy()  # Use a copy to avoid modifying the class attribute
 
     def try_loadenv(
-        self, env_path: Optional[Path | str] = None, verbose: bool = False, raise_on_error: bool | None = False
-    ) -> Optional[SettingsDict]:
+        self, env_path: Path | str | None = None, verbose: bool = False, raise_on_error: bool | None = False
+    ) -> SettingsDict | None:
         """Try to load environment variables from a specified .env file into the environment and return as a dict.
 
         Args:
@@ -234,7 +236,7 @@ class ConfigLoader:
 
     def load_dotenv(
         self,
-        env_path: Optional[Path | str] = None,
+        env_path: Path | str | None = None,
         replace_all: bool = False,
         verbose: bool = False,
         *,
@@ -264,7 +266,7 @@ class ConfigLoader:
             err = TypeError(
                 f"The variable, `env_path` must be a string or path, but received a variable of {type(env_path)}."
             )
-            msg = f"{str(err)} Attempting to load environment settings from default .env locations instead..."
+            msg = f"{err!s} Attempting to load environment settings from default .env locations instead..."
             raise_type_error = with_fallback(raise_on_error, True)  # default: raise error when incorrectly typed
             handle_exception(err, message=str(err) if raise_type_error else msg, raise_on_error=raise_type_error)
             warnings.warn(msg)
@@ -285,7 +287,7 @@ class ConfigLoader:
         cls,
         value: Any,
         *,
-        key: Optional[str] = None,
+        key: str | None = None,
         matches: list[str] | tuple[str, ...] | set[str] | None = None,
     ) -> Any | SecretStr:
         """Guards the values of API keys, secrets, and likely email addresses by transforming them into secret strings.
@@ -317,7 +319,7 @@ class ConfigLoader:
         return value
 
     @classmethod
-    def load_os_env_key(cls, key: str, **kwargs: Any) -> Optional[str | SecretStr]:
+    def load_os_env_key(cls, key: str, **kwargs: Any) -> str | SecretStr | None:
         """Loads the provided key from the global environment, converting sensitive keys into secret strings by default.
 
         Args:
@@ -363,7 +365,7 @@ class ConfigLoader:
 
     def load_config(
         self,
-        env_path: Optional[Path | str] = None,
+        env_path: Path | str | None = None,
         reload_env: bool = False,
         reload_os_env: bool = False,
         verbose: bool = False,
@@ -432,7 +434,7 @@ class ConfigLoader:
         self.config.update(env_settings_dict)
 
     def save_config(
-        self, env_path: Optional[Path | str] = None, create: bool = True, *, raise_on_error: bool | None = None
+        self, env_path: Path | str | None = None, create: bool = True, *, raise_on_error: bool | None = None
     ) -> None:
         """Save configuration settings to a .env file.
 
@@ -464,9 +466,9 @@ class ConfigLoader:
     def write_key(
         self,
         key: str,
-        value: Optional[object] = None,
+        value: object | None = None,
         *,
-        env_path: Optional[Path | str] = None,
+        env_path: Path | str | None = None,
         create: bool = True,
         raise_on_error: bool | None = None,
     ) -> None:
@@ -506,7 +508,7 @@ class ConfigLoader:
                 key_to_set=key,
                 value_to_set=self._to_plaintext(resolved_value),
             )
-        except (IOError, PermissionError) as e:
+        except (OSError, PermissionError) as e:
             msg = f"Failed to create .env file at {env_path}: {e}"
             handle_exception(e, msg, raise_on_error=with_fallback(raise_on_error, False))
         except KeyError as e:
@@ -531,7 +533,7 @@ class ConfigLoader:
         return ""
 
     @classmethod
-    def process_env_path(cls, env_path: Optional[Union[str, Path]], *, raise_on_error: bool | None = True) -> Path:
+    def process_env_path(cls, env_path: str | Path | None, *, raise_on_error: bool | None = True) -> Path:
         """Attempts to find a valid dotenv file containing package configuration settings to load when available.
 
         The method first tries to find a valid file from the provided `env_path` variable first. If an env_path isn't
@@ -565,7 +567,7 @@ class ConfigLoader:
             processed_env_path = current_env_parent.resolve(strict=True)
             if current_env_path.name.endswith(".env") and current_env_path.suffix == ".env":
                 processed_env_path = processed_env_path / current_env_path.name
-        except (OSError, FileNotFoundError, IOError, PermissionError) as e:
+        except (OSError, FileNotFoundError, PermissionError) as e:
             handle_exception(
                 error=e,
                 message=f"Couldn't resolve the .env path, {current_env_parent}.",

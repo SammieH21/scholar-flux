@@ -1,14 +1,15 @@
-import pytest
-from pydantic import SecretStr, ValidationError, TypeAdapter
-from dotenv import dotenv_values
-
-from scholar_flux.utils.config_loader import ConfigLoader
-from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
-from scholar_flux.security import SensitiveDataMasker
-from scholar_flux.package_metadata import get_default_writable_directory
-from pathlib import Path
 import os
 import re
+from pathlib import Path
+
+import pytest
+from dotenv import dotenv_values
+from pydantic import SecretStr, TypeAdapter, ValidationError
+
+from scholar_flux.package_metadata import get_default_writable_directory
+from scholar_flux.security import SensitiveDataMasker
+from scholar_flux.utils.config_loader import ConfigLoader
+from scholar_flux.utils.settings_utils import SettingsDict, SettingsDictType
 
 
 @pytest.fixture(autouse=True)
@@ -239,7 +240,7 @@ def test_write_key_on_error(cleanup, tmp_path, monkeypatch, caplog):
     import scholar_flux.utils.config_loader
 
     monkeypatch.setattr(
-        scholar_flux.utils.config_loader, "set_key", lambda *args, **kwargs: (_ for _ in ()).throw(IOError(e))
+        scholar_flux.utils.config_loader, "set_key", lambda *args, **kwargs: (_ for _ in ()).throw(OSError(e))
     )
 
     loader = ConfigLoader(env_path=env_path)

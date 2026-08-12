@@ -8,21 +8,24 @@ This test suite covers:
 
 """
 
+from collections.abc import Callable, Generator
+from functools import partial
+from typing import Any
+
+import pytest
+
 from scholar_flux.api import (
     APIResponse,
-    ProcessedResponse,
     ErrorResponse,
     NonResponse,
+    ProcessedResponse,
     ProviderConfig,
-    provider_registry,
-    SearchCoordinator,
     ReconstructedResponse,
+    SearchCoordinator,
+    provider_registry,
 )
-from scholar_flux.utils import get_nested_data, coerce_int
 from scholar_flux.api.models import ResponseMetadataMap, SearchResult
-import pytest
-from typing import Callable, Generator, Any
-from functools import partial
+from scholar_flux.utils import coerce_int, get_nested_data
 from tests.testing_utilities import search_coordinator_mocking_context
 
 

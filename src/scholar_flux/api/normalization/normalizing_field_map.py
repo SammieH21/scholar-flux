@@ -8,7 +8,8 @@ scenarios where fields may be differently named in different records from the sa
 
 """
 from pydantic import PrivateAttr
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from scholar_flux.api.normalization.base_field_map import BaseFieldMap
 from scholar_flux.data.data_processor import DataProcessor
@@ -116,7 +117,7 @@ class NormalizingFieldMap(BaseFieldMap):
         self._refresh_cached_fields()
 
     def normalize_record(
-        self, record: RecordType, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+        self, record: RecordType, keep_api_specific_fields: bool | Sequence[str] | None = True
     ) -> NormalizedRecordType:
         """Maps API-specific fields in dictionaries of processed records to a normalized set of field names."""
 
@@ -133,7 +134,7 @@ class NormalizingFieldMap(BaseFieldMap):
         return self.filter_api_specific_fields(post_processed_record, keep_api_specific_fields)
 
     def normalize_records(
-        self, records: RecordType | RecordList, keep_api_specific_fields: Optional[bool | Sequence[str]] = True
+        self, records: RecordType | RecordList, keep_api_specific_fields: bool | Sequence[str] | None = True
     ) -> NormalizedRecordList:
         """Maps API-specific fields within a processed record list to create a new, normalized record list."""
 

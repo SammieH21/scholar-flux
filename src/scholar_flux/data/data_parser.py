@@ -7,7 +7,7 @@ parse dictionary-based nested structures prior to record extraction and processi
 
 """
 
-from typing import Optional, Callable
+from collections.abc import Callable
 from scholar_flux.data.base_parser import BaseDataParser
 from scholar_flux.exceptions import DataParsingException
 from scholar_flux.utils.response_protocol import ResponseProtocol
@@ -33,7 +33,7 @@ class DataParser(BaseDataParser):
 
     """
 
-    def __init__(self, additional_parsers: Optional[dict[str, Callable]] = None):
+    def __init__(self, additional_parsers: dict[str, Callable] | None = None):
         """On initialization, the data parser is set to use built-in class methods to parse json, xml, and yaml-based
         response content by default and the parse helper class to determine which parser to use based on the Content-
         Type.
@@ -47,7 +47,7 @@ class DataParser(BaseDataParser):
         self.format_parsers = self.get_default_parsers() | (additional_parsers or {})
 
     def parse(
-        self, response: requests.Response | ResponseProtocol, format: Optional[str] = None
+        self, response: requests.Response | ResponseProtocol, format: str | None = None
     ) -> dict | list[dict] | None:
         """Parses the API response content using two core steps.
 

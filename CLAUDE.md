@@ -2,7 +2,7 @@
 
 This file provides Claude Code (claude.ai/code) with quick-reference context for ScholarFlux development. For complete information, consult the linked documentation which serves as the authoritative source.
 
-### Last updated 7/14/2026 (**v0.6.1**)
+### Last updated 8/11/2026 (**v0.6.2**)
 
 > **Note:** This is a quick reference for AI coding assistants working with ScholarFlux.
 > For complete, authoritative information, consult:
@@ -236,15 +236,17 @@ Quick definitions for terms used throughout ScholarFlux documentation:
 - **Formatting**: `ruff` + `black`
 - **Python**: 3.10+ required
 
+> The four rules below are calibrated for 2026-era models (Opus, Fable): they follow instructions literally and already verify their own work, so each rule bounds effort as much as it directs it. Over-verification, over-asking, and over-engineering are failure modes on par with their opposites.
+
 ## 1. Think Before Coding
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**Surface assumptions and tradeoffs. Don't stall on them.**
 
 Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
+- State your assumptions, pick the most reasonable interpretation, and proceed - name what you picked so it's cheap to correct.
+- Ask only when interpretations genuinely diverge and the wrong pick would be expensive to reverse. Uncertainty alone is not a reason to stop.
 - If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- If you conclude the ask itself is mistaken, say so in a sentence and continue with the task as asked - don't silently narrow, widen, or transform it.
 
 ## 2. Simplicity First
 
@@ -253,7 +255,7 @@ Before implementing:
 - No features beyond what was asked.
 - No abstractions for single-use code.
 - No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
+- No error handling for impossible scenarios. Validate at system boundaries (tool inputs, external APIs); trust Pydantic and mypy everywhere else - re-checking what they already guarantee is noise, not safety.
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
@@ -266,7 +268,7 @@ When editing existing code:
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+- If you notice unrelated dead code or an adjacent bug, mention it - don't fix it silently. If it blocks your change, fix it and flag it rather than working around it.
 
 When your changes create orphans:
 - Remove imports/variables/functions that YOUR changes made unused.
@@ -276,18 +278,24 @@ The test: Every changed line should trace directly to the user's request.
 
 ## 4. Goal-Driven Execution
 
-**Define success criteria. Loop until verified.**
+**Define success criteria up front. Verify once, proportionally. Then stop.**
 
 Transform tasks into verifiable goals:
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
+- "Refactor X" → "Existing tests pass before and after" (no new tests required)
 
-For multi-step tasks, state a brief plan:
+Verification is bounded, not looped - you already check your own work; these rules cap the effort:
+- Scale the check to the blast radius: docstring/typo → ruff only; one function → its test file (`poetry run pytest tests/... -k ...`); schema or cross-service change → full suite.
+- Run the full battery (pytest, mypy, ruff) once, before declaring done - not after every edit.
+- One green run is proof. Don't re-run passing tests, re-read files you just edited, or write throwaway scripts to confirm what a test already showed.
+- Don't add tests that weren't asked for and don't cover new behavior.
+
+For multi-step tasks, state a brief plan with checks at meaningful boundaries, not per step:
 ```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+1. [Step]
+2. [Step]
+3. Verify: [the one check that would catch a failure above]
 ```
 
 **Full standards**: [CONTRIBUTING.md#code-style-guidelines](CONTRIBUTING.md#code-style-guidelines)

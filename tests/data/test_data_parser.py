@@ -1,12 +1,14 @@
-from scholar_flux.exceptions import DataParsingException
-from scholar_flux.data import BaseDataParser, DataParser
-import scholar_flux.data.base_parser
-from scholar_flux import logger
+import importlib
 import json
+from unittest.mock import patch
+
 import pytest
 import requests
-import importlib
-from unittest.mock import patch
+
+import scholar_flux.data.base_parser
+from scholar_flux import logger
+from scholar_flux.data import BaseDataParser, DataParser
+from scholar_flux.exceptions import DataParsingException
 
 
 def custom_json_parser(response_content: bytes) -> dict:
@@ -74,7 +76,7 @@ def test_reraise_parser_error():
     """Verifies that the base parser re-raises an error when encountering parsing errors in intermediate steps."""
     with pytest.raises(DataParsingException) as excinfo:
         BaseDataParser().parse("fake response")  # type: ignore
-        assert f"Expected a response or response-like object, received type {type('')}" == str(excinfo.value)
+        assert f"Expected a response or response-like object, received type {str}" == str(excinfo.value)
 
 
 def test_xmltodict_missing():

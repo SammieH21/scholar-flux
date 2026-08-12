@@ -1135,7 +1135,7 @@ If you use ScholarFlux in your research, please cite it:
   title = {ScholarFlux: Production-Grade Orchestration for Academic APIs},
   year = {2026},
   url = {https://github.com/SammieH21/scholar-flux},
-  version = {0.6.1}
+  version = {0.6.2}
 }
 ```
 
@@ -1158,7 +1158,7 @@ Questions or suggestions? Open an issue or email scholar.flux@gmail.com.
 - **Zero Known CVEs** - Continuous security monitoring in CI/CD pipeline
 - **8 Comprehensive Tutorials** - Detailed documentation from basics through production deployment
 - **3 AI/ML Example Pipelines** - Production-ready examples for embeddings, agents, and scheduled retrieval
-- **Stable Beta** (v0.6.1) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
+- **Stable Beta** (v0.6.2) - Production-ready core with comprehensive test coverage. API refinements in progress toward v1.0 stabilization.
 
 ---
 

@@ -1,10 +1,12 @@
 # /tests/testing_utilities
 """Helper module for reusing test functionality with similar logic under the hood to verify ScholarFlux
 functionality."""
-from typing import Any, Iterable, Callable, Mapping, Optional, Generator, TYPE_CHECKING
 import os
-import requests_mock
+from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
+
+import requests_mock
 
 if TYPE_CHECKING:
     from scholar_flux import SearchCoordinator
@@ -53,7 +55,7 @@ def prepare_env() -> None:
         os.environ.pop(env_var, None)
 
 
-def raise_error(exception_type: type[BaseException], message: Optional[str] = None) -> Callable:
+def raise_error(exception_type: type[BaseException], message: str | None = None) -> Callable:
     """Helper method for manually raising an error message."""
     return lambda *args, **kwargs: (_ for _ in ()).throw(exception_type(message) if message else exception_type())
 
@@ -61,12 +63,12 @@ def raise_error(exception_type: type[BaseException], message: Optional[str] = No
 @contextmanager
 def search_coordinator_mocking_context(
     search_coordinator: "SearchCoordinator",
-    page: Optional[int | Iterable[int]] = 1,
-    endpoint: Optional[str] = None,
+    page: int | Iterable[int] | None = 1,
+    endpoint: str | None = None,
     status_code: int = 200,
-    headers: Optional[Mapping] = None,
-    json: Optional[dict] = None,
-    kwargs: Optional[dict[str, Any]] = None,
+    headers: Mapping | None = None,
+    json: dict | None = None,
+    kwargs: dict[str, Any] | None = None,
 ) -> Generator[requests_mock.Mocker, None, None]:
     """Context manager that uses the coordinator as well as the response json to mock a response."""
     headers = headers or {"content-type": "application/json"}

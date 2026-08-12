@@ -10,15 +10,17 @@ This test suite covers:
 
 """
 
-from scholar_flux.api.normalization import BaseFieldMap, NormalizingFieldMap, AcademicFieldMap
-from scholar_flux.data import NormalizingDataProcessor
-from scholar_flux.exceptions import RecordNormalizationException, DataProcessingException
-from tests.testing_utilities import raise_error
-import pytest
 import re
-from typing import Any
-from textwrap import dedent
 from copy import deepcopy
+from textwrap import dedent
+from typing import Any
+
+import pytest
+
+from scholar_flux.api.normalization import AcademicFieldMap, BaseFieldMap, NormalizingFieldMap
+from scholar_flux.data import NormalizingDataProcessor
+from scholar_flux.exceptions import DataProcessingException, RecordNormalizationException
+from tests.testing_utilities import raise_error
 
 
 @pytest.fixture

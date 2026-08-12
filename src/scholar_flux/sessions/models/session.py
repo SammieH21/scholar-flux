@@ -16,12 +16,12 @@ Classes:
 
 from __future__ import annotations
 
-import datetime  # noqa: TCH003
+import datetime  # noqa: TC003
 import importlib.util
 import requests
 import requests_cache
 from enum import Enum
-from typing import Any, ClassVar, Optional, Literal
+from typing import Any, ClassVar, Literal
 from typing_extensions import Self, TypeAliasType
 from pathlib import Path
 from abc import ABC, abstractmethod
@@ -95,7 +95,6 @@ class BaseSessionManager(ABC):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initializes BaseSessionManager subclasses given the provided arguments."""
-        pass
 
     @abstractmethod
     def configure_session(self, *args: Any, **kwargs: Any) -> requests.Session | requests_cache.session.CachedSession:
@@ -107,7 +106,7 @@ class BaseSessionManager(ABC):
         raise NotImplementedError("The `configure_session` method must be implemented by subclasses")
 
     @classmethod
-    def get_cache_directory(cls, *args: Any, **kwargs: Any) -> Optional[Path]:
+    def get_cache_directory(cls, *args: Any, **kwargs: Any) -> Path | None:
         """Defines defaults used in the creation of subclasses.
 
         Can be optionally overridden in the creation of cached session managers
@@ -161,16 +160,16 @@ class CachedSessionConfig(BaseModel):
 
     cache_name: str
     backend: SessionCacheBackendType
-    cache_directory: Optional[Path] = None
-    serializer: Optional[SessionCacheSerializer] = None
-    expire_after: Optional[int | float | str | datetime.datetime | datetime.timedelta] = None
-    user_agent: Optional[str] = None
+    cache_directory: Path | None = None
+    serializer: SessionCacheSerializer | None = None
+    expire_after: int | float | str | datetime.datetime | datetime.timedelta | None = None
+    user_agent: str | None = None
     kwargs: SettingsDictType = Field(default_factory=SettingsDict)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator("cache_directory", mode="before")
-    def validate_cache_directory(cls, v: Optional[Path | str]) -> Optional[Path]:
+    def validate_cache_directory(cls, v: Path | str | None) -> Path | None:
         """Validates the cache_directory field to flag simple cases where the value is an empty string."""
         if v is None:
             return v
@@ -198,8 +197,8 @@ class CachedSessionConfig(BaseModel):
 
     @field_validator("expire_after", mode="after")
     def validate_expire_after(
-        cls, v: Optional[str | int | float | datetime.datetime | datetime.timedelta]
-    ) -> Optional[int | float | datetime.datetime | datetime.timedelta]:
+        cls, v: str | float | datetime.datetime | datetime.timedelta | None
+    ) -> int | float | datetime.datetime | datetime.timedelta | None:
         """Validates the expire_after field to flag simple cases where numeric values below 0 are marked as invalid."""
         # convert ISO dates into timestamps when possible. This returns as a datetime object:
         if isinstance(v, str) and (expire_after_date := parse_iso_timestamp(v)) is not None:
@@ -296,7 +295,7 @@ class CachedSessionConfig(BaseModel):
 
     @classmethod
     def _add_default_backend_kwargs(
-        cls, backend: str | SessionCacheBackendType, kwargs: Optional[SettingsDictType] = None
+        cls, backend: str | SessionCacheBackendType, kwargs: SettingsDictType | None = None
     ) -> SettingsDictType:
         """Auto-populate kwargs with connection settings for Redis and MongoDB backends.
 

@@ -8,9 +8,11 @@ subclasses for completeness.
 
 """
 
-import pytest
 import copy
 import threading
+
+import pytest
+
 from scholar_flux.data.abc_processor import ABCDataProcessor
 
 

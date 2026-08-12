@@ -1,8 +1,10 @@
-import pytest
 import re
+
+import pytest
+
 from scholar_flux import SearchAPI
-from scholar_flux.api import APIParameterMap, APIParameterConfig, provider_registry
-from scholar_flux.api.models.base_parameters import BaseAPIParameterMap, APISpecificParameter
+from scholar_flux.api import APIParameterConfig, APIParameterMap, provider_registry
+from scholar_flux.api.models.base_parameters import APISpecificParameter, BaseAPIParameterMap
 from scholar_flux.exceptions.api_exceptions import APIParameterException
 
 
@@ -412,7 +414,7 @@ def test_manual_page_start_index(page_number, records_per_page, expected_index):
 
 @pytest.mark.parametrize(
     ("page", "zero_indexed"),
-    [(None, True), (0, True), (-1, True), (-10, True), (None, True), (0, False), (-1, False), (-10, False)],
+    [(None, True), (0, True), (-1, True), (-10, True), (0, False), (-1, False), (-10, False)],
 )
 def test_page_start_index_exception(page, zero_indexed, caplog):
     """Verifies that exceptions are raised when encountering values such as `None`, 0.

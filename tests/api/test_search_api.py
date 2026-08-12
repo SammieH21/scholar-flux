@@ -1,29 +1,28 @@
-import pytest
-from unittest.mock import MagicMock, patch
-import requests
-from pydantic import SecretStr
-import requests_mock
-import logging
 import contextlib
-from copy import deepcopy
+import logging
 import re
-
+from copy import deepcopy
 from math import ceil
-from time import time, sleep
+from time import sleep, time
+from unittest.mock import MagicMock, patch
+from urllib.parse import urljoin
 
+import pytest
+import requests
+import requests_mock
+from pydantic import SecretStr
+
+from scholar_flux.api import APIParameterConfig, APIParameterMap, SearchAPI, SearchAPIConfig, provider_registry
 from scholar_flux.api.validators import validate_and_process_url, validate_url
-from scholar_flux.api import SearchAPI, APIParameterMap, SearchAPIConfig, APIParameterConfig, provider_registry
-from scholar_flux.security import SecretUtils
-from scholar_flux.utils import config_settings
-from scholar_flux.sessions.auth import AuthAPIKeyHeader, AuthAPIKeyNoOp
-
 from scholar_flux.exceptions import (
-    QueryValidationException,
-    APIParameterException,
     APIKeyValidationException,
+    APIParameterException,
+    QueryValidationException,
     RequestCreationException,
 )
-from urllib.parse import urljoin
+from scholar_flux.security import SecretUtils
+from scholar_flux.sessions.auth import AuthAPIKeyHeader, AuthAPIKeyNoOp
+from scholar_flux.utils import config_settings
 
 
 @pytest.fixture
@@ -55,7 +54,7 @@ def test_describe_api():
 
     assert re.search(r"^SearchAPI\(.*\)$", representation, re.DOTALL)
     assert f"query='{api.query}'" in representation
-    assert re.sub("\n +", " ", f"config={repr(api.config)}") in re.sub("\n +", " ", representation)  # ignore padding
+    assert re.sub("\n +", " ", f"config={api.config!r}") in re.sub("\n +", " ", representation)  # ignore padding
     assert re.search(f"session=.*{api.session.__class__.__name__}", representation)
     assert f"timeout={api.timeout}" in representation
 
@@ -662,7 +661,6 @@ def test_cache_expiration(default_api_parameter_config, default_cache_session, d
         response_two = api.send_request(api.base_url, parameters=params)
         assert getattr(response_two, "from_cache", False)
 
-        #
         end = time()
         elapsed = end - start
         while default_seconds_cache_expiration > elapsed:

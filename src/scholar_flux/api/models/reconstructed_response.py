@@ -10,7 +10,8 @@ object that can transform response classes from `requests`, `httpx`, and
 
 """
 from __future__ import annotations
-from typing import Optional, Any, MutableMapping, Mapping
+from typing import Any
+from collections.abc import MutableMapping, Mapping
 from dataclasses import dataclass, asdict, fields
 from scholar_flux.api.response_validator import ResponseValidator
 from scholar_flux.exceptions import InvalidResponseReconstructionException, InvalidResponseStructureException
@@ -71,7 +72,7 @@ class ReconstructedResponse:
     url: Any
 
     @property
-    def status(self) -> Optional[str]:
+    def status(self) -> str | None:
         """Helper property for retrieving a human-readable description of the status.
 
         Returns:
@@ -86,7 +87,7 @@ class ReconstructedResponse:
         return reason if ResponseValidator.is_valid_reason(reason) else None
 
     @property
-    def text(self) -> Optional[str]:
+    def text(self) -> str | None:
         """Helper property for retrieving the text from the bytes content as a string.
 
         Returns:
@@ -109,7 +110,7 @@ class ReconstructedResponse:
         return isinstance(self.status_code, int) and 200 <= self.status_code < 300
 
     @classmethod
-    def build(cls, response: Optional[object] = None, **kwargs: Any) -> ReconstructedResponse:
+    def build(cls, response: object | None = None, **kwargs: Any) -> ReconstructedResponse:
         """Helper method for building a new ReconstructedResponse from a regular response object.
 
         This classmethod can either construct a new ReconstructedResponse object from a response or response-like object
@@ -251,7 +252,7 @@ class ReconstructedResponse:
             raise InvalidResponseReconstructionException(err if missing else e)
 
     @classmethod
-    def _normalize_status_code(cls, **kwargs: Any) -> Optional[int]:
+    def _normalize_status_code(cls, **kwargs: Any) -> int | None:
         """Helper class method for extracting status codes from the status_code or status field.
 
         Some status fields may actually contain a numeric code - this method accounts for
@@ -268,7 +269,7 @@ class ReconstructedResponse:
         return status_code
 
     @classmethod
-    def _normalize_reason(cls, **kwargs: Any) -> Optional[str]:
+    def _normalize_reason(cls, **kwargs: Any) -> str | None:
         """Helper class method for extracting a reason associated with the status of a response.
 
         This method accounts for several scenarios:
@@ -296,7 +297,7 @@ class ReconstructedResponse:
         return reason
 
     @classmethod
-    def _normalize_url(cls, **kwargs: Any) -> Optional[str]:
+    def _normalize_url(cls, **kwargs: Any) -> str | None:
         """Helper method to extract a URL as a string if available.
 
         If the URL is a non-string field, this method attempts to convert the field into a string.
@@ -333,7 +334,7 @@ class ReconstructedResponse:
         return headers
 
     @classmethod
-    def _resolve_content_sources(cls, **kwargs: Any) -> Optional[bytes]:
+    def _resolve_content_sources(cls, **kwargs: Any) -> bytes | None:
         """Helper method for retrieving the content field from a set of provided, disparate parameters that each could
         have been provided by the user. This method searches for the following keys: 1) content, 2) _content, 3) json,
         4) text.
@@ -373,7 +374,7 @@ class ReconstructedResponse:
         # retrieve the content and encode if not already encoded
         return content_fields[0] if content_fields else None
 
-    def json(self) -> Optional[list[Any] | dict[str, Any]]:
+    def json(self) -> list[Any] | dict[str, Any] | None:
         """Return JSON-decoded body from the underlying response, if available."""
         if not ResponseValidator.is_valid_content(self.content):
             logger.warning("The current response object does not contain jsonable content")

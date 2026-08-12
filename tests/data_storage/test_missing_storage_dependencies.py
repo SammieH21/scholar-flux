@@ -1,10 +1,12 @@
-import pytest
-from scholar_flux.data_storage import SQLAlchemyStorage, RedisStorage, MongoDBStorage
-import scholar_flux.data_storage.sql_storage
-import scholar_flux.data_storage.redis_storage
-import scholar_flux.data_storage.mongodb_storage
-from unittest.mock import patch
 import importlib
+from unittest.mock import patch
+
+import pytest
+
+import scholar_flux.data_storage.mongodb_storage
+import scholar_flux.data_storage.redis_storage
+import scholar_flux.data_storage.sql_storage
+from scholar_flux.data_storage import MongoDBStorage, RedisStorage, SQLAlchemyStorage
 
 
 def test_sql_missing(sqlalchemy_dependency):
@@ -13,16 +15,16 @@ def test_sql_missing(sqlalchemy_dependency):
         with patch.dict("sys.modules", {"sqlalchemy": None}):
             importlib.reload(scholar_flux.data_storage.sql_storage)
             from scholar_flux.data_storage.sql_storage import (
-                create_engine,
-                Column,
-                String,
-                Integer,
                 JSON,
-                exc,
+                Column,
                 DeclarativeBase,
+                Integer,
+                SQLAlchemyImportError,
+                String,
+                create_engine,
+                exc,
                 sessionmaker,
                 sqlalchemy,
-                SQLAlchemyImportError,
             )
 
             Column()  # no-op placeholder
@@ -45,12 +47,12 @@ def test_mongo_missing(mongodb_dependency):
         with patch.dict("sys.modules", {"pymongo": None}):
             importlib.reload(scholar_flux.data_storage.mongodb_storage)
             from scholar_flux.data_storage.mongodb_storage import (
-                MongoClient,
-                MongoDBImportError,
-                ServerSelectionTimeoutError,
                 ConnectionFailure,
                 DuplicateKeyError,
+                MongoClient,
+                MongoDBImportError,
                 PyMongoError,
+                ServerSelectionTimeoutError,
             )
 
             assert scholar_flux.data_storage.mongodb_storage.pymongo is None
@@ -73,8 +75,8 @@ def test_redis_missing(redis_dependency):
             importlib.reload(scholar_flux.data_storage.redis_storage)
             from scholar_flux.data_storage.redis_storage import (
                 ConnectionError,
-                RedisImportError,
                 RedisError,
+                RedisImportError,
                 TimeoutError,
             )
 

@@ -6,7 +6,7 @@ This module defines the abstract methods and types that each processor will use 
 SearchCoordinator in the processing step.
 
 """
-from typing import Optional, Tuple, Any
+from typing import Any
 from typing_extensions import Self
 from abc import ABC, abstractmethod
 from scholar_flux.utils.repr_utils import generate_repr
@@ -36,56 +36,47 @@ class ABCDataProcessor(ABC):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initializes record keys and header/body paths in the object instance using defined methods."""
-        pass
 
     def load_data(self, *args: Any, **kwargs: Any) -> Any:
         """Helper method that is optionally implemented by subclasses to load JSON data into customized implementations
         of processors."""
         raise NotImplementedError
 
-    def define_record_keys(self, *args: Any, **kwargs: Any) -> Optional[dict]:
+    def define_record_keys(self, *args: Any, **kwargs: Any) -> dict | None:
         """Abstract method to be optionally implemented to determine record keys that should be parsed to process each
         record."""
-        pass
 
-    def ignore_record_keys(self, *args: Any, **kwargs: Any) -> Optional[list]:
+    def ignore_record_keys(self, *args: Any, **kwargs: Any) -> list | None:
         """Abstract method to be optionally implemented to ignore certain keys in records when processing records."""
-        pass
 
-    def define_record_path(self, *args: Any, **kwargs: Any) -> Optional[Tuple]:
+    def define_record_path(self, *args: Any, **kwargs: Any) -> tuple | None:
         """Abstract method to be optionally implemented to define header and body paths for record extraction, with
         default paths provided if not specified."""
-        pass
 
     @classmethod
-    def record_filter(cls, *args: Any, **kwargs: Any) -> Optional[bool]:
+    def record_filter(cls, *args: Any, **kwargs: Any) -> bool | None:
         """Optional filter implementation to handle record screening using regex or other logic.
 
         Subclasses can customize filtering if required.
 
         """
-        pass
 
-    def discover_keys(self, *args: Any, **kwargs: Any) -> Optional[dict]:
+    def discover_keys(self, *args: Any, **kwargs: Any) -> dict | None:
         """Abstract method to be optionally implemented to discover nested key paths in json data structures."""
-        pass
 
-    def process_key(self, *args: Any, **kwargs: Any) -> Optional[str]:
+    def process_key(self, *args: Any, **kwargs: Any) -> str | None:
         """Abstract method to be optionally implemented for processing keys from records."""
-        pass
 
-    def process_text(self, *args: Any, **kwargs: Any) -> Optional[str]:
+    def process_text(self, *args: Any, **kwargs: Any) -> str | None:
         """Abstract method to be optionally implemented for processing a record dictionary to extract record and article
         content, creating a processed record dictionary with an abstract field."""
-        pass
 
-    def process_record(self, *args: Any, **kwargs: Any) -> Optional[dict]:
+    def process_record(self, *args: Any, **kwargs: Any) -> dict | None:
         """Abstract method to be optionally implemented for processing a single record in a json data structure.
 
         Used to extract record data and article content, creating a processed record dictionary with an abstract field.
 
         """
-        pass
 
     @abstractmethod
     def process_page(self, *args: Any, **kwargs: Any) -> list[dict]:
@@ -105,14 +96,14 @@ class ABCDataProcessor(ABC):
     @classmethod
     def _validate_inputs(
         cls,
-        ignore_keys: Optional[list[str]] = None,
-        keep_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
+        ignore_keys: list[str] | None = None,
+        keep_keys: list[str] | None = None,
+        regex: bool | None = None,
         *,
-        record_keys: Optional[
-            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
-        ] = None,
-        value_delimiter: Optional[str] = None,
+        record_keys: (
+            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str] | None
+        ) = None,
+        value_delimiter: str | None = None,
     ) -> None:
         """Helper method for ensuring that inputs to data processor subclasses match the intended types."""
         if record_keys is not None and not isinstance(record_keys, list) and not isinstance(record_keys, dict):
@@ -127,7 +118,7 @@ class ABCDataProcessor(ABC):
             raise DataValidationException(f"value_delimiter must be a string, got {type(value_delimiter)}")
 
     @classmethod
-    def _validate_json_data(cls, json_data: Optional[RecordType | RecordList]) -> bool:
+    def _validate_json_data(cls, json_data: RecordType | RecordList | None) -> bool:
         """Helper method for validating that JSON data inputs are lists of record dictionaries."""
         if json_data is None:
             return True
@@ -166,7 +157,7 @@ class ABCDataProcessor(ABC):
                 setattr(result, k, v)
         return result
 
-    def __deepcopy__(self, memo: Optional[dict[int, Any]]) -> Self:
+    def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
         """Helper method for deep copying the current implementation of a class minus the lock."""
         cls = self.__class__
         result = cls.__new__(cls)

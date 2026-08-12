@@ -1,9 +1,10 @@
 """Defines the `cleanup` helper used to ensure that temporary files/directories are removed after each test."""
 
-import pytest
 import os
-from pathlib import Path
 from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture(scope="function")

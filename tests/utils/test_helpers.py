@@ -1,56 +1,56 @@
 # tests/test_utils.py
+import importlib
 import logging
-from requests import Response
-from scholar_flux.utils.module_utils import set_public_api_module
-from datetime import datetime, date
-from typing import Callable
-from unittest.mock import patch
 import re
+from collections.abc import Callable
+from datetime import date, datetime, timezone
+from unittest.mock import patch
 
 import pytest
+from requests import Response
+
+from scholar_flux.api.validators import validate_bool_str
 
 # Import the functions under test – adjust the module name as needed.
 from scholar_flux.utils.helpers import (
-    try_quote_numeric,
-    quote_numeric,
-    flatten,
-    pattern_search,
-    nested_key_exists,
-    get_nested_dictionary_data,
-    filter_record_key_prefixes,
-    infer_text_pattern_search,
-    get_nested_data,
-    is_nested_json,
-    generate_response_hash,
-    compare_response_hashes,
-    coerce_int,
-    coerce_str,
+    BeautifulSoup,
+    as_list_1d,
+    as_tuple,
+    build_iso_date,
+    coerce_bool,
     coerce_bytes,
+    coerce_int,
     coerce_json_str,
     coerce_numeric,
-    coerce_bool,
-    try_int,
-    try_str,
-    try_pop,
+    coerce_str,
+    compare_response_hashes,
+    convert_month_as_integer,
+    extract_year,
+    filter_record_key_prefixes,
+    flatten,
+    generate_response_hash,
+    get_nested_data,
+    get_nested_dictionary_data,
+    get_values,
+    infer_text_pattern_search,
+    is_nested,
+    is_nested_json,
+    nested_key_exists,
+    parse_iso_timestamp,
+    path_search,
+    pattern_search,
+    quote_numeric,
+    strip_html_tags,
+    try_call,
     try_compile,
     try_dict,
-    is_nested,
+    try_int,
+    try_pop,
+    try_quote_numeric,
+    try_str,
     unlist_1d,
-    as_list_1d,
-    path_search,
-    try_call,
-    as_tuple,
-    get_values,
-    parse_iso_timestamp,
-    convert_month_as_integer,
-    build_iso_date,
-    extract_year,
-    strip_html_tags,
-    BeautifulSoup,
 )
-import importlib
-from scholar_flux.api.validators import validate_bool_str
-
+from scholar_flux.utils.module_utils import set_public_api_module
 
 ############################### Helper objects ################################
 
@@ -568,8 +568,6 @@ def new_class() -> object:
     class AClass:
         """A dummy class for testing."""
 
-        pass
-
     return AClass
 
 
@@ -828,7 +826,7 @@ def test_extract_year_custom_format():
         ("2026-03-01", 2026),
         ("2024-12-18T10:30:00Z", 2024),
         (date(2026, 3, 1), 2026),
-        (datetime(2024, 12, 1, 12, 0, 0), 2024),
+        (datetime(2024, 12, 1, 12, 0, 0, tzinfo=timezone.utc), 2024),
         ("2023", 2023),
         ("03/15/2024", 2024),
         ("Published in 2022 edition", 2022),

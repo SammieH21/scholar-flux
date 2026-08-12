@@ -9,9 +9,12 @@ Test suite covering:
 """
 
 import pytest
+
+from scholar_flux.api.normalization.springer_nature_field_map import (
+    SpringerNatureFieldMap,
+)
 from scholar_flux.api.normalization.springer_nature_field_map import (
     field_map as springer_nature_field_map,
-    SpringerNatureFieldMap,
 )
 
 # ==================== Fixtures ====================

@@ -19,7 +19,7 @@ workflows are enabled in the SearchCoordinator.
 """
 from __future__ import annotations
 from pydantic import Field
-from typing import Any, Optional
+from typing import Any
 from scholar_flux.api.models import ProcessedResponse, ErrorResponse, SearchAPIConfig
 from scholar_flux.api.workflows.search_workflow import StepContext, WorkflowStep, SearchWorkflow, WorkflowResult
 from scholar_flux.exceptions import NoRecordsAvailableException
@@ -50,9 +50,9 @@ class PubMedSearchStep(WorkflowStep):
 
     """
 
-    provider_name: Optional[str] = "pubmed"
-    step_number: Optional[int] = 0
-    description: Optional[str] = "Retrieves IDs of records matching a particular query from the PubMed database."
+    provider_name: str | None = "pubmed"
+    step_number: int | None = 0
+    description: str | None = "Retrieves IDs of records matching a particular query from the PubMed database."
 
 
 class PubMedFetchStep(WorkflowStep):
@@ -72,17 +72,17 @@ class PubMedFetchStep(WorkflowStep):
 
     """
 
-    provider_name: Optional[str] = "pubmedefetch"
-    step_number: Optional[int] = 1
-    description: Optional[str] = "Fetches each record/article corresponding to a PubMed ID from the PubMedSearchStep."
+    provider_name: str | None = "pubmedefetch"
+    step_number: int | None = 1
+    description: str | None = "Fetches each record/article corresponding to a PubMed ID from the PubMedSearchStep."
 
     def pre_transform(
         self,
-        ctx: Optional[StepContext] = None,
-        provider_name: Optional[str] = None,
-        search_parameters: Optional[dict] = None,
-        config_parameters: Optional[dict] = None,
-    ) -> "PubMedFetchStep":
+        ctx: StepContext | None = None,
+        provider_name: str | None = None,
+        search_parameters: dict | None = None,
+        config_parameters: dict | None = None,
+    ) -> PubMedFetchStep:
         """Overrides the `pre_transform` of the SearchWorkflow step to use the IDs retrieved from the previous step as
         input parameters for the PubMed eFetch API request.
 
@@ -181,7 +181,7 @@ class PubMedSearchWorkflow(SearchWorkflow):
             logger.info(f"{e} Halting the PubMed eFetch step and returning the processed eSearch response...")
             return WorkflowResult(history=self._history, result=self._history[0].result)
 
-    def _create_workflow_result(self, result: Optional[ProcessedResponse | ErrorResponse] = None) -> WorkflowResult:
+    def _create_workflow_result(self, result: ProcessedResponse | ErrorResponse | None = None) -> WorkflowResult:
         """Updates the metadata field of the PubMed eFetch search result with eSearch metadata if available.
 
         This method overrides the base implementation to handle PubMed's two-step workflow where:

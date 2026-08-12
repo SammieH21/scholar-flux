@@ -18,14 +18,18 @@ Classes:
         pattern matching settings.
 
 """
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pydantic import Field
 from pydantic.dataclasses import dataclass
-from typing import Iterable
 from pydantic import SecretStr
+from typing import TYPE_CHECKING
 import re
 from scholar_flux.security.utils import SecretUtils
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 @dataclass(frozen=True)

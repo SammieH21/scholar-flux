@@ -1,8 +1,10 @@
-import pytest
-from scholar_flux.api.models import ResponseHistoryRegistry, ProcessedResponse, ErrorResponse
-from scholar_flux.exceptions import APIParameterException
-from scholar_flux.api.providers import provider_registry
 from itertools import cycle
+
+import pytest
+
+from scholar_flux.api.models import ErrorResponse, ProcessedResponse, ResponseHistoryRegistry
+from scholar_flux.api.providers import provider_registry
+from scholar_flux.exceptions import APIParameterException
 
 EXPECTED_PROVIDERS = provider_registry.providers
 
@@ -136,7 +138,7 @@ def test_invalid_response_history_element_addition(default_response_history):
     """Verifies that the `ResponseHistoryRegistry` raises an error if the added value is invalid."""
     with pytest.raises(APIParameterException) as excinfo:
         default_response_history[1] = ProcessedResponse()  # type: ignore
-    assert f"The key provided to the ResponseHistoryRegistry is invalid. Expected a string, received {type(1)}" in str(
+    assert f"The key provided to the ResponseHistoryRegistry is invalid. Expected a string, received {int}" in str(
         excinfo.value
     )
     with pytest.raises(APIParameterException) as excinfo:
@@ -146,7 +148,7 @@ def test_invalid_response_history_element_addition(default_response_history):
         default_response_history["CORE"] = 1  # type: ignore
     assert (
         f"The value provided to the ResponseHistoryRegistry is invalid. "
-        f"Expected a ErrorResponse or ProcessedResponse, received {type(1)}"
+        f"Expected a ErrorResponse or ProcessedResponse, received {int}"
     ) in str(excinfo.value)
 
 

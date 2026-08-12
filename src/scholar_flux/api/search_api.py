@@ -7,7 +7,7 @@ parameter names and request formation are abstracted.
 """
 
 from __future__ import annotations
-from typing import Optional, Any, Annotated, Iterator, cast
+from typing import TYPE_CHECKING, Any, Annotated, cast
 from contextlib import contextmanager
 from requests.auth import AuthBase
 from requests_cache.session import CachedSession
@@ -34,6 +34,9 @@ from pydantic import ValidationError
 import re
 from urllib.parse import urljoin
 from string import punctuation
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -74,18 +77,18 @@ class SearchAPI(BaseAPI):
     def __init__(
         self,
         query: str,
-        provider_name: Optional[str] = None,
-        parameter_config: Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig] = None,
-        session: Optional[requests.Session | CachedSession] = None,
+        provider_name: str | None = None,
+        parameter_config: BaseAPIParameterMap | APIParameterMap | APIParameterConfig | None = None,
+        session: requests.Session | CachedSession | None = None,
         *,
-        user_agent: Optional[str] = None,
-        timeout: Optional[int | float] = None,
-        masker: Optional[SensitiveDataMasker] = None,
-        use_cache: Optional[bool] = None,
-        base_url: Optional[str] = None,  # SearchAPIConfig
-        api_key: Optional[str | SecretStr] = None,  # SearchAPIConfig
+        user_agent: str | None = None,
+        timeout: float | None = None,
+        masker: SensitiveDataMasker | None = None,
+        use_cache: bool | None = None,
+        base_url: str | None = None,  # SearchAPIConfig
+        api_key: str | SecretStr | None = None,  # SearchAPIConfig
         records_per_page: int = 20,  # SearchAPIConfig
-        request_delay: Optional[float] = None,  # SearchAPIConfig
+        request_delay: float | None = None,  # SearchAPIConfig
         **api_specific_parameters: Any,  # SearchAPIConfig
     ) -> None:
         """Initializes the SearchAPI with a query and optional parameters.
@@ -156,10 +159,10 @@ class SearchAPI(BaseAPI):
         self,
         query: str,
         config: SearchAPIConfig,
-        parameter_config: Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig] = None,
+        parameter_config: BaseAPIParameterMap | APIParameterMap | APIParameterConfig | None = None,
         *,
-        masker: Optional[SensitiveDataMasker] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        masker: SensitiveDataMasker | None = None,
+        rate_limiter: RateLimiter | None = None,
     ) -> None:
         """Initializes the API session with the provided base URL and API key.
 
@@ -180,7 +183,7 @@ class SearchAPI(BaseAPI):
         """
         self.config = config
         self.query = query
-        self.last_request: Optional[float] = None
+        self.last_request: float | None = None
         self._rate_limiter: RateLimiter = rate_limiter or RateLimiter(min_interval=self.config.request_delay)
         self.masker: SensitiveDataMasker = masker or default_masker
 
@@ -204,16 +207,16 @@ class SearchAPI(BaseAPI):
     def update(
         cls,
         search_api: SearchAPI,
-        query: Optional[str] = None,
-        config: Optional[SearchAPIConfig] = None,
-        parameter_config: Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig] = None,
-        session: Optional[requests.Session | CachedSession] = None,
+        query: str | None = None,
+        config: SearchAPIConfig | None = None,
+        parameter_config: BaseAPIParameterMap | APIParameterMap | APIParameterConfig | None = None,
+        session: requests.Session | CachedSession | None = None,
         *,
-        user_agent: Optional[str] = None,
-        timeout: Optional[int | float] = None,
-        use_cache: Optional[bool] = None,
-        masker: Optional[SensitiveDataMasker] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        user_agent: str | None = None,
+        timeout: float | None = None,
+        use_cache: bool | None = None,
+        masker: SensitiveDataMasker | None = None,
+        rate_limiter: RateLimiter | None = None,
         **api_specific_parameters: Any,
     ) -> SearchAPI:
         """Helper method for generating a new SearchAPI from an existing SearchAPI instance.
@@ -263,7 +266,7 @@ class SearchAPI(BaseAPI):
 
         # Reuse the existing RateLimiter for the same host if neither a new RateLimiter nor request_delay are provided.
         # This prevents both unnecessary delays between requests and `Too Many Requests` errors.
-        update_rate_limiter: Optional[RateLimiter] = rate_limiter or (
+        update_rate_limiter: RateLimiter | None = rate_limiter or (
             search_api.rate_limiter
             if config.url_basename == search_api.config.url_basename and "request_delay" not in api_specific_parameters
             else None
@@ -371,7 +374,7 @@ class SearchAPI(BaseAPI):
         self.__query = query
 
     @property
-    def api_key(self) -> Optional[SecretStr]:
+    def api_key(self) -> SecretStr | None:
         """Retrieves the current value of the API key from the SearchAPIConfig as a SecretStr.
 
         Note that the API key is stored as a secret key when available. The value of the API key can be retrieved by
@@ -441,14 +444,14 @@ class SearchAPI(BaseAPI):
         cls,
         query: str,
         config: SearchAPIConfig,
-        parameter_config: Optional[BaseAPIParameterMap | APIParameterMap | APIParameterConfig] = None,
-        session: Optional[requests.Session | CachedSession] = None,
+        parameter_config: BaseAPIParameterMap | APIParameterMap | APIParameterConfig | None = None,
+        session: requests.Session | CachedSession | None = None,
         *,
-        user_agent: Optional[str] = None,
-        timeout: Optional[int | float] = None,
-        use_cache: Optional[bool] = None,
-        masker: Optional[SensitiveDataMasker] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        user_agent: str | None = None,
+        timeout: float | None = None,
+        use_cache: bool | None = None,
+        masker: SensitiveDataMasker | None = None,
+        rate_limiter: RateLimiter | None = None,
     ) -> SearchAPI:
         """Advanced constructor: instantiate directly from a SearchAPIConfig instance.
 
@@ -490,13 +493,13 @@ class SearchAPI(BaseAPI):
         cls,
         query: str,
         provider_config: ProviderConfig,
-        session: Optional[requests.Session] = None,
+        session: requests.Session | None = None,
         *,
-        user_agent: Annotated[Optional[str], "An optional User-Agent to associate with each search"] = None,
-        use_cache: Optional[bool] = None,
-        timeout: Optional[int | float] = None,
-        masker: Optional[SensitiveDataMasker] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        user_agent: Annotated[str | None, "An optional User-Agent to associate with each search"] = None,
+        use_cache: bool | None = None,
+        timeout: float | None = None,
+        masker: SensitiveDataMasker | None = None,
+        rate_limiter: RateLimiter | None = None,
         **api_specific_parameters: Any,
     ) -> SearchAPI:
         """Factory method to create a new SearchAPI instance using a ProviderConfig.
@@ -584,14 +587,14 @@ class SearchAPI(BaseAPI):
     def from_defaults(
         cls,
         query: str,
-        provider_name: Optional[str],
-        session: Optional[requests.Session] = None,
+        provider_name: str | None,
+        session: requests.Session | None = None,
         *,
-        user_agent: Annotated[Optional[str], "An optional User-Agent to associate with each search"] = None,
-        use_cache: Optional[bool] = None,
-        timeout: Optional[int | float] = None,
-        masker: Optional[SensitiveDataMasker] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        user_agent: Annotated[str | None, "An optional User-Agent to associate with each search"] = None,
+        use_cache: bool | None = None,
+        timeout: float | None = None,
+        masker: SensitiveDataMasker | None = None,
+        rate_limiter: RateLimiter | None = None,
         **api_specific_parameters: Any,
     ) -> SearchAPI:
         """Factory method to create SearchAPI instances with sensible defaults for known providers.
@@ -639,13 +642,13 @@ class SearchAPI(BaseAPI):
 
     def build_auth(
         self,
-        parameters: Optional[SettingsDictType] = None,
+        parameters: SettingsDictType | None = None,
         *,
-        auth: Optional[AuthBase] = None,
-        parameter_name: Optional[str] = None,
-        scheme: Optional[str] = None,
+        auth: AuthBase | None = None,
+        parameter_name: str | None = None,
+        scheme: str | None = None,
         **api_specific_parameters: Any,
-    ) -> Optional[AuthBase | AuthAPIKeyParameter | AuthAPIKeyHeader]:
+    ) -> AuthBase | AuthAPIKeyParameter | AuthAPIKeyHeader | None:
         """Optionally returns an Authorization subclass enabling customizable authorization hooks.
 
         Note: When passing a `parameters` dictionary directly, API key fields are removed if they exist to avoid
@@ -698,7 +701,7 @@ class SearchAPI(BaseAPI):
     def build_parameters(
         self,
         page: int,
-        additional_parameters: Optional[SettingsDictType] = None,
+        additional_parameters: SettingsDictType | None = None,
         *,
         include_api_key: bool | None = None,
         **api_specific_parameters: Any,
@@ -817,12 +820,12 @@ class SearchAPI(BaseAPI):
 
     def search(
         self,
-        page: Optional[int] = None,
-        parameters: Optional[dict[str, Any]] = None,
-        endpoint: Optional[str] = None,
+        page: int | None = None,
+        parameters: dict[str, Any] | None = None,
+        endpoint: str | None = None,
         *,
-        request_delay: Optional[float] = None,
-        auth: Optional[AuthBase] = None,
+        request_delay: float | None = None,
+        auth: AuthBase | None = None,
     ) -> Response:
         """Public method to perform a search for the selected page with the current API configuration.
 
@@ -864,12 +867,12 @@ class SearchAPI(BaseAPI):
 
     def prepare_search(
         self,
-        page: Optional[int] = None,
-        parameters: Optional[SettingsDictType] = None,
-        endpoint: Optional[str] = None,
+        page: int | None = None,
+        parameters: SettingsDictType | None = None,
+        endpoint: str | None = None,
         *,
-        request_delay: Optional[float] = None,
-        auth: Optional[AuthBase] = None,
+        request_delay: float | None = None,
+        auth: AuthBase | None = None,
     ) -> requests.PreparedRequest:
         """Prepares the current request given the provided page and parameters.
 
@@ -911,11 +914,11 @@ class SearchAPI(BaseAPI):
     def make_request(
         self,
         page: int,
-        additional_parameters: Optional[SettingsDictType] = None,
-        endpoint: Optional[str] = None,
+        additional_parameters: SettingsDictType | None = None,
+        endpoint: str | None = None,
         *,
-        request_delay: Optional[float] = None,
-        auth: Optional[AuthBase] = None,
+        request_delay: float | None = None,
+        auth: AuthBase | None = None,
     ) -> Response:
         """Constructs and sends a request to the chosen api:
 
@@ -953,12 +956,12 @@ class SearchAPI(BaseAPI):
 
     def prepare_request(
         self,
-        base_url: Optional[str] = None,
-        endpoint: Optional[str] = None,
-        parameters: Optional[SettingsDictType] = None,
+        base_url: str | None = None,
+        endpoint: str | None = None,
+        parameters: SettingsDictType | None = None,
         *,
-        auth: Optional[AuthBase] = None,
-        api_key: Optional[str | SecretStr] = None,
+        auth: AuthBase | None = None,
+        api_key: str | SecretStr | None = None,
     ) -> requests.PreparedRequest:
         """Prepares a GET request for the specified endpoint with optional parameters.
 
@@ -1041,10 +1044,10 @@ class SearchAPI(BaseAPI):
     @contextmanager
     def with_config(
         self,
-        config: Optional[SearchAPIConfig] = None,
-        parameter_config: Optional[APIParameterConfig] = None,
-        provider_name: Optional[str] = None,
-        query: Optional[str] = None,
+        config: SearchAPIConfig | None = None,
+        parameter_config: APIParameterConfig | None = None,
+        provider_name: str | None = None,
+        query: str | None = None,
     ) -> Iterator[SearchAPI]:
         """Temporarily modifies the SearchAPI's SearchAPIConfig and/or APIParameterConfig and namespace.
 
@@ -1096,7 +1099,7 @@ class SearchAPI(BaseAPI):
 
     @contextmanager
     def with_config_parameters(
-        self, provider_name: Optional[str] = None, query: Optional[str] = None, **api_specific_parameters: Any
+        self, provider_name: str | None = None, query: str | None = None, **api_specific_parameters: Any
     ) -> Iterator[SearchAPI]:
         """Allows for the temporary modification of the search configuration, and parameter mappings, and cache
         namespace. For the current API. Uses a `contextmanager` to temporarily change the provided parameters without

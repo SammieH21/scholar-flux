@@ -1,16 +1,17 @@
 from unittest.mock import patch
 
-from scholar_flux.api import SearchAPI, SearchCoordinator
+import pytest
 import requests_mock
+
+from scholar_flux.api import SearchAPI, SearchCoordinator
 from scholar_flux.api.models import (
-    ProcessedResponse,
     ErrorResponse,
     NonResponse,
-    SearchResult,
     PageListInput,
+    ProcessedResponse,
+    SearchResult,
     SearchResultList,
 )
-import pytest
 
 
 @patch("scholar_flux.api.search_coordinator.SearchCoordinator.search")
@@ -195,7 +196,7 @@ def test_last_response_page(mock_search, mock_successful_response, mock_unauthor
     search_result = pages[1]  # get the result for page 1
     assert (
         f"The response from {coordinator.display_name} for page, 1 contains less than the expected "
-        f"{expected_page_count} records. Received {repr(search_result.response_result)}. "
+        f"{expected_page_count} records. Received {search_result.response_result!r}. "
         f"Halting multi-page retrieval..."
     ) in caplog.text
     assert "Skipping the page number, 0, as it is not a valid page number..." in caplog.text
@@ -225,7 +226,7 @@ def test_search_exception(monkeypatch, caplog, mock_unauthorized_response):
     assert "Skipping the page number, 0, as it is not a valid page number..." in caplog.text
     assert (
         f"Could not retrieve a valid response code for page 1. "
-        f"Received {repr(non_response_1)}. Halting multi-page retrieval..."
+        f"Received {non_response_1!r}. Halting multi-page retrieval..."
     ) in caplog.text
 
     monkeypatch.setattr(search_coordinator.api, "search", lambda *args, **kwargs: mock_unauthorized_response)

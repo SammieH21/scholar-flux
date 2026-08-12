@@ -1,10 +1,11 @@
-from scholar_flux.utils.paths import ProcessingPath
-from scholar_flux.exceptions.path_exceptions import (
-    InvalidProcessingPathError,
-    InvalidPathDelimiterError,
-    InvalidComponentTypeError,
-)
 import pytest
+
+from scholar_flux.exceptions.path_exceptions import (
+    InvalidComponentTypeError,
+    InvalidPathDelimiterError,
+    InvalidProcessingPathError,
+)
+from scholar_flux.utils.paths import ProcessingPath
 
 
 def test_initialization():

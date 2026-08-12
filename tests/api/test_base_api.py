@@ -1,13 +1,14 @@
-import pytest
 import re
+from urllib.parse import urljoin
+
+import pytest
 import requests
+import requests_mock
+from requests_cache.session import CachedSession
 
 from scholar_flux.api import BaseAPI
-from scholar_flux.exceptions import RequestCreationException, SessionCreationError, APIParameterException
-from scholar_flux.sessions import SessionManager, CachedSessionManager
-from urllib.parse import urljoin
-from requests_cache.session import CachedSession
-import requests_mock
+from scholar_flux.exceptions import APIParameterException, RequestCreationException, SessionCreationError
+from scholar_flux.sessions import CachedSessionManager, SessionManager
 
 
 def test_configure_session_creates_new_session(caplog):

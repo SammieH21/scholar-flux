@@ -10,10 +10,12 @@ This test suite covers:
 
 """
 
-import pytest
-from scholar_flux.api.normalization.pubmed_field_map import field_map as pubmed_field_map, PubMedFieldMap
-from datetime import datetime, date
+from datetime import date, datetime
 
+import pytest
+
+from scholar_flux.api.normalization.pubmed_field_map import PubMedFieldMap
+from scholar_flux.api.normalization.pubmed_field_map import field_map as pubmed_field_map
 
 # ==================== Fixtures ====================
 

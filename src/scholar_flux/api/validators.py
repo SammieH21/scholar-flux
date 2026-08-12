@@ -27,7 +27,8 @@ Functions:
 import re
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
-from typing import Any, Optional, Callable, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
+from collections.abc import Callable
 from functools import wraps
 from scholar_flux.security.utils import SecretUtils
 from scholar_flux.utils import config_settings
@@ -123,8 +124,8 @@ def validate_email(email: str, verbose: bool = True) -> bool:
 
 
 def validate_and_process_email(
-    email: Optional[SecretStr | str], from_env: bool = True, verbose: bool = True
-) -> Optional[SecretStr]:
+    email: SecretStr | str | None, from_env: bool = True, verbose: bool = True
+) -> SecretStr | None:
     """If a string value is provided, determine whether the email is valid.
 
     This function first uses the validate_email function for the validation of the email. If the value is non-missing is
@@ -243,7 +244,7 @@ def normalize_url(url: str, normalize_https: bool = True, remove_parameters: boo
     return url
 
 
-def validate_and_process_url(url: Optional[str], **kwargs: Any) -> Optional[str]:
+def validate_and_process_url(url: str | None, **kwargs: Any) -> str | None:
     """If a string value is provided, determine whether the url is valid.
 
     This function first uses the validate_url function for the validation of the url.
@@ -271,7 +272,7 @@ def validate_and_process_url(url: Optional[str], **kwargs: Any) -> Optional[str]
     return normalize_url(url, **kwargs)
 
 
-def validate_int(value: Optional[int], min: Optional[int] = None, max: Optional[int] = None) -> Optional[int]:
+def validate_int(value: int | None, min: int | None = None, max: int | None = None) -> int | None:
     """Validate that a value is an integer and optionally within bounds.
 
     Args:
@@ -298,7 +299,7 @@ def validate_int(value: Optional[int], min: Optional[int] = None, max: Optional[
     return value
 
 
-def validate_str(value: Optional[str], allowed: Optional[list | set | tuple] = None) -> Optional[str]:
+def validate_str(value: str | None, allowed: list | set | tuple | None = None) -> str | None:
     """Validate that a value is a string and optionally in a set of allowed values.
 
     Args:
@@ -322,9 +323,7 @@ def validate_str(value: Optional[str], allowed: Optional[list | set | tuple] = N
     return value
 
 
-def validate_date(
-    value: Optional[str], format: str = "%Y-%m-%d", format_description: str = "YYYY-MM-DD"
-) -> Optional[str]:
+def validate_date(value: str | None, format: str = "%Y-%m-%d", format_description: str = "YYYY-MM-DD") -> str | None:
     """Validate that a value is a date string in the specified format.
 
     Args:
@@ -352,17 +351,17 @@ def validate_date(
         raise ValueError(f"Expected str, got {type(value).__name__}")
 
     try:
-        datetime.strptime(value, format)
+        datetime.strptime(value, format)  # noqa: DTZ007
         return value
     except ValueError:
         raise ValueError(f"Date must be in {format_description} format, got '{value}'")
 
 
 def validate_bool_str(
-    value: Optional[str],
+    value: str | None,
     true_values: tuple[str, ...] = ("true", "1", "yes"),
-    default: Optional[bool] = False,
-) -> Optional[bool]:
+    default: bool | None = False,
+) -> bool | None:
     """Validate and convert a boolean string to a Python bool.
 
     Args:

@@ -18,7 +18,8 @@ Classes:
         request or the sending/retrieval of a response.
 
 """
-from typing import cast, ClassVar, Optional, Any, Mapping, MutableMapping, Sequence
+from typing import cast, ClassVar, Any
+from collections.abc import Mapping, MutableMapping, Sequence
 from scholar_flux.exceptions import (
     InvalidResponseStructureException,
     InvalidResponseReconstructionException,
@@ -97,14 +98,14 @@ class APIResponse(BaseModel):
 
     """
 
-    cache_key: Optional[str] = None
-    response: Optional[requests.Response | ResponseProtocol] = None
-    created_at: Optional[str] = None
+    cache_key: str | None = None
+    response: requests.Response | ResponseProtocol | None = None
+    created_at: str | None = None
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator("created_at", mode="before")
-    def validate_iso_timestamp(cls, v: Optional[str | datetime]) -> Optional[str]:
+    def validate_iso_timestamp(cls, v: str | datetime | None) -> str | None:
         """Helper method for validating and ensuring that the timestamp accurately follows an ISO 8601 format."""
         if not v:
             return None
@@ -125,8 +126,8 @@ class APIResponse(BaseModel):
 
     @field_validator("response", mode="before")
     def transform_response(
-        cls, v: Optional[requests.Response | ResponseProtocol]
-    ) -> Optional[requests.Response | ResponseProtocol]:
+        cls, v: requests.Response | ResponseProtocol | None
+    ) -> requests.Response | ResponseProtocol | None:
         """Attempts to resolve a valid or a serialized response-like object as an original or `ReconstructedResponse`.
 
         All original response objects (duck-typed or requests response) with valid values will be returned as is.
@@ -158,7 +159,7 @@ class APIResponse(BaseModel):
         return None
 
     @property
-    def cached(self) -> Optional[bool]:
+    def cached(self) -> bool | None:
         """Identifies whether the current response was retrieved from the session cache.
 
         Returns:
@@ -178,7 +179,7 @@ class APIResponse(BaseModel):
                 return None
 
     @property
-    def status_code(self) -> Optional[int]:
+    def status_code(self) -> int | None:
         """Helper property for retrieving a status code from the APIResponse.
 
         Returns:
@@ -192,7 +193,7 @@ class APIResponse(BaseModel):
             return None
 
     @property
-    def reason(self) -> Optional[str]:
+    def reason(self) -> str | None:
         """Uses the reason or status code attribute on the response object, to retrieve or create a status description.
 
         Returns:
@@ -204,7 +205,7 @@ class APIResponse(BaseModel):
         return reason if ResponseValidator.is_valid_reason(reason) else None
 
     @property
-    def status(self) -> Optional[str]:
+    def status(self) -> str | None:
         """Helper property for retrieving a human-readable status description from the APIResponse.
 
         Returns:
@@ -215,7 +216,7 @@ class APIResponse(BaseModel):
         return status if ResponseValidator.is_valid_reason(status) else None
 
     @property
-    def headers(self) -> Optional[MutableMapping[str, str]]:
+    def headers(self) -> MutableMapping[str, str] | None:
         """Return headers from the underlying response, if available and valid.
 
         Returns:
@@ -230,7 +231,7 @@ class APIResponse(BaseModel):
         return None
 
     @property
-    def content(self) -> Optional[bytes]:
+    def content(self) -> bytes | None:
         """Return content from the underlying response, if available and valid.
 
         Returns:
@@ -247,7 +248,7 @@ class APIResponse(BaseModel):
         return None
 
     @property
-    def text(self) -> Optional[str]:
+    def text(self) -> str | None:
         """Attempts to retrieve the response text by first decoding the bytes of its content.
 
         If not available, this property attempts to directly reference the text attribute directly.
@@ -269,7 +270,7 @@ class APIResponse(BaseModel):
         return None
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str | None:
         """Return URL from the underlying response, if available and valid.
 
         Returns:
@@ -312,9 +313,9 @@ class APIResponse(BaseModel):
     @classmethod
     def from_response(
         cls,
-        response: Optional[Any] = None,
-        cache_key: Optional[str] = None,
-        auto_created_at: Optional[bool] = None,
+        response: Any | None = None,
+        cache_key: str | None = None,
+        auto_created_at: bool | None = None,
         **kwargs: Any,
     ) -> Self:
         """Construct an APIResponse from a response object or from keyword arguments.
@@ -333,7 +334,7 @@ class APIResponse(BaseModel):
         return cls(response=response, cache_key=cache_key, **model_kwargs)
 
     @field_serializer("response", when_used="json")
-    def encode_response(self, response: object) -> Optional[dict[str, Any] | list[Any]]:
+    def encode_response(self, response: object) -> dict[str, Any] | list[Any] | None:
         """Helper method for serializing a response into a json format.
 
         Accounts for special cases such as `CaseInsensitiveDict` fields that are otherwise unserializable.
@@ -344,7 +345,7 @@ class APIResponse(BaseModel):
         return self._encode_response(response) if is_response_like(response) else None
 
     @classmethod
-    def serialize_response(cls, response: requests.Response | ResponseProtocol) -> Optional[str]:
+    def serialize_response(cls, response: requests.Response | ResponseProtocol) -> str | None:
         """Helper method for serializing a response into a json format.
 
         The response object is first converted into a serialized string and subsequently dumped after ensuring that the
@@ -398,7 +399,7 @@ class APIResponse(BaseModel):
         return response_dictionary
 
     @classmethod
-    def _decode_response(cls, encoded_response_dict: dict[str, Any], **kwargs: Any) -> Optional[ReconstructedResponse]:
+    def _decode_response(cls, encoded_response_dict: dict[str, Any], **kwargs: Any) -> ReconstructedResponse | None:
         """Helper method for decoding a dict of encoded fields that were previously encoded using _encode_response.
 
         This class approximately creates the previous response object by creating a `ReconstructedResponse` that
@@ -436,9 +437,7 @@ class APIResponse(BaseModel):
         return ReconstructedResponse.build(**decoded_response)
 
     @classmethod
-    def from_serialized_response(
-        cls, response: Optional[object] = None, **kwargs: Any
-    ) -> Optional[ReconstructedResponse]:
+    def from_serialized_response(cls, response: object | None = None, **kwargs: Any) -> ReconstructedResponse | None:
         """Helper method for creating a new `APIResponse` from dumped JSON object.
 
         This method accounts for lack of ease of serialization of responses by decoding the response dictionary that was
@@ -514,7 +513,7 @@ class APIResponse(BaseModel):
         )
 
     @classmethod
-    def _deserialize_response_dict(cls, serialized_response_dict: str) -> Optional[dict]:
+    def _deserialize_response_dict(cls, serialized_response_dict: str) -> dict | None:
         """Helper method for deserializing the dumped model JSON.
 
         Attempts to load JSON data from a string if possible. Otherwise returns None
@@ -542,7 +541,7 @@ class APIResponse(BaseModel):
         else:
             self.as_reconstructed_response(self.response).raise_for_status()
 
-    def process_metadata(self, *args: Any, **kwargs: Any) -> Optional[MetadataType]:
+    def process_metadata(self, *args: Any, **kwargs: Any) -> MetadataType | None:
         """Abstract processing method that `APIResponse` subclasses can override to process metadata.
 
         Args:
@@ -557,13 +556,13 @@ class APIResponse(BaseModel):
             f"Metadata processing is not implemented for responses of type, {self.__class__.__name__}"
         )
 
-    def resolve_extracted_record(self, *args: Any, **kwargs: Any) -> Optional[RecordType]:
+    def resolve_extracted_record(self, *args: Any, **kwargs: Any) -> RecordType | None:
         """Defines a No-Op method to be overridden by ProcessedResponse subclasses."""
         raise NotImplementedError(
             f"Extracted record resolution is not implemented for responses of type, {self.__class__.__name__}"
         )
 
-    def build_record_id_index(self, *args: Any, **kwargs: Any) -> Optional[dict[str, RecordType]]:
+    def build_record_id_index(self, *args: Any, **kwargs: Any) -> dict[str, RecordType] | None:
         """Defines a No-Op method to be overridden by ProcessedResponse subclasses."""
         raise NotImplementedError(
             f"Extracted record resolution is not implemented for responses of type, {self.__class__.__name__}"
@@ -601,16 +600,16 @@ class ErrorResponse(APIResponse):
 
     """
 
-    message: Optional[str] = None
-    error: Optional[str] = None
+    message: str | None = None
+    error: str | None = None
 
     @classmethod
     def from_error(
         cls,
         message: str,
         error: Exception,
-        cache_key: Optional[str] = None,
-        response: Optional[requests.Response | ResponseProtocol] = None,
+        cache_key: str | None = None,
+        response: requests.Response | ResponseProtocol | None = None,
     ) -> Self:
         """Creates and logs the processing error if one occurs during response processing.
 
@@ -705,7 +704,7 @@ class ErrorResponse(APIResponse):
         """
         return 0
 
-    def process_metadata(self, *args: Any, **kwargs: Any) -> Optional[MetadataType]:
+    def process_metadata(self, *args: Any, **kwargs: Any) -> MetadataType | None:
         """No-Op: This method is retained for compatibility. It returns None by default."""
         try:
             return super().process_metadata(*args, **kwargs)
@@ -751,9 +750,9 @@ class ErrorResponse(APIResponse):
             None: Always returns None since no records exist to resolve.
 
         """
-        return None
+        return
 
-    def strip_annotations(self, records: Optional[RecordType | RecordList] = None) -> RecordList:
+    def strip_annotations(self, records: RecordType | RecordList | None = None) -> RecordList:
         """Convenience method for removing internal metadata annotations from a provided list of records.
 
         This method removes all metadata annotations (dictionary keys that are prefixed with an underscore) that were
@@ -781,7 +780,7 @@ class ErrorResponse(APIResponse):
         return []
 
     def normalize(
-        self, field_map: Optional[BaseFieldMap] = None, raise_on_error: bool = True, *args: Any, **kwargs: Any
+        self, field_map: BaseFieldMap | None = None, raise_on_error: bool = True, *args: Any, **kwargs: Any
     ) -> NormalizedRecordList:
         """No-Op: Raises a RecordNormalizationException when `raise_on_error=True` and returns an empty list otherwise.
 
@@ -853,16 +852,16 @@ class ProcessedResponse(APIResponse):
 
     """
 
-    parsed_response: Optional[Any] = None
-    extracted_records: Optional[RecordList] = None
-    processed_records: Optional[RecordList] = None
-    normalized_records: Optional[NormalizedRecordList] = None
-    metadata: Optional[MetadataType] = None
-    processed_metadata: Optional[MetadataType] = None
-    message: Optional[str] = None
+    parsed_response: Any | None = None
+    extracted_records: RecordList | None = None
+    processed_records: RecordList | None = None
+    normalized_records: NormalizedRecordList | None = None
+    metadata: MetadataType | None = None
+    processed_metadata: MetadataType | None = None
+    message: str | None = None
 
     @property
-    def data(self) -> Optional[RecordList]:
+    def data(self) -> RecordList | None:
         """Alias to the processed_records attribute that holds a list of dictionaries, when available."""
         return self.processed_records
 
@@ -872,7 +871,7 @@ class ProcessedResponse(APIResponse):
         return None
 
     @property
-    def total_query_hits(self) -> Optional[int]:
+    def total_query_hits(self) -> int | None:
         """Returns the total number of results as reported by the API.
 
         This method retrieves the `total_query_hits` variable from the `processed_metadata` attribute, and if metadata
@@ -887,7 +886,7 @@ class ProcessedResponse(APIResponse):
         return coerce_int(processed_metadata.get("total_query_hits"))
 
     @property
-    def records_per_page(self) -> Optional[int]:
+    def records_per_page(self) -> int | None:
         """Returns the total number of results on the current page.
 
         This method retrieves the `records_per_page` variable from the `processed_metadata` attribute, and if metadata
@@ -902,8 +901,8 @@ class ProcessedResponse(APIResponse):
         return coerce_int(processed_metadata.get("records_per_page"))
 
     def process_metadata(
-        self, metadata_map: Optional[ResponseMetadataMap] = None, update_metadata: Optional[bool] = None
-    ) -> Optional[MetadataType]:
+        self, metadata_map: ResponseMetadataMap | None = None, update_metadata: bool | None = None
+    ) -> MetadataType | None:
         """Uses a `ResponseMetadataMap` to process metadata for tertiary information on the response.
 
         This method is a helper that is meant for primarily internal use for providing metadata information on the
@@ -943,12 +942,12 @@ class ProcessedResponse(APIResponse):
 
     def normalize(
         self,
-        field_map: Optional[BaseFieldMap] = None,
+        field_map: BaseFieldMap | None = None,
         raise_on_error: bool = False,
-        update_records: Optional[bool] = None,
-        resolve_records: Optional[bool] = None,
-        keep_api_specific_fields: Optional[bool | Sequence] = None,
-        strip_annotations: Optional[bool] = None,
+        update_records: bool | None = None,
+        resolve_records: bool | None = None,
+        keep_api_specific_fields: bool | Sequence | None = None,
+        strip_annotations: bool | None = None,
     ) -> NormalizedRecordList:
         """Applies a field map to normalize the processed records of a ProcessedResponse into a common structure.
 
@@ -1062,7 +1061,7 @@ class ProcessedResponse(APIResponse):
 
         return normalized_records or []
 
-    def _prepare_normalization_records(self, resolve_records: Optional[bool] = True) -> RecordList | None:
+    def _prepare_normalization_records(self, resolve_records: bool | None = True) -> RecordList | None:
         """Merge extracted and processed records when annotation fields exist.
 
         Extracted and processed records are only merged if the `processed_records` contains flattened fields.
@@ -1135,7 +1134,7 @@ class ProcessedResponse(APIResponse):
 
     def strip_annotations(
         self,
-        records: Optional[RecordType | RecordList] = None,
+        records: RecordType | RecordList | None = None,
     ) -> RecordList:
         """Convenience method that removes metadata annotations from a record list for clean export.
 
@@ -1164,7 +1163,7 @@ class ProcessedResponse(APIResponse):
     def resolve_extracted_record(
         self,
         processed_index: int,
-    ) -> Optional[RecordType]:
+    ) -> RecordType | None:
         """Resolve a processed record back to its original extracted record.
 
         This method uses a two-phase resolution strategy with optional validation:
@@ -1232,7 +1231,7 @@ class ProcessedResponse(APIResponse):
         # Phase 2: Fallback ID search
         return self._resolve_by_record_id(record_id)
 
-    def _resolve_by_record_id(self, record_id: str) -> Optional[RecordType]:
+    def _resolve_by_record_id(self, record_id: str) -> RecordType | None:
         """Resolves an extracted record by its content-based ID.
 
         This method resolves a record ID to its original, unprocessed, extracted record using a linear search in which

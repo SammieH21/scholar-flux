@@ -58,24 +58,19 @@ from scholar_flux.utils.record_types import (
 )
 from scholar_flux.utils.helpers import coerce_str, as_tuple
 from typing import (
-    Optional,
     Any,
-    Callable,
-    MutableSequence,
-    Iterable,
-    Iterator,
     Literal,
-    Sequence,
     overload,
     SupportsIndex,
     TypeVar,
     TYPE_CHECKING,
 )
+from collections.abc import Callable, MutableSequence, Iterable, Iterator, Sequence
 from typing_extensions import TypeAliasType
 from requests import Response
 from pydantic import BaseModel, Field, AliasChoices, computed_field
 import logging
-from datetime import datetime  # noqa: TCH003
+from datetime import datetime  # noqa: TC003
 
 if TYPE_CHECKING:
     from re import Pattern
@@ -119,7 +114,7 @@ class SearchResult(BaseModel):
     query: str
     provider_name: str
     page: int = Field(..., ge=0, validation_alias=AliasChoices("page", "page_number"))
-    response_result: Optional[ProcessedResponse | ErrorResponse] = None
+    response_result: ProcessedResponse | ErrorResponse | None = None
 
     def __bool__(self) -> bool:
         """Makes the SearchResult truthy for ProcessedResponses and False for ErrorResponses/None."""
@@ -140,7 +135,7 @@ class SearchResult(BaseModel):
         return len(self)
 
     @property
-    def response(self) -> Optional[Response | ResponseProtocol]:
+    def response(self) -> Response | ResponseProtocol | None:
         """Directly references the raw response or response-like object from the API Response if available.
 
         Returns:
@@ -152,7 +147,7 @@ class SearchResult(BaseModel):
         return self.response_result.response if self.response_result is not None else None
 
     @property
-    def parsed_response(self) -> Optional[Any]:
+    def parsed_response(self) -> Any | None:
         """Contains the parsed response content from the API response parsing step.
 
         Parsed API responses are generally formatted as dictionaries that contain the extracted JSON, XML, or YAML
@@ -168,7 +163,7 @@ class SearchResult(BaseModel):
         return self.response_result.parsed_response if self.response_result else None
 
     @property
-    def extracted_records(self) -> Optional[RecordList]:
+    def extracted_records(self) -> RecordList | None:
         """Contains the extracted records from the response record extraction step after successful response parsing.
 
         If an ErrorResponse was received instead, the value of this property is None.
@@ -181,7 +176,7 @@ class SearchResult(BaseModel):
         return self.response_result.extracted_records if self.response_result else None
 
     @property
-    def metadata(self) -> Optional[MetadataType]:
+    def metadata(self) -> MetadataType | None:
         """Contains the metadata from the API response metadata extraction step after successful response parsing.
 
         If an ErrorResponse was received instead, the value of this property is None.
@@ -194,17 +189,17 @@ class SearchResult(BaseModel):
         return self.response_result.metadata if self.response_result else None
 
     @property
-    def total_query_hits(self) -> Optional[int]:
+    def total_query_hits(self) -> int | None:
         """Returns the total number of query hits according to the processed metadata field specific to the API."""
         return self.response_result.total_query_hits if self.response_result else None
 
     @property
-    def records_per_page(self) -> Optional[int]:
+    def records_per_page(self) -> int | None:
         """Returns the number of records sent on the current page according to the API-specific metadata field."""
         return self.response_result.records_per_page if self.response_result else None
 
     @property
-    def processed_records(self) -> Optional[RecordList]:
+    def processed_records(self) -> RecordList | None:
         """Contains the processed records from the API response processing step after processing the response.
 
         If an error response was received instead, the value of this property is None.
@@ -217,7 +212,7 @@ class SearchResult(BaseModel):
         return self.response_result.processed_records if self.response_result else None
 
     @property
-    def processed_metadata(self) -> Optional[MetadataType]:
+    def processed_metadata(self) -> MetadataType | None:
         """Contains the processed metadata from the API response processing step after the response has been processed.
 
         If an error response was received instead, the value of this property is None.
@@ -230,7 +225,7 @@ class SearchResult(BaseModel):
         return self.response_result.processed_metadata if self.response_result else None
 
     @property
-    def normalized_records(self) -> Optional[NormalizedRecordList]:
+    def normalized_records(self) -> NormalizedRecordList | None:
         """Contains the normalized records from the API response processing step after normalization.
 
         If an error response was received instead, the value of this property is None.
@@ -244,7 +239,7 @@ class SearchResult(BaseModel):
 
     def strip_annotations(
         self,
-        records: Optional[RecordType | RecordList] = None,
+        records: RecordType | RecordList | None = None,
     ) -> RecordList:
         """Convenience method for removing metadata annotations from a record list for clean export.
 
@@ -266,7 +261,7 @@ class SearchResult(BaseModel):
         return self.response_result.strip_annotations(records) if self.response_result is not None else []
 
     @property
-    def data(self) -> Optional[RecordList]:
+    def data(self) -> RecordList | None:
         """Alias referring back to the processed records from the ProcessedResponse or ErrorResponse.
 
         Contains the processed records from the API response processing step after a successfully received response has
@@ -280,7 +275,7 @@ class SearchResult(BaseModel):
         return self.response_result.data if self.response_result else None
 
     @property
-    def cache_key(self) -> Optional[str]:
+    def cache_key(self) -> str | None:
         """Extracts the cache key from the API Response if available.
 
         This cache key is used when storing and retrieving data from response processing cache storage.
@@ -297,7 +292,7 @@ class SearchResult(BaseModel):
         )
 
     @computed_property
-    def cached(self) -> Optional[bool]:
+    def cached(self) -> bool | None:
         """Identifies whether the current response was retrieved from the session cache.
 
         Returns:
@@ -308,7 +303,7 @@ class SearchResult(BaseModel):
         return self.response_result.cached if self.response_result is not None else None
 
     @property
-    def error(self) -> Optional[str]:
+    def error(self) -> str | None:
         """Extracts the error name associated with the result from the base class.
 
         This field is generally populated when `ErrorResponse` objects are received and indicates why an error occurred.
@@ -321,7 +316,7 @@ class SearchResult(BaseModel):
         return self.response_result.error if isinstance(self.response_result, ErrorResponse) else None
 
     @property
-    def message(self) -> Optional[str]:
+    def message(self) -> str | None:
         """Extracts the message associated with the result from the base class.
 
         This message is generally populated when `ErrorResponse` objects are received and indicates why an error
@@ -335,7 +330,7 @@ class SearchResult(BaseModel):
         return self.response_result.message if isinstance(self.response_result, ErrorResponse) else None
 
     @property
-    def created_at(self) -> Optional[str]:
+    def created_at(self) -> str | None:
         """Extracts the time in which the ErrorResponse or ProcessedResponse was created, if available."""
         return (
             self.response_result.created_at
@@ -344,23 +339,23 @@ class SearchResult(BaseModel):
         )
 
     @computed_property
-    def retrieval_timestamp(self) -> Optional[datetime]:
+    def retrieval_timestamp(self) -> datetime | None:
         """Indicates the ISO timestamp associated with the original response creation date and time."""
         return parse_iso_timestamp(self.created_at) if self.created_at else None
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str | None:
         """Extracts the URL from the underlying response, if available."""
         with log_level_context(log_level=logging.ERROR):
             return self.response_result.url if self.response_result is not None else None
 
     @property
-    def status_code(self) -> Optional[int]:
+    def status_code(self) -> int | None:
         """Extracts the HTTP status code from the underlying response, if available."""
         return self.response_result.status_code if self.response_result is not None else None
 
     @property
-    def status(self) -> Optional[str]:
+    def status(self) -> str | None:
         """Extracts the human-readable status description from the underlying response, if available."""
         return self.response_result.status if self.response_result is not None else None
 
@@ -371,9 +366,9 @@ class SearchResult(BaseModel):
 
     def process_metadata(
         self,
-        metadata_map: Optional[ResponseMetadataMap] = None,
-        update_metadata: Optional[bool] = None,
-    ) -> Optional[MetadataType]:
+        metadata_map: ResponseMetadataMap | None = None,
+        update_metadata: bool | None = None,
+    ) -> MetadataType | None:
         """Processes and maps API-specific `ProcessedResponse.metadata` fields to provider-agnostic field names.
 
         By default, the `ResponseMetadataMap` map retrieves and converts the API-specific page-size (records per page)
@@ -432,7 +427,7 @@ class SearchResult(BaseModel):
         """
         return (self.response_result.build_record_id_index(*args, **kwargs) if self.response_result else None) or {}
 
-    def resolve_extracted_record(self, *args: Any, **kwargs: Any) -> Optional[RecordType]:
+    def resolve_extracted_record(self, *args: Any, **kwargs: Any) -> RecordType | None:
         """Resolves a processed record back to its original extracted record.
 
         This method delegates to the underlying `ProcessedResponse` or `ErrorResponse` to resolve a single
@@ -459,14 +454,14 @@ class SearchResult(BaseModel):
 
     def normalize(
         self,
-        field_map: Optional[BaseFieldMap] = None,
+        field_map: BaseFieldMap | None = None,
         raise_on_error: bool = False,
-        update_records: Optional[bool] = None,
-        include: Optional[SearchFields] = None,
+        update_records: bool | None = None,
+        include: SearchFields | None = None,
         *,
-        resolve_records: Optional[bool] = None,
-        keep_api_specific_fields: Optional[bool | Sequence] = None,
-        strip_annotations: Optional[bool] = None,
+        resolve_records: bool | None = None,
+        keep_api_specific_fields: bool | Sequence | None = None,
+        strip_annotations: bool | None = None,
     ) -> NormalizedRecordList:
         """Normalizes `ProcessedResponse` record fields to map API-specific fields to provider-agnostic field names.
 
@@ -601,59 +596,54 @@ class SearchResult(BaseModel):
     def with_search_fields(
         self,
         records: NormalizedRecordType,
-        include: Optional[SearchFields] = None,
-        strip_annotations: Optional[bool] = None,
+        include: SearchFields | None = None,
+        strip_annotations: bool | None = None,
     ) -> NormalizedRecordType:
         """When a normalized record is received, the same record is returned with additional search fields."""
-        ...
 
     @overload
     def with_search_fields(
         self,
         records: NormalizedRecordList,
-        include: Optional[SearchFields] = None,
-        strip_annotations: Optional[bool] = None,
+        include: SearchFields | None = None,
+        strip_annotations: bool | None = None,
     ) -> NormalizedRecordList:
         """When a normalized record list is received, the normalized list is returned with additional search fields."""
-        ...
 
     @overload
     def with_search_fields(
         self,
         records: RecordType,
-        include: Optional[SearchFields] = None,
-        strip_annotations: Optional[bool] = None,
+        include: SearchFields | None = None,
+        strip_annotations: bool | None = None,
     ) -> RecordType:
         """When a parsed record is received, the record is returned with additional search fields."""
-        ...
 
     @overload
     def with_search_fields(
         self,
         records: RecordList | Iterator[RecordType],
-        include: Optional[SearchFields] = None,
-        strip_annotations: Optional[bool] = None,
+        include: SearchFields | None = None,
+        strip_annotations: bool | None = None,
     ) -> RecordList:
         """When a parsed records list is received, a parsed record list with additional search fields is returned."""
-        ...
 
     @overload
     def with_search_fields(
         self,
         records: None,
-        include: Optional[SearchFields] = None,
-        strip_annotations: Optional[bool] = None,
+        include: SearchFields | None = None,
+        strip_annotations: bool | None = None,
     ) -> RecordType:
         """When called with None, a dictionary is returned containing the search fields indicating the request."""
-        ...
 
     def with_search_fields(
         self,
-        records: Optional[
-            RecordType | Iterator[RecordType] | NormalizedRecordType | RecordList | NormalizedRecordList
-        ] = None,
-        include: Optional[SearchFields] = None,
-        strip_annotations: Optional[bool] = None,
+        records: (
+            RecordType | Iterator[RecordType] | NormalizedRecordType | RecordList | NormalizedRecordList | None
+        ) = None,
+        include: SearchFields | None = None,
+        strip_annotations: bool | None = None,
     ) -> RecordType | NormalizedRecordType | RecordList | NormalizedRecordList:
         """Returns a record or list of record dictionaries merged with selected SearchResult fields.
 
@@ -833,12 +823,10 @@ class SearchResultList(list[SearchResult]):
     @overload
     def __setitem__(self, index: SupportsIndex, item: SearchResult, /) -> None:
         """When a supported index is passed, the `SearchResultList` expects to assign a single SearchResult."""
-        ...
 
     @overload
     def __setitem__(self, index: slice[Any, Any, Any], item: Iterable[SearchResult], /) -> None:
         """When slice is passed, the `SearchResultList` expects to assign an iterable of SearchResults."""
-        ...
 
     def __setitem__(
         self, index: slice[Any, Any, Any] | SupportsIndex, item: SearchResult | Iterable[SearchResult]
@@ -883,8 +871,8 @@ class SearchResultList(list[SearchResult]):
 
     def join(
         self,
-        include: Optional[SearchFields] = None,
-        strip_annotations: Optional[bool] = None,
+        include: SearchFields | None = None,
+        strip_annotations: bool | None = None,
     ) -> RecordList:
         """Combines all successfully processed API responses into a single list of dictionary records across all pages.
 
@@ -916,8 +904,8 @@ class SearchResultList(list[SearchResult]):
 
     def process_metadata(
         self,
-        update_metadata: Optional[bool] = None,
-        include: Optional[SearchFields] = None,
+        update_metadata: bool | None = None,
+        include: SearchFields | None = None,
     ) -> list[MetadataType]:
         """Processes the `ProcessedResponse.metadata` field to map metadata fields to provider-agnostic field names.
 
@@ -957,8 +945,8 @@ class SearchResultList(list[SearchResult]):
     def normalize(
         self,
         raise_on_error: bool = False,
-        update_records: Optional[bool] = None,
-        include: Optional[SearchFields] = None,
+        update_records: bool | None = None,
+        include: SearchFields | None = None,
         **kwargs: Any,
     ) -> NormalizedRecordList:
         """Convenience method allowing the batch normalization of all SearchResults in a SearchResultList.
@@ -1027,12 +1015,12 @@ class SearchResultList(list[SearchResult]):
 
     def select(
         self,
-        query: Optional[str] = None,
-        provider_name: Optional[str | Pattern] = None,
-        page: Optional[tuple | MutableSequence | int] = None,
+        query: str | None = None,
+        provider_name: str | Pattern | None = None,
+        page: tuple | MutableSequence | int | None = None,
         *,
         fuzzy: bool = True,
-        regex: Optional[bool] = None,
+        regex: bool | None = None,
     ) -> SearchResultList:
         """Helper method that enables the selection of all responses (successful or failed) based on its attributes.
 

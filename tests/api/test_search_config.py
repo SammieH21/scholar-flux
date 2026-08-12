@@ -1,13 +1,15 @@
-import pytest
-from unittest.mock import patch
-from pydantic import SecretStr
 import logging
+import os
+from unittest.mock import patch
+
+import pytest
+from pydantic import SecretStr
+
+import scholar_flux
+import scholar_flux.api.models.search_api_config
 from scholar_flux.api import SearchAPIConfig, provider_registry
 from scholar_flux.api.models import APISpecificParameter
 from scholar_flux.security import SensitiveDataMasker
-import scholar_flux
-import os
-import scholar_flux.api.models.search_api_config
 
 
 @pytest.mark.parametrize(
@@ -258,7 +260,7 @@ def test_missing_provider_information(caplog):
 
 def test_missing_provider_url(caplog):
     """Verifies that the PLOS url is inferred as intended when the PLOS provider is specified."""
-    base_url, provider, provider_info = SearchAPIConfig._prepare_provider_info(provider_name="plos", base_url="")
+    base_url, _provider, provider_info = SearchAPIConfig._prepare_provider_info(provider_name="plos", base_url="")
     assert base_url and provider_info and base_url == provider_info.base_url
 
 

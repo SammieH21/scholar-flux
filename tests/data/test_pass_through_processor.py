@@ -1,7 +1,9 @@
+import re
+
 import pytest
+
 from scholar_flux.data import PassThroughDataProcessor
 from scholar_flux.exceptions import DataProcessingException
-import re
 
 
 def test_process_page(mock_api_parsed_json_records):

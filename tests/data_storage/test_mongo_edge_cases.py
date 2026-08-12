@@ -1,17 +1,19 @@
-import pytest
-from unittest.mock import patch
 import re
+from unittest.mock import patch
+
+import pytest
+
 from scholar_flux.data_storage.mongodb_storage import (
-    MongoDBStorage,
-    MongoDBImportError,
-    PyMongoError,
-    DuplicateKeyError,
     ConnectionFailure,
+    DuplicateKeyError,
+    MongoDBImportError,
+    MongoDBStorage,
+    PyMongoError,
 )
 from scholar_flux.exceptions import (
+    CacheDeletionException,
     CacheRetrievalException,
     CacheUpdateException,
-    CacheDeletionException,
     CacheVerificationException,
 )
 from tests.testing_utilities import raise_error
@@ -96,7 +98,7 @@ def test_mongo_delete_error(mongo_test_storage, caplog):
     msg = f"Error during attempted deletion of key {key} (namespace = '{mongo_test_storage.namespace}'): {e}"
 
     mongo_test_storage.delete(key)
-    assert f"Record for key {key} (namespace = '{mongo_test_storage.namespace}') does not exist"
+    assert f"Record for key {key} (namespace = '{mongo_test_storage.namespace}') does not exist" in caplog.text
 
     with patch.object(mongo_test_storage, "collection") as mock_collection:
         mock_collection.delete_one.side_effect = PyMongoError(e)

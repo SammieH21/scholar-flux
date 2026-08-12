@@ -4,7 +4,8 @@ convenience classes for interacting with the file system and JSON files."""
 from pathlib import Path
 import re
 import json
-from typing import Union, Any, Generator, Optional
+from typing import Any
+from collections.abc import Generator
 
 import logging
 
@@ -36,7 +37,7 @@ class JsonFileUtils:
     DEFAULT_EXT = "json"
 
     @classmethod
-    def get_filepath(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> str:
+    def get_filepath(cls, filepath: str | Path, ext: str | None = None) -> str:
         """Prepare the filepath using the filepath and extension if provided. Assumes a Unix filesystem structure for
         edge cases.
 
@@ -59,9 +60,9 @@ class JsonFileUtils:
     @classmethod
     def save_as(
         cls,
-        obj: Union[list, dict, str, float, int],
-        filepath: Union[str, Path],
-        ext: Optional[str] = None,
+        obj: list | dict | str | float,
+        filepath: str | Path,
+        ext: str | None = None,
         dump: bool = True,
     ) -> None:
         """Save an object in text format with the specified extension (if provided).
@@ -79,7 +80,7 @@ class JsonFileUtils:
             f.write(obj)
 
     @classmethod
-    def load_data(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> Union[dict, list, str]:
+    def load_data(cls, filepath: str | Path, ext: str | None = None) -> dict | list | str:
         """Attempts to load data from a filepath as a dictionary/list. If unsuccessful, the file's contents are instead
         loaded as a string.
 
@@ -103,7 +104,7 @@ class JsonFileUtils:
         return obj
 
     @classmethod
-    def read_lines(cls, filepath: Union[str, Path], ext: Optional[str] = None) -> Generator[str, None, None]:
+    def read_lines(cls, filepath: str | Path, ext: str | None = None) -> Generator[str, None, None]:
         """Iteratively reads lines from a text file.
 
         Args:
@@ -124,9 +125,7 @@ class JsonFileUtils:
             yield from f
 
     @classmethod
-    def append_to_file(
-        cls, content: Union[str, list[str]], filepath: Union[str, Path], ext: Optional[str] = None
-    ) -> None:
+    def append_to_file(cls, content: str | list[str], filepath: str | Path, ext: str | None = None) -> None:
         """Helper method used to append content to a file in a content-type aware manner.
 
         Args:

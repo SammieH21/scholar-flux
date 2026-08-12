@@ -1,10 +1,12 @@
 """Test module for verifying the behavior and functionality of the `PackageDirectorySettings` model."""
 
-from scholar_flux.package_metadata import PackageDirectorySettings, package_directory_settings
-from pathlib import Path
-import pytest
-from tests.testing_utilities import raise_error
 import re
+from pathlib import Path
+
+import pytest
+
+from scholar_flux.package_metadata import PackageDirectorySettings, package_directory_settings
+from tests.testing_utilities import raise_error
 
 
 def test_default_home_directory_name_setting():

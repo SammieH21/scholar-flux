@@ -28,7 +28,8 @@ Design Philosophy:
     The base class provides common helpers, not enforced patterns.
 
 """
-from typing import Any, Optional, Sequence
+
+from typing import TYPE_CHECKING, Any
 import datetime
 import re
 from scholar_flux.api.normalization.normalizing_field_map import NormalizingFieldMap
@@ -48,6 +49,9 @@ from scholar_flux.utils.helpers import (
     strip_html_tags,
     as_tuple,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 URL_PATTERN_SUFFIX = "(?=http)"
 URL_PATTERN = try_compile(r"; *|, *|\| *", suffix=URL_PATTERN_SUFFIX)
@@ -104,48 +108,48 @@ class AcademicFieldMap(NormalizingFieldMap):
     """
 
     # Core identifiers
-    doi: Optional[str | list[str]] = None
-    url: Optional[str | list[str]] = None
-    record_id: Optional[str | list[str]] = None
+    doi: str | list[str] | None = None
+    url: str | list[str] | None = None
+    record_id: str | list[str] | None = None
 
     # Bibliographic metadata
-    title: Optional[str | list[str]] = None
-    abstract: Optional[str | list[str]] = None
-    authors: Optional[str | list[str]] = None
+    title: str | list[str] | None = None
+    abstract: str | list[str] | None = None
+    authors: str | list[str] | None = None
 
     # Publication metadata
-    journal: Optional[str | list[str]] = None
-    publisher: Optional[str | list[str]] = None
-    year: Optional[str | list[str]] = None
-    date_published: Optional[str | list[str]] = None
-    date_created: Optional[str | list[str]] = None
+    journal: str | list[str] | None = None
+    publisher: str | list[str] | None = None
+    year: str | list[str] | None = None
+    date_published: str | list[str] | None = None
+    date_created: str | list[str] | None = None
 
     # Content and classification
-    keywords: Optional[str | list[str]] = None
-    subjects: Optional[str | list[str]] = None
-    full_text: Optional[str | list[str]] = None
+    keywords: str | list[str] | None = None
+    subjects: str | list[str] | None = None
+    full_text: str | list[str] | None = None
 
     # Metrics and impact
-    citation_count: Optional[str | list[str]] = None
+    citation_count: str | list[str] | None = None
 
     # Access and rights
-    open_access: Optional[str | list[str]] = None
-    license: Optional[str | list[str]] = None
+    open_access: str | list[str] | None = None
+    license: str | list[str] | None = None
 
     # Document metadata
-    record_type: Optional[str | list[str]] = None
-    language: Optional[str | list[str]] = None
-    is_retracted: Optional[str | list[str]] = None
+    record_type: str | list[str] | None = None
+    language: str | list[str] | None = None
+    is_retracted: str | list[str] | None = None
 
     @classmethod
     def extract_url(
         cls,
         record: NormalizedRecordType,
         *paths: list[str | int] | str,
-        pattern_delimiter: Optional[str | re.Pattern] = URL_PATTERN,
-        delimiter_prefix: Optional[str] = None,
-        delimiter_suffix: Optional[str] = URL_PATTERN_SUFFIX,
-    ) -> Optional[str]:
+        pattern_delimiter: str | re.Pattern | None = URL_PATTERN,
+        delimiter_prefix: str | None = None,
+        delimiter_suffix: str | None = URL_PATTERN_SUFFIX,
+    ) -> str | None:
         """Helper function for extracting a single, primary URL from record based on the path taken to traverse the URL.
 
         Args:
@@ -210,8 +214,8 @@ class AcademicFieldMap(NormalizingFieldMap):
 
     @classmethod
     def extract_id(
-        cls, record: NormalizedRecordType, field: str = "record_id", strip_prefix: Optional[str | re.Pattern] = None
-    ) -> Optional[str]:
+        cls, record: NormalizedRecordType, field: str = "record_id", strip_prefix: str | re.Pattern | None = None
+    ) -> str | None:
         """Extracts and coerces the ID from the current record into a string.
 
         Args:
@@ -239,8 +243,8 @@ class AcademicFieldMap(NormalizingFieldMap):
 
     @classmethod
     def extract_url_id(
-        cls, record: NormalizedRecordType, field: str = "record_id", strip_prefix: Optional[str | re.Pattern] = None
-    ) -> Optional[str]:
+        cls, record: NormalizedRecordType, field: str = "record_id", strip_prefix: str | re.Pattern | None = None
+    ) -> str | None:
         """Extracts an ID from the URL of the current record, removing a URL prefix when specified.
 
         Args:
@@ -266,7 +270,7 @@ class AcademicFieldMap(NormalizingFieldMap):
         return url or None
 
     @classmethod
-    def extract_year(cls, record: NormalizedRecordType, field: str = "year") -> Optional[int]:
+    def extract_year(cls, record: NormalizedRecordType, field: str = "year") -> int | None:
         """Extracts the year of publication or record creation from the manuscript/record.
 
         Args:
@@ -290,7 +294,7 @@ class AcademicFieldMap(NormalizingFieldMap):
         return extract_year(year) if year else None
 
     @classmethod
-    def reconstruct_url(cls, id: Optional[str], url: str) -> Optional[str]:
+    def reconstruct_url(cls, id: str | None, url: str) -> str | None:
         """Reconstruct an article URL from the ID of the article.
 
         Useful for PLOS and PubMed URL reconstruction.
@@ -324,7 +328,7 @@ class AcademicFieldMap(NormalizingFieldMap):
         return None
 
     @classmethod
-    def normalize_doi(cls, record: NormalizedRecordType, field: str = "doi") -> Optional[str]:
+    def normalize_doi(cls, record: NormalizedRecordType, field: str = "doi") -> str | None:
         """Normalizes DOI by stripping the https://doi.org/ prefix.
 
         Args:
@@ -348,7 +352,7 @@ class AcademicFieldMap(NormalizingFieldMap):
         return None
 
     @classmethod
-    def extract_iso_date(cls, record: NormalizedRecordType, field: str = "date_created") -> Optional[str]:
+    def extract_iso_date(cls, record: NormalizedRecordType, field: str = "date_created") -> str | None:
         """Extracts and formats a date from a dictionary or strings in ISO format (%Y-%m-%d).
 
         Args:
@@ -391,7 +395,7 @@ class AcademicFieldMap(NormalizingFieldMap):
         return None
 
     @classmethod
-    def extract_authors(cls, record: NormalizedRecordType, field: str = "authors") -> Optional[list[str]]:
+    def extract_authors(cls, record: NormalizedRecordType, field: str = "authors") -> list[str] | None:
         """Filters and cleans the author names list.
 
         Args:
@@ -423,7 +427,7 @@ class AcademicFieldMap(NormalizingFieldMap):
     @classmethod
     def extract_abstract(
         cls, record: NormalizedRecordType, strip_html: bool = False, field: str = "abstract", **kwargs: Any
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extracts and prepares the abstract for the current record.
 
         Args:
@@ -455,7 +459,7 @@ class AcademicFieldMap(NormalizingFieldMap):
         return None
 
     @classmethod
-    def extract_journal(cls, record: NormalizedRecordType, field: str = "journal") -> Optional[str]:
+    def extract_journal(cls, record: NormalizedRecordType, field: str = "journal") -> str | None:
         """Extracts the publication journal title or a list of journal titles as a semicolon delimited string.
 
         Args:
@@ -484,8 +488,8 @@ class AcademicFieldMap(NormalizingFieldMap):
         field: str,
         true_values: tuple[str, ...] = ("true", "1", "yes"),
         false_values: tuple[str, ...] = ("false", "0", "no"),
-        default: Optional[bool] = None,
-    ) -> Optional[bool]:
+        default: bool | None = None,
+    ) -> bool | None:
         """Extracts a field's value from the current record as a boolean ('true'->True/'false'->False/'None'->None).
 
         Args:

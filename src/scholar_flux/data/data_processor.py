@@ -8,7 +8,8 @@ The data processor can be used to filter records based on conditions and extract
 record to ensure that relevant records and fields from records are retained
 
 """
-from typing import Any, Optional, Mapping
+from typing import Any
+from collections.abc import Mapping
 from scholar_flux.utils import get_nested_data, as_list_1d, unlist_1d, nested_key_exists, PathUtils
 
 from scholar_flux.data import ABCDataProcessor
@@ -53,13 +54,13 @@ class DataProcessor(ABCDataProcessor):
 
     def __init__(
         self,
-        record_keys: Optional[
-            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
-        ] = None,
-        ignore_keys: Optional[list[str]] = None,
-        keep_keys: Optional[list[str]] = None,
-        value_delimiter: Optional[str] = "; ",
-        regex: Optional[bool] = True,
+        record_keys: (
+            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str] | None
+        ) = None,
+        ignore_keys: list[str] | None = None,
+        keep_keys: list[str] | None = None,
+        value_delimiter: str | None = "; ",
+        regex: bool | None = True,
     ) -> None:
         """Initialize the DataProcessor with explicit extraction paths and options.
 
@@ -90,10 +91,8 @@ class DataProcessor(ABCDataProcessor):
     @classmethod
     def _prepare_record_keys(
         cls,
-        record_keys: Optional[
-            dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str]
-        ],
-    ) -> Optional[dict[str | int, list[str | int]]]:
+        record_keys: dict[str | int, Any] | dict[str, Any] | list[list[str | int]] | list[list[str]] | list[str] | None,
+    ) -> dict[str | int, list[str | int]] | None:
         """Convert record_key input into a standardized dict key value pairs. The keys represent the final key/column
         name corresponding to each nested path. Its corresponding value is a list containing each step as an element
         leading up to the final element/node in the path.
@@ -112,7 +111,7 @@ class DataProcessor(ABCDataProcessor):
                 return None
             elif isinstance(record_keys, list):
                 # creates a dictionary where the joined list represents the key
-                record_keys_dict: Optional[dict[str | int, list[str | int]]] = {
+                record_keys_dict: dict[str | int, list[str | int]] | None = {
                     ".".join(f"{p}" for p in cls._process_record_path(record_key_path)): cls._process_record_path(
                         record_key_path
                     )
@@ -144,8 +143,8 @@ class DataProcessor(ABCDataProcessor):
     def extract_key(
         record: RecordType | RecordList | None,
         key: str | int,
-        path: Optional[list[str | int]] = None,
-    ) -> Optional[list]:
+        path: list[str | int] | None = None,
+    ) -> list | None:
         """Processes a specific key from a record by retrieving the value associated with the key at the nested path.
         Depending on whether `value_delimiter` is set, the method will join non-None values into a string using the
         delimiter. Otherwise, keys with lists as values will contain the lists un-edited.
@@ -230,9 +229,9 @@ class DataProcessor(ABCDataProcessor):
     def process_page(
         self,
         parsed_records: RecordList,
-        ignore_keys: Optional[list[str]] = None,
-        keep_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
+        ignore_keys: list[str] | None = None,
+        keep_keys: list[str] | None = None,
+        regex: bool | None = None,
     ) -> list[dict]:
         """Core method of the data processor that enables the processing of lists of dictionary records to filter and
         process records based on the configuration of the current DataProcessor.
@@ -275,8 +274,8 @@ class DataProcessor(ABCDataProcessor):
     def record_filter(
         cls,
         record_dict: RecordType,
-        record_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
+        record_keys: list[str] | None = None,
+        regex: bool | None = None,
     ) -> bool:
         """Helper method that filters records using regex pattern matching, checking if any of the keys provided in the
         function call exist."""

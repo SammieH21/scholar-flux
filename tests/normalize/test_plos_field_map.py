@@ -8,9 +8,10 @@ This test suite covers:
 """
 
 import pytest
-from scholar_flux.api.normalization.plos_field_map import field_map as plos_field_map, PLOSFieldMap
-from scholar_flux.utils.helpers import extract_year
 
+from scholar_flux.api.normalization.plos_field_map import PLOSFieldMap
+from scholar_flux.api.normalization.plos_field_map import field_map as plos_field_map
+from scholar_flux.utils.helpers import extract_year
 
 # ==================== Fixtures ====================
 

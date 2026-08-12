@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../../src'))
 project = 'scholar-flux'
 copyright = '2026, Sammie L. Haskin'
 author = 'Sammie L. Haskin'
-release = '0.6.1'
+release = '0.6.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

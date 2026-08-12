@@ -7,8 +7,9 @@ decrypt text as needed before and after conversion to a secret string, respectiv
 
 """
 
-from typing import Any, Optional, overload, MutableMapping, TypeVar
-from typing_extensions import TypeGuard
+from typing import Any, overload, TypeGuard, TypeVar
+from collections.abc import MutableMapping
+
 from pydantic import SecretStr
 
 
@@ -27,16 +28,14 @@ class SecretUtils:
     @overload
     def mask_secret(cls, obj: None, convert_object: bool = True) -> None:
         """The mask_secret utility will only return None if the input is None."""
-        ...
 
     @classmethod
     @overload
     def mask_secret(cls, obj: Any, convert_object: bool = True) -> SecretStr:
         """The mask_secret method will return a secret string if the provided value is not None."""
-        ...
 
     @classmethod
-    def mask_secret(cls, obj: Any, convert_object: bool = True) -> Optional[SecretStr]:
+    def mask_secret(cls, obj: Any, convert_object: bool = True) -> SecretStr | None:
         """Helper method masking variables into secret strings:
 
         Args:

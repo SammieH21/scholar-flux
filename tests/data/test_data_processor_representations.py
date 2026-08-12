@@ -1,4 +1,4 @@
-from scholar_flux.data import DataProcessor, RecursiveDataProcessor, PathDataProcessor
+from scholar_flux.data import DataProcessor, PathDataProcessor, RecursiveDataProcessor
 from scholar_flux.utils import quote_if_string
 
 

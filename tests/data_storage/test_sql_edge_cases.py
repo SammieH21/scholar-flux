@@ -1,23 +1,25 @@
-import pytest
 import re
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from scholar_flux.data_storage.sql_storage import (
-    SQLAlchemyStorage,
-    DuckDBStorage,
     DuckDBImportError,
+    DuckDBStorage,
     SQLAlchemyImportError,
+    SQLAlchemyStorage,
     exc,
 )
-from scholar_flux.utils import config_settings
 from scholar_flux.exceptions import (
-    StorageCacheException,
+    CacheDeletionException,
+    CacheParameterValidationException,
     CacheRetrievalException,
     CacheUpdateException,
-    CacheDeletionException,
     CacheVerificationException,
-    CacheParameterValidationException,
+    StorageCacheException,
 )
+from scholar_flux.utils import config_settings
 from tests.testing_utilities import raise_error
 
 

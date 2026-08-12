@@ -17,18 +17,12 @@ from scholar_flux.utils.record_types import RecordType
 
 from typing import (
     Any,
-    Set,
-    Optional,
-    Union,
     TypeVar,
-    Hashable,
-    Mapping,
-    Sequence,
-    Callable,
     TYPE_CHECKING,
     Literal,
     overload,
 )
+from collections.abc import Hashable, Mapping, Sequence, Callable
 from typing_extensions import TypeAliasType
 from collections.abc import Iterable
 import logging
@@ -81,7 +75,7 @@ def quote_if_string(value: object) -> object:
     return value
 
 
-def try_quote_numeric(value: object) -> Optional[str]:
+def try_quote_numeric(value: object) -> str | None:
     """Attempt to quote numeric values to distinguish them from string values and integers.
 
     Args:
@@ -117,7 +111,7 @@ def quote_numeric(value: object) -> str:
     return quoted_value
 
 
-def flatten(current_data: Optional[Mapping | list]) -> Optional[Mapping | list]:
+def flatten(current_data: Mapping | list | None) -> Mapping | list | None:
     """Flattens a dictionary or list if it contains a single element that is a dictionary.
 
     Args:
@@ -188,30 +182,28 @@ def infer_text_pattern_search(
     flags: int | re.RegexFlag = 0,
 ) -> V | D:
     """Returns a non-None value when no None exists in dictionary values or default."""
-    ...
 
 
 @overload
 def infer_text_pattern_search(
     text: str,
-    pattern_dict: Mapping[str | re.Pattern, Optional[V]] | Mapping[str, Optional[V]] | Mapping[re.Pattern, V],
+    pattern_dict: Mapping[str | re.Pattern, V | None] | Mapping[str, V | None] | Mapping[re.Pattern, V],
     default: None = None,
     *,
     regex: bool = True,
     flags: int | re.RegexFlag = 0,
-) -> Optional[V]:
+) -> V | None:
     """When the `default` is None, either an available pattern will be returned, or None is returned instead."""
-    ...
 
 
 def infer_text_pattern_search(
     text: str,
-    pattern_dict: Mapping[str | re.Pattern, Optional[V]] | Mapping[str, Optional[V]] | Mapping[re.Pattern, V],
-    default: Optional[D] = None,
+    pattern_dict: Mapping[str | re.Pattern, V | None] | Mapping[str, V | None] | Mapping[re.Pattern, V],
+    default: D | None = None,
     *,
     regex: bool = True,
     flags: int | re.RegexFlag = 0,
-) -> Optional[V | D]:
+) -> V | D | None:
     """Infers a category based on a text pattern search, otherwise returning the default if a match can't be inferred.
 
     Args:
@@ -259,7 +251,7 @@ def nested_key_exists(obj: object, key_to_find: str, regex: bool = False) -> boo
 
     """
     if isinstance(obj, dict):
-        match: Optional[list] = []
+        match: list | None = []
 
         if regex:
             match = pattern_search(obj, key_to_find) or None
@@ -331,7 +323,7 @@ def get_nested_data(
                     current_data = flatten(current_data)
         except (KeyError, IndexError, TypeError) as e:
             if verbose:
-                logger.debug(f"key not found: {str(e)}")
+                logger.debug(f"key not found: {e!s}")
             return None
     return current_data
 
@@ -369,7 +361,7 @@ def filter_record_key_prefixes(
 
 
 def get_first_available_key(
-    data: Mapping[H | str, Any], keys: Sequence[H | str], default: Optional[T] = None, case_sensitive: bool = True
+    data: Mapping[H | str, Any], keys: Sequence[H | str], default: T | None = None, case_sensitive: bool = True
 ) -> Any | T:
     """Extracts the first key from a sequence of keys that can be found within a dictionary.
 
@@ -529,7 +521,7 @@ def coerce_bool(
     return None
 
 
-def as_str(value: object, *, encoding: Optional[str] = "utf-8", errors: Optional[str] = "strict") -> str:
+def as_str(value: object, *, encoding: str | None = "utf-8", errors: str | None = "strict") -> str:
     """Converts an object into a string type, accounting for re.Pattern/bytes semantics when relevant.
 
     Args:
@@ -556,7 +548,7 @@ def as_str(value: object, *, encoding: Optional[str] = "utf-8", errors: Optional
     )
 
 
-def coerce_str(value: object, *, encoding: Optional[str] = "utf-8", errors: Optional[str] = "strict") -> Optional[str]:
+def coerce_str(value: object, *, encoding: str | None = "utf-8", errors: str | None = "strict") -> str | None:
     """Attempts to convert a value into a string, if possible, returning None if conversion fails.
 
     Args:
@@ -579,7 +571,7 @@ def coerce_str(value: object, *, encoding: Optional[str] = "utf-8", errors: Opti
         return None
 
 
-def coerce_bytes(value: object, encoding: Optional[str] = "utf-8") -> Optional[bytes]:
+def coerce_bytes(value: object, encoding: str | None = "utf-8") -> bytes | None:
     """Attempts to convert a value into bytes, if possible, returning None if conversion fails.
 
     Args:
@@ -599,7 +591,7 @@ def coerce_bytes(value: object, encoding: Optional[str] = "utf-8") -> Optional[b
         return None
 
 
-def coerce_json_str(data: object) -> Optional[str]:
+def coerce_json_str(data: object) -> str | None:
     """Attempts to convert a serializable list or mapping into a JSON string.
 
     This method uses the `json.dumps()` function to serialize a JSON sequence or mapping, returning None if conversion fails.
@@ -637,7 +629,7 @@ def coerce_json_str(data: object) -> Optional[str]:
 def coerce_flattened_str(
     value: object,
     delimiter: str = "; ",
-) -> Optional[str]:
+) -> str | None:
     """Coerces strings or sequences of strings into a single, flattened string.
 
     This function handles the common pattern of normalizing journal names, keywords, or
@@ -675,13 +667,11 @@ def coerce_flattened_str(
 @overload
 def try_none(value: None) -> None:
     """When `None` is received, `None` is returned as is."""
-    ...
 
 
 @overload
 def try_none(value: T) -> None | T:
     """When `T` is received, T is converted into None object when possible."""
-    ...
 
 
 def try_none(
@@ -708,19 +698,16 @@ def try_none(
 @overload
 def try_int(value: int) -> int:
     """When a int object is received, the int object is returned as is."""
-    ...
 
 
 @overload
 def try_int(value: None) -> None:
     """When `None` is received, `None` is returned as is."""
-    ...
 
 
 @overload
 def try_int(value: T) -> int | T:
     """When `T` is received, T is converted into a int object when possible."""
-    ...
 
 
 def try_int(value: object) -> int | object:
@@ -740,19 +727,16 @@ def try_int(value: object) -> int | object:
 @overload
 def try_str(value: str) -> str:
     """When a str object is received, the str object is returned as is."""
-    ...
 
 
 @overload
 def try_str(value: None) -> None:
     """When `None` is received, `None` is returned as is."""
-    ...
 
 
 @overload
 def try_str(value: T) -> str | T:
     """When `T` is received, T is converted into a str object when possible."""
-    ...
 
 
 def try_str(value: object) -> str | object:
@@ -772,19 +756,16 @@ def try_str(value: object) -> str | object:
 @overload
 def try_bytes(value: bytes) -> bytes:
     """When a bytes object is received, the bytes object is returned as is."""
-    ...
 
 
 @overload
 def try_bytes(value: None) -> None:
     """When `None` is received, `None` is returned as is."""
-    ...
 
 
 @overload
 def try_bytes(value: T) -> bytes | T:
     """When `T` is received, T is converted into a bytes object when possible."""
-    ...
 
 
 def try_bytes(value: object) -> bytes | object:
@@ -801,7 +782,7 @@ def try_bytes(value: object) -> bytes | object:
     return converted_value if isinstance(converted_value, bytes) else value
 
 
-def try_pop(s: Set[H], item: H, default: Optional[H] = None) -> H | None:
+def try_pop(s: set[H], item: H, default: H | None = None) -> H | None:
     """Attempt to remove an item from a set and return the item if it exists.
 
     Args:
@@ -823,22 +804,19 @@ def try_pop(s: Set[H], item: H, default: Optional[H] = None) -> H | None:
 @overload
 def try_dict(value: dict) -> dict:
     """When a dictionary object is received, the dictionary is returned as is."""
-    ...
 
 
 @overload
 def try_dict(value: list | tuple) -> dict:
     """When a list or tuple is received, a dictionary enumerated with integers as keys is returned."""
-    ...
 
 
 @overload
-def try_dict(value: object) -> Optional[dict]:
+def try_dict(value: object) -> dict | None:
     """When `T` is received, T is converted into a bytes object when possible."""
-    ...
 
 
-def try_dict(value: Any) -> Optional[dict]:
+def try_dict(value: Any) -> dict | None:
     """Attempts to convert a value into a dictionary, if possible.
 
     If it is not possible to convert the value into a dictionary, the function will return None.
@@ -864,39 +842,37 @@ def try_dict(value: Any) -> Optional[dict]:
 def try_compile(
     s: P,
     *,
-    prefix: Optional[str] = None,
-    suffix: Optional[str] = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
     flags: int | re.RegexFlag = 0,
     escape: bool = False,
     verbose: bool = False,
 ) -> P:
     """When a Pattern is provided, the same pattern will be returned."""
-    ...
 
 
 @overload
 def try_compile(
-    s: Optional[str],
+    s: str | None,
     *,
-    prefix: Optional[str] = None,
-    suffix: Optional[str] = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
     flags: int | re.RegexFlag = 0,
     escape: bool = False,
     verbose: bool = False,
-) -> Optional[re.Pattern]:
+) -> re.Pattern | None:
     """When a non-pattern is provided, A pattern is returned if the value compiles and returns None otherwise."""
-    ...
 
 
 def try_compile(
-    s: Optional[str | re.Pattern],
+    s: str | re.Pattern | None,
     *,
-    prefix: Optional[str] = None,
-    suffix: Optional[str] = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
     flags: int | re.RegexFlag = 0,
     escape: bool = False,
     verbose: bool = False,
-) -> Optional[re.Pattern]:
+) -> re.Pattern | None:
     """Attempts to compile an object as a pattern when possible, returning None when compilation fails.
 
     Args:
@@ -1030,7 +1006,7 @@ def as_list_1d(value: Any) -> list:
     return []
 
 
-def path_search(obj: Union[dict, list], key_to_find: str) -> list[str]:
+def path_search(obj: dict | list, key_to_find: str) -> list[str]:
     """Searches for keys matching the regex pattern in the given dictionary.
 
     This function only verifies top-level keys rather than nested values.
@@ -1050,13 +1026,13 @@ def path_search(obj: Union[dict, list], key_to_find: str) -> list[str]:
 
 def try_call(
     func: Callable,
-    args: Optional[tuple] = None,
-    kwargs: Optional[dict] = None,
+    args: tuple | None = None,
+    kwargs: dict | None = None,
     suppress: tuple = (),
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     log_level: int = logging.WARNING,
-    default: Optional[Any] = None,
-) -> Optional[Any]:
+    default: Any | None = None,
+) -> Any | None:
     """A helper function for calling another function safely in the event that one of the specified errors occur and are
     contained within the list of errors to suppress.
 
@@ -1099,22 +1075,20 @@ def try_call(
 @overload
 def with_fallback(value: None, default: D) -> D:
     """When `None` is received, and a default is provided, the default is returned as is."""
-    ...
 
 
 @overload
-def with_fallback(value: T, default: Optional[object] = None) -> T:
+def with_fallback(value: T, default: object | None = None) -> T:
     """When `T` and a default is received, T is returned only when not `None`."""
-    ...
 
 
-def with_fallback(value: object | None, default: Optional[object] = None) -> object | None:
+def with_fallback(value: object | None, default: object | None = None) -> object | None:
     """Helper for declaring configuration fallbacks inline with type checking and minimal repeated code."""
     return value if value is not None else default
 
 
 def handle_exception(
-    error: BaseException, message: Optional[str] = None, raise_on_error: Optional[bool] = True, *, verbose: bool = True
+    error: BaseException, message: str | None = None, raise_on_error: bool | None = True, *, verbose: bool = True
 ) -> None:
     """Handles errors, re-raising if `raise_on_error=True` or gracefully continuing when `raise_on_error=False`.
 
@@ -1164,7 +1138,7 @@ def format_iso_timestamp(timestamp: datetime) -> str:
     return timestamp.isoformat(timespec="milliseconds")
 
 
-def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
+def parse_iso_timestamp(timestamp_str: str) -> datetime | None:
     """Attempts to convert an ISO 8601 timestamp string back to a datetime object.
 
     Args:
@@ -1185,7 +1159,7 @@ def parse_iso_timestamp(timestamp_str: str) -> Optional[datetime]:
         return None
 
 
-def extract_year(value: Any, format: str = "%Y-%m-%d") -> Optional[int]:
+def extract_year(value: Any, format: str = "%Y-%m-%d") -> int | None:
     """Extract a 4-digit year from a date string.
 
     Attempts to parse the value using the specified format, then falls back to regex extraction.
@@ -1224,7 +1198,7 @@ def extract_year(value: Any, format: str = "%Y-%m-%d") -> Optional[int]:
 
     # Try parsing with specified format
     try:
-        return datetime.strptime(value, format).year
+        return datetime.strptime(value, format).year  # noqa: DTZ007
     except ValueError:
         pass
 
@@ -1237,7 +1211,7 @@ def extract_year(value: Any, format: str = "%Y-%m-%d") -> Optional[int]:
     return None
 
 
-def convert_month_as_integer(month_str: Optional[str]) -> Optional[str]:
+def convert_month_as_integer(month_str: str | None) -> str | None:
     """Convert month name or number to zero-padded number.
 
     Args:
@@ -1281,10 +1255,10 @@ def convert_month_as_integer(month_str: Optional[str]) -> Optional[str]:
 
 
 def build_iso_date(
-    year: Optional[str],
-    month: Optional[str] = "",
-    day: Optional[str] = "",
-) -> Optional[str]:
+    year: str | None,
+    month: str | None = "",
+    day: str | None = "",
+) -> str | None:
     """Build ISO-formatted date string with graduated precision.
 
     Constructs date strings in ISO format with appropriate precision based on available components. Returns full date

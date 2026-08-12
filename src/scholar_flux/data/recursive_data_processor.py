@@ -6,7 +6,7 @@ The data processor can be used to flatten and filter records based on conditions
 in the response.
 
 """
-from typing import Any, Optional
+from typing import Any
 from scholar_flux.utils import KeyDiscoverer, RecursiveJsonProcessor, KeyFilter
 from scholar_flux.utils import nested_key_exists
 from scholar_flux.data.abc_processor import ABCDataProcessor
@@ -44,12 +44,12 @@ class RecursiveDataProcessor(ABCDataProcessor):
 
     def __init__(
         self,
-        json_data: Optional[list[dict]] = None,
-        value_delimiter: Optional[str] = None,
-        ignore_keys: Optional[list[str]] = None,
-        keep_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = True,
-        use_full_path: Optional[bool] = True,
+        json_data: list[dict] | None = None,
+        value_delimiter: str | None = None,
+        ignore_keys: list[str] | None = None,
+        keep_keys: list[str] | None = None,
+        regex: bool | None = True,
+        use_full_path: bool | None = True,
     ) -> None:
         """Initializes the data processor with JSON data and optional parameters for processing.
 
@@ -89,12 +89,12 @@ class RecursiveDataProcessor(ABCDataProcessor):
         self.lock = threading.Lock()
 
     @property
-    def json_data(self) -> Optional[RecordList]:
+    def json_data(self) -> RecordList | None:
         """A list of dictionary-based records to further process."""
         return self._json_data
 
     @json_data.setter
-    def json_data(self, data: Optional[RecordType | RecordList]) -> None:
+    def json_data(self, data: RecordType | RecordList | None) -> None:
         """A list of dictionary-based records to further process."""
         if isinstance(data, dict):
             data = [data]
@@ -102,7 +102,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         self._validate_json_data(data)
         self._json_data = data
 
-    def load_data(self, json_data: Optional[RecordType | RecordList] = None) -> bool:
+    def load_data(self, json_data: RecordType | RecordList | None = None) -> bool:
         """Attempts to load a data dictionary or list, contingent on the input having at least one non-missing record.
 
         If `json_data` is missing, or the json input is equal to the current `json_data` attribute, then the
@@ -132,7 +132,7 @@ class RecursiveDataProcessor(ABCDataProcessor):
         except Exception as e:
             raise DataValidationException(f"The JSON data could not be successfully loaded and processed: {e}")
 
-    def discover_keys(self) -> Optional[dict[str, list[str]]]:
+    def discover_keys(self) -> dict[str, list[str]] | None:
         """Discovers all keys within the JSON data."""
         return self.key_discoverer.get_all_keys()
 
@@ -146,10 +146,10 @@ class RecursiveDataProcessor(ABCDataProcessor):
 
     def process_page(
         self,
-        parsed_records: Optional[list[dict]] = None,
-        keep_keys: Optional[list[str]] = None,
-        ignore_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
+        parsed_records: list[dict] | None = None,
+        keep_keys: list[str] | None = None,
+        ignore_keys: list[str] | None = None,
+        regex: bool | None = None,
     ) -> list[dict]:
         """Processes each individual record dict from the JSON data."""
         try:
@@ -190,8 +190,8 @@ class RecursiveDataProcessor(ABCDataProcessor):
     def record_filter(
         cls,
         record_dict: RecordType,
-        record_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
+        record_keys: list[str] | None = None,
+        regex: bool | None = None,
     ) -> bool:
         """Indicates if the current record contains any of the keys."""
         if not record_keys:
@@ -204,10 +204,10 @@ class RecursiveDataProcessor(ABCDataProcessor):
 
     def filter_keys(
         self,
-        prefix: Optional[str] = None,
-        min_length: Optional[int] = None,
-        substring: Optional[str] = None,
-        pattern: Optional[str] = None,
+        prefix: str | None = None,
+        min_length: int | None = None,
+        substring: str | None = None,
+        pattern: str | None = None,
         include: bool = True,
         **kwargs: Any,
     ) -> dict[str, list[str]]:

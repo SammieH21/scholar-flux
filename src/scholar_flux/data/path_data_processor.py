@@ -7,7 +7,7 @@ nested paths while formatting the output based on its specification.
 
 """
 
-from typing import Any, Optional
+from typing import Any
 from scholar_flux.utils import PathNodeIndex, ProcessingPath, PathDiscoverer, as_list_1d, generate_repr
 from scholar_flux.data.abc_processor import ABCDataProcessor
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
@@ -42,12 +42,12 @@ class PathDataProcessor(ABCDataProcessor):
 
     def __init__(
         self,
-        json_data: Optional[RecordType | RecordList] = None,
-        value_delimiter: Optional[str] = None,
-        ignore_keys: Optional[list] = None,
-        keep_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = True,
-        use_cache: Optional[bool] = True,
+        json_data: RecordType | RecordList | None = None,
+        value_delimiter: str | None = None,
+        ignore_keys: list | None = None,
+        keep_keys: list[str] | None = None,
+        regex: bool | None = True,
+        use_cache: bool | None = True,
     ) -> None:
         """Initializes the data processor with JSON data and optional parameters for processing."""
         super().__init__()
@@ -69,12 +69,12 @@ class PathDataProcessor(ABCDataProcessor):
         return self.path_node_index.node_map.use_cache
 
     @property
-    def json_data(self) -> Optional[RecordList]:
+    def json_data(self) -> RecordList | None:
         """A list of dictionary-based records to further process."""
         return self._json_data
 
     @json_data.setter
-    def json_data(self, data: Optional[RecordType | RecordList]) -> None:
+    def json_data(self, data: RecordType | RecordList | None) -> None:
         """A list of dictionary-based records to further process."""
         if isinstance(data, dict):
             data = [data]
@@ -82,7 +82,7 @@ class PathDataProcessor(ABCDataProcessor):
         self._validate_json_data(data)
         self._json_data = data
 
-    def load_data(self, json_data: Optional[RecordType | RecordList] = None) -> bool:
+    def load_data(self, json_data: RecordType | RecordList | None = None) -> bool:
         """Attempts to load a data dictionary or list, contingent on the input having at least one non-missing record.
 
         If `json_data` is missing or the json input is equal to the current `json_data` attribute, then the
@@ -124,9 +124,9 @@ class PathDataProcessor(ABCDataProcessor):
     def process_record(
         self,
         record_index: int,
-        keep_keys: Optional[list] = None,
-        ignore_keys: Optional[list] = None,
-        regex: Optional[bool] = None,
+        keep_keys: list | None = None,
+        ignore_keys: list | None = None,
+        regex: bool | None = None,
     ) -> None:
         """Processes the current record dictionary, indicating if the record at the index should be retained or dropped.
 
@@ -155,11 +155,11 @@ class PathDataProcessor(ABCDataProcessor):
 
     def process_page(
         self,
-        parsed_records: Optional[RecordType | RecordList] = None,
-        keep_keys: Optional[list[str]] = None,
-        ignore_keys: Optional[list[str]] = None,
+        parsed_records: RecordType | RecordList | None = None,
+        keep_keys: list[str] | None = None,
+        ignore_keys: list[str] | None = None,
         combine_keys: bool = True,
-        regex: Optional[bool] = None,
+        regex: bool | None = None,
     ) -> RecordList:
         """Processes each individual record dict from the JSON data."""
         self._validate_inputs(ignore_keys, keep_keys, regex, value_delimiter=self.value_delimiter)
@@ -203,8 +203,8 @@ class PathDataProcessor(ABCDataProcessor):
     def record_filter(
         cls,
         record_dict: dict[ProcessingPath, Any],
-        record_keys: Optional[list[str]] = None,
-        regex: Optional[bool] = None,
+        record_keys: list[str] | None = None,
+        regex: bool | None = None,
     ) -> bool:
         """Identifies whether a record contains a path (key), indicating whether the record should be retained."""
         if not record_keys:
@@ -219,7 +219,7 @@ class PathDataProcessor(ABCDataProcessor):
         )
         return bool(contains_record_pattern)
 
-    def discover_keys(self) -> Optional[dict[str, Any]]:
+    def discover_keys(self) -> dict[str, Any] | None:
         """Discovers all keys within the JSON data."""
         return {str(node.path): node for node in self.path_node_index.nodes}
 

@@ -1,11 +1,12 @@
-from scholar_flux.api.models import ProcessedResponse, ReconstructedResponse, APIResponse
-from scholar_flux.api import SearchCoordinator, ResponseCoordinator
-from scholar_flux.data import PassThroughDataProcessor
-from scholar_flux.utils import parse_iso_timestamp
-from scholar_flux.exceptions import InvalidResponseStructureException
-from requests import Response
-import requests_mock
 import pytest
+import requests_mock
+from requests import Response
+
+from scholar_flux.api import ResponseCoordinator, SearchCoordinator
+from scholar_flux.api.models import APIResponse, ProcessedResponse, ReconstructedResponse
+from scholar_flux.data import PassThroughDataProcessor
+from scholar_flux.exceptions import InvalidResponseStructureException
+from scholar_flux.utils import parse_iso_timestamp
 
 
 def test_plos_reprocessing(plos_search_api, plos_page_1_url, plos_page_1_data, plos_headers, caplog):
@@ -108,7 +109,7 @@ def cache_without_keys(caplog):
 
     response_without_valid_cache_key = response_coordinator._from_cache(cache_key=1)  # type: ignore
     assert "A cache key was not specified. Attempting to create a cache key from the response..." in caplog.text
-    assert f"A response or response-like object was expected, but received a value of type ({type(1)})" in caplog.text
+    assert f"A response or response-like object was expected, but received a value of type ({int})" in caplog.text
     assert response_without_valid_cache_key is None
 
 

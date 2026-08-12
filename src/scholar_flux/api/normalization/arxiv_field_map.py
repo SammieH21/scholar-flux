@@ -5,7 +5,6 @@ from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap
 from scholar_flux.utils.helpers import as_tuple, try_none, infer_text_pattern_search
 from scholar_flux.api.validators import validate_url
 from scholar_flux.utils.record_types import NormalizedRecordType
-from typing import Optional
 import re
 
 RECORD_TYPE_PATTERNS: dict[re.Pattern[str], str] = {
@@ -76,7 +75,7 @@ class ArXivFieldMap(AcademicFieldMap):
         return record
 
     @classmethod
-    def extract_pdf_url(cls, record: NormalizedRecordType, field: str = "url_list") -> Optional[str]:
+    def extract_pdf_url(cls, record: NormalizedRecordType, field: str = "url_list") -> str | None:
         """Extracts a valid PDF URL from the array of URLs corresponding to the record.
 
         Args:

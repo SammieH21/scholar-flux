@@ -10,24 +10,27 @@ This test suite covers:
 
 """
 
-from scholar_flux.api.normalization import AcademicFieldMap
+from collections.abc import Callable, Generator
+from functools import partial
+from typing import Any
+
+import pytest
+
 from scholar_flux.api import (
     APIResponse,
-    ProcessedResponse,
     ErrorResponse,
     NonResponse,
+    ProcessedResponse,
     ProviderConfig,
-    provider_registry,
-    SearchCoordinator,
     ReconstructedResponse,
+    SearchCoordinator,
+    provider_registry,
 )
 from scholar_flux.api.models import SearchResult, SearchResultList
-from scholar_flux.data import RecursiveDataProcessor, DataExtractor
+from scholar_flux.api.normalization import AcademicFieldMap
+from scholar_flux.data import DataExtractor, RecursiveDataProcessor
 from scholar_flux.exceptions import RecordNormalizationException
 from tests.testing_utilities import search_coordinator_mocking_context
-import pytest
-from functools import partial
-from typing import Callable, Generator, Any
 
 
 @pytest.fixture

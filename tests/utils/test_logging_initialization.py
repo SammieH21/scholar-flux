@@ -1,15 +1,16 @@
-from scholar_flux.utils.logger import setup_logging, resolve_log_stream, resolve_log_level
-from scholar_flux.exceptions import LogDirectoryError, PackageInitializationError
-from scholar_flux import initialize_package
-from unittest.mock import MagicMock
-from scholar_flux.utils import ConfigLoader, config_settings
-from tests.testing_utilities import raise_error
-from pydantic import SecretStr
 import logging
+from sys import stderr, stdin, stdout
+from unittest.mock import MagicMock
+
 import pytest
-from scholar_flux import log_level_context
-from scholar_flux import logger
-from sys import stdout, stderr, stdin
+from pydantic import SecretStr
+import re
+
+from scholar_flux import initialize_package, log_level_context, logger
+from scholar_flux.exceptions import LogDirectoryError, PackageInitializationError
+from scholar_flux.utils import ConfigLoader, config_settings
+from scholar_flux.utils.logger import resolve_log_level, resolve_log_stream, setup_logging
+from tests.testing_utilities import raise_error
 
 
 def test_initialization_env_path_fallback(restore_config_settings, recwarn, caplog):
@@ -49,7 +50,7 @@ def test_logging_setup_with_directory(tmp_path, cleanup, caplog):
     logger = logging.getLogger("test_logger")
 
     setup_logging(logger, log_file=log_file, log_directory=tmp_path, log_level=logging.INFO)
-    assert f"Logging setup complete (folder: {tmp_path/log_file})" in caplog.text
+    assert f"Logging setup complete (folder: {tmp_path / log_file})" in caplog.text
     assert logger.level == logging.INFO
 
 
@@ -273,8 +274,37 @@ def test_setup_logging_directory_exception_warning(monkeypatch, recwarn):
     assert logger.handlers and len(logger.handlers) == 1  # Should only include the console handler at this point
 
     assert (
-        "Could not identify or create a log directory " f"due to an error: {err}. Disabling File-based logging..."
+        f"Could not identify or create a log directory due to an error: {err}. Disabling File-based logging..."
     ) in str(recwarn[0].message)
+
+
+def test_rotating_file_log_permissions_error_raises_warning_on_graceful_handling(
+    monkeypatch, recwarn, tmp_path, caplog
+):
+    """Verifies that `RotatingFileHandler` raises a warning when encountering a permissions error."""
+    test_logger = logging.getLogger("test-logger-propagation")
+    err = f"Encountered a permissions error writing to {tmp_path}"
+    monkeypatch.setattr("scholar_flux.utils.logger.RotatingFileHandler", raise_error(PermissionError, err))
+
+    setup_logging(test_logger, log_directory=str(tmp_path), raise_on_error=False)
+
+    msg = f"Encountered an error setting up the rotating file handler: {err}\nDisabling file-based logging..."
+    assert msg == str(recwarn[0].message)
+
+    assert "Logging setup complete (console_only)" in caplog.text
+    assert len(test_logger.handlers) == 1
+
+
+def test_rotating_file_log_os_error_raises_log_directory_exception(monkeypatch, recwarn, tmp_path):
+    """Verifies that `RotatingFileHandler` reraises a LogDirectoryError when encountering a OSError on construction."""
+    test_logger = logging.getLogger("test-logger-propagation")
+    err = f"Encountered a OSError writing to {tmp_path}"
+    monkeypatch.setattr("scholar_flux.utils.logger.RotatingFileHandler", raise_error(OSError, err))
+
+    msg = f"Encountered an error setting up the rotating file handler: {err}"
+
+    with pytest.raises(LogDirectoryError, match=re.escape(msg)):
+        setup_logging(test_logger, log_directory=str(tmp_path), raise_on_error=True)
 
 
 def test_configuration_loading_fallback(monkeypatch, recwarn):

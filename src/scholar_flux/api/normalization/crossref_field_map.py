@@ -11,11 +11,10 @@ from scholar_flux.utils.helpers import (
     try_compile,
 )
 from scholar_flux.utils.record_types import NormalizedRecordType
-from typing import Optional
 import re
 
 # Direct mapping: pattern -> Optional[bool]
-LICENSE_PATTERNS: dict[str, Optional[bool]] = {
+LICENSE_PATTERNS: dict[str, bool | None] = {
     # === BOAI-Compliant (True) ===
     # CC0 - Public domain dedication, no restrictions
     "creativecommons.org/publicdomain/zero": True,
@@ -89,7 +88,7 @@ class CrossrefFieldMap(AcademicFieldMap):
         return record
 
     @classmethod
-    def extract_title(cls, record: NormalizedRecordType, field: str = "title") -> Optional[str]:
+    def extract_title(cls, record: NormalizedRecordType, field: str = "title") -> str | None:
         """Extracts the record title or a nested list indicating the title (or titles for the article) as a string.
 
         Args:
@@ -103,7 +102,7 @@ class CrossrefFieldMap(AcademicFieldMap):
         return coerce_flattened_str(record.get(field))
 
     @classmethod
-    def extract_year(cls, record: NormalizedRecordType, field: str = "year") -> Optional[int]:
+    def extract_year(cls, record: NormalizedRecordType, field: str = "year") -> int | None:
         """Extracts the year of publication or creation.
 
         Args:
@@ -118,7 +117,7 @@ class CrossrefFieldMap(AcademicFieldMap):
         return coerce_int(date_parts[0]) if date_parts else None
 
     @classmethod
-    def extract_date_parts(cls, record: NormalizedRecordType, field: str = "date_published") -> Optional[str]:
+    def extract_date_parts(cls, record: NormalizedRecordType, field: str = "date_published") -> str | None:
         """Extracts the publication date or `date_created` for the current record.
 
         Args:
@@ -136,7 +135,7 @@ class CrossrefFieldMap(AcademicFieldMap):
         return build_iso_date(*date_published) if date_published else None
 
     @classmethod
-    def extract_authors(cls, record: NormalizedRecordType, field: str = "author_list") -> Optional[list[str]]:
+    def extract_authors(cls, record: NormalizedRecordType, field: str = "author_list") -> list[str] | None:
         """Extracts formatted author names by combining GivenName and LastName.
 
         Args:
@@ -162,7 +161,7 @@ class CrossrefFieldMap(AcademicFieldMap):
         return formatted_authors if formatted_authors else None
 
     @classmethod
-    def resolve_open_access(cls, record: NormalizedRecordType, field: str = "license") -> Optional[bool]:
+    def resolve_open_access(cls, record: NormalizedRecordType, field: str = "license") -> bool | None:
         """Resolves the Open Access Status from known license URLs.
 
         Args:
@@ -190,8 +189,8 @@ class CrossrefFieldMap(AcademicFieldMap):
         cls,
         record: NormalizedRecordType,
         field: str = "updated_by_list",
-        pattern: Optional[str | re.Pattern] = None,
-    ) -> Optional[bool]:
+        pattern: str | re.Pattern | None = None,
+    ) -> bool | None:
         """Checks if the record is a retraction notice.
 
         Args:

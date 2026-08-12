@@ -6,7 +6,7 @@ using the `SearchCoordinator.search_pages` method.
 
 """
 
-from typing import Sequence, Mapping, Iterable
+from collections.abc import Sequence, Mapping, Iterable
 from typing_extensions import Self
 from pydantic import RootModel, field_validator
 from math import ceil

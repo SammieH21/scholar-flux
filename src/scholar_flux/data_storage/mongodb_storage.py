@@ -10,7 +10,7 @@ within the database for later CRUD operations.
 """
 
 from __future__ import annotations
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from scholar_flux.exceptions import (
     MongoDBImportError,
@@ -99,16 +99,16 @@ class MongoDBStorage(ABCStorage):
     DEFAULT_DATABASE: str = config_settings.get("SCHOLAR_FLUX_MONGODB_DATABASE") or "storage_manager_db"
     DEFAULT_COLLECTION: str = config_settings.get("SCHOLAR_FLUX_MONGODB_COLLECTION") or "result_page"
 
-    DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_NAMESPACE: str | None = None
     DEFAULT_RAISE_ON_ERROR: bool = False
     STORAGE_TYPE: str = "MongoDB"
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        namespace: Optional[str] = None,
-        ttl: Optional[float | int] = None,
-        raise_on_error: Optional[bool] = None,
+        host: str | None = None,
+        namespace: str | None = None,
+        ttl: float | None = None,
+        raise_on_error: bool | None = None,
         verify_connection: bool = False,
         **mongo_config: Any,
     ) -> None:
@@ -296,7 +296,7 @@ class MongoDBStorage(ABCStorage):
         cls = self.__class__
         return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
-    def retrieve(self, key: str) -> Optional[Any]:
+    def retrieve(self, key: str) -> Any | None:
         """Retrieve the value associated with the provided key from cache.
 
         Args:
@@ -420,7 +420,7 @@ class MongoDBStorage(ABCStorage):
                 exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
             )
 
-    def delete(self, key: str) -> Optional[bool]:
+    def delete(self, key: str) -> bool | None:
         """Delete the value associated with the provided key from cache.
 
         Args:
@@ -520,7 +520,7 @@ class MongoDBStorage(ABCStorage):
 
     @classmethod
     def is_available(
-        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs: Any
+        cls, host: str | None = None, port: int | None = None, verbose: bool = True, **kwargs: Any
     ) -> bool:
         """Helper method that indicates whether the MongoDB service is available or not.
 

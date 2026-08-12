@@ -7,7 +7,6 @@ from scholar_flux.utils.helpers import (
     unlist_1d,
     as_tuple,
 )
-from typing import Optional
 
 
 class PubMedFieldMap(AcademicFieldMap):
@@ -86,7 +85,7 @@ class PubMedFieldMap(AcademicFieldMap):
         record: NormalizedRecordType,
         id_type: str,
         strip_prefix: str = "",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extracts the article identifier from `ArticleIdList` by the `IdType` attribute.
 
         This is a helper for extracting DOI, PMCID, PII, and other identifiers
@@ -123,7 +122,7 @@ class PubMedFieldMap(AcademicFieldMap):
         return None
 
     @classmethod
-    def extract_doi(cls, record: NormalizedRecordType) -> Optional[str]:
+    def extract_doi(cls, record: NormalizedRecordType) -> str | None:
         """Extracts the DOI from the ArticleIdList based on the IdType attribute.
 
         Attempts to extract DOI from two sources:
@@ -150,7 +149,7 @@ class PubMedFieldMap(AcademicFieldMap):
         return None
 
     @classmethod
-    def extract_pmcid(cls, record: NormalizedRecordType) -> Optional[str]:
+    def extract_pmcid(cls, record: NormalizedRecordType) -> str | None:
         """Extracts the PMC ID for full-text access from the normalized record.
 
         Returns the PMCID without the 'PMC' prefix for consistency. Handles edge cases
@@ -172,7 +171,7 @@ class PubMedFieldMap(AcademicFieldMap):
         return cls._extract_article_id(record, "pmc", strip_prefix="PMC")
 
     @classmethod
-    def extract_pii(cls, record: NormalizedRecordType) -> Optional[str]:
+    def extract_pii(cls, record: NormalizedRecordType) -> str | None:
         """Extracts the Publisher Item Identifier (PII) from the ArticleIdList.
 
         Args:
@@ -185,7 +184,7 @@ class PubMedFieldMap(AcademicFieldMap):
         return PubMedFieldMap._extract_article_id(record, "pii")
 
     @classmethod
-    def extract_open_access(cls, record: NormalizedRecordType) -> Optional[bool]:
+    def extract_open_access(cls, record: NormalizedRecordType) -> bool | None:
         """Determines if an article is open access based on PMC ID presence.
 
         The presence of a PMCID indicates the article is available in PubMed Central, which means it is accessible as
@@ -215,7 +214,7 @@ class PubMedFieldMap(AcademicFieldMap):
         return bool(PubMedFieldMap.extract_pmcid(record))
 
     @classmethod
-    def extract_authors(cls, record: NormalizedRecordType, field: str = "authors") -> Optional[list[str]]:
+    def extract_authors(cls, record: NormalizedRecordType, field: str = "authors") -> list[str] | None:
         """Extract formatted author names combining ForeName and LastName.
 
         Args:
@@ -247,7 +246,7 @@ class PubMedFieldMap(AcademicFieldMap):
         return formatted_authors or None
 
     @classmethod
-    def extract_date_created(cls, record: NormalizedRecordType) -> Optional[str]:
+    def extract_date_created(cls, record: NormalizedRecordType) -> str | None:
         """Extract date created or article date.
 
         Args:
@@ -266,7 +265,7 @@ class PubMedFieldMap(AcademicFieldMap):
         return cls.extract_iso_date(record, "article_date")
 
     @classmethod
-    def reconstruct_pubmed_url(cls, record: NormalizedRecordType) -> Optional[str]:
+    def reconstruct_pubmed_url(cls, record: NormalizedRecordType) -> str | None:
         """Reconstruct PubMed article URL from the PMID.
 
         Args:

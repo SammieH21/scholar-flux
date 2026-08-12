@@ -23,7 +23,7 @@ def lazy_import_attr(name: str, lazy_imports: set[tuple[str, str]], module_name:
     """
     try:
         module, object_name = next(
-            ((module, object_name) for (module, object_name) in lazy_imports if object_name == name)
+            (module, object_name) for (module, object_name) in lazy_imports if object_name == name
         )
         imported_module = importlib.import_module(module)
         current_object = getattr(imported_module, object_name, None)

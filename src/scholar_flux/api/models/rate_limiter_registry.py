@@ -7,7 +7,7 @@ safe rate limiters for both default and new providers.
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 from typing_extensions import Self
 
 from scholar_flux.api.models.base_provider_dict import BaseProviderDict
@@ -85,7 +85,7 @@ class RateLimiterRegistry(BaseProviderDict):
         except (TypeError, ValueError) as e:
             raise APIParameterException(e) from e
 
-    def get_from_url(self, provider_url: Optional[str]) -> Optional[RateLimiter | ThreadedRateLimiter]:
+    def get_from_url(self, provider_url: str | None) -> RateLimiter | ThreadedRateLimiter | None:
         """Attempts to retrieve a RateLimiter for the specified provider from a URL.
 
         This method retrieves the rate limiter of the provider associated with the provided URL if the URL after
@@ -104,9 +104,7 @@ class RateLimiterRegistry(BaseProviderDict):
             return self.data.get(provider_config.provider_name)
         return None
 
-    def get_or_create(
-        self, key: str, default_request_delay: Optional[int | float] = None
-    ) -> RateLimiter | ThreadedRateLimiter:
+    def get_or_create(self, key: str, default_request_delay: float | None = None) -> RateLimiter | ThreadedRateLimiter:
         """Helper method that retrieves rate limiter from the registry or creates one if it doesn't exist.
 
         This method is useful when a provider may or may not exist in the current registry and otherwise
@@ -135,7 +133,7 @@ class RateLimiterRegistry(BaseProviderDict):
         return self.create(key, default_request_delay)
 
     def create(
-        self, provider_name: str, default_request_delay: Optional[int | float] = None
+        self, provider_name: str, default_request_delay: float | None = None
     ) -> RateLimiter | ThreadedRateLimiter:
         """Helper method that creates a new rate limiter for the current provider.
 

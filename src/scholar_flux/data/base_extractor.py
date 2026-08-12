@@ -7,7 +7,7 @@ with the `scholar_flux.data.data_extractor.DataExtractor` to dynamically identif
 structure of the response is not provided.
 
 """
-from typing import Any, Optional, Union
+from typing import Any
 from typing_extensions import Self
 from scholar_flux.exceptions import DataExtractionException
 from scholar_flux.utils import get_nested_data, try_int, try_dict, as_list_1d, unlist_1d, PathUtils
@@ -25,8 +25,8 @@ class BaseDataExtractor:
 
     def __init__(
         self,
-        record_path: Optional[list] = None,
-        metadata_path: Optional[list[list] | dict[str, list]] = None,
+        record_path: list | None = None,
+        metadata_path: list[list] | dict[str, list] | None = None,
     ):
         """Initialize the DataExtractor with metadata and records to extract separately.
 
@@ -62,7 +62,7 @@ class BaseDataExtractor:
     @staticmethod
     def _prepare_metadata_path(
         metadata_path: list[list] | list[str] | dict[str, list] | dict[str, Any],
-    ) -> list[list[str]] | Optional[dict[str, list[str]]]:
+    ) -> list[list[str]] | dict[str, list[str]] | None:
         """Helper method for splitting metadata paths with nested elements that are represented as strings.
 
         The delimiter, `scholar_flux.utils.PathUtils.DELIMITER` (`.` by default) is used if a delimiter is not
@@ -91,7 +91,7 @@ class BaseDataExtractor:
         return metadata_path
 
     @staticmethod
-    def _prepare_record_path(record_path: Optional[list[str] | str]) -> Optional[list[str]]:
+    def _prepare_record_path(record_path: list[str] | str | None) -> list[str] | None:
         """Helper method for splitting record paths with nested elements that are represented as strings.
 
         The delimiter, `scholar_flux.utils.PathUtils.DELIMITER` (`.` by default) is used if a delimiter is not
@@ -126,13 +126,12 @@ class BaseDataExtractor:
 
         """
         self._validate_paths(self.record_path, self.metadata_path)
-        return None
 
     @classmethod
     def _validate_paths(
         cls,
-        record_path: Optional[list] = None,
-        metadata_path: Optional[list[list] | dict[str, list]] = None,
+        record_path: list | None = None,
+        metadata_path: list[list] | dict[str, list] | None = None,
     ) -> None:
         """Method used to validate the path inputs provided to the DataExtractor prior to its later use in extracting
         metadata and records.
@@ -167,7 +166,6 @@ class BaseDataExtractor:
             raise DataExtractionException(
                 f"Error initializing the DataExtractor: At least one of the inputs are invalid. {e}"
             ) from e
-        return None
 
     def extract_metadata(self, parsed_page_dict: dict[str, Any]) -> MetadataType:
         """Extract metadata from the parsed page dictionary.
@@ -210,7 +208,7 @@ class BaseDataExtractor:
 
         return metadata
 
-    def extract_records(self, parsed_page_dict: dict) -> Optional[RecordList]:
+    def extract_records(self, parsed_page_dict: dict) -> RecordList | None:
         """Extract records from parsed data as a list of dicts.
 
         Args:
@@ -238,7 +236,7 @@ class BaseDataExtractor:
             raise DataExtractionException(msg)
 
     @classmethod
-    def _prepare_page(cls, parsed_page: Union[list[dict], dict]) -> dict:
+    def _prepare_page(cls, parsed_page: list[dict] | dict) -> dict:
         """Prepares the JSON data for metadata and record extraction by coercing it into a dictionary if not already a
         dictionary.
 
@@ -265,7 +263,7 @@ class BaseDataExtractor:
             parsed_page = parsed_page_dict
         return parsed_page
 
-    def extract(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[RecordList], Optional[MetadataType]]:
+    def extract(self, parsed_page: list[dict] | dict) -> tuple[RecordList | None, MetadataType | None]:
         """Extract both records and metadata from the parsed page dictionary.
 
         Args:
@@ -284,7 +282,7 @@ class BaseDataExtractor:
 
         return records, metadata
 
-    def __call__(self, parsed_page: Union[list[dict], dict]) -> tuple[Optional[RecordList], Optional[MetadataType]]:
+    def __call__(self, parsed_page: list[dict] | dict) -> tuple[RecordList | None, MetadataType | None]:
         """Helper method enabling users to call the extractor as a function to extract both records and metadata.
 
         Args:

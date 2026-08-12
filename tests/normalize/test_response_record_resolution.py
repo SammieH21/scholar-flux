@@ -10,12 +10,12 @@ This test suite covers:
 
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from scholar_flux.api.models import ProcessedResponse, ReconstructedResponse, SearchResult
 from scholar_flux.data.data_extractor import DataExtractor
-
 
 # ==================== Fixtures ====================
 

@@ -2,7 +2,6 @@
 """The scholar_flux.utils.provider_utils module implements the ProviderUtils class that is used to dynamically load the
 configuration for default providers stored in the scholar_flux.api.providers module."""
 from __future__ import annotations
-from typing import Optional
 from scholar_flux.api.models.provider_config import ProviderConfig
 import scholar_flux.api.providers as scholar_flux_api_providers
 from functools import lru_cache
@@ -45,7 +44,7 @@ class ProviderUtils:
     @classmethod
     def load_provider_config(
         cls, provider_module: str, provider_config_variable: str = "provider"
-    ) -> Optional[ProviderConfig]:
+    ) -> ProviderConfig | None:
         """Helper method that loads a single config from the provided module in the event that The module contains a
         ProviderConfig by the same name as the provider_config_variable. The default variable to look for is `provider`.
 

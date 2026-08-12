@@ -1,12 +1,13 @@
 import pytest
+
+from scholar_flux.utils import unlist_1d
 from scholar_flux.utils.json_processing_utils import (
-    RecursiveJsonProcessor,
+    JsonNormalizer,
     KeyDiscoverer,
     KeyFilter,
     PathUtils,
-    JsonNormalizer,
+    RecursiveJsonProcessor,
 )
-from scholar_flux.utils import unlist_1d
 
 #################### PathUtils Tests #######################
 

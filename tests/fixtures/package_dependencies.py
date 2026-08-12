@@ -1,9 +1,10 @@
-import pytest
 import importlib.util
 import logging
-from typing import Optional
 from functools import lru_cache
-from scholar_flux.data_storage import SQLAlchemyStorage, DuckDBStorage, RedisStorage, MongoDBStorage
+
+import pytest
+
+from scholar_flux.data_storage import DuckDBStorage, MongoDBStorage, RedisStorage, SQLAlchemyStorage
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def duckdb_dependency() -> bool:
 
 
 @lru_cache(maxsize=1)
-def mongodb_available(host: Optional[str] = None, port: Optional[int] = None) -> bool:
+def mongodb_available(host: str | None = None, port: int | None = None) -> bool:
     """Helper function for determining whether MongoDB is available."""
     available = MongoDBStorage.is_available(host=host, port=port)
     if not available:
@@ -60,7 +61,7 @@ def mongodb_available(host: Optional[str] = None, port: Optional[int] = None) ->
 
 
 @lru_cache(maxsize=1)
-def sqlalchemy_available(url: Optional[str] = None) -> bool:
+def sqlalchemy_available(url: str | None = None) -> bool:
     """Helper function for determining whether SQLAlchemy is available."""
     available = SQLAlchemyStorage.is_available(url=url)
     if not available:
@@ -69,7 +70,7 @@ def sqlalchemy_available(url: Optional[str] = None) -> bool:
 
 
 @lru_cache(maxsize=1)
-def duckdb_available(url: Optional[str] = None) -> bool:
+def duckdb_available(url: str | None = None) -> bool:
     """Helper function for determining whether the SQLAlchemy DuckDB engine is available."""
     available = DuckDBStorage.is_available(url=url)
     if not available:
@@ -78,7 +79,7 @@ def duckdb_available(url: Optional[str] = None) -> bool:
 
 
 @lru_cache(maxsize=1)
-def redis_available(host: Optional[str] = None, port: Optional[int] = None) -> bool:
+def redis_available(host: str | None = None, port: int | None = None) -> bool:
     """Helper function for determining whether the Redis Service is available."""
     available = RedisStorage.is_available(host=host, port=port)
     if not available:
@@ -109,14 +110,14 @@ def db_dependency_unavailable():
 
 
 __all__ = [
-    "redis_dependency",
-    "mongodb_dependency",
-    "sqlalchemy_dependency",
-    "redis_available",
-    "mongodb_available",
-    "sqlalchemy_available",
     "db_dependency_unavailable",
+    "mongodb_available",
+    "mongodb_dependency",
+    "redis_available",
+    "redis_dependency",
+    "session_encryption_dependency",
+    "sqlalchemy_available",
+    "sqlalchemy_dependency",
     "xml_parsing_dependency",
     "yaml_parsing_dependency",
-    "session_encryption_dependency",
 ]

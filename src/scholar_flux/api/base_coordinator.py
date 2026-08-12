@@ -1,7 +1,8 @@
 # /api/base_coordinator.py
 """Defines the BaseCoordinator that implements the most basic orchestration components used to request, process, and
 optionally cache processed record data from APIs."""
-from typing import Any, Optional, Generator
+from typing import Any
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing_extensions import Self
 import logging
@@ -96,8 +97,8 @@ class BaseCoordinator:
     def update(
         cls,
         search_coordinator: Self,
-        search_api: Optional[SearchAPI] = None,
-        response_coordinator: Optional[ResponseCoordinator] = None,
+        search_api: SearchAPI | None = None,
+        response_coordinator: ResponseCoordinator | None = None,
         **kwargs: Any,
     ) -> Self:
         """Creates a new coordinator with optionally replaced core components.
@@ -127,8 +128,8 @@ class BaseCoordinator:
     @contextmanager
     def with_components(
         self,
-        search_api: Optional[SearchAPI] = None,
-        response_coordinator: Optional[ResponseCoordinator] = None,
+        search_api: SearchAPI | None = None,
+        response_coordinator: ResponseCoordinator | None = None,
         **update_kwargs: Any,
     ) -> Generator[Self, None, None]:
         """Temporarily creates and yields a new coordinator with modified core components.
@@ -160,7 +161,7 @@ class BaseCoordinator:
         return self.search_api.display_name
 
     @property
-    def last_response(self) -> Optional[ProcessedResponse | ErrorResponse]:
+    def last_response(self) -> ProcessedResponse | ErrorResponse | None:
         """Retrieves the last response sent to a provider."""
         return self._response_history.get(self.search_api.provider_name)
 
@@ -257,7 +258,7 @@ class BaseCoordinator:
             )
         self._response_coordinator = response_coordinator
 
-    def search(self, **kwargs: Any) -> Optional[ProcessedResponse | ErrorResponse]:
+    def search(self, **kwargs: Any) -> ProcessedResponse | ErrorResponse | None:
         """Public Search Method coordinating the retrieval and processing of an API response.
 
         This method serves as the base for retrieving processed responses from APIs and will primarily handle the "How"
@@ -279,7 +280,7 @@ class BaseCoordinator:
     def parameter_search(
         self,
         **kwargs: Any,
-    ) -> Optional[ProcessedResponse | ErrorResponse]:
+    ) -> ProcessedResponse | ErrorResponse | None:
         """Public method for retrieving and processing non-paginated records with directly specified parameters.
 
         This method is designed as a direct entrypoint to performing searches without the addition of otherwise
@@ -299,7 +300,7 @@ class BaseCoordinator:
         kwargs.pop("page", None)
         return self._search(page=None, **kwargs)
 
-    def _search(self, **kwargs: Any) -> Optional[ProcessedResponse | ErrorResponse]:
+    def _search(self, **kwargs: Any) -> ProcessedResponse | ErrorResponse | None:
         """
         Basic Search Method implementing the core components needed to coordinate the
         retrieval and processing of the response from the API

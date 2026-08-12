@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.2] - 08/11/2026
+### Security
+
+**Package Dependencies**:
+- **Cryptography Dependency Update**: Updated the minimum supported `cryptography` version from v48.0.1 to v50.0.0 to address CWE-208 — an observable timing discrepancy flaw that otherwise could potentially lead to data exposure during cryptographic operations and data verification.
+
+### Fixed
+- **Logging Setup Permission Handling**: `setup_logging` now guards against `PermissionError` and `OSError` failures raised during the construction of a `RotatingFileHandler` for pre-existing log files with unwritable permissions. Because `RotatingFileHandler` opens log files eagerly, this previously surfaced whenever the resolved log directory was writable but the `application.log` within it was not. As a result, the previous behavior would propagate a `PermissionError` through `initialize_package` and abort `import scholar_flux` entirely in cases such as sandboxed setups (e.g., Claude Code) and containerized deployments with pre-existing volumes containing unwritable log files. When `raise_on_error=False` (the package initialization default), file-based logging is now disabled with a warning while console logging is retained; when `raise_on_error=True`, the underlying error is re-raised as a `LogDirectoryError` for consistency with log directory resolution failures.
+- **Log Routing and Testing**: Updated the `logging.debug` call in `MultiSearchCoordinator` to emit through the module-level `logger` rather than the root logger. Updated `ResponseHistoryRegistry` and `BaseCoordinator` failure tests to assert that their respective error messages are emitted and captured through the logs/exceptions.
+
+### Developer Notes:
+- **Code Linting**: Updated the code structure to reflect recent code linting modifications implemented in `ruff` version `0.16.2`. The core source code modifications now accommodate recent linting standards, including the migration of deprecated `typing` aliases to `collections.abc` (`Iterable`, `Callable`, `Sequence`, etc.), transitions from `Union` and `Optional[x]` to `x | None` and from `Dict`/`List`/`Tuple` to their builtin generics, `ClassVar` annotations on mutable class-level defaults (`RUF012`), and the removal of redundant `pass` statements from exception classes that already define a docstring.
+- **Ruff Rule Configuration**: Added `BLE001` (blind exception), `I001` (unsorted imports), `RUF022` (unsorted `__all__` exports), and `TRY004` (type-check exception type) to the global `lint.ignore` list, and `PLR0124` and `DTZ001` to the `tests/**/*.py` per-file ignores to gracefully handle and report unforeseen exceptions, handle partial dependencies, enable self-comparison assertions (for dunder method validation), and permit local-timezone construction within the test suite.
+- **CLAUDE.md Update**: Updated the CLAUDE.md instructions to address a potential issue in AI generated review with Fable/Opus 5.0 where emphasizing verification tends to lead to oververification. The revised instructions emphasize a level of verification proportionate to the problem that needs to be solved.
+
 ## [0.6.1] - 07/14/2026
 ### Security
 

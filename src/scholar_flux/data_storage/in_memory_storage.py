@@ -7,7 +7,7 @@ The InMemoryStorage class implements the basic CRUD operations and convenience m
 """
 
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any
 import logging
 import threading
 
@@ -56,15 +56,15 @@ class InMemoryStorage(ABCStorage):
     """
 
     # for compatibility with other storage backends
-    DEFAULT_NAMESPACE: Optional[str] = None
+    DEFAULT_NAMESPACE: str | None = None
     DEFAULT_RAISE_ON_ERROR: bool = False
     STORAGE_TYPE: str = "InMemory"
 
     def __init__(
         self,
-        namespace: Optional[str] = None,
-        ttl: Optional[int] = None,
-        raise_on_error: Optional[bool] = None,
+        namespace: str | None = None,
+        ttl: int | None = None,
+        raise_on_error: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a basic, dictionary-like memory_cache using a namespace.
@@ -105,7 +105,7 @@ class InMemoryStorage(ABCStorage):
         with self.lock:
             self.memory_cache: dict[str, Any] = {} | kwargs
 
-    def retrieve(self, key: str) -> Optional[Any]:
+    def retrieve(self, key: str) -> Any | None:
         """Attempts to retrieve a response containing the specified cache key within the current namespace.
 
         Args:
@@ -119,7 +119,7 @@ class InMemoryStorage(ABCStorage):
         with self.lock:
             return self.memory_cache.get(namespace_key)
 
-    def retrieve_all(self) -> Optional[dict[str, Any]]:
+    def retrieve_all(self) -> dict[str, Any] | None:
         """Retrieves all cache key-response mappings found within the current namespace.
 
         Returns:
@@ -151,7 +151,7 @@ class InMemoryStorage(ABCStorage):
         with self.lock:
             self.memory_cache[namespace_key] = data
 
-    def delete(self, key: str) -> Optional[bool]:
+    def delete(self, key: str) -> bool | None:
         """Attempts to delete the selected cache key if found within the current namespace.
 
         Args:
@@ -204,7 +204,6 @@ class InMemoryStorage(ABCStorage):
 
     def verify_connection(self) -> None:
         """No-Op that otherwise raises an error when connections can't be established successfully."""
-        pass
 
     @classmethod
     def is_available(cls, *args: Any, **kwargs: Any) -> bool:

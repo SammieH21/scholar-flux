@@ -4,7 +4,6 @@
 from scholar_flux.api.normalization.academic_field_map import AcademicFieldMap
 from scholar_flux.utils.helpers import get_nested_data
 from scholar_flux.utils.record_types import NormalizedRecordType
-from typing import Optional
 import re
 
 
@@ -55,9 +54,7 @@ class OpenAlexFieldMap(AcademicFieldMap):
         return record
 
     @classmethod
-    def reconstruct_abstract(
-        cls, record: NormalizedRecordType, field: str = "abstract_inverted_index"
-    ) -> Optional[str]:
+    def reconstruct_abstract(cls, record: NormalizedRecordType, field: str = "abstract_inverted_index") -> str | None:
         """Reconstructs abstract text from OpenAlex inverted index format.
 
         OpenAlex stores abstracts as inverted indexes where keys are words
@@ -100,7 +97,7 @@ class OpenAlexFieldMap(AcademicFieldMap):
         return "".join(word for _, word in position_word_pairs) if position_word_pairs else None
 
     @classmethod
-    def extract_pmid(cls, record: NormalizedRecordType, field: str = "pmid") -> Optional[str]:
+    def extract_pmid(cls, record: NormalizedRecordType, field: str = "pmid") -> str | None:
         """Extracts PubMed ID from the ids object.
 
         Args:
@@ -124,7 +121,7 @@ class OpenAlexFieldMap(AcademicFieldMap):
         )
 
     @classmethod
-    def extract_open_access(cls, record: NormalizedRecordType, field: str = "open_access") -> Optional[bool]:
+    def extract_open_access(cls, record: NormalizedRecordType, field: str = "open_access") -> bool | None:
         """Extracts the open access status from the OpenAlex record as a boolean field.
 
         The value returned can be `True` or `False`, indicating whether the full text of the record is freely accessible

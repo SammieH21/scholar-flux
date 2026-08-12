@@ -9,7 +9,8 @@ emails, and other forms of sensitive data with the aim of redacting text from bo
 
 """
 
-from typing import List, Optional, overload, Set, Any, MutableMapping, MutableSequence, Callable, TypeVar, ParamSpec
+from typing import overload, Any, TypeVar, ParamSpec
+from collections.abc import MutableMapping, MutableSequence, Callable
 from collections import deque
 from pydantic import SecretStr, BaseModel
 from dataclasses import is_dataclass
@@ -99,9 +100,9 @@ class SensitiveDataMasker:
         self,
         pattern: (
             MaskingPattern
-            | Set[MaskingPattern]
-            | Set[KeyMaskingPattern]
-            | Set[StringMaskingPattern]
+            | set[MaskingPattern]
+            | set[KeyMaskingPattern]
+            | set[StringMaskingPattern]
             | MutableSequence[MaskingPattern | KeyMaskingPattern | StringMaskingPattern]
         ),
     ) -> None:
@@ -115,12 +116,12 @@ class SensitiveDataMasker:
         self.patterns = {p for p in self.patterns if p.name != name}
         return initial_count - len(self.patterns)
 
-    def get_patterns_by_name(self, name: str) -> Set[MaskingPattern]:
+    def get_patterns_by_name(self, name: str) -> set[MaskingPattern]:
         """Retrieves all patterns with names matching the provided name."""
         return {p for p in self.patterns if p.name == name}
 
     def add_sensitive_key_patterns(
-        self, name: str, fields: List[str] | str, fuzzy: bool = False, **kwargs: Any
+        self, name: str, fields: list[str] | str, fuzzy: bool = False, **kwargs: Any
     ) -> None:
         """Adds patterns that identify potentially sensitive strings with the aim of filtering them from logs.
 
@@ -149,7 +150,7 @@ class SensitiveDataMasker:
             pattern = Pattern(name=name, field=field, **kwargs)
             self.add_pattern(pattern)
 
-    def add_sensitive_string_patterns(self, name: str, patterns: List[str] | str, **kwargs: Any) -> None:
+    def add_sensitive_string_patterns(self, name: str, patterns: list[str] | str, **kwargs: Any) -> None:
         """Adds patterns that identify potentially sensitive strings with the aim of filtering them from logs.
 
         The parameters provided to the method are used to create new string patterns.
@@ -173,7 +174,7 @@ class SensitiveDataMasker:
         self,
         field: str,
         value: SecretStr | Any,
-        name: Optional[str] = None,
+        name: str | None = None,
         use_regex: bool = False,
         ignore_case: bool = True,
     ) -> bool:
@@ -429,7 +430,7 @@ class SensitiveDataMasker:
             case _:
                 return value
 
-    def _get_dict_key_replacement(self, key: str) -> Optional[str]:
+    def _get_dict_key_replacement(self, key: str) -> str | None:
         """Finds the replacement string for a sensitive dict key.
 
         If not sensitive, None is returned instead.
@@ -486,16 +487,14 @@ class SensitiveDataMasker:
     @overload
     def mask_secret(obj: None, convert_object: bool = True) -> None:
         """The mask_secret method will only return None if the provided key is None."""
-        ...
 
     @staticmethod
     @overload
     def mask_secret(obj: Any, convert_object: bool = True) -> SecretStr:
         """The mask_secret method will return a secret string if the provided key is not None."""
-        ...
 
     @staticmethod
-    def mask_secret(obj: Any, convert_object: bool = True) -> Optional[SecretStr]:
+    def mask_secret(obj: Any, convert_object: bool = True) -> SecretStr | None:
         """Method for ensuring that any non-secret keys will be masked as secrets.
 
         Args:

@@ -1,5 +1,6 @@
 import pytest
 from pydantic import ValidationError
+
 from scholar_flux.api.models import PageListInput
 
 

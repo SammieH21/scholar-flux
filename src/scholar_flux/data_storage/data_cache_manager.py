@@ -8,7 +8,7 @@ from the ABCStorage class.
 from __future__ import annotations
 import hashlib
 import logging
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Literal
 from typing_extensions import Self
 from urllib.parse import urlparse
 from requests import Response
@@ -66,7 +66,7 @@ class DataCacheManager:
 
     """
 
-    def __init__(self, cache_storage: Optional[ABCStorage] = None, **storage_kwargs: Any) -> None:
+    def __init__(self, cache_storage: ABCStorage | None = None, **storage_kwargs: Any) -> None:
         """Initializes the DataCacheManager with the selected cache storage.
 
         Args:
@@ -109,12 +109,12 @@ class DataCacheManager:
         self._cache_storage = cache_storage
 
     @property
-    def namespace(self) -> Optional[str]:
+    def namespace(self) -> str | None:
         """The namespace of the current cache storage device."""
         return self.cache_storage.namespace
 
     @property
-    def ttl(self) -> Optional[int | float]:
+    def ttl(self) -> int | float | None:
         """The time to live associated with the current storage device.
 
         The implementation details depend on the device used to store the response processing cache:
@@ -214,7 +214,7 @@ class DataCacheManager:
         """
         self.cache_storage.verify_connection()
 
-    def verify_cache(self, cache_key: Optional[str]) -> bool:
+    def verify_cache(self, cache_key: str | None) -> bool:
         """Checks if the provided cache_key exists in the cache storage.
 
         Args:
@@ -238,8 +238,8 @@ class DataCacheManager:
     def cache_is_valid(
         self,
         cache_key: str,
-        response: Optional[Response | ResponseProtocol] = None,
-        cached_response: Optional[Dict[str, Any]] = None,
+        response: Response | ResponseProtocol | None = None,
+        cached_response: dict[str, Any] | None = None,
     ) -> bool:
         """Determines whether the cached data for a cache key is valid or needs reprocessing due to missing fields.
 
@@ -280,10 +280,10 @@ class DataCacheManager:
         cache_key: str,
         response: Response | ResponseProtocol,
         store_raw: bool = False,
-        parsed_response: Optional[Any] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        extracted_records: Optional[Any] = None,
-        processed_records: Optional[Any] = None,
+        parsed_response: Any | None = None,
+        metadata: dict[str, Any] | None = None,
+        extracted_records: Any | None = None,
+        processed_records: Any | None = None,
         **kwargs: Any,
     ) -> None:
         """Updates the cache storage with data from intermediate and final steps in response retrieval and processing.
@@ -315,7 +315,7 @@ class DataCacheManager:
 
         logger.debug(f"Cache updated for key: {cache_key}")
 
-    def retrieve(self, cache_key: str) -> Optional[Dict[str, Any]]:
+    def retrieve(self, cache_key: str) -> dict[str, Any] | None:
         """Retrieves data from the cache storage based on the cache key.
 
         Args:
@@ -337,7 +337,7 @@ class DataCacheManager:
             logger.error(msg)
             raise StorageCacheException(msg) from e
 
-    def retrieve_from_response(self, response: Response | ResponseProtocol) -> Optional[Dict[str, Any]]:
+    def retrieve_from_response(self, response: Response | ResponseProtocol) -> dict[str, Any] | None:
         """Retrieves data from the cache storage based on the response if within cache.
 
         Args:
@@ -427,7 +427,7 @@ class DataCacheManager:
         return hashlib.sha256(response.content).hexdigest()
 
     @classmethod
-    def _verify_cached_response(cls, cache_key: str, cached_response: Dict[str, Any]) -> bool:
+    def _verify_cached_response(cls, cache_key: str, cached_response: dict[str, Any]) -> bool:
         """Verifies that the cache key matches the previously recorded cache key from `cached_response` if available.
 
         This method expects that a valid cache key is provided and will otherwise return `False` for any value of
@@ -459,7 +459,7 @@ class DataCacheManager:
         return True
 
     @classmethod
-    def _verify_hash(cls, response: Response | ResponseProtocol, cached_response: Dict[str, Any]) -> bool:
+    def _verify_hash(cls, response: Response | ResponseProtocol, cached_response: dict[str, Any]) -> bool:
         """Determines whether the cached data for a given key is still valid and fresh.
 
         If the hashed content hasn't significantly changed and the duration of validity (if used) for the cache has not
@@ -495,9 +495,9 @@ class DataCacheManager:
     @classmethod
     def _create_storage(
         cls,
-        cache_storage: Optional[
-            Literal["redis", "sql", "sqlalchemy", "duckdb", "mongodb", "pymongo", "inmemory", "memory", "null"]
-        ],
+        cache_storage: (
+            Literal["redis", "sql", "sqlalchemy", "duckdb", "mongodb", "pymongo", "inmemory", "memory", "null"] | None
+        ),
         *args: Any,
         **kwargs: Any,
     ) -> ABCStorage:
@@ -542,9 +542,9 @@ class DataCacheManager:
     @classmethod
     def with_storage(
         cls,
-        cache_storage: Optional[
-            Literal["redis", "sql", "sqlalchemy", "duckdb", "mongodb", "pymongo", "inmemory", "memory", "null"]
-        ] = None,
+        cache_storage: (
+            Literal["redis", "sql", "sqlalchemy", "duckdb", "mongodb", "pymongo", "inmemory", "memory", "null"] | None
+        ) = None,
         *args: Any,
         **kwargs: Any,
     ) -> Self:
@@ -581,7 +581,7 @@ class DataCacheManager:
         return not self
 
     @classmethod
-    def cache_fingerprint(cls, obj: Optional[str | Any] = None, package_version: Optional[str] = __version__) -> str:
+    def cache_fingerprint(cls, obj: str | Any | None = None, package_version: str | None = __version__) -> str:
         """Generates a unique string to identify an object's structure and configuration for later cache retrieval.
 
         By default, a fingerprint is generated from the current package version and object representation, if provided.
@@ -631,7 +631,7 @@ class DataCacheManager:
         storage_cls = self.cache_storage
         return cls(storage_cls.clone())
 
-    def __deepcopy__(self, memo: Optional[dict[int, Any]]) -> Self:
+    def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
         """Creates a new DataCacheManager with the same configuration as the original DataCacheManager.
 
         Note that many clients cannot be directly deep-copied, and as a result, this implementation uses `clone` instead

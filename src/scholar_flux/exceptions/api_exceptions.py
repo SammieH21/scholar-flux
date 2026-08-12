@@ -2,7 +2,7 @@
 """Implements exceptions involving the creation of requests and retrieval of responses from API Providers."""
 import requests
 from json import JSONDecodeError
-from typing import Any, Optional
+from typing import Any
 import logging
 from scholar_flux.utils.response_protocol import ResponseProtocol, response_supports_json
 from scholar_flux.utils.helpers import get_nested_data, as_str
@@ -13,43 +13,29 @@ logger = logging.getLogger(__name__)
 class APIException(Exception):
     """Base exception for API-related errors."""
 
-    pass
-
 
 class MissingAPIKeyException(ValueError):
     """Exception raised when a blank string is provided yet invalid."""
-
-    pass
 
 
 class MissingAPISpecificParameterException(ValueError):
     """Exception raised when an API specific parameter is required but not provided in the config."""
 
-    pass
-
 
 class MissingProviderException(ValueError):
     """Exception raised when the specification of a provider is required but not provided in the config."""
-
-    pass
 
 
 class MissingResponseException(ValueError):
     """Exception raised when a response or response-like object is required but not provided."""
 
-    pass
-
 
 class NoRecordsAvailableException(APIException):
     """Exception raised when an operation depends on the presence of records but none exist."""
 
-    pass
-
 
 class RateLimitExceededException(APIException):
     """Exception raised when the API's rate limit is exceeded."""
-
-    pass
 
 
 class RequestFailedException(APIException):
@@ -96,47 +82,35 @@ class RecordNormalizationException(APIException):
 class QueryValidationException(APIException):
     """Exception raised when a requested resource is not found."""
 
-    pass
-
 
 class APIParameterException(APIException):
     """Exception raised for API Parameter-related errors."""
-
-    pass
 
 
 class APIKeyValidationException(APIParameterException):
     """Exception raised for API key validation-related errors."""
 
-    pass
-
 
 class RequestCacheException(APIException):
     """Exception raised for API request-cache related errors."""
-
-    pass
 
 
 class InvalidResponseStructureException(APIException):
     """Exception raised when encountering a non-response/response-like object where a valid response is expected."""
 
-    pass
-
 
 class InvalidResponseReconstructionException(InvalidResponseStructureException):
     """Exception raised on the attempted creation of a ReconstructedResponse if an exception is encountered."""
-
-    pass
 
 
 class RetryAfterDelayExceededException(RequestFailedException):
     """Exception raised when a Retry-After field from a rate limited (429) response exceeds the user-specified limit."""
 
     def __init__(
-        self, response: Optional[requests.Response | ResponseProtocol], *args: Any, message: str = "", **kwargs: Any
+        self, response: requests.Response | ResponseProtocol | None, *args: Any, message: str = "", **kwargs: Any
     ) -> None:
         """Initializes the `RetryAfterDelayExceededException` class with a response or response-like parameter."""
-        self.response: Optional[requests.Response | ResponseProtocol] = response
+        self.response: requests.Response | ResponseProtocol | None = response
         self.error_details: str = self.extract_error_details(response) if response is not None else ""
         self.message = f"{message}: {self.error_details}" if self.error_details else message
         super().__init__(self.message, *args, **kwargs)
@@ -145,18 +119,16 @@ class RetryAfterDelayExceededException(RequestFailedException):
 class InvalidResponseException(RequestFailedException):
     """Exception raised for invalid responses from the API."""
 
-    def __init__(
-        self, response: Optional[requests.Response | ResponseProtocol] = None, *args: Any, **kwargs: Any
-    ) -> None:
+    def __init__(self, response: requests.Response | ResponseProtocol | None = None, *args: Any, **kwargs: Any) -> None:
         """Initializes the `InvalidResponseException` class with a response or response-like parameter."""
 
-        self.response: Optional[requests.Response | ResponseProtocol] = (
+        self.response: requests.Response | ResponseProtocol | None = (
             response if (isinstance(response, requests.Response) or isinstance(response, ResponseProtocol)) else None
         )
         self.error_details: str = self.extract_error_details(response) if response is not None else ""
 
         if response is not None:
-            error_message = f"HTTP error occurred: {response} - Status code: {getattr(response,'status_code')}."
+            error_message = f"HTTP error occurred: {response} - Status code: {response.status_code}."
 
             if self.error_details:
                 error_message += f" Details: {self.error_details}"
@@ -170,8 +142,6 @@ class InvalidResponseException(RequestFailedException):
 
 class RetryLimitExceededException(APIException):
     """Exception raised when the retry limit is exceeded."""
-
-    pass
 
 
 __all__ = [

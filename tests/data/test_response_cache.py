@@ -1,13 +1,16 @@
-from scholar_flux.api import SearchCoordinator, SearchAPI, SearchAPIConfig, APIParameterConfig
-from scholar_flux.data import RecursiveDataProcessor
-from scholar_flux.api.models import ProcessedResponse
-from scholar_flux.data_storage import DataCacheManager
+from collections.abc import Callable
 from contextlib import contextmanager
-from requests import Response
-from pydantic import SecretStr
-from requests_mock import Mocker
-from typing import Literal, Callable
+from typing import Literal
+
 import pytest
+from pydantic import SecretStr
+from requests import Response
+from requests_mock import Mocker
+
+from scholar_flux.api import APIParameterConfig, SearchAPI, SearchAPIConfig, SearchCoordinator
+from scholar_flux.api.models import ProcessedResponse
+from scholar_flux.data import RecursiveDataProcessor
+from scholar_flux.data_storage import DataCacheManager
 
 
 @pytest.fixture
@@ -69,7 +72,7 @@ def initialize_mocker(search_api: SearchAPI, academic_json_response: Response) -
 
 def create_search_coordinator(
     search_api: SearchAPI,
-    cache_backend: Literal["redis", "null", "inmemory", "sql", "redis"],
+    cache_backend: Literal["redis", "null", "inmemory", "sql"],
     cache_requests: bool = False,
     **cache_kwargs,
 ) -> SearchCoordinator:

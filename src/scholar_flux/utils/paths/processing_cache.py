@@ -9,7 +9,7 @@ referenced sets to facilitate indexed trie operations and the process of filteri
 
 """
 from __future__ import annotations
-from typing import Optional, Set, Literal
+from typing import Literal
 from collections import defaultdict
 from scholar_flux.exceptions.path_exceptions import (
     InvalidProcessingPathError,
@@ -165,9 +165,9 @@ class PathProcessingCache:
     def filter(
         self,
         prefix: ProcessingPath,
-        min_depth: Optional[int] = None,
-        max_depth: Optional[int] = None,
-    ) -> Set[ProcessingPath]:
+        min_depth: int | None = None,
+        max_depth: int | None = None,
+    ) -> set[ProcessingPath]:
         """Filter the cache for paths with the given prefix.
 
         Args:

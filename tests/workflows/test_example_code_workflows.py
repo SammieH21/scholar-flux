@@ -1,12 +1,14 @@
 """Test suite for workflow documentation examples: Ensures that the logic in advanced_workflows.rst work correctly."""
 
-from scholar_flux import SearchCoordinator
-from scholar_flux.api import ProcessedResponse, ErrorResponse, BaseCoordinator
-from scholar_flux.api.workflows import StepContext, SearchWorkflow, WorkflowStep, WorkflowResult
-from scholar_flux.utils import generate_iso_timestamp
-from typing import Optional
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from sys import exit
+from typing import Any
+
+from scholar_flux import SearchCoordinator
+from scholar_flux.api import BaseCoordinator, ErrorResponse, ProcessedResponse
+from scholar_flux.api.workflows import SearchWorkflow, StepContext, WorkflowResult, WorkflowStep
+from scholar_flux.utils import generate_iso_timestamp
 
 
 def test_merged_workflow():
@@ -16,7 +18,7 @@ def test_merged_workflow():
     class MergedWorkflow(SearchWorkflow):
         """Workflow that merges results from all steps."""
 
-        def _create_workflow_result(self, result: Optional[ProcessedResponse | ErrorResponse] = None) -> WorkflowResult:
+        def _create_workflow_result(self, result: ProcessedResponse | ErrorResponse | None = None) -> WorkflowResult:
             """Merge data from all steps into final result."""
 
             # Collect all records from all steps
@@ -45,14 +47,14 @@ def test_merged_workflow():
             return WorkflowResult(history=self._history, result=merged_response)
 
     class Step1(WorkflowStep):
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
 
         def _run(
             self,
             step_number: int,
             search_coordinator: BaseCoordinator,
-            ctx: Optional[StepContext] = None,
-            verbose: Optional[bool] = True,
+            ctx: StepContext | None = None,
+            verbose: bool | None = True,
             **keyword_parameters: Any,
         ) -> StepContext:
             response = ProcessedResponse(
@@ -64,14 +66,14 @@ def test_merged_workflow():
             return StepContext(step_number=step_number, step=self.model_copy(), result=response)
 
     class Step2(WorkflowStep):
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
 
         def _run(
             self,
             step_number: int,
             search_coordinator: BaseCoordinator,
-            ctx: Optional[StepContext] = None,
-            verbose: Optional[bool] = True,
+            ctx: StepContext | None = None,
+            verbose: bool | None = True,
             **keyword_parameters: Any,
         ) -> StepContext:
             response = ProcessedResponse(
@@ -113,7 +115,7 @@ def test_with_context_pattern():
     class CustomStep(WorkflowStep):
         """Step with temporary configuration changes."""
 
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
         temp_delay: float = 0.1
 
         @contextmanager
@@ -162,14 +164,14 @@ def test_workflow_history_inspection():
     print("\n=== Testing Workflow History Inspection ===")
 
     class TestStep1(WorkflowStep):
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
 
         def _run(
             self,
             step_number: int,
             search_coordinator: BaseCoordinator,
-            ctx: Optional[StepContext] = None,
-            verbose: Optional[bool] = True,
+            ctx: StepContext | None = None,
+            verbose: bool | None = True,
             **keyword_parameters: Any,
         ) -> StepContext:
             response = ProcessedResponse(
@@ -181,9 +183,9 @@ def test_workflow_history_inspection():
             return StepContext(step_number=step_number, step=self.model_copy(), result=response)
 
     class TestStep2(WorkflowStep):
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
 
-        def pre_transform(self, ctx: Optional[StepContext] = None, *args, **kwargs):
+        def pre_transform(self, ctx: StepContext | None = None, *args, **kwargs):
             """Extract data from previous step."""
             self._verify_context(ctx)
             if ctx and ctx.result and ctx.result.data:
@@ -195,8 +197,8 @@ def test_workflow_history_inspection():
             self,
             step_number: int,
             search_coordinator: BaseCoordinator,
-            ctx: Optional[StepContext] = None,
-            verbose: Optional[bool] = True,
+            ctx: StepContext | None = None,
+            verbose: bool | None = True,
             **keyword_parameters: Any,
         ) -> StepContext:
             response = ProcessedResponse(
@@ -247,9 +249,9 @@ def test_pre_transform_error_handling():
     class StrictStep(WorkflowStep):
         """Step that requires data from previous step."""
 
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
 
-        def pre_transform(self, ctx: Optional[StepContext] = None, *args, **kwargs):
+        def pre_transform(self, ctx: StepContext | None = None, *args, **kwargs):
             """Validate context before proceeding."""
             self._verify_context(ctx)
 
@@ -259,7 +261,7 @@ def test_pre_transform_error_handling():
             # Check if previous step has data
             if not (ctx.result and ctx.result.data):
                 raise RuntimeError(
-                    f"Step {ctx.step_number} returned no results. " f"Check query parameters or API availability."
+                    f"Step {ctx.step_number} returned no results. Check query parameters or API availability."
                 )
 
             return self
@@ -268,8 +270,8 @@ def test_pre_transform_error_handling():
             self,
             step_number: int,
             search_coordinator: BaseCoordinator,
-            ctx: Optional[StepContext] = None,
-            verbose: Optional[bool] = True,
+            ctx: StepContext | None = None,
+            verbose: bool | None = True,
             **keyword_parameters: Any,
         ) -> StepContext:
             response = ProcessedResponse(
@@ -282,7 +284,10 @@ def test_pre_transform_error_handling():
         step_number=1,
         step=WorkflowStep(provider_name="plos"),
         result=ProcessedResponse(
-            response=None, processed_records=[], metadata={}, created_at=generate_iso_timestamp()  # Empty!
+            response=None,
+            processed_records=[],
+            metadata={},
+            created_at=generate_iso_timestamp(),  # Empty!
         ),
     )
 
@@ -347,14 +352,14 @@ def test_stop_on_error_configuration():
     class FailingStep(WorkflowStep):
         """Step that always fails."""
 
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
 
         def _run(
             self,
             step_number: int,
             search_coordinator: BaseCoordinator,
-            ctx: Optional[StepContext] = None,
-            verbose: Optional[bool] = True,
+            ctx: StepContext | None = None,
+            verbose: bool | None = True,
             **keyword_parameters: Any,
         ) -> StepContext:
             # Return an ErrorResponse
@@ -373,14 +378,14 @@ def test_stop_on_error_configuration():
     class SuccessStep(WorkflowStep):
         """Step that always succeeds."""
 
-        provider_name: Optional[str] = "plos"
+        provider_name: str | None = "plos"
 
         def _run(
             self,
             step_number: int,
             search_coordinator: BaseCoordinator,
-            ctx: Optional[StepContext] = None,
-            verbose: Optional[bool] = True,
+            ctx: StepContext | None = None,
+            verbose: bool | None = True,
             **keyword_parameters: Any,
         ) -> StepContext:
             response = ProcessedResponse(

@@ -27,7 +27,7 @@ from scholar_flux.utils import config_settings  # provides the loaded global env
 from scholar_flux.utils.settings_utils import SettingsDict
 from scholar_flux.utils.helpers import coerce_int, try_none
 from scholar_flux.security.utils import SecretUtils
-from typing import Any, Optional, cast, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING
 
 import logging
 import threading
@@ -94,10 +94,10 @@ class RedisStorage(ABCStorage):
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        namespace: Optional[str] = None,
-        ttl: Optional[int] = None,
-        raise_on_error: Optional[bool] = None,
+        host: str | None = None,
+        namespace: str | None = None,
+        ttl: int | None = None,
+        raise_on_error: bool | None = None,
         verify_connection: bool = False,
         **redis_config: Any,
     ):
@@ -250,7 +250,7 @@ class RedisStorage(ABCStorage):
         cls = self.__class__
         return cls(namespace=self.namespace, ttl=self.ttl, **self.config)
 
-    def retrieve(self, key: str) -> Optional[Any]:
+    def retrieve(self, key: str) -> Any | None:
         """Retrieve the value associated with the provided key from cache.
 
         Args:
@@ -264,7 +264,7 @@ class RedisStorage(ABCStorage):
         try:
             namespace_key = self._prefix(key)
             with self.lock:
-                cache_data = cast("Optional[str]", self.client.get(namespace_key))
+                cache_data = cast("str | None", self.client.get(namespace_key))
             if cache_data is None:
                 logger.info(f"Record for key {key} (namespace = '{self.namespace}') not found...")
                 return None
@@ -357,7 +357,7 @@ class RedisStorage(ABCStorage):
                 exception=e, operation_exception_type=CacheUpdateException if self.raise_on_error else None, msg=msg
             )
 
-    def delete(self, key: str) -> Optional[bool]:
+    def delete(self, key: str) -> bool | None:
         """Delete the value associated with the provided key from cache.
 
         This method indicates whether deletion was successful by returning True if the record was deleted and False
@@ -403,7 +403,7 @@ class RedisStorage(ABCStorage):
                     "For safety purposes, the RedisStorage will not delete any records in the absence "
                     "of a namespace. Skipping..."
                 )
-                return None
+                return
 
             with self.lock:
                 matched_keys = list(self.client.scan_iter(f"{self.namespace}:*"))
@@ -470,7 +470,7 @@ class RedisStorage(ABCStorage):
 
     @classmethod
     def is_available(
-        cls, host: Optional[str] = None, port: Optional[int] = None, verbose: bool = True, **kwargs: Any
+        cls, host: str | None = None, port: int | None = None, verbose: bool = True, **kwargs: Any
     ) -> bool:
         """Helper class method for testing whether the Redis service is available and can be accessed.
 

@@ -1,4 +1,4 @@
-.PHONY: install test lint format help shell spell_checker docs
+.PHONY: install test lint format help shell spell_check docs
 
 # Designed mainly for linux/Unix (Mac) compatibility. Use [Git Bash](https://gitforwindows.org/) if you encounter any issues using Windows.
 

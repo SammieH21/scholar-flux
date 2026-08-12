@@ -5,6 +5,7 @@ ScholarFlux uses and builds upon this `RateLimiter` implementation to ensure tha
 provider does not exceed the limit within the specified time interval.
 
 """
+
 from __future__ import annotations
 from contextlib import contextmanager
 import time
@@ -17,11 +18,13 @@ from scholar_flux.api.rate_limiting.history import (
 )
 from datetime import datetime
 
-from typing import Optional, Iterator, Dict, Any, Callable, TypeVar, ParamSpec, TYPE_CHECKING
+from typing import Any, TypeVar, ParamSpec, TYPE_CHECKING
 import logging
 
 if TYPE_CHECKING:
-    from typing_extensions import Self, Literal
+    from collections.abc import Iterator, Callable
+    from typing_extensions import Self
+    from typing import Literal
     from types import TracebackType
 
 logger = logging.getLogger(__name__)
@@ -73,7 +76,7 @@ class RateLimiter:
     DEFAULT_MIN_INTERVAL: float | int = 6.1
     history: HistoryDeque[RateLimitEvent] = HistoryDeque.create()
 
-    def __init__(self, min_interval: Optional[float | int] = None):
+    def __init__(self, min_interval: float | None = None):
         """Initializes the rate limiter with the `min_interval` argument.
 
         Args:
@@ -90,7 +93,7 @@ class RateLimiter:
         return self._min_interval
 
     @min_interval.setter
-    def min_interval(self, min_interval: float | int) -> None:
+    def min_interval(self, min_interval: float) -> None:
         """Validates the `min_interval` property upon assignment to ensure that the received value is numeric.
 
         This setter allows the `min_interval` property to be assigned directly to a rate limiter instance and requires
@@ -107,7 +110,7 @@ class RateLimiter:
         self._min_interval = self._validate(min_interval)
 
     @staticmethod
-    def _validate(min_interval: float | int) -> float:
+    def _validate(min_interval: float) -> float:
         """Helper that verifies if the input to `min_interval` is a valid number that is greater than or equal to 0."""
         if not isinstance(min_interval, (int, float)):
             raise APIParameterException(
@@ -118,7 +121,7 @@ class RateLimiter:
         return min_interval
 
     @staticmethod
-    def _validate_timestamp(timestamp: float | int) -> float | int:
+    def _validate_timestamp(timestamp: float) -> float | int:
         """Validates timestamp is a non-negative number."""
         if not isinstance(timestamp, (float, int)) or timestamp < 0:
             raise APIParameterException(
@@ -126,7 +129,7 @@ class RateLimiter:
             )
         return timestamp
 
-    def wait(self, min_interval: Optional[float | int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def wait(self, min_interval: float | None = None, metadata: dict[str, Any] | None = None) -> None:
         """Block (`time.sleep`) until at least `min_interval` has passed since last call.
 
         This method can be used with the min_interval attribute to determine when
@@ -153,9 +156,7 @@ class RateLimiter:
         self._last_call = time.time()
 
     @classmethod
-    def _wait(
-        cls, min_interval: float | int, last_call: float | int, metadata: Optional[Dict[str, Any]] = None
-    ) -> None:
+    def _wait(cls, min_interval: float, last_call: float, metadata: dict[str, Any] | None = None) -> None:
         """Helper Method that calls `time.sleep()` in the background to wait for a specific number of seconds.
 
         This method determines how long to wait by referencing when `._wait()` was last called along with the
@@ -189,7 +190,7 @@ class RateLimiter:
         """Returns the default minimum interval for the current rate limiter."""
         return self.min_interval if self.min_interval is not None else self.DEFAULT_MIN_INTERVAL
 
-    def sleep(self, interval: Optional[float | int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def sleep(self, interval: float | None = None, metadata: dict[str, Any] | None = None) -> None:
         """Simple Instance level implementation of `sleep` that can be overridden when needed.
 
         Args:
@@ -209,9 +210,9 @@ class RateLimiter:
 
     def wait_since(
         self,
-        min_interval: Optional[float | int] = None,
-        timestamp: Optional[float | int | datetime] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        min_interval: float | None = None,
+        timestamp: float | datetime | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Wait based on a reference timestamp or datetime.
 
@@ -240,7 +241,7 @@ class RateLimiter:
             self._wait(min_interval, timestamp, metadata=metadata)
 
     @classmethod
-    def _sleep(cls, interval: int | float, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def _sleep(cls, interval: float, metadata: dict[str, Any] | None = None) -> None:
         """Logs the sleeping duration and blocks (`time.sleep`) until at `interval` has passed.
 
         Args:
@@ -293,15 +294,15 @@ class RateLimiter:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> Literal[False]:
         """Exits the context manager after the execution of the wrapped function."""
         return False
 
     @contextmanager
-    def rate(self, min_interval: float | int, metadata: Optional[Dict[str, Any]] = None) -> Iterator[Self]:
+    def rate(self, min_interval: float, metadata: dict[str, Any] | None = None) -> Iterator[Self]:
         """Temporarily adjusts the minimum interval between function calls or requests when used with a context manager.
 
         After the context manager exits, the original minimum interval value is then reassigned its previous value,

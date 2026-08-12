@@ -23,7 +23,8 @@ Functions:
         Formats the value of a nested attribute, cleaning memory locations and stripping whitespace.
 
 """
-from typing import Any, Optional, MutableSequence, Mapping, Sequence
+from typing import Any
+from collections.abc import MutableSequence, Mapping, Sequence
 from pydantic import BaseModel
 from dataclasses import asdict, is_dataclass
 import threading
@@ -114,7 +115,7 @@ def truncate(
     return str_repr[: max_length - len(suffix)] + suffix
 
 
-def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Optional[bool] = None) -> str:
+def adjust_repr_padding(obj: Any, pad_length: int | None = 0, flatten: bool | None = None) -> str:
     """Helper method for adjusting the padding for representations of objects.
 
     Args:
@@ -150,7 +151,7 @@ def adjust_repr_padding(obj: Any, pad_length: Optional[int] = 0, flatten: Option
     return str(representation)
 
 
-def normalize_repr(value: Any, replace_numeric: Optional[bool] = False) -> str:
+def normalize_repr(value: Any, replace_numeric: bool | None = False) -> str:
     """Helper function for removing byte locations and surrounding signs from classes.
 
     Args:
@@ -172,10 +173,10 @@ def normalize_repr(value: Any, replace_numeric: Optional[bool] = False) -> str:
 
 def format_repr_value(
     value: Any,
-    pad_length: Optional[int] = None,
-    show_value_attributes: Optional[bool] = None,
-    flatten: Optional[bool] = None,
-    replace_numeric: Optional[bool] = False,
+    pad_length: int | None = None,
+    show_value_attributes: bool | None = None,
+    flatten: bool | None = None,
+    replace_numeric: bool | None = False,
 ) -> str:
     """Helper function for representing nested objects from custom classes.
 
@@ -214,11 +215,11 @@ def format_repr_value(
 def generate_repr_from_string(
     class_name: str,
     attribute_dict: dict[str, Any],
-    show_value_attributes: Optional[bool] = None,
-    flatten: Optional[bool] = False,
-    replace_numeric: Optional[bool] = False,
-    as_dict: Optional[bool] = False,
-    flatten_nested: Optional[bool] = None,
+    show_value_attributes: bool | None = None,
+    flatten: bool | None = False,
+    replace_numeric: bool | None = False,
+    as_dict: bool | None = False,
+    flatten_nested: bool | None = None,
 ) -> str:
     """Method for creating a basic representation of a custom object's data structure. Allows for the direct creation of
     a repr using the classname as a string and the attribute dict that will be formatted and prepared for representation
@@ -290,7 +291,7 @@ def _resolve_attribute_name(obj: object, attribute: str, resolve_property: bool)
 
 
 def extract_attributes(
-    obj: object, exclude: Optional[set[str] | list[str] | tuple[str]] = None, resolve_property_attributes: bool = False
+    obj: object, exclude: set[str] | list[str] | tuple[str] | None = None, resolve_property_attributes: bool = False
 ) -> dict[str, Any]:
     """Helper function for extracting the core attributes and their values from data structures.
 
@@ -331,13 +332,13 @@ def extract_attributes(
 
 def generate_repr(
     obj: object,
-    exclude: Optional[set[str] | list[str] | tuple[str]] = None,
+    exclude: set[str] | list[str] | tuple[str] | None = None,
     show_value_attributes: bool = True,
     flatten: bool = False,
     replace_numeric: bool = False,
-    as_dict: Optional[bool] = False,
+    as_dict: bool | None = False,
     resolve_property_attributes: bool = False,
-    flatten_nested: Optional[bool] = None,
+    flatten_nested: bool | None = None,
 ) -> str:
     """Method for creating a basic representation of a custom object's data structure. Useful for showing the
     options/attributes being used by an object.
@@ -394,8 +395,8 @@ def generate_sequence_repr(
     flatten: bool = False,
     show_value_attributes: bool = True,
     replace_numeric: bool = False,
-    brackets: Optional[tuple[str, str]] = ("[", "]"),
-    flatten_nested: Optional[bool] = None,
+    brackets: tuple[str, str] | None = ("[", "]"),
+    flatten_nested: bool | None = None,
 ) -> str:
     """Method for creating a basic representations for sequence-like data structures.
 

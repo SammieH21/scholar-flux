@@ -24,7 +24,8 @@ from scholar_flux.utils.response_protocol import ResponseProtocol, is_response_l
 from scholar_flux.utils.helpers import get_first_available_key, parse_iso_timestamp
 from scholar_flux.utils.repr_utils import generate_repr
 from scholar_flux.api.rate_limiting.history import HistoryDeque, RetryAttempt
-from typing import Any, Optional, Callable, Mapping, TypeVar
+from typing import Any, ClassVar, TypeVar
+from collections.abc import Callable, Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -81,10 +82,10 @@ class RetryHandler:
 
     """
 
-    DEFAULT_VALID_STATUSES = {200}
-    DEFAULT_RETRY_STATUSES = {429, 500, 501, 502, 503, 504}
-    DEFAULT_RETRY_AFTER_HEADERS = ("retry-after", "x-ratelimit-retry-after")
-    DEFAULT_RAISE_ON_ERROR = False
+    DEFAULT_VALID_STATUSES: ClassVar[set] = {200}
+    DEFAULT_RETRY_STATUSES: ClassVar[set] = {429, 500, 501, 502, 503, 504}
+    DEFAULT_RETRY_AFTER_HEADERS: tuple[str, ...] = ("retry-after", "x-ratelimit-retry-after")
+    DEFAULT_RAISE_ON_ERROR: bool = False
     RAISE_ON_DELAY_EXCEEDED: bool = True
     history: HistoryDeque[RetryAttempt] = HistoryDeque.create()
 
@@ -92,10 +93,10 @@ class RetryHandler:
         self,
         max_retries: int = 3,
         backoff_factor: float = 0.5,
-        max_backoff: int | float = 120,
-        retry_statuses: Optional[set[int] | list[int]] = None,
-        raise_on_error: Optional[bool] = None,
-        min_retry_delay: Optional[int | float] = None,
+        max_backoff: float = 120,
+        retry_statuses: set[int] | list[int] | None = None,
+        raise_on_error: bool | None = None,
+        min_retry_delay: float | None = None,
     ) -> None:
         """Initializes the `RetryHandler` with configurable parameters for dynamically throttling successive requests.
 
@@ -123,9 +124,9 @@ class RetryHandler:
             of requests sent within a given interval to avoid 429 errors.
 
         """
-        self.max_retries = max_retries if max_retries >= 0 else 0
-        self.backoff_factor = backoff_factor if backoff_factor >= 0 else 0
-        self.max_backoff = max_backoff if max_backoff >= 0 else 0
+        self.max_retries = max(max_retries, 0)
+        self.backoff_factor = max(backoff_factor, 0)
+        self.max_backoff = max(max_backoff, 0)
         self.retry_statuses = retry_statuses if retry_statuses is not None else self.DEFAULT_RETRY_STATUSES
         self.raise_on_error = raise_on_error if raise_on_error is not None else self.DEFAULT_RAISE_ON_ERROR
         self.min_retry_delay = min_retry_delay if min_retry_delay and min_retry_delay >= 0 else 0
@@ -133,14 +134,14 @@ class RetryHandler:
     def execute_with_retry(
         self,
         request_func: Callable[..., ResponseLike],
-        validator_func: Optional[Callable] = None,
-        sleep_func: Optional[Callable[[float], None]] = None,
+        validator_func: Callable | None = None,
+        sleep_func: Callable[[float], None] | None = None,
         *args: Any,
-        backoff_factor: Optional[int | float] = None,
-        max_backoff: Optional[int | float] = None,
-        min_retry_delay: Optional[int | float] = None,
+        backoff_factor: float | None = None,
+        max_backoff: float | None = None,
+        min_retry_delay: float | None = None,
         **kwargs: Any,
-    ) -> Optional[ResponseLike]:
+    ) -> ResponseLike | None:
         """Sends a request and retries on failure based on predefined criteria and validation function.
 
         Args:
@@ -204,7 +205,7 @@ class RetryHandler:
         request_time = None
         retrieval_time = None
         duration = None
-        delay: Optional[float] = None
+        delay: float | None = None
         max_backoff = max_backoff or self.max_backoff
 
         try:
@@ -295,12 +296,12 @@ class RetryHandler:
 
     def delay_exceeds_max_backoff(
         self,
-        delay: Optional[int | float],
-        max_backoff: Optional[int | float] = None,
+        delay: float | None,
+        max_backoff: float | None = None,
         *,
-        error_message: Optional[str] = None,
-        warning_message: Optional[str] = None,
-        response: Optional[requests.Response | ResponseProtocol] = None,
+        error_message: str | None = None,
+        warning_message: str | None = None,
+        response: requests.Response | ResponseProtocol | None = None,
         verbose: bool = True,
     ) -> bool:
         """Helper method for identifying and handling scenarios where an API-requested delay exceeds `max_backoff`.
@@ -388,10 +389,10 @@ class RetryHandler:
     def calculate_retry_delay(
         self,
         attempt_count: int,
-        response: Optional[requests.Response | ResponseProtocol] = None,
-        min_retry_delay: Optional[int | float] = None,
-        backoff_factor: Optional[int | float] = None,
-        max_backoff: Optional[int | float] = None,
+        response: requests.Response | ResponseProtocol | None = None,
+        min_retry_delay: float | None = None,
+        backoff_factor: float | None = None,
+        max_backoff: float | None = None,
     ) -> int | float:
         """Calculates the delay in seconds to wait before the next retry attempt.
 
@@ -419,9 +420,7 @@ class RetryHandler:
         return min(min_retry_delay + backoff_factor * (2**attempt_count), max_backoff)
 
     @classmethod
-    def extract_retry_after_from_response(
-        cls, response: Optional[requests.Response | ResponseProtocol]
-    ) -> Optional[str]:
+    def extract_retry_after_from_response(cls, response: requests.Response | ResponseProtocol | None) -> str | None:
         """Extracts and parses retry-after delay from any response type.
 
         This method handles both raw responses (Response/ResponseProtocol) and processed responses
@@ -439,7 +438,7 @@ class RetryHandler:
         return None
 
     @classmethod
-    def extract_retry_after(cls, headers: Optional[Mapping[str, Any]], keys: Optional[tuple] = None) -> Optional[str]:
+    def extract_retry_after(cls, headers: Mapping[str, Any] | None, keys: tuple | None = None) -> str | None:
         """Extracts the `retry-after field from dictionary headers if the field exists.
 
         Args:
@@ -455,7 +454,7 @@ class RetryHandler:
         return value
 
     @classmethod
-    def get_retry_after(cls, response: Optional[requests.Response | ResponseProtocol]) -> Optional[int | float]:
+    def get_retry_after(cls, response: requests.Response | ResponseProtocol | None) -> int | float | None:
         """Calculates the time that must elapse before the next request is sent according to the headers.
 
         Args:
@@ -477,7 +476,7 @@ class RetryHandler:
         return retry_date
 
     @classmethod
-    def parse_retry_after(cls, retry_after: Optional[str]) -> Optional[int | float]:
+    def parse_retry_after(cls, retry_after: str | None) -> int | float | None:
         """Parse the 'Retry-After' header to calculate delay.
 
         Args:
@@ -503,7 +502,7 @@ class RetryHandler:
             logger.debug(f"Couldn't parse 'Retry-After' as a date: {e}")
         return None
 
-    def log_retry_attempt(self, delay: float, status_code: Optional[int] = None) -> None:
+    def log_retry_attempt(self, delay: float, status_code: int | None = None) -> None:
         """Log an attempt to retry a request.
 
         Args:
@@ -531,12 +530,12 @@ class RetryHandler:
         min_retry_delay: float,
         backoff_factor: float,
         attempt_number: int,
-        response: Optional[requests.Response | ResponseProtocol] = None,
-        delay: Optional[float] = None,
-        duration: Optional[float] = None,
+        response: requests.Response | ResponseProtocol | None = None,
+        delay: float | None = None,
+        duration: float | None = None,
         timeout: bool = False,
-        message: Optional[str] = None,
-        error: Optional[str] = None,
+        message: str | None = None,
+        error: str | None = None,
     ) -> None:
         """Record a retry attempt to the history deque.
 

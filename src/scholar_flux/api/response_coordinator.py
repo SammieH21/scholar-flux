@@ -44,7 +44,7 @@ from scholar_flux.api.models.responses import ProcessedResponse, ErrorResponse, 
 from scholar_flux.api.response_validator import ResponseValidator
 
 from requests.exceptions import RequestException
-from typing import Optional, Any, cast
+from typing import Any, cast
 from requests import Response
 
 import logging
@@ -134,13 +134,13 @@ class ResponseCoordinator:
     @classmethod
     def build(
         cls,
-        parser: Optional[BaseDataParser] = None,
-        extractor: Optional[BaseDataExtractor] = None,
-        processor: Optional[ABCDataProcessor] = None,
-        cache_manager: Optional[DataCacheManager] = None,
-        cache_results: Optional[bool] = None,
-        annotate_records: Optional[bool] = None,
-    ) -> "ResponseCoordinator":
+        parser: BaseDataParser | None = None,
+        extractor: BaseDataExtractor | None = None,
+        processor: ABCDataProcessor | None = None,
+        cache_manager: DataCacheManager | None = None,
+        cache_results: bool | None = None,
+        annotate_records: bool | None = None,
+    ) -> ResponseCoordinator:
         """Factory method to build a ResponseCoordinator with sensible defaults.
 
         Args:
@@ -185,12 +185,12 @@ class ResponseCoordinator:
     def update(
         cls,
         response_coordinator: ResponseCoordinator,
-        parser: Optional[BaseDataParser] = None,
-        extractor: Optional[BaseDataExtractor] = None,
-        processor: Optional[ABCDataProcessor] = None,
-        cache_manager: Optional[DataCacheManager] = None,
-        cache_results: Optional[bool] = None,
-        annotate_records: Optional[bool] = None,
+        parser: BaseDataParser | None = None,
+        extractor: BaseDataExtractor | None = None,
+        processor: ABCDataProcessor | None = None,
+        cache_manager: DataCacheManager | None = None,
+        cache_results: bool | None = None,
+        annotate_records: bool | None = None,
     ) -> ResponseCoordinator:
         """Factory method to create a new ResponseCoordinator from an existing configuration.
 
@@ -247,7 +247,7 @@ class ResponseCoordinator:
 
     @classmethod
     def configure_cache(
-        cls, cache_manager: Optional[DataCacheManager] = None, cache_results: Optional[bool] = None
+        cls, cache_manager: DataCacheManager | None = None, cache_results: bool | None = None
     ) -> DataCacheManager:
         """Helper method for building and swapping out cache managers depending on the cache chosen.
 
@@ -355,8 +355,8 @@ class ResponseCoordinator:
         self._cache_manager = cache_manager
 
     def handle_response_data(
-        self, response: Response | ResponseProtocol, cache_key: Optional[str] = None, **kwargs: Any
-    ) -> Optional[RecordList]:
+        self, response: Response | ResponseProtocol, cache_key: str | None = None, **kwargs: Any
+    ) -> RecordList | None:
         """Retrieves the data from the processed response from cache if previously cached. Otherwise the data is
         retrieved after processing the response.
 
@@ -376,10 +376,10 @@ class ResponseCoordinator:
     def handle_response(
         self,
         response: Response | ResponseProtocol,
-        cache_key: Optional[str] = None,
+        cache_key: str | None = None,
         from_cache: bool = True,
-        validate_fingerprint: Optional[bool] = None,
-        normalize_records: Optional[bool] = None,
+        validate_fingerprint: bool | None = None,
+        normalize_records: bool | None = None,
     ) -> ErrorResponse | ProcessedResponse:
         """Handles response data extraction, processing, and caching, retrieving response data from cache if available.
 
@@ -409,10 +409,10 @@ class ResponseCoordinator:
 
     def _from_cache(
         self,
-        cache_key: Optional[str] = None,
-        response: Optional[Response | ResponseProtocol] = None,
-        validate_fingerprint: Optional[bool] = None,
-    ) -> Optional[ProcessedResponse]:
+        cache_key: str | None = None,
+        response: Response | ResponseProtocol | None = None,
+        validate_fingerprint: bool | None = None,
+    ) -> ProcessedResponse | None:
         """Retrieves Previously Cached Response data that has been parsed, extracted, processed, and stored in cache.
 
         Args:
@@ -470,8 +470,8 @@ class ResponseCoordinator:
     def _rebuild_processed_response(
         cls,
         cache_key: str,
-        response: Optional[Response | ResponseProtocol] = None,
-        cached_response_dict: Optional[dict[str, Any]] = None,
+        response: Response | ResponseProtocol | None = None,
+        cached_response_dict: dict[str, Any] | None = None,
     ) -> ProcessedResponse:
         """Helper method for creating a processed response containing fields needed for processing."""
         if not isinstance(cached_response_dict, dict):
@@ -503,8 +503,8 @@ class ResponseCoordinator:
     def _validate_cached_schema(
         self,
         cached_response_dict: dict[str, Any],
-        validate_fingerprint: Optional[bool] = None,
-    ) -> Optional[bool]:
+        validate_fingerprint: bool | None = None,
+    ) -> bool | None:
         """Helper method for validating the cache dictionary containing the processed data, metadata, and other
         information for the current response."""
         if not cached_response_dict:
@@ -576,8 +576,8 @@ class ResponseCoordinator:
     def _handle_response(
         self,
         response: Response | ResponseProtocol,
-        cache_key: Optional[str] = None,
-        normalize_records: Optional[bool] = None,
+        cache_key: str | None = None,
+        normalize_records: bool | None = None,
     ) -> ErrorResponse | ProcessedResponse:
         """Parses, extracts, processes, and optionally caches response data and orchestrates the process of handling
         errors if one occurs anywhere along the response handling process.
@@ -628,8 +628,8 @@ class ResponseCoordinator:
     def _process_response(
         self,
         response: Response | ResponseProtocol,
-        cache_key: Optional[str] = None,
-        normalize_records: Optional[bool] = None,
+        cache_key: str | None = None,
+        normalize_records: bool | None = None,
     ) -> ProcessedResponse:
         """Parses, extracts, processes, and optionally caches response data.
 
@@ -708,7 +708,7 @@ class ResponseCoordinator:
         response: Response | ResponseProtocol,
         error_message: str,
         error_type: Exception,
-        cache_key: Optional[str] = None,
+        cache_key: str | None = None,
     ) -> ErrorResponse:
         """Creates and logs the processing error if one occurs during response processing.
 

@@ -1,4 +1,5 @@
 import pytest
+
 from scholar_flux.data import PathDataProcessor
 from scholar_flux.exceptions import DataProcessingException, DataValidationException
 from tests.testing_utilities import raise_error

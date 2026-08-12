@@ -11,10 +11,11 @@ Classes:
     SearchWorkflow: Defines and fully executes a workflow and the steps used to arrive at the final result
 
 """
+
 from __future__ import annotations
 from pydantic import Field, PrivateAttr, field_validator
 from scholar_flux.api.models import ProviderConfig
-from typing import Dict, Any, Optional, List, Generator
+from typing import Any, TYPE_CHECKING
 from contextlib import contextmanager
 from typing_extensions import Self
 import logging
@@ -29,6 +30,9 @@ from scholar_flux.api.models import ProcessedResponse, ErrorResponse
 from scholar_flux.api.providers import provider_registry
 from scholar_flux.api.base_coordinator import BaseCoordinator
 from scholar_flux.exceptions import NoRecordsAvailableException
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +52,15 @@ class WorkflowStep(BaseWorkflowStep):
 
     """
 
-    provider_name: Optional[str] = Field(default=None, description="The provider to use for this step.")
-    search_parameters: Dict[str, Any] = Field(default_factory=dict, description="API search parameters for this step.")
-    config_parameters: Dict[str, Any] = Field(
+    provider_name: str | None = Field(default=None, description="The provider to use for this step.")
+    search_parameters: dict[str, Any] = Field(default_factory=dict, description="API search parameters for this step.")
+    config_parameters: dict[str, Any] = Field(
         default_factory=dict, description="Optional config parameters for this step."
     )
-    description: Optional[str] = None
+    description: str | None = None
 
     @field_validator("provider_name", mode="after")
-    def format_provider_name(cls, v: Optional[str]) -> Optional[str]:
+    def format_provider_name(cls, v: str | None) -> str | None:
         """Helper method used to format the inputted provider name using name normalization after type checking."""
         if isinstance(v, str):
             v = ProviderConfig._normalize_name(v)
@@ -68,7 +72,7 @@ class WorkflowStep(BaseWorkflowStep):
                 )
         return v
 
-    def _get_provider_config_defaults(self, provider_name: Optional[str] = None) -> Optional[dict[str, Any]]:
+    def _get_provider_config_defaults(self, provider_name: str | None = None) -> dict[str, Any] | None:
         """Extracts the default parameters for a specific provider from the provider registry if available."""
 
         provider_name = provider_name or self.provider_name or ""
@@ -82,10 +86,10 @@ class WorkflowStep(BaseWorkflowStep):
 
     def pre_transform(
         self,
-        ctx: Optional[StepContext] = None,
-        provider_name: Optional[str] = None,
-        search_parameters: Optional[dict] = None,
-        config_parameters: Optional[dict] = None,
+        ctx: StepContext | None = None,
+        provider_name: str | None = None,
+        search_parameters: dict | None = None,
+        config_parameters: dict | None = None,
     ) -> Self:
         """Overrides the `pre_transform` of the base workflow step to allow for the modification of runtime search
         behavior to modify the current search and its behavior.
@@ -140,8 +144,8 @@ class WorkflowStep(BaseWorkflowStep):
         self,
         step_number: int,
         search_coordinator: BaseCoordinator,
-        ctx: Optional[StepContext] = None,
-        verbose: Optional[bool] = True,
+        ctx: StepContext | None = None,
+        verbose: bool | None = True,
         **keyword_parameters: Any,
     ) -> StepContext:
         """Executes the current workflow step using the provided search coordinator and the context from past searches.
@@ -215,7 +219,7 @@ class StepContext(BaseStepContext):
 
     step_number: int
     step: WorkflowStep
-    result: Optional[ProcessedResponse | ErrorResponse] = Field(
+    result: ProcessedResponse | ErrorResponse | None = Field(
         default=None,
         description="The response result received after the step's execution.",
     )
@@ -230,7 +234,7 @@ class WorkflowResult(BaseWorkflowResult):
 
     """
 
-    history: List[StepContext]
+    history: list[StepContext]
     result: Any
 
 
@@ -247,9 +251,9 @@ class SearchWorkflow(BaseWorkflow):
 
     """
 
-    steps: List[WorkflowStep]
+    steps: list[WorkflowStep]
     stop_on_error: bool = True
-    _history: List[StepContext] = PrivateAttr(default_factory=lambda: [])
+    _history: list[StepContext] = PrivateAttr(default_factory=list)
 
     def _run(
         self,
@@ -291,7 +295,6 @@ class SearchWorkflow(BaseWorkflow):
 
                 # applies the execution workflow_step while temporarily changing config parameters
                 with workflow_step.with_context(search_coordinator):
-
                     # performs the search using the configuration
                     preprocessed_ctx = workflow_step(
                         step_number=i,
@@ -322,7 +325,7 @@ class SearchWorkflow(BaseWorkflow):
 
         return self._create_workflow_result(result)
 
-    def _create_workflow_result(self, result: Optional[ProcessedResponse | ErrorResponse] = None) -> WorkflowResult:
+    def _create_workflow_result(self, result: ProcessedResponse | ErrorResponse | None = None) -> WorkflowResult:
         """Prepares the final workflow result from the workflow history."""
         result = self._history[-1].result if result is None and self._history else result
         return WorkflowResult(history=self._history, result=result)

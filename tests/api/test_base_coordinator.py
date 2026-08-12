@@ -1,12 +1,12 @@
 import pytest
 import requests_mock
 
-from scholar_flux.sessions import CachedSessionManager
-from scholar_flux.api import SearchAPI, BaseCoordinator, ResponseCoordinator
-from scholar_flux.api.models import ProcessedResponse, ErrorResponse
+from scholar_flux.api import BaseCoordinator, ResponseCoordinator, SearchAPI
+from scholar_flux.api.models import ErrorResponse, ProcessedResponse
 from scholar_flux.api.validators import normalize_url
-from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
 from scholar_flux.data import BaseDataParser, DataExtractor, PassThroughDataProcessor, PathDataProcessor
+from scholar_flux.exceptions import InvalidCoordinatorParameterException, RequestFailedException
+from scholar_flux.sessions import CachedSessionManager
 
 
 def test_base_coordinator_initialization(caplog):

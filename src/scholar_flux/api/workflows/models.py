@@ -12,10 +12,13 @@ Classes:
 from __future__ import annotations
 from pydantic import BaseModel, Field
 from contextlib import contextmanager
-from typing import Dict, Generator, Any
+from typing import TYPE_CHECKING, Any
 from abc import ABC
 from typing_extensions import Self
 import logging
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,7 @@ class BaseWorkflowStep(BaseModel):
 
     """
 
-    additional_kwargs: Dict[str, Any] = Field(
+    additional_kwargs: dict[str, Any] = Field(
         default_factory=dict,
         description="Optional keyword parameters to specify for this step.",
     )

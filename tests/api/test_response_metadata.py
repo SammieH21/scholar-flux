@@ -1,8 +1,10 @@
+from typing import Any
+
 import pytest
+from pydantic import ValidationError
+
 from scholar_flux.api.models import ResponseMetadataMap
 from scholar_flux.utils import PathUtils
-from typing import Any, Optional
-from pydantic import ValidationError
 
 
 @pytest.fixture
@@ -92,7 +94,7 @@ def test_flattened_response_records_per_page_retrieval(
 
 @pytest.mark.parametrize("parameter_value", ("non-existent-metadata-parameter", "", None))
 def test_response_metadata_unsuccessful_query_hits_retrieval(
-    parameter_value: Optional[str], simple_metadata_dict: dict[str, Any]
+    parameter_value: str | None, simple_metadata_dict: dict[str, Any]
 ):
     """Verifies that empty or missing `total_query_hits` parameters resolve to None."""
     assert ResponseMetadataMap(total_query_hits=parameter_value).calculate_query_hits(simple_metadata_dict) is None

@@ -1,10 +1,11 @@
+import pytest
+
 from scholar_flux.utils.repr_utils import (
+    _resolve_attribute_name,
     adjust_repr_padding,
     generate_repr,
     generate_repr_from_string,
-    _resolve_attribute_name,
 )
-import pytest
 
 
 class Dummy:
